@@ -1,26 +1,38 @@
 #!/usr/bin/env python
 import numpy as np
-from spect.halton import Halton
-from spectral.topology import Domain
+from rbf.halton import Halton
 import matplotlib.pyplot as plt
-import pyximport;pyximport.install()
-import nodes
+import rbf.spatial as spatial
 import modest
+
 
 def curve(t):
   return np.array([0.7 + 0.2*np.cos(t),0.5 + 0.2*np.sin(t)])
 
-points = np.array([curve(i) for i in np.linspace(0,2*np.pi,5)])
-print(np.shape(points))
+points = np.array([[0.2,0.2],
+                   [0.3,0.1],
+                   [0.5,0.4],
+                   [0.8,0.2],
+                   [0.3,0.6],
+                   [0.8,0.8],
+                   [0.0,0.8],
+                   [0.5,0.41]])
+
+
+
+
+#points = np.array([curve(i) for i in np.linspace(0,2*np.pi,1000)])
 points2 = np.array([points])
 
-
-D = Domain(points2,['main'])
 H = Halton(2)
-N = 10000
-seq = H(N)
+N = 10000000
 modest.tic()
-d = nodes.contains(points,seq)
+seq1 = H(N)
+
+seq2 = np.array([[0.0,0.5]])
+seq = np.vstack((seq1,seq2))
+modest.tic()
+d = spatial.contains(points,seq)
 print(modest.toc())
 
 #modest.tic()
@@ -28,6 +40,7 @@ print(modest.toc())
 #print(modest.toc())
 
 #print(d)
+'''
 plt.plot(seq[d,0],seq[d,1],'o')
 plt.xlim(0,1)
 plt.ylim(0,1)
@@ -37,6 +50,6 @@ plt.plot(seq[~d,0],seq[~d,1],'o')
 plt.xlim(0,1)
 plt.ylim(0,1)
 plt.show()
-
+'''
 
 

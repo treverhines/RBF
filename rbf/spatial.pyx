@@ -1,10 +1,11 @@
-# distutils: extra_compile_args = -fopenmp                                                                         
+# distutils: extra_compile_args = -fopenmp  
 # distutils: extra_link_args = -fopenmp 
-
 from __future__ import division
 import numpy as np
 cimport numpy as np
+cimport numpy as np
 from cython.parallel cimport prange
+from libc.stdio cimport printf
 from cython cimport boundscheck,wraparound
 
 # a vector consists of an x and y coordinate
@@ -35,6 +36,9 @@ cdef edge make_edge(vector a,vector b) nogil:
 
   out.xy = a
   out.uv = vsub(b,a)
+  if (out.uv.x == 0.0) & (out.uv.y == 0):
+    printf('WARNING: generated an edge with no length\n')
+
   return out
 
 # vector addition
@@ -54,6 +58,12 @@ cdef vector vsub(vector a, vector b) nogil:
   out.x = a.x - b.x
   out.y = a.y - b.y
   return out
+
+cdef bint veq(vector a, vector b) nogil:
+  if (a.x == b.x) & (a.y == b.y):
+    return True
+  else:
+    return False
   
 # dot product
 cdef double dot(vector a, vector b) nogil:
@@ -79,24 +89,31 @@ cdef bint is_parallel(edge q,edge p) nogil:
     return False
 
 
-# returns true if two edges intersect. An intersection is when any part 
-# of two segments meet at one points. This does not work if segments
-# are parallel and touching at an vertex
+# returns true if two edges intersect. An intersection is when any
+# part of two segments meet at one points except for their tails
+# i.e. they cannot intersect at t=0 or u=0. This means that edges
+# connected from tip to tail will not be identified as intersecting    
 cdef bint is_intersecting(edge q,edge p) nogil:
   cdef:
     vector qp = vsub(q.xy,p.xy)
-    vector pq = vsub(p.xy,q.xy)
     double a,b,c,t,u
 
   if is_parallel(q,p):
+    # The only way they can intersect now is if they share endpoints
+    if is_overlapping(q,p):
+      return False     
+
+    elif veq(vadd(q.xy,q.uv),vadd(p.xy,p.uv)):
+      return True
+   
     return False
 
   a = cross(qp,q.uv)
   b = cross(qp,p.uv)
   c = cross(p.uv,q.uv)
   t = a/c
-  u = -b/c
-  if (t>=0.0) & (t<=1.0) & (u>=0.0) & (u<=1.0):
+  u = b/c
+  if (t>0.0) & (t<=1.0) & (u>0.0) & (u<=1.0):
     return True
 
   else:
@@ -117,27 +134,62 @@ cdef bint is_collinear(edge q,edge p) nogil:
     return True
   
 # returns true if there is some finite width where two vectors overlap
-cdef bint is_overlapping(edge p,edge q):
+cdef bint is_overlapping(edge p,edge q) nogil: 
   cdef:
     vector qp = vsub(q.xy,p.xy)  
     vector pq = vsub(p.xy,q.xy) 
-    double a,b,c,d
+    double a,b,c,t0,t1
 
   if not is_collinear(p,q):
     return False
 
   a = dot(qp,p.uv)
-  b = dot(pq,q.uv)
+  b = dot(q.uv,p.uv)
   c = dot(p.uv,p.uv)
-  d = dot(q.uv,q.uv)
-  if (a > 0.0) & (a < c):
-    return True  
-
-  elif (b > 0.0) & (b < d):
+  t0 = a/c
+  t1 = t0 + b/c
+  if ((t0 <= 0.0) & (t1 <= 0.0)) | ((t0 >= 1.0) & (t1 >= 1.0)):
+    return False
+  else:
     return True
 
-  else:
-    return False
+# returns true if connections between the nodes produce a
+# nonintersecting, nonoverlapping curve
+@boundscheck(False)
+@wraparound(False)
+cpdef bint is_jordan(double[:,:] nodes) nogil:
+  cdef:
+    unsigned int r = nodes.shape[0]
+    unsigned int i,j
+    vector v1,v2,v3,v4
+    edge e1,e2
+
+  for i in range(r-1):
+    for j in range(i):
+      v1 = make_vector(nodes[i,0],nodes[i,1])
+      v2 = make_vector(nodes[i+1,0],nodes[i+1,1])
+      e1 = make_edge(v1,v2)              
+      v3 = make_vector(nodes[j,0],nodes[j,1])
+      v4 = make_vector(nodes[j+1,0],nodes[j+1,1])
+      e2 = make_edge(v3,v4)
+      if is_intersecting(e1,e2):
+        return False               
+      if is_overlapping(e1,e2):
+        return False               
+
+  for j in range(r-1):
+    v1 = make_vector(nodes[r-1,0],nodes[r-1,1])
+    v2 = make_vector(nodes[0,0],nodes[0,1])
+    e1 = make_edge(v1,v2)              
+    v3 = make_vector(nodes[j,0],nodes[j,1])
+    v4 = make_vector(nodes[j+1,0],nodes[j+1,1])
+    e2 = make_edge(v3,v4)
+    if is_intersecting(e1,e2):
+      return False               
+    if is_overlapping(e1,e2):
+      return False               
+
+  return True
 
 # returns true the point is within the nodes
 @boundscheck(False)
@@ -165,6 +217,7 @@ cdef bint contains_k(double[:,:] nodes,
   v3 = make_vector(nodes[r-1,0],nodes[r-1,1])
   v4 = make_vector(nodes[0,0],nodes[0,1])  
   e2 = make_edge(v3,v4)
+
   if is_intersecting(e1,e2):
     count += 1
 
@@ -192,16 +245,16 @@ cpdef contains(double[:,:] nodes,
 
 def makeit():
   cdef:
-    vector a = vector(x=1.,y=1.)
-    vector b = vector(x=2.,y=2.)
-    vector c = vector(x=0.,y=0.1)
-    vector d = vector(x=1.0,y=1.0)
+    vector a = vector(x=0.0,y=5.)
+    vector b = vector(x=2.,y=5.)
+    vector c = vector(x=3.1,y=5.)
+    vector d = vector(x=-5.,y=5.)
     edge A = make_edge(a=a,b=b)
     edge B = make_edge(a=d,b=c)
 
-  print(is_collinear(A,B))
-  print(is_parallel(A,B))
-  print(is_intersecting(A,B))
+  #print(is_collinear(A,B))
+  #print(is_parallel(A,B))
+  #print(is_intersecting(A,B))
   print(is_overlapping(B,A))
   #print(is_parallel(A,B))
   #print(is_intersecting(B,A))
