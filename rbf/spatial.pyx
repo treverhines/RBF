@@ -82,7 +82,7 @@ cdef double cross(vector a, vector b) nogil:
   return out  
 
 # returns true if two edges are parallel
-cdef bint is_parallel(edge q,edge p) nogil:
+cdef bint c_is_parallel(edge q,edge p) nogil:
   if cross(q.uv,p.uv) == 0.0:
     return True
   else:
@@ -93,14 +93,14 @@ cdef bint is_parallel(edge q,edge p) nogil:
 # part of two segments meet at one points except for their tails
 # i.e. they cannot intersect at t=0 or u=0. This means that edges
 # connected from tip to tail will not be identified as intersecting    
-cdef bint is_intersecting(edge q,edge p) nogil:
+cdef bint c_is_intersecting(edge q,edge p) nogil:
   cdef:
     vector qp = vsub(q.xy,p.xy)
     double a,b,c,t,u
 
-  if is_parallel(q,p):
+  if c_is_parallel(q,p):
     # The only way they can intersect now is if they share endpoints
-    if is_overlapping(q,p):
+    if c_is_overlapping(q,p):
       return False     
 
     elif veq(vadd(q.xy,q.uv),vadd(p.xy,p.uv)):
@@ -120,27 +120,27 @@ cdef bint is_intersecting(edge q,edge p) nogil:
     return False
 
 # returns true if two segments fall on the same line
-cdef bint is_collinear(edge q,edge p) nogil:
+cdef bint c_is_collinear(edge q,edge p) nogil:
   cdef:
     vector qp = vsub(q.xy,p.xy)
 
   if not (cross(qp,p.uv) == 0.0):
     return False
 
-  if not is_parallel(q,p):
+  if not c_is_parallel(q,p):
     return False
 
   else:
     return True
   
 # returns true if there is some finite width where two vectors overlap
-cdef bint is_overlapping(edge p,edge q) nogil: 
+cdef bint c_is_overlapping(edge p,edge q) nogil: 
   cdef:
     vector qp = vsub(q.xy,p.xy)  
     vector pq = vsub(p.xy,q.xy) 
     double a,b,c,t0,t1
 
-  if not is_collinear(p,q):
+  if not c_is_collinear(p,q):
     return False
 
   a = dot(qp,p.uv)
@@ -155,14 +155,14 @@ cdef bint is_overlapping(edge p,edge q) nogil:
 
 # returns true if connections between the nodes produce a
 # nonintersecting, nonoverlapping curve
-@boundscheck(False)
-@wraparound(False)
-cpdef bint is_jordan(double[:,:] nodes) nogil:
+def is_jordan(double[:,:] nodes):
   cdef:
     unsigned int r = nodes.shape[0]
     unsigned int i,j
     vector v1,v2,v3,v4
     edge e1,e2
+
+  assert nodes.shape[1] == 2
 
   for i in range(r-1):
     for j in range(i):
@@ -172,9 +172,9 @@ cpdef bint is_jordan(double[:,:] nodes) nogil:
       v3 = make_vector(nodes[j,0],nodes[j,1])
       v4 = make_vector(nodes[j+1,0],nodes[j+1,1])
       e2 = make_edge(v3,v4)
-      if is_intersecting(e1,e2):
+      if c_is_intersecting(e1,e2):
         return False               
-      if is_overlapping(e1,e2):
+      if c_is_overlapping(e1,e2):
         return False               
 
   for j in range(r-1):
@@ -184,9 +184,9 @@ cpdef bint is_jordan(double[:,:] nodes) nogil:
     v3 = make_vector(nodes[j,0],nodes[j,1])
     v4 = make_vector(nodes[j+1,0],nodes[j+1,1])
     e2 = make_edge(v3,v4)
-    if is_intersecting(e1,e2):
+    if c_is_intersecting(e1,e2):
       return False               
-    if is_overlapping(e1,e2):
+    if c_is_overlapping(e1,e2):
       return False               
 
   return True
@@ -211,53 +211,115 @@ cdef bint contains_k(double[:,:] nodes,
     v3 = make_vector(nodes[i,0],nodes[i,1])
     v4 = make_vector(nodes[i+1,0],nodes[i+1,1])
     e2 = make_edge(v3,v4)
-    if is_intersecting(e1,e2):
+    if c_is_intersecting(e1,e2):
       count += 1
 
   v3 = make_vector(nodes[r-1,0],nodes[r-1,1])
   v4 = make_vector(nodes[0,0],nodes[0,1])  
   e2 = make_edge(v3,v4)
 
-  if is_intersecting(e1,e2):
+  if c_is_intersecting(e1,e2):
     count += 1
 
   return count%2  
 
 
-#cpdef contains(np.ndarray[double,ndim=2] nodes,
-#               np.ndarray[double,ndim=2] points):
-@boundscheck(False)
-@wraparound(False)
-cpdef contains(double[:,:] nodes,
-               double[:,:] points):
+def contains(double[:,:] points,
+             double[:,:] nodes):
   cdef:
     short[:] out = np.zeros(points.shape[0],dtype=np.int16) 
     double[:] min_point = np.array([0.0,np.min(nodes[:,1])-1.0])
     unsigned int n = points.shape[0]
     unsigned int i 
     
+  assert points.shape[1] == 2
+  assert nodes.shape[1] == 2
 
-  with nogil:
-    for i in prange(n):
-      out[i] = contains_k(nodes,points[i,:],min_point)    
+  if not is_jordan(nodes):
+    raise ValueError, 'nodes produce overlapping or intersecting segments'    
+
+  for i in prange(n,nogil=True):
+    out[i] = contains_k(nodes,points[i,:],min_point)    
 
   return np.asarray(out,dtype=bool)
 
-def makeit():
-  cdef:
-    vector a = vector(x=0.0,y=5.)
-    vector b = vector(x=2.,y=5.)
-    vector c = vector(x=3.1,y=5.)
-    vector d = vector(x=-5.,y=5.)
-    edge A = make_edge(a=a,b=b)
-    edge B = make_edge(a=d,b=c)
 
-  #print(is_collinear(A,B))
-  #print(is_parallel(A,B))
-  #print(is_intersecting(A,B))
-  print(is_overlapping(B,A))
-  #print(is_parallel(A,B))
-  #print(is_intersecting(B,A))
-  #print(is_collinear(B,A))
-  #print(is_overlapping(B,A))
+def is_parallel(double[:,:] seg1,double[:,:] seg2):
+  cdef:
+    vector v1,v2,v3,v4
+    edge e1,e2 
+
+  assert seg1.shape[0] == 2
+  assert seg2.shape[0] == 2
+  assert seg1.shape[1] == 2
+  assert seg2.shape[1] == 2
+
+  v1 = make_vector(seg1[0,0],seg1[0,1]) 
+  v2 = make_vector(seg1[1,0],seg1[1,1]) 
+  e1 = make_edge(v1,v2)
+  v3 = make_vector(seg2[0,0],seg2[0,1]) 
+  v4 = make_vector(seg2[1,0],seg2[1,1]) 
+  e2 = make_edge(v3,v4)
+
+  return c_is_parallel(e1,e2)
+
+
+def is_collinear(double[:,:] seg1,double[:,:] seg2):
+  cdef:
+    vector v1,v2,v3,v4
+    edge e1,e2 
+
+  assert seg1.shape[0] == 2
+  assert seg2.shape[0] == 2
+  assert seg1.shape[1] == 2
+  assert seg2.shape[1] == 2
+
+  v1 = make_vector(seg1[0,0],seg1[0,1]) 
+  v2 = make_vector(seg1[1,0],seg1[1,1]) 
+  e1 = make_edge(v1,v2)
+  v3 = make_vector(seg2[0,0],seg2[0,1]) 
+  v4 = make_vector(seg2[1,0],seg2[1,1]) 
+  e2 = make_edge(v3,v4)
+
+  return c_is_collinear(e1,e2)
+
+
+def is_intersecting(double[:,:] seg1,double[:,:] seg2):
+  cdef:
+    vector v1,v2,v3,v4
+    edge e1,e2 
+
+  assert seg1.shape[0] == 2
+  assert seg2.shape[0] == 2
+  assert seg1.shape[1] == 2
+  assert seg2.shape[1] == 2
+
+  v1 = make_vector(seg1[0,0],seg1[0,1]) 
+  v2 = make_vector(seg1[1,0],seg1[1,1]) 
+  e1 = make_edge(v1,v2)
+  v3 = make_vector(seg2[0,0],seg2[0,1]) 
+  v4 = make_vector(seg2[1,0],seg2[1,1]) 
+  e2 = make_edge(v3,v4)
+
+  return c_is_intersecting(e1,e2)
+
+
+def is_overlapping(double[:,:] seg1,double[:,:] seg2):
+  cdef:
+    vector v1,v2,v3,v4
+    edge e1,e2 
+
+  assert seg1.shape[0] == 2
+  assert seg2.shape[0] == 2
+  assert seg1.shape[1] == 2
+  assert seg2.shape[1] == 2
+
+  v1 = make_vector(seg1[0,0],seg1[0,1]) 
+  v2 = make_vector(seg1[1,0],seg1[1,1]) 
+  e1 = make_edge(v1,v2)
+  v3 = make_vector(seg2[0,0],seg2[0,1]) 
+  v4 = make_vector(seg2[1,0],seg2[1,1]) 
+  e2 = make_edge(v3,v4)
+
+  return c_is_overlapping(e1,e2)
   
