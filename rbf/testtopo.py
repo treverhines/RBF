@@ -9,7 +9,7 @@ import scipy.spatial
 def curve(t):
   return np.array([0.7 + 0.2*np.cos(t),0.5 + 0.2*np.sin(t)])
 
-e1 = np.array([[0.,0.,2],[2.0,2.0,2]])
+e1 = np.array([[0.,0.],[2.0,2.0]])
 e2 = np.array([[3.0,3.5],[1.9,2.1]])
 plt.plot(e1[:,0],e1[:,1],'b-o')
 plt.plot(e2[:,0],e2[:,1],'r-o')
@@ -20,16 +20,16 @@ print('collinear %s' % spatial.is_collinear(e1,e2))
 print('overlapping %s' % spatial.is_overlapping(e1,e2))
 print('parallel %s' % spatial.is_parallel(e1,e2))
 plt.show()
-'''
+
 points = np.array([curve(i) for i in np.linspace(0,1.99*np.pi,100)])
-print(np.shape(points))
-points = np.array([[0.5,0.5],
-                   [0.7,0.5]])
+#print(np.shape(points))
+#points = np.array([[0.5,0.5],
+#                   [0.7,0.5]])
 #points2 = np.array([points])
 
 
 H = Halton(2)
-N = 10000
+N = 100000
 modest.tic()
 seq = H(N)
 print(modest.toc())
@@ -52,7 +52,7 @@ plt.show()
 #print(modest.toc())
 
 #print(d)
-'''
+
 
 
 

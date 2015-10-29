@@ -194,11 +194,11 @@ def is_jordan(double[:,:] nodes):
 # returns true the point is within the nodes
 @boundscheck(False)
 @wraparound(False)
-cdef bint contains_k(double[:,:] nodes,
-                     double[:] point, 
-                     double[:] min_point) nogil:
+cdef bint cn_contains_k(double[:,:] vertices,
+                        double[:] point, 
+                        double[:] min_point) nogil:
   cdef:
-    unsigned int r = nodes.shape[0]
+    unsigned int r = vertices.shape[0]
     unsigned int i
     unsigned int count = 0
     edge e1,e2
@@ -208,14 +208,14 @@ cdef bint contains_k(double[:,:] nodes,
   v2 = make_vector(min_point[0],min_point[1])
   e1 = make_edge(v1,v2)
   for i in range(r-1):
-    v3 = make_vector(nodes[i,0],nodes[i,1])
-    v4 = make_vector(nodes[i+1,0],nodes[i+1,1])
+    v3 = make_vector(vertices[i,0],vertices[i,1])
+    v4 = make_vector(vertices[i+1,0],vertices[i+1,1])
     e2 = make_edge(v3,v4)
     if c_is_intersecting(e1,e2):
       count += 1
 
-  v3 = make_vector(nodes[r-1,0],nodes[r-1,1])
-  v4 = make_vector(nodes[0,0],nodes[0,1])  
+  v3 = make_vector(vertices[r-1,0],vertices[r-1,1])
+  v4 = make_vector(vertices[0,0],vertices[0,1])  
   e2 = make_edge(v3,v4)
 
   if c_is_intersecting(e1,e2):
@@ -223,23 +223,58 @@ cdef bint contains_k(double[:,:] nodes,
 
   return count%2  
 
+cdef double is_left(double[:] P0,
+                    double[:] P1,
+                    double[:] P2) nogil:
+  return ((P1[0] - P0[0])*(P2[1] - P0[1]) -
+          (P2[0] - P0[0])*(P1[1] - P0[1]))
+
+
+@boundscheck(False)
+@wraparound(False)
+cdef bint wn_contains_k(double[:] point,
+                        double[:,:] vertices) nogil:
+  cdef:
+    int wn = 0
+    int i
+    int r = vertices.shape[0]
+
+  for i in range(r-1):
+    if vertices[i,1] <= point[1]:
+      if vertices[i+1,1]  > point[1]:
+        if is_left(vertices[i],vertices[i+1],point) > 0:
+          wn += 1
+    else:
+      if (vertices[i+1,1]  <= point[1]):
+        if is_left(vertices[i],vertices[i+1],point) < 0:
+          wn -= 1
+
+  if vertices[r-1,1] <= point[1]:
+    if vertices[0,1]  > point[1]:
+      if is_left(vertices[r-1],vertices[0],point) > 0:
+        wn += 1
+  else:
+    if (vertices[0,1]  <= point[1]):
+      if is_left(vertices[r-1],vertices[0],point) < 0:
+        wn -= 1
+
+  return wn != 0
 
 def contains(double[:,:] points,
-             double[:,:] nodes):
+             double[:,:] vertices):
   cdef:
     short[:] out = np.zeros(points.shape[0],dtype=np.int16) 
-    double[:] min_point = np.array([0.0,np.min(nodes[:,1])-1.0])
     unsigned int n = points.shape[0]
     unsigned int i 
     
   assert points.shape[1] == 2
-  assert nodes.shape[1] == 2
+  assert vertices.shape[1] == 2
 
-  if not is_jordan(nodes):
-    raise ValueError, 'nodes produce overlapping or intersecting segments'    
+  #if not is_jordan(vertices):
+  #  raise ValueError, 'vertices produce overlapping or intersecting segments'    
 
   for i in prange(n,nogil=True):
-    out[i] = contains_k(nodes,points[i,:],min_point)    
+    out[i] = wn_contains_k(points[i,:],vertices)    
 
   return np.asarray(out,dtype=bool)
 
