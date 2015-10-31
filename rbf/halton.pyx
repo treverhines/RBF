@@ -120,15 +120,7 @@ class Halton(object):
     out = halton(N,self.dim,self.count,self.skip)
     self.count += N*self.skip
     return out
-
-  def qunif(self,low=0.0,high=1.0,N=50):
-    '''                        
-    Returns the halton sequence with values scaled to be between low 
-    and hi       
-    '''
-    return self(N)*(high-low) + low
-
-
+  
 
 
 
