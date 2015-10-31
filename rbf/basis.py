@@ -19,7 +19,6 @@
 from __future__ import division
 import sympy 
 from sympy.utilities.autowrap import ufuncify
-from sympy.printing.theanocode import theano_function
 import numpy as np
 
 _R = sympy.symbols('R')
