@@ -4699,7 +4699,7 @@ static PyObject *__pyx_pf_3rbf_7spatial_2contains(CYTHON_UNUSED PyObject *__pyx_
             if (__pyx_t_9 > 0)
             {
                 #ifdef _OPENMP
-                #pragma omp parallel private(__pyx_t_11, __pyx_t_12) firstprivate(__pyx_t_10) private(__pyx_filename, __pyx_lineno, __pyx_clineno) shared(__pyx_parallel_why, __pyx_parallel_exc_type, __pyx_parallel_exc_value, __pyx_parallel_exc_tb)
+                #pragma omp parallel private(__pyx_t_12, __pyx_t_11) firstprivate(__pyx_t_10) private(__pyx_filename, __pyx_lineno, __pyx_clineno) shared(__pyx_parallel_why, __pyx_parallel_exc_type, __pyx_parallel_exc_value, __pyx_parallel_exc_tb)
                 #endif /* _OPENMP */
                 {
                     #ifdef _OPENMP

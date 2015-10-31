@@ -19,7 +19,6 @@
 from __future__ import division
 import sympy 
 from sympy.utilities.autowrap import ufuncify
-from sympy.printing.theanocode import theano_function
 import numpy as np
 
 _R = sympy.symbols('R')
@@ -40,7 +39,7 @@ class RBF(object):
     self.R_expr = expr
     self.cache = {}
 
-  def __call__(self,x,c,eps=None,diff=None,dtype=np.float64):
+  def __call__(self,x,c,eps=None,diff=None):
     '''
     evaluates M radial basis functions (RBFs) with arbitary dimension
     at N points.
@@ -74,57 +73,43 @@ class RBF(object):
       than once in the Python session.
 
     ''' 
-    x = np.asarray(x,dtype=dtype)
-    c = np.asarray(c,dtype=dtype)
+    x = np.asarray(x)
+    c = np.asarray(c)
     if eps is not None:
-      eps = np.asarray(eps,dtype=dtype)
+      eps = np.asarray(eps)
    
-    assert (len(x.shape) == 1) | (len(x.shape) == 2), (
-      'x must be a 1-D or 2-D array')
-    assert (len(c.shape) == 1) | (len(c.shape) == 2), (
-      'c must be a 1-D or 2-D array')
+    assert (x.ndim == 2), (
+      'x must be a 2-D array')
+    assert (c.ndim == 2), (
+      'c must be a 2-D array')
 
-    if len(x.shape) == 1:
-      x = x[:,None,None]
-
-    if len(c.shape) == 1:
-      c = c[None,:,None]
-
-    if len(x.shape) == 2:
-      x = x[:,None,:]
-
-    if len(c.shape) == 2:
-      c = c[None,:,:]
+    x = x[:,None,:]
+    c = c[None,:,:]
 
     N = x.shape[0]
     M = c.shape[1]
     assert x.shape[2] == c.shape[2], (
-      'if x and c are 2-D arrays then their second dimensions must '
-      'have the same length')
+      'the spatial dimensions of x and c must be equal')
+
     dim = x.shape[2]
     if eps is None:
-      eps = np.ones(M,dtype=dtype)
+      eps = np.ones(M)
 
-    assert len(eps.shape) == 1, (
+    assert eps.ndim == 1, (
       'eps must be a 1D array')
 
-    assert len(eps) == M, (
+    assert eps.shape[0] == M, (
       'length of eps must be equal to the number of centers')
 
-    #x = x.swapaxes(0,2)
-    #c = c.swapaxes(0,2)
     x = np.einsum('ijk->kij',x)
     c = np.einsum('ijk->kij',c)
 
     if diff is None:
       diff = (0,)*dim
 
-    while len(diff) < dim:
-      diff += (0,)
-
     assert len(diff) == dim, (
-      'cannot specify derivatives for dimensions that are higher than '
-      'the dimensions of x and center')
+      'length of derivative specification must be equal to the '
+      'spatial dimensions of x and c')
 
     # add function to cache if not already
     if diff not in self.cache:
@@ -155,8 +140,7 @@ class RBFInterpolant(object):
                eps, 
                value=None,
                alpha=None,
-               rbf=None,
-               dtype=np.float64):
+               rbf=None):
     '''
     Initiates the RBF interpolant
 
@@ -176,13 +160,13 @@ class RBFInterpolant(object):
       rbf: type of rbf to use. either mq, ga, or iq
 
     '''
-    x = np.asarray(x,dtype=dtype)
-    eps = np.asarray(eps,dtype=dtype)
+    x = np.asarray(x)
+    eps = np.asarray(eps)
     if value is not None:
-      value = np.asarray(value,dtype=dtype)
+      value = np.asarray(value)
 
     if alpha is not None:
-      alpha = np.asarray(alpha,dtype=dtype)
+      alpha = np.asarray(alpha)
 
     if rbf is None:
       rbf = mq
@@ -219,12 +203,11 @@ class RBFInterpolant(object):
       R = value_shape[1]
 
     if alpha is None:
-      alpha = np.zeros((N,R),dtype=dtype)
-      G = rbf(x,x,eps,dtype=dtype)
+      alpha = np.zeros((N,R))
+      G = rbf(x,x,eps)
       for r in range(R):
         alpha[:,r] = np.linalg.solve(G,value[:,r])
 
-    self.dtype = dtype
     self.x = x
     self.eps = eps
     self.alpha = alpha
@@ -249,14 +232,13 @@ class RBFInterpolant(object):
         the first derivative in the third dimension.
 
     '''
-    out = np.zeros((len(xitp),self.R),dtype=self.dtype)
-    xitp = np.asarray(xitp,dtype=self.dtype)
+    out = np.zeros((len(xitp),self.R))
+    xitp = np.asarray(xitp)
     for r in range(self.R):
       out[:,r] = np.sum(self.rbf(xitp,
                                  self.x,
                                  self.eps,
-                                 diff=diff,
-                                 dtype=self.dtype)*self.alpha[:,r],1)
+                                 diff=diff)*self.alpha[:,r],1)
 
     return out 
 
