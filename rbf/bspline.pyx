@@ -118,6 +118,36 @@ cdef double bsp1d_k(double x,
 
   return out
 
+def bspnd(x,k,n,p,diff=None):
+  '''                                            
+  returns an N-D B-spline which is the tensor product of 1-D B-splines   
+  The arguments for this function should all be length N sequences and       
+  each element will be passed to bspline_1d             
+                                                    
+  Parameters                                       
+  ----------                                  
+                                              
+    x: points where the b spline will be evaluated          
+                                   
+    k: knots for each dimension
+                                                       
+    n: B-spline index                 
+                                                                                   
+    p: order of the B-spline (0 is a step function)                
+                                                        
+  '''
+  x = np.transpose(x)
+
+  d = len(n)
+  if diff is None:
+    diff = (0,)*d
+  assert ((len(x) == len(k)) &
+          (len(x) == len(n)) &
+          (len(x) == len(p)) &
+          (len(x) == len(diff)))
+
+  val = [bsp1d(a,b,c,d,e) for a,b,c,d,e in zip(x,k,n,p,diff)]
+  return np.prod(val,0)
 
   
   

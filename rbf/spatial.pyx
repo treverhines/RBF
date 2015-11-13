@@ -233,8 +233,8 @@ def contains(double[:,:] points,
   assert vertices.shape[1] == 2
 
   for i in prange(n,nogil=True):
-    #out[i] = _cn_contains_k(points[i,:],vertices,min_point)    
-    out[i] = _wn_contains_k(points[i,:],vertices)    
+    out[i] = _cn_contains_k(points[i,:],vertices,min_point)    
+    #out[i] = _wn_contains_k(points[i,:],vertices)    
 
   return np.asarray(out,dtype=bool)
 
