@@ -197,8 +197,8 @@ cdef bint _wn_contains_k(double[:] point,
   return wn != 0
 
 
-def intersects(double[:,:] vertices1,
-               double[:,:] vertices2):
+cpdef bint intersects(double[:,:] vertices1,
+                      double[:,:] vertices2):
   cdef:
     unsigned int i,j
     unsigned int m = vertices1.shape[0]
@@ -221,8 +221,8 @@ def intersects(double[:,:] vertices1,
   return False
 
 
-def contains(double[:,:] points,
-             double[:,:] vertices):
+cpdef np.ndarray contains(double[:,:] points,
+                          double[:,:] vertices):
   cdef:
     short[:] out = np.zeros(points.shape[0],dtype=np.int16) 
     double[:] min_point = np.min(vertices,0) - 1.0 
