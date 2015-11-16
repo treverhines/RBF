@@ -15,7 +15,7 @@ cpdef np.ndarray primes(unsigned int N):
     bint flag # lowered when a test number is not prime
     unsigned int test = 2 # test number
     unsigned int i,j  
-    int[:] out = np.empty(N,dtype=np.int32)
+    long[:] out = np.empty(N,dtype=int)
 
   for i in range(N):
     while True:
@@ -78,7 +78,7 @@ cpdef np.ndarray halton(unsigned int N,
   cdef:
     unsigned int i,j
     double[:,:] seq = np.empty((N,D),dtype=np.float64,order='C')
-    int[:] p = primes(D)
+    long[:] p = primes(D)
 
   with nogil:
     for i in prange(N):
