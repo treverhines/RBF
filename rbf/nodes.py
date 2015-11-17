@@ -7,6 +7,7 @@ import modest
 from modest import funtime
 import logging
 logger = logging.basicConfig(level=logging.INFO)
+
 @funtime
 def _boundary_filter(nodes,bnd=None):
   if bnd == None:
@@ -79,6 +80,25 @@ def _repel(free_nodes,fix_nodes=None,itr=10,n=10,eps=0.1,bnd=None):
                                  free_nodes[is_outside],
                                  bnd)
   return free_nodes        
+
+
+def normal(M):
+  '''                                                                             
+  returns the normal vector to the N-1 N-vectors                                                   
+
+  PARAMETERS
+  ----------
+    M: (N-1,N) array of vectors                                                                                     
+
+  supports broadcasting    
+  '''
+  N = M.shape[-1]
+  Msubs = [np.delete(M,i,-1) for i in range(N)]
+  out = np.linalg.det(Msubs)
+  out[1::2] *= -1
+  out = out.swapaxes(0,-1)
+  return out
+
 
 @funtime
 def pick_nodes(N,lb,ub,bnd_nodes=None,bnd=None,rho=None,
