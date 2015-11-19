@@ -7,15 +7,15 @@ cimport numpy as np
 from cython cimport boundscheck,wraparound
 from cython.parallel cimport prange
 
-cpdef np.ndarray primes(unsigned int N):
+cpdef np.ndarray primes(unsigned long N):
   '''
   computes the first N prime numbers
   '''
   cdef:
     bint flag # lowered when a test number is not prime
-    unsigned int test = 2 # test number
-    unsigned int i,j  
-    long[:] out = np.empty(N,dtype=int)
+    unsigned long test = 2 # test number
+    unsigned long i,j  
+    long[:] out = np.empty(N,dtype=long)
 
   for i in range(N):
     while True:
@@ -34,10 +34,10 @@ cpdef np.ndarray primes(unsigned int N):
   return np.asarray(out)
 
 
-cdef double halton_n(unsigned int n,
-                     unsigned int base,
-                     unsigned int start,
-                     unsigned int skip) nogil:
+cdef double halton_n(unsigned long n,
+                     unsigned long base,
+                     unsigned long start,
+                     unsigned long skip) nogil:
   '''
   computes element n of a 1d halton sequence
   '''
@@ -57,10 +57,10 @@ cdef double halton_n(unsigned int n,
 
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray halton(unsigned int N,
-                        unsigned int D=1,
-                        unsigned int start=0,
-                        unsigned int skip=1):   
+cpdef np.ndarray halton(unsigned long N,
+                        unsigned long D=1,
+                        unsigned long start=0,
+                        unsigned long skip=1):   
   '''
   computes a halton sequence of length N and dimensions D
 
@@ -76,7 +76,7 @@ cpdef np.ndarray halton(unsigned int N,
     out: N by D array
   '''
   cdef:
-    unsigned int i,j
+    unsigned long i,j
     double[:,:] seq = np.empty((N,D),dtype=np.float64,order='C')
     long[:] p = primes(D)
 
