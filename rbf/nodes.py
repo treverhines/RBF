@@ -30,6 +30,18 @@ def _proximity_filter(nodes,seq,rho=None):
     return nodes[rho(nodes) > seq]
 
 
+def stencilate(x,N):
+  T = scipy.spatial.cKDTree(x)
+  d,i = T.query(x,N)
+  if N == 1:
+    d = d[:,None]
+    i = i[:,None]
+
+  d_avg = np.sum(d,1)/(N-1)
+  eps = 1.0/d_avg
+  return i,eps
+
+
 def normal(M):
   '''                                                                             
   returns the normal vector to the N-1 N-vectors  
@@ -183,7 +195,7 @@ def _repel_and_stick(free_nodes,fix_nodes=None,itr=10,n=10,eps=0.1,bnd=None):
 
 
 def pick_nodes(N,lb,ub,bnd_nodes=None,bnd=None,rho=None,
-               repel_itr=10,repel_n=10,repel_eps=0.1):
+               itr=20,n=10,eps=0.1):
   lb = np.asarray(lb)
   ub = np.asarray(ub)
   assert len(lb) == len(ub)
@@ -208,16 +220,16 @@ def pick_nodes(N,lb,ub,bnd_nodes=None,bnd=None,rho=None,
 
   nodes = nodes[:N]
   nodes = _repel(nodes,bnd_nodes,
-                 itr=repel_itr,
-                 n=repel_n,
-                 eps=repel_eps,
+                 itr=itr,
+                 n=n,
+                 eps=eps,
                  bnd=bnd)
 
   nodes,bnd_nodes = _repel_and_stick(
                       nodes,bnd_nodes,
-                      itr=repel_itr,
-                      n=repel_n,
-                      eps=repel_eps,
+                      itr=itr,
+                      n=n,
+                      eps=eps,
                       bnd=bnd)
 
   return nodes,bnd_nodes
