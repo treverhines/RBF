@@ -1,31 +1,39 @@
 #!/usr/bin/env python
 from __future__ import division
 import numpy as np
+import rbf.basis
 
 def poly(p,order,diff=0):
+  p = np.asarray(p,dtype=float)
   if diff == 0:
     if order == 0:
-      return 0.0*p + 1.0
+      out = 0.0*p + 1.0
     else:
-      return p**order
+      out = p**order
 
   else:
     if order == 0:
-      return 0.0*p
+      out = 0.0*p
     else:
-      return order*poly(p,order-1,diff-1)
+      out = order*poly(p,order-1,diff-1)
 
-def vpoly(p,order,diff=0):
-  p = np.asarray(p)
+  return np.asarray(out,dtype=float)
+
+
+def vpoly(c,order=None):
+  c = np.asarray(c,dtype=float)
+  if order is None:
+    order = range(c.shape[0])
+
   order = np.asarray(order,dtype=int)
-  out = np.zeros((order.shape[0],p.shape[0]))
+  out = np.zeros((order.shape[0],c.shape[0]))
   for i,r in enumerate(order):
-    out[i,:] = poly(p,r,diff)
+    out[i,:] = poly(c,r)
 
   return out
 
 
-def interp_matrix(basis,cnts,eps,Np=0):
+def vrbf(c,basis=rbf.basis.mq,eps=1.0,Np=0):
   '''
   returns the matrix:
 
@@ -35,16 +43,16 @@ def interp_matrix(basis,cnts,eps,Np=0):
   where Ar is consists of RBFs with specified cnts evaluated
   at those cnts. Ap consists of additional polynomial terms
   '''
-  Ns,Ndim = cnts.shape
+  Ns,Ndim = c.shape
   eps = eps*np.ones(Ns)
-  Ar = basis(cnts,cnts,eps).T
+  Ar = basis(c,c,eps).T
   Ap = np.zeros((0,Ns))
   for i in range(Ndim):
     if i == 0:
-      Api = vpoly(cnts[:,i],range(Np))  
+      Api = vpoly(c[:,i],range(Np))  
       Ap = np.vstack((Ap,Api))
     else:
-      Api = vpoly(cnts[:,i],range(1,Np))  
+      Api = vpoly(c[:,i],range(1,Np))  
       Ap = np.vstack((Ap,Api))
 
   Z = np.zeros((Ap.shape[0],Ap.shape[0]))
@@ -53,25 +61,54 @@ def interp_matrix(basis,cnts,eps,Np=0):
   A = np.hstack((left,right))
   return A
 
-def data_term(basis,pnt,cnts,eps,diff,Np=0):
-  pnt = pnt[:,None]
-  Ns,Ndim = cnts.shape
+def drbf(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
+  x = np.asarray(x,dtype=float)
+  c = np.asarray(c,dtype=float)
+  x = x[None,:]
+  Ns,Ndim = c.shape
   eps = eps*np.ones(Ns)  
-  dr = basis(pnt,cnts,eps,diff=diff).T
-  print(np.shape(dr))
-  dp = np.zeros((0,1))
+  dr = basis(x,c,eps,diff=diff)[0,:]
+  dp = np.zeros(0)
   for i in range(Ndim):
     if i == 0:
-      dpi = vpoly(pnt[i],range(Np),diff=diff[i])
-      dp = np.vstack((dp,dpi))
+      dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(Np)]
+      dp = np.concatenate((dp,dpi))
     else:
-      dpi = vpoly(pnt[i],range(1,Np),diff=diff[i])
-      dp = np.vstack((dp,dpi))
+      dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
+      dp = np.concatenate((dp,dpi))
 
-  d = np.vstack((dr,dp))
-  d = d[:,0]
+  d = np.concatenate((dr,dp))
   return d    
-  
 
+def rbf_weight(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
+  '''
+  finds the weights, w, such that
+
+  f_i(c_j) = f(||c_j - c_i||) 
+
+  | f_0(c_0) ... f_0(c_N) |     | L[f_0(y)]y=x  |
+  |    :             :    | w = |     :         |
+  | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
+  '''
+  x = np.asarray(x)
+  c = np.asarray(c)
+  A = vrbf(c,basis=basis,eps=eps,Np=Np)
+  d = drbf(x,c,basis=basis,eps=eps,Np=Np,diff=diff)
+  w = np.linalg.solve(A,d)[:c.shape[0]]
+  return w 
+
+def poly_weight(x,c,diff):
+  '''
+  finds the weights, w, such that
+
+  f_i(c_j) = c_j**i
+
+  | f_0(c_0) ... f_0(c_N) |     | L[f_0(y)]y=x  |
+  |    :             :    | w = |     :         |
+  | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
+  '''
+  A =  vpoly(c)
+  d =  [poly(x,j,diff=diff) for i in range(Np)]
+  return
 
 
