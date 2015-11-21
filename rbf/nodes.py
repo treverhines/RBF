@@ -30,6 +30,18 @@ def _proximity_filter(nodes,seq,rho=None):
     return nodes[rho(nodes) > seq]
 
 
+def merge_nodes(**kwargs):
+  out_dict = {}
+  n = 0
+  for k,a in kwargs.items():
+    a = np.asarray(a)
+    out_dict[k] = range(n,n+a.shape[0])
+    n += a.shape[0]
+
+  out_array = np.vstack(kwargs.values())
+  return out_array,out_dict
+
+
 def stencilate(x,N):
   T = scipy.spatial.cKDTree(x)
   d,i = T.query(x,N)
