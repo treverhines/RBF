@@ -61,6 +61,7 @@ def vrbf(c,basis=rbf.basis.mq,eps=1.0,Np=0):
   A = np.hstack((left,right))
   return A
 
+
 def drbf(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   x = np.asarray(x,dtype=float)
   c = np.asarray(c,dtype=float)
@@ -80,6 +81,7 @@ def drbf(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   d = np.concatenate((dr,dp))
   return d    
 
+
 def rbf_weight(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   '''
   finds the weights, w, such that
@@ -96,6 +98,7 @@ def rbf_weight(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   d = drbf(x,c,basis=basis,eps=eps,Np=Np,diff=diff)
   w = np.linalg.solve(A,d)[:c.shape[0]]
   return w 
+
 
 def poly_weight(x,c,diff):
   '''

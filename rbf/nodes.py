@@ -49,8 +49,9 @@ def stencilate(x,N):
     d = d[:,None]
     i = i[:,None]
 
-  d_avg = np.sum(d,1)/(N-1)
-  eps = 1.0/d_avg
+  d_min = d[:,1]
+  #d_min = np.min(d)
+  eps = 1.0/d_min
   return i,eps
 
 
