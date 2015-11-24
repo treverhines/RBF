@@ -54,18 +54,17 @@ def interp_matrix(basis,cnts,eps,Np=0):
   return A
 
 def data_term(basis,pnt,cnts,eps,diff,Np=0):
-  pnt = pnt[:,None]
+  pnt = pnt[None,:]
   Ns,Ndim = cnts.shape
   eps = eps*np.ones(Ns)  
   dr = basis(pnt,cnts,eps,diff=diff).T
-  print(np.shape(dr))
   dp = np.zeros((0,1))
   for i in range(Ndim):
     if i == 0:
-      dpi = vpoly(pnt[i],range(Np),diff=diff[i])
+      dpi = vpoly(pnt[:,i],range(Np),diff=diff[i])
       dp = np.vstack((dp,dpi))
     else:
-      dpi = vpoly(pnt[i],range(1,Np),diff=diff[i])
+      dpi = vpoly(pnt[:,i],range(1,Np),diff=diff[i])
       dp = np.vstack((dp,dpi))
 
   d = np.vstack((dr,dp))
