@@ -107,8 +107,10 @@ def poly_weight(x,c,diff):
   |    :             :    | w = |     :         |
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
+  x = np.asarray(x)
+  c = np.asarray(c)
   A =  vpoly(c)
-  d =  [poly(x,j,diff=diff) for i in range(Np)]
-  return
-
+  d =  [poly(x,j,diff=diff) for j in range(c.shape[0])]
+  w = np.linalg.solve(A,d)
+  return w 
 
