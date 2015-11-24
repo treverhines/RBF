@@ -273,10 +273,46 @@ _FUNCTION_DOC = '''
     a value for diff is used more than once in the Python session.        
 '''
 
+_TPS = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
+def tps(*args,**kwargs):
+  '''                             
+  thin plate spline
+  '''                                                             
+  return _TPS(*args,**kwargs)
+
+tps.__doc__ += _FUNCTION_DOC
+
+_LINEAR = RBF(_EPS*_R)
+def linear(*args,**kwargs):
+  '''                             
+  linear
+  '''                                                             
+  return _LINEAR(*args,**kwargs)
+
+linear.__doc__ += _FUNCTION_DOC
+
+_CUBIC = RBF((_EPS*_R)**3)
+def cubic(*args,**kwargs):
+  '''                             
+  linear
+  '''                                                             
+  return _CUBIC(*args,**kwargs)
+
+cubic.__doc__ += _FUNCTION_DOC
+
+_IMQ = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
+def imq(*args,**kwargs):
+  '''                             
+  inverse multiquadratic
+  '''                                                             
+  return _IMQ(*args,**kwargs)
+
+imq.__doc__ += _FUNCTION_DOC
+
 _IQ = RBF(1/(1+(_EPS*_R)**2))
 def iq(*args,**kwargs):
   '''                             
-  Inverse Quadratic
+  inverse quadratic
   '''                                                             
   return _IQ(*args,**kwargs)
 
