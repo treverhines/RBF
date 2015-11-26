@@ -33,7 +33,7 @@ def vpoly(c,order=None):
   return out
 
 
-def vrbf(c,basis=rbf.basis.mq,eps=1.0,Np=0):
+def vrbf(n,c,basis=rbf.basis.mq,eps=1.0,Np=0):
   '''
   returns the matrix:
 
@@ -43,16 +43,16 @@ def vrbf(c,basis=rbf.basis.mq,eps=1.0,Np=0):
   where Ar is consists of RBFs with specified cnts evaluated
   at those cnts. Ap consists of additional polynomial terms
   '''
-  Ns,Ndim = c.shape
+  Ns,Ndim = n.shape
   eps = eps*np.ones(Ns)
-  Ar = basis(c,c,eps).T
+  Ar = basis(n,c,eps).T
   Ap = np.zeros((0,Ns))
   for i in range(Ndim):
     if i == 0:
-      Api = vpoly(c[:,i],range(Np))  
+      Api = vpoly(n[:,i],range(Np))  
       Ap = np.vstack((Ap,Api))
     else:
-      Api = vpoly(c[:,i],range(1,Np))  
+      Api = vpoly(n[:,i],range(1,Np))  
       Ap = np.vstack((Ap,Api))
 
   Z = np.zeros((Ap.shape[0],Ap.shape[0]))
@@ -82,7 +82,7 @@ def drbf(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   return d    
 
 
-def rbf_weight(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
+def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   '''
   finds the weights, w, such that
 
@@ -93,8 +93,9 @@ def rbf_weight(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
   x = np.asarray(x)
+  n = np.asarray(n)
   c = np.asarray(c)
-  A = vrbf(c,basis=basis,eps=eps,Np=Np)
+  A = vrbf(n,c,basis=basis,eps=eps,Np=Np)
   d = drbf(x,c,basis=basis,eps=eps,Np=Np,diff=diff)
   w = np.linalg.solve(A,d)[:c.shape[0]]
   return w 

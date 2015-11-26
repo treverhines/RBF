@@ -273,14 +273,24 @@ _FUNCTION_DOC = '''
     a value for diff is used more than once in the Python session.        
 '''
 
-_TPS = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
-def tps(*args,**kwargs):
+_TPS4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
+def tps4(*args,**kwargs):
   '''                             
   thin plate spline
   '''                                                             
-  return _TPS(*args,**kwargs)
+  return np.nan_to_num(_TPS4(*args,**kwargs))
 
-tps.__doc__ += _FUNCTION_DOC
+tps4.__doc__ += _FUNCTION_DOC
+
+
+_TPS2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
+def tps2(*args,**kwargs):
+  '''                             
+  thin plate spline
+  '''                                                             
+  return np.nan_to_num(_TPS2(*args,**kwargs))
+
+tps2.__doc__ += _FUNCTION_DOC
 
 _LINEAR = RBF(_EPS*_R)
 def linear(*args,**kwargs):
