@@ -33,7 +33,7 @@ def vpoly(c,order=None):
   return out
 
 
-def vrbf(n,c,basis=rbf.basis.mq,eps=1.0,Np=0):
+def vrbf(n,c,basis=rbf.basis.mq,eps=None,Np=0):
   '''
   returns the matrix:
 
@@ -44,7 +44,8 @@ def vrbf(n,c,basis=rbf.basis.mq,eps=1.0,Np=0):
   at those cnts. Ap consists of additional polynomial terms
   '''
   Ns,Ndim = n.shape
-  eps = eps*np.ones(Ns)
+  if eps is None:
+    eps = np.ones(Ns)
   Ar = basis(n,c,eps).T
   Ap = np.zeros((0,Ns))
   for i in range(Ndim):
@@ -62,12 +63,13 @@ def vrbf(n,c,basis=rbf.basis.mq,eps=1.0,Np=0):
   return A
 
 
-def drbf(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
+def drbf(x,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
   x = np.asarray(x,dtype=float)
   c = np.asarray(c,dtype=float)
   x = x[None,:]
   Ns,Ndim = c.shape
-  eps = eps*np.ones(Ns)  
+  if eps is None:
+    eps = np.ones(Ns)  
   dr = basis(x,c,eps,diff=diff)[0,:]
   dp = np.zeros(0)
   for i in range(Ndim):
@@ -82,7 +84,7 @@ def drbf(x,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
   return d    
 
 
-def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=1.0,Np=0):
+def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
   '''
   finds the weights, w, such that
 

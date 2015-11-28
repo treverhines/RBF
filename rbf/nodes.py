@@ -28,12 +28,14 @@ def stencilate(x,N):
   T = scipy.spatial.cKDTree(x)
   d,i = T.query(x,N)
   if N == 1:
-    d = d[:,None]
     i = i[:,None]
 
-  nearest = d[:,1]
-  #d_min = np.min(d)
-  return i,nearest
+  return i
+
+def mindist(x):
+  T = scipy.spatial.cKDTree(x)
+  d,i = T.query(x,2)
+  return d[:,1]
 
 
 def normal(M):
@@ -127,10 +129,10 @@ def _repel_k(free_nodes,fix_nodes,n,delta):
   return new_free_nodes
 
 
-def _repel_bounce(free_nodes,
-                  fix_nodes=None,
-                  itr=10,n=10,delta=0.1,
-                  bnd=None,max_bounces=3):
+def repel_bounce(free_nodes,
+                 fix_nodes=None,
+                 itr=10,n=10,delta=0.1,
+                 bnd=None,max_bounces=3):
   free_nodes = np.asarray(free_nodes,dtype=np.float64,order='c')
   if fix_nodes is None:
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
@@ -167,10 +169,10 @@ def _repel_bounce(free_nodes,
   return free_nodes
 
 
-def _repel_stick(free_nodes,
-                 fix_nodes=None,
-                 itr=10,n=10,delta=0.1,
-                 bnd=None):
+def repel_stick(free_nodes,
+                fix_nodes=None,
+                itr=10,n=10,delta=0.1,
+                bnd=None):
   free_nodes = np.asarray(free_nodes,dtype=np.float64,order='c')
   # fix_nodes will contain all nodes that are initially fixed 
   # and ones which intersected the boundary
@@ -239,13 +241,13 @@ def generate_nodes(N,lb,ub,bnd,fix_nodes=None,rho=None,
 
   nodes = nodes[:N]
   logger.info('repelling nodes with boundary bouncing') 
-  nodes = _repel_bounce(nodes,fix_nodes,itr=itr,
+  nodes = repel_bounce(nodes,fix_nodes,itr=itr,
                         n=n,delta=delta,bnd=bnd)
 
   logger.info('repelling nodes with boundary sticking') 
-  nodes,bnd_nodes = _repel_stick(nodes,fix_nodes,
-                                 itr=itr,n=n,
-                                 delta=delta,bnd=bnd)
+  nodes,bnd_nodes = repel_stick(nodes,fix_nodes,
+                                itr=itr,n=n,
+                                delta=delta,bnd=bnd)
 
   logger.info('computing boundary normals')
   bnd_norms = bnd_normal(bnd_nodes,bnd)
