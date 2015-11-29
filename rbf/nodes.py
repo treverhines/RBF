@@ -15,7 +15,7 @@ def merge_nodes(**kwargs):
   n = 0
   for k,a in kwargs.items():
     a = np.asarray(a,dtype=np.float64,order='c')
-    idx = np.arange(n,n+a.shape[0],dtype=np.int64)
+    idx = range(n,n+a.shape[0])
     n += a.shape[0]
     out_array += a,
     out_dict[k] = idx
