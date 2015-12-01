@@ -71,7 +71,7 @@ def bnd_intersection(inside,outside,bnd,tol=1e-10):
   return inside
   
   
-def bnd_adjacent(pnt,Nadj,bnd,rho=1e-4,Nsmp=None):
+def bnd_adjacent(pnt,Nadj,bnd,r=1e-6,Nsmp=None):
   '''                                 
   returns a Npnt x Nadj x Ndim array          
   '''
@@ -79,7 +79,7 @@ def bnd_adjacent(pnt,Nadj,bnd,rho=1e-4,Nsmp=None):
   if Nsmp is None:
     Nsmp = Nadj*10
 
-  smp = pnt[:,None,:] + rho*rbf.halton.halton(Nsmp,Ndim) - rho/2
+  smp = pnt[:,None,:] + r*rbf.halton.halton(Nsmp,Ndim) - r/2
   smp = smp.reshape((Npnt*Nsmp,Ndim))
   is_inside = bnd(smp)
   smp = smp.reshape((Npnt,Nsmp,Ndim))
@@ -95,32 +95,32 @@ def bnd_adjacent(pnt,Nadj,bnd,rho=1e-4,Nsmp=None):
 
   pin = np.reshape(pin,(Npnt*Nadj,Ndim))
   pout = np.reshape(pout,(Npnt*Nadj,Ndim))
-  adj = bnd_intersection(pin,pout,bnd,tol=rho*1e-6)
+  adj = bnd_intersection(pin,pout,bnd,tol=r*1e-6)
   adj = adj.reshape((Npnt,Nadj,Ndim))
   return adj
 
 
 def bnd_normal(pnt,bnd,**kwargs):
-  rho = kwargs.pop('rho',1e-4)
+  r = kwargs.pop('r',1e-6)
   Ndim = pnt.shape[1]
-  adj = bnd_adjacent(pnt,Ndim,bnd,rho=rho,**kwargs)
+  adj = bnd_adjacent(pnt,Ndim,bnd,r=r,**kwargs)
   adj = adj.reshape((pnt.shape[0],Ndim,Ndim))
   adj -= adj[:,[0],:]
   adj = adj[:,1:,:]
   norm = normal(adj)
-  is_inside = bnd(pnt + rho*norm)
+  is_inside = bnd(pnt + r*norm)
   norm[is_inside] *= -1
   return norm
   
 
-def _repel_k(free_nodes,fix_nodes,n,delta):
-  tol = 1e-10
+def _repel_k(free_nodes,fix_nodes,n,delta,rho):
   nodes = np.vstack((free_nodes,fix_nodes))
   T = scipy.spatial.cKDTree(nodes)
   d,i = T.query(free_nodes,n)
   i = i[:,1:]
   d = d[:,1:]
-  direction = np.sum((free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3,1)
+  c = 1.0/rho(nodes)[i,None]*rho(free_nodes)[:,None,None]  
+  direction = np.sum(c*(free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3,1)
   direction /= np.linalg.norm(direction,axis=1)[:,None]
   # in the case of a zero vector replace nans with zeros
   direction = np.nan_to_num(direction)  
@@ -129,11 +129,17 @@ def _repel_k(free_nodes,fix_nodes,n,delta):
   return new_free_nodes
 
 
+def default_rho(p):
+  return 1.0 + 0*p[:,0]
+
 def repel_bounce(free_nodes,
                  fix_nodes=None,
                  itr=10,n=10,delta=0.1,
-                 bnd=None,max_bounces=3):
+                 bnd=None,rho=None,max_bounces=3):
   free_nodes = np.asarray(free_nodes,dtype=np.float64,order='c')
+  if rho is None:
+    rho = default_rho
+
   if fix_nodes is None:
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
 
@@ -143,7 +149,7 @@ def repel_bounce(free_nodes,
 
   for k in range(itr):
     free_nodes_old = free_nodes
-    free_nodes = _repel_k(free_nodes,fix_nodes,n,delta)
+    free_nodes = _repel_k(free_nodes,fix_nodes,n,delta,rho)
     if bnd is not None:
       is_outside = ~bnd(free_nodes)
       bounces = 0
@@ -172,8 +178,11 @@ def repel_bounce(free_nodes,
 def repel_stick(free_nodes,
                 fix_nodes=None,
                 itr=10,n=10,delta=0.1,
-                bnd=None):
+                bnd=None,rho=None):
   free_nodes = np.asarray(free_nodes,dtype=np.float64,order='c')
+  if rho is None:
+    rho = default_rho
+
   # fix_nodes will contain all nodes that are initially fixed 
   # and ones which intersected the boundary
   if fix_nodes is None:
@@ -192,7 +201,7 @@ def repel_stick(free_nodes,
 
   for k in range(itr):
     free_nodes_old = free_nodes
-    free_nodes = _repel_k(free_nodes,fix_nodes,n,delta)
+    free_nodes = _repel_k(free_nodes,fix_nodes,n,delta,rho)
     if bnd is not None:
       is_outside = ~bnd(free_nodes)
       intersect = bnd_intersection(
@@ -242,12 +251,12 @@ def generate_nodes(N,lb,ub,bnd,fix_nodes=None,rho=None,
   nodes = nodes[:N]
   logger.info('repelling nodes with boundary bouncing') 
   nodes = repel_bounce(nodes,fix_nodes,itr=itr,
-                        n=n,delta=delta,bnd=bnd)
+                        n=n,delta=delta,bnd=bnd,rho=rho)
 
   logger.info('repelling nodes with boundary sticking') 
   nodes,bnd_nodes = repel_stick(nodes,fix_nodes,
                                 itr=itr,n=n,
-                                delta=delta,bnd=bnd)
+                                delta=delta,bnd=bnd,rho=rho)
 
   logger.info('computing boundary normals')
   bnd_norms = bnd_normal(bnd_nodes,bnd)
