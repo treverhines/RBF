@@ -48,13 +48,13 @@ def vrbf(n,c,basis=rbf.basis.mq,eps=None,Np=0):
     eps = np.ones(Ns)
   Ar = basis(n,c,eps).T
   Ap = np.zeros((0,Ns))
+  if Np > 0:
+      Api = np.ones(len(n))
+      Ap = np.vstack((Ap,Api))
+    
   for i in range(Ndim):
-    if i == 0:
-      Api = vpoly(n[:,i],range(Np))  
-      Ap = np.vstack((Ap,Api))
-    else:
-      Api = vpoly(n[:,i],range(1,Np))  
-      Ap = np.vstack((Ap,Api))
+    Api = vpoly(n[:,i],range(1,Np))  
+    Ap = np.vstack((Ap,Api))
 
   Z = np.zeros((Ap.shape[0],Ap.shape[0]))
   left = np.vstack((Ar,Ap))
@@ -72,13 +72,13 @@ def drbf(x,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
     eps = np.ones(Ns)  
   dr = basis(x,c,eps,diff=diff)[0,:]
   dp = np.zeros(0)
+  if Np > 0:
+    dpi = [float(sum(diff) == 0)]
+    dp = np.concatenate((dp,dpi))       
+
   for i in range(Ndim):
-    if i == 0:
-      dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(Np)]
-      dp = np.concatenate((dp,dpi))
-    else:
-      dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
-      dp = np.concatenate((dp,dpi))
+    dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
+    dp = np.concatenate((dp,dpi))
 
   d = np.concatenate((dr,dp))
   return d    
@@ -94,12 +94,12 @@ def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
   |    :             :    | w = |     :         |
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
-  x = np.asarray(x)
-  n = np.asarray(n)
-  c = np.asarray(c)
-  n = n - x
-  c = c - x
-  x = x - x
+  x = np.array(x,copy=True)
+  n = np.array(n,copy=True)
+  c = np.array(c,copy=True)
+  n -= x
+  c -= x
+  x -= x
   A = vrbf(n,c,basis=basis,eps=eps,Np=Np)
   d = drbf(x,c,basis=basis,eps=eps,Np=Np,diff=diff)
   w = np.linalg.solve(A,d)[:c.shape[0]]
@@ -116,10 +116,10 @@ def poly_weight(x,c,diff):
   |    :             :    | w = |     :         |
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
-  x = np.asarray(x)
-  c = np.asarray(c)
-  c = c - x
-  x = x - x
+  x = np.array(x,copy=True)
+  c = np.array(c,copy=True)
+  c -= x
+  x -= x
   A =  vpoly(c)
   d =  [poly(x,j,diff=diff) for j in range(c.shape[0])]
   w = np.linalg.solve(A,d)
