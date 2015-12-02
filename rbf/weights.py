@@ -97,6 +97,9 @@ def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
   x = np.asarray(x)
   n = np.asarray(n)
   c = np.asarray(c)
+  n = n - x
+  c = c - x
+  x = x - x
   A = vrbf(n,c,basis=basis,eps=eps,Np=Np)
   d = drbf(x,c,basis=basis,eps=eps,Np=Np,diff=diff)
   w = np.linalg.solve(A,d)[:c.shape[0]]
@@ -115,6 +118,8 @@ def poly_weight(x,c,diff):
   '''
   x = np.asarray(x)
   c = np.asarray(c)
+  c = c - x
+  x = x - x
   A =  vpoly(c)
   d =  [poly(x,j,diff=diff) for j in range(c.shape[0])]
   w = np.linalg.solve(A,d)
