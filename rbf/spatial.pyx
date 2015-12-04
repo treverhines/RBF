@@ -37,9 +37,9 @@ cdef bint _is_collinear(double x00,double y00,
 
 
 cdef bint _is_overlapping(double x00,double y00,
-                           double x01,double y01,
-                           double x10,double y10,
-                           double x11,double y11) nogil:
+                          double x01,double y01,
+                          double x10,double y10,
+                          double x11,double y11) nogil:
   cdef:
     double a,b,c,t0,t1
 
@@ -68,11 +68,11 @@ cdef bint _is_overlapping(double x00,double y00,
 # i.e. they cannot intersect at t=0 or u=0. This means that edges
 # connected from tip to tail will not be identified as intersecting    
 cdef bint _is_intersecting(double x00,double y00,
-                            double x01,double y01,
-                            double x10,double y10,
-                            double x11,double y11,
-                            bint anchor=True,
-                            bint tip=True) nogil:
+                           double x01,double y01,
+                           double x10,double y10,
+                           double x11,double y11,
+                           bint anchor=True,
+                           bint tip=True) nogil:
   cdef:
     double s,t,d
   

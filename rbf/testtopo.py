@@ -6,6 +6,29 @@ import rbf.spatial as spatial
 import modest
 import scipy.spatial
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def curve(t):
   return np.array([0.7 + 0.2*np.cos(t),0.5 + 0.2*np.sin(t)])
 
