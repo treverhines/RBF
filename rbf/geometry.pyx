@@ -9,6 +9,9 @@ from libc.stdlib cimport rand
 cdef extern from "math.h":
   cdef float abs(float x) nogil
 
+cdef extern from "math.h":
+  cdef float sqrt(float x) nogil
+
 cdef extern from "limits.h":
     int RAND_MAX
 
@@ -29,7 +32,7 @@ cdef void set_outside(double[:,:] v,
         out[j] = v[i,j] 
 
   for j in range(v.shape[1]):
-    out[j] -= 1.0 + 0.123456789 + rand()*1.0/RAND_MAX
+    out[j] -= 1.123456789 + rand()*1.0/RAND_MAX
 
   return 
   
@@ -146,13 +149,25 @@ cdef bint is_intersecting_2d(double[:,:] s1,
 
 @boundscheck(False)
 @wraparound(False)
-cpdef int cross_count_2d(double[:,:] seg,
-                         double[:,:] vertices,
-                         long[:,:] simplices):
+cpdef np.ndarray cross_count_2d(double[:,:] start_pnts,
+                                double[:,:] end_pnts,
+                                double[:,:] vertices,
+                                long[:,:] simplices):
+  N = start_pnts.shape[0]
   cdef:
+    int i
+    double[:,:] seg = np.empty((2,2),dtype=float,order='c')
     double[:,:] dummy_seg = np.empty((2,2),dtype=float,order='c')
+    long[:] out = np.empty((N,),dtype=int,order='c')
 
-  return _cross_count_2d(seg,vertices,simplices,dummy_seg)
+  for i in range(N):
+    seg[0,0] = start_pnts[i,0]
+    seg[0,1] = start_pnts[i,1]
+    seg[1,0] = end_pnts[i,0]
+    seg[1,1] = end_pnts[i,1]
+    out[i] = _cross_count_2d(seg,vertices,simplices,dummy_seg)
+
+  return np.asarray(out,dtype=int)
 
 
 @boundscheck(False)
@@ -166,92 +181,174 @@ cdef int _cross_count_2d(double[:,:] seg,
     unsigned int count = 0
 
   for i in range(simplices.shape[0]):
-    dummy_seg[0] = vertices[simplices[i,0]]
-    dummy_seg[1] = vertices[simplices[i,1]]
+    dummy_seg[0,0] = vertices[simplices[i,0],0]
+    dummy_seg[0,1] = vertices[simplices[i,0],1]
+    dummy_seg[1,0] = vertices[simplices[i,1],0]
+    dummy_seg[1,1] = vertices[simplices[i,1],1]
     if is_intersecting_2d(seg,dummy_seg):
       count += 1
 
   return count
 
+
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray cross_which_2d(double[:,:] seg,
+cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
+                                double[:,:] end_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):
+  N = start_pnts.shape[0]
   cdef:
-    list out = []
-    unsigned int i
+    int i
+    double[:,:] seg = np.empty((2,2),dtype=float,order='c')
     double[:,:] dummy_seg = np.empty((2,2),dtype=float,order='c')
+    long[:] out = np.empty((N,),dtype=int,order='c')
+
+  for i in range(N):
+    seg[0,0] = start_pnts[i,0]
+    seg[0,1] = start_pnts[i,1]
+    seg[1,0] = end_pnts[i,0]
+    seg[1,1] = end_pnts[i,1]
+    out[i] = _cross_which_2d(seg,vertices,simplices,dummy_seg)
+
+  return np.asarray(out,dtype=int)
+
+
+@boundscheck(False)
+@wraparound(False)
+cdef int _cross_which_2d(double[:,:] seg,
+                         double[:,:] vertices,
+                         long[:,:] simplices,
+                         double[:,:] dummy_seg) except -1:
+  cdef:
+    int i
 
   for i in range(simplices.shape[0]):
-    dummy_seg[0] = vertices[simplices[i,0]]
-    dummy_seg[1] = vertices[simplices[i,1]]
+    dummy_seg[0,0] = vertices[simplices[i,0],0]
+    dummy_seg[0,1] = vertices[simplices[i,0],1]
+    dummy_seg[1,0] = vertices[simplices[i,1],0]
+    dummy_seg[1,1] = vertices[simplices[i,1],1]
     if is_intersecting_2d(seg,dummy_seg):
-      out.append(i)
+      return i
+
+  raise ValueError('No intersection found for segment [%s,%s]' % 
+                   (np.asarray(seg[0]),np.asarray(seg[1])))
+
+@boundscheck(False)
+@wraparound(False)
+cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
+                                double[:,:] end_pnts,
+                                double[:,:] vertices,
+                                long[:,:] simplices):         
+  N = start_pnts.shape[0]
+  cdef:
+    int i
+    double[:,:] seg = np.empty((2,2),dtype=float,order='c')
+    double[:,:] out = np.empty((N,2),dtype=float,order='c')
+    double[:,:] dummy_seg = np.empty((2,2),dtype=float,order='c')
+    double[:] dummy_pnt = np.empty((2,),dtype=float,order='c')
+
+  for i in range(N):
+    seg[0,0] = start_pnts[i,0]
+    seg[0,1] = start_pnts[i,1]
+    seg[1,0] = end_pnts[i,0]
+    seg[1,1] = end_pnts[i,1]
+    _cross_where_2d(seg,vertices,simplices,dummy_pnt,dummy_seg)
+    out[i,0] = dummy_pnt[0]
+    out[i,1] = dummy_pnt[1]
 
   return np.asarray(out)
 
 
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray cross_where_2d(double[:,:] seg,
-                                double[:,:] vertices,
-                                long[:,:] simplices):         
-  indices = cross_which_2d(seg,vertices,simplices)
+cdef int _cross_where_2d(double[:,:] seg,
+                         double[:,:] vertices,
+                         long[:,:] simplices,
+                         double[:] out,
+                         double[:,:] dummy_seg) except -1:
   cdef:
-    double proj1,proj2
-    unsigned int i,idx
-    double[:] norm = np.empty((2,),dtype=float,order='c')
-    double[:,:] seg2 = np.empty((2,2),dtype=float,order='c')
-    double[:,:] out = np.empty((indices.shape[0],2),dtype=float,order='c')
+    int idx
+    double proj1,proj2,n1,n2
 
-  for i in range(indices.shape[0]):
-    idx = indices[i]  
-    seg2[0] = vertices[simplices[idx,0]]
-    seg2[1] = vertices[simplices[idx,1]]
+  idx = _cross_which_2d(seg,vertices,simplices,dummy_seg)
+  dummy_seg[0,0] = vertices[simplices[idx,0],0]
+  dummy_seg[0,1] = vertices[simplices[idx,0],1]
+  dummy_seg[1,0] = vertices[simplices[idx,1],0]
+  dummy_seg[1,1] = vertices[simplices[idx,1],1]
 
-    norm[0] =  (seg2[1,1]-seg2[0,1])
-    norm[1] = -(seg2[1,0]-seg2[0,0])
+  n1 =  (dummy_seg[1,1]-dummy_seg[0,1])
+  n2 = -(dummy_seg[1,0]-dummy_seg[0,0])
 
-    proj1 = ((seg[0,0]-seg2[0,0])*norm[0] +
-             (seg[0,1]-seg2[0,1])*norm[1])
-    proj2 = ((seg[1,0]-seg2[0,0])*norm[0] +
-             (seg[1,1]-seg2[0,1])*norm[1])
+  proj1 = ((seg[0,0]-dummy_seg[0,0])*n1 +
+           (seg[0,1]-dummy_seg[0,1])*n2)
+  proj2 = ((seg[1,0]-dummy_seg[0,0])*n1 +
+           (seg[1,1]-dummy_seg[0,1])*n2)
 
-    out[i,0] = seg[0,0] + (proj1/(proj1-proj2))*(
-               (seg[1,0]-seg[0,0]))
-    out[i,1] = seg[0,1] + (proj1/(proj1-proj2))*(
-               (seg[1,1]-seg[0,1]))
+  out[0] = seg[0,0] + (proj1/(proj1-proj2))*(
+           (seg[1,0]-seg[0,0]))
+  out[1] = seg[0,1] + (proj1/(proj1-proj2))*(
+           (seg[1,1]-seg[0,1]))
+
+  return 0
+
+
+@boundscheck(False)
+@wraparound(False)
+cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
+                                  double[:,:] end_pnts,
+                                  double[:,:] vertices,
+                                  long[:,:] simplices):         
+  N = start_pnts.shape[0]
+  cdef:
+    int i
+    double[:,:] seg = np.empty((2,2),dtype=float,order='c')
+    double[:,:] out = np.empty((N,2),dtype=float,order='c')
+    double[:,:] dummy_seg = np.empty((2,2),dtype=float,order='c')
+    double[:] dummy_pnt = np.empty((2,),dtype=float,order='c')
+
+  for i in range(N):
+    seg[0,0] = start_pnts[i,0]
+    seg[0,1] = start_pnts[i,1]
+    seg[1,0] = end_pnts[i,0]
+    seg[1,1] = end_pnts[i,1]
+    _cross_normals_2d(seg,vertices,simplices,dummy_pnt,dummy_seg)
+    out[i,0] = dummy_pnt[0]
+    out[i,1] = dummy_pnt[1]
 
   return np.asarray(out)  
 
 
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray cross_normals_2d(double[:,:] seg,
-                                  double[:,:] vertices,
-                                  long[:,:] simplices):         
-  indices = cross_which_2d(seg,vertices,simplices)
+cdef int _cross_normals_2d(double[:,:] seg,
+                           double[:,:] vertices,
+                           long[:,:] simplices,
+                           double[:] out,
+                           double[:,:] dummy_seg) except -1:         
   cdef:
-    double proj
-    unsigned int i,idx
-    double[:,:] seg2 = np.empty((2,2),dtype=float,order='c')
-    double[:,:] out = np.empty((indices.shape[0],2),dtype=float,order='c')
+    double proj,n
+    int idx
 
-  for i in range(indices.shape[0]):
-    idx = indices[i]  
-    seg2[0] = vertices[simplices[idx,0]]
-    seg2[1] = vertices[simplices[idx,1]]
+  idx = _cross_which_2d(seg,vertices,simplices,dummy_seg)
+  dummy_seg[0,0] = vertices[simplices[idx,0],0]
+  dummy_seg[0,1] = vertices[simplices[idx,0],1]
+  dummy_seg[1,0] = vertices[simplices[idx,1],0]
+  dummy_seg[1,1] = vertices[simplices[idx,1],1]
 
-    out[i,0] =  (seg2[1,1]-seg2[0,1])
-    out[i,1] = -(seg2[1,0]-seg2[0,0])
-    proj = ((seg[1,0]-seg2[0,0])*out[i,0] +
-            (seg[1,1]-seg2[0,1])*out[i,1])
-    if proj <= 0:
-      out[i,0] *= -1
-      out[i,1] *= -1
+  out[0] =  (dummy_seg[1,1]-dummy_seg[0,1])
+  out[1] = -(dummy_seg[1,0]-dummy_seg[0,0])
+  proj = ((seg[1,0]-dummy_seg[0,0])*out[0] +
+          (seg[1,1]-dummy_seg[0,1])*out[1])
+  if proj <= 0:
+    out[0] *= -1
+    out[1] *= -1
 
-  return np.asarray(out)  
+  n = sqrt(out[0]**2 + out[1]**2)
+  out[0] /= n
+  out[1] /= n
+
+  return 0
 
 
 @boundscheck(False)
@@ -259,17 +356,18 @@ cpdef np.ndarray cross_normals_2d(double[:,:] seg,
 cpdef np.ndarray contains_2d(double[:,:] pnt,
                              double[:,:] vertices,
                              long[:,:] simplices):
+  N = pnt.shape[0]
   cdef:
-    unsigned int count,i
+    int count,i
     double[:] dummy_pnt = np.empty((2,),dtype=float,order='c')
     double[:,:] dummy_seg1 = np.empty((2,2),dtype=float,order='c')
     double[:,:] dummy_seg2 = np.empty((2,2),dtype=float,order='c')
-    long[:] out = np.empty((pnt.shape[0],),dtype=int,order='c') 
+    long[:] out = np.empty((N,),dtype=int,order='c') 
 
   set_outside(vertices,dummy_pnt)
   dummy_seg1[0,0] = dummy_pnt[0]
   dummy_seg1[0,1] = dummy_pnt[1]
-  for i in range(pnt.shape[0]):
+  for i in range(N):
     dummy_seg1[1,0] = pnt[i,0]
     dummy_seg1[1,1] = pnt[i,1]
     count = _cross_count_2d(dummy_seg1,vertices,simplices,dummy_seg2)
@@ -498,6 +596,7 @@ cpdef np.ndarray cross_normals_3d(double[:,:] seg,
   indices = cross_which_3d(seg,vertices,simplices)
   cdef:
     double proj
+    double n
     unsigned int i,idx
     double[:,:] out = np.empty((indices.shape[0],3),dtype=float,order='c')
     double[:,:] tri = np.empty((3,3),dtype=float,order='c')
@@ -520,6 +619,11 @@ cpdef np.ndarray cross_normals_3d(double[:,:] seg,
       out[i,0] *= -1
       out[i,1] *= -1
       out[i,2] *= -1
+
+    n = sqrt(out[i,0]**2 + out[i,1]**2 + out[i,2]**2)
+    out[i,0] /= n
+    out[i,1] /= n
+    out[i,2] /= n
 
   return np.asarray(out)
 
