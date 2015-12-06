@@ -156,16 +156,15 @@ cpdef np.ndarray cross_count_2d(double[:,:] start_pnts,
   N = start_pnts.shape[0]
   cdef:
     int i
-    double[:,:] seg = np.empty((2,2),dtype=float,order='c')
-    double[:,:] dummy_seg = np.empty((2,2),dtype=float,order='c')
+    double[2][2] seg = np.empty((2,2),dtype=float,order='c')
     long[:] out = np.empty((N,),dtype=int,order='c')
 
   for i in range(N):
-    seg[0,0] = start_pnts[i,0]
-    seg[0,1] = start_pnts[i,1]
-    seg[1,0] = end_pnts[i,0]
-    seg[1,1] = end_pnts[i,1]
-    out[i] = _cross_count_2d(seg,vertices,simplices,dummy_seg)
+    seg[0][0] = start_pnts[i][0]
+    seg[0][1] = start_pnts[i][1]
+    seg[1][0] = end_pnts[i][0]
+    seg[1][1] = end_pnts[i][1]
+    out[i] = _cross_count_2d(seg,vertices,simplices)
 
   return np.asarray(out,dtype=int)
 
@@ -174,17 +173,17 @@ cpdef np.ndarray cross_count_2d(double[:,:] start_pnts,
 @wraparound(False)
 cdef int _cross_count_2d(double[:,:] seg,
                          double[:,:] vertices,
-                         long[:,:] simplices,
-                         double[:,:] dummy_seg) nogil:
+                         long[:,:] simplices):
   cdef:
+    double[2][2] dummy_seg 
     unsigned int i
     unsigned int count = 0
 
   for i in range(simplices.shape[0]):
-    dummy_seg[0,0] = vertices[simplices[i,0],0]
-    dummy_seg[0,1] = vertices[simplices[i,0],1]
-    dummy_seg[1,0] = vertices[simplices[i,1],0]
-    dummy_seg[1,1] = vertices[simplices[i,1],1]
+    dummy_seg[0][0] = vertices[simplices[i,0],0]
+    dummy_seg[0][1] = vertices[simplices[i,0],1]
+    dummy_seg[1][0] = vertices[simplices[i,1],0]
+    dummy_seg[1][1] = vertices[simplices[i,1],1]
     if is_intersecting_2d(seg,dummy_seg):
       count += 1
 
@@ -198,18 +197,17 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):
   N = start_pnts.shape[0]
-  cdef:
-    int i
-    double[:,:] seg = np.empty((2,2),dtype=float,order='c')
-    double[:,:] dummy_seg = np.empty((2,2),dtype=float,order='c')
-    long[:] out = np.empty((N,),dtype=int,order='c')
-
+  cdef int i
+  cdef double[2][2] segi
+  cdef double[:,:] seg = segi 
+  cdef long[:] out = np.empty((N,),dtype=int,order='c')
+  
   for i in range(N):
     seg[0,0] = start_pnts[i,0]
     seg[0,1] = start_pnts[i,1]
     seg[1,0] = end_pnts[i,0]
     seg[1,1] = end_pnts[i,1]
-    out[i] = _cross_which_2d(seg,vertices,simplices,dummy_seg)
+    out[i] = _cross_which_2d(seg,vertices,simplices)
 
   return np.asarray(out,dtype=int)
 
@@ -221,7 +219,9 @@ cdef int _cross_which_2d(double[:,:] seg,
                          long[:,:] simplices,
                          double[:,:] dummy_seg) except -1:
   cdef:
+    double[2][2] dummy_seg
     int i
+  
 
   for i in range(simplices.shape[0]):
     dummy_seg[0,0] = vertices[simplices[i,0],0]
