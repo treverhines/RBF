@@ -187,6 +187,7 @@ def repel_stick(free_nodes,
                 rho=None,max_bounces=3):
 
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
+  norm = np.zeros(free_nodes.shape,dtype=float)
   grp = np.zeros(free_nodes.shape[0],dtype=int)
   dim = free_nodes.shape[1]
   if rho is None:
@@ -223,10 +224,14 @@ def repel_stick(free_nodes,
                                 ungrouped_free_nodes[crossed],     
                                 ungrouped_free_nodes_new[crossed], 
                                 vertices,simplices,groups)
+    norm[ungrouped[crossed]] = bnd_normal(
+                                ungrouped_free_nodes[crossed],     
+                                ungrouped_free_nodes_new[crossed], 
+                                vertices,simplices)
     ungrouped_free_nodes_new[crossed] = inter
     free_nodes[ungrouped] = ungrouped_free_nodes_new
 
-  return free_nodes,grp
+  return free_nodes,norm,grp
 
 
 def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
@@ -269,14 +274,14 @@ def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
                        n=n,delta=delta,rho=rho)
 
   logger.info('repelling nodes with boundary sticking') 
-  nodes,grp = repel_stick(nodes,vertices,simplices,groups,
-                          fix_nodes=fix_nodes,
-                          itr=itr,n=n,
-                          delta=delta,rho=rho)
+  nodes,norms,grp = repel_stick(nodes,vertices,simplices,groups,
+                                fix_nodes=fix_nodes,
+                                itr=itr,n=n,
+                                delta=delta,rho=rho)
 
   #logger.info('computing boundary normals')
   #bnd_norms = bnd_normal(bnd_nodes,bnd)
-  return nodes,grp
+  return nodes,norms,grp
 
 
 
