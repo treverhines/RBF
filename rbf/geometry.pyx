@@ -212,6 +212,11 @@ cpdef np.ndarray cross_count_2d(double[:,:] start_pnts,
                                 double[:,:] end_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):
+  '''
+  returns an array containing the number of boundary intersections
+  between start_pnts[i] and end_pnts[i].  The boundary is defined 
+  in terms of vertices and simplices.
+  '''
   cdef:
     int i
     int N = start_pnts.shape[0]
@@ -263,7 +268,12 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
                                 double[:,:] end_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):
-
+  '''
+  returns an array identifying the index of the facet (i.e. which
+  doublet of simplices) intersected by start_pnts[i] and
+  end_pnts[i]. Note: if there is no intersection then an arbitrary
+  integer is returned.
+  '''
   cdef:
     int i
     int N = start_pnts.shape[0]
@@ -285,7 +295,7 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
   finally:
     free(seg_array)
 
-  return np.asarray(out,dtype=int)
+  return np.asarray(out)
 
 
 @boundscheck(False)
@@ -305,9 +315,6 @@ cdef int _cross_which_2d(segment2d seg,
     if is_intersecting_2d(seg,dummy_seg):
       return i
 
-  #raise ValueError('No intersection found for segment [[%s,%s],[%s,%s]]' % 
-  #                 (seg.a.x,seg.a.y,seg.b.x,seg.b.y))
-
 
 @boundscheck(False)
 @wraparound(False)
@@ -315,6 +322,11 @@ cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
                                 double[:,:] end_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):         
+  '''
+  returns an array identifying the position where the boundary is
+  intersected by start_pnts[i] and end_pnts[i]. Note: if there is no
+  intersection then an arbitrary vector is returned.
+  '''
   cdef:
     int i
     int N = start_pnts.shape[0]
@@ -381,6 +393,11 @@ cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
                                   double[:,:] end_pnts,
                                   double[:,:] vertices,
                                   long[:,:] simplices):         
+  '''
+  returns an array of normal vectors to the facets intersected by
+  start_pnts[i] and end_pnts[i]. Note: if there is no intersection
+  then an arbitrary vector is returned.
+  '''
   cdef:
     int i
     int N = start_pnts.shape[0]
@@ -445,6 +462,10 @@ cdef vector2d _cross_normals_2d(segment2d seg,
 cpdef np.ndarray contains_2d(double[:,:] pnt,
                              double[:,:] vertices,
                              long[:,:] simplices):
+  '''
+  returns a boolean array indentifying whether the pnts are 
+  contained within the domain specified by the vertices and simplices
+  '''
   cdef:
     int count,i
     int N = pnt.shape[0]

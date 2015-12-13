@@ -10,6 +10,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def mcint(f,vert,smp,N=10000):
+  lb = np.min(vert,0)
+  ub = np.max(vert,0)
+  dim = lb.shape[0]
+  pnts = rbf.halton.halton(N,dim)*(ub-lb) + lb
+  val = rho(pnts)
+  if dim == 2:
+    val *= rbf.geometry.contains_2d(pnts,vert,smp).astype(float)
+  if dim == 3:
+    val *= rbf.geometry.contains_3d(pnts,vert,smp).astype(float)
+  soln = np.mean(val)*np.prod(ub-lb)
+  return soln
+
+
+def normalize(fin,vert,smp):
+  integral = mcint(fin,vert,smp)
+  def fout(p):
+    return fin(p)/integral
+
+  return fout
+
+
 def merge_nodes(**kwargs):
   out_dict = {}
   out_array = ()
@@ -25,18 +47,46 @@ def merge_nodes(**kwargs):
   return out_array,out_dict
 
 
-def stencilate(x,N):
-  T = scipy.spatial.cKDTree(x)
-  d,i = T.query(x,N)
-  if N == 1:
-    i = i[:,None]
+def distance(pnt,pnts,vert,smp):
+  '''
+  returns euclidean distance between pnt and pnts. If the line segment
+  between pnt and pnts crosses a boundary then the distance is inf
+  '''  
+  pnt = np.repeat(pnt[None,:],pnts.shape[0],axis=0)
+  cc = rbf.geometry.cross_count_2d(pnt,pnts,vert,smp)
+  dist = np.sqrt(np.sum((pnts-pnt)**2,1))
+  dist[cc>0] = np.inf
+  return dist
 
-  return i
+def stencilate(pnts,N,vert,smp):
+  M = pnts.shape[0]
+  T = scipy.spatial.cKDTree(pnts)
+  dist,neighbors= T.query(pnts,N+1)
+  neighbors = neighbors[:,1:]
+  mindist = dist[:,1]
+  for i in range(M):
+    # distance from point i to nearest neighbors, crossing
+    # a boundary gives infinite distance
+    dist_i = distance(pnts[i],pnts[neighbors[i]],vert,smp)
+    query_size = N+1
+    while np.any(np.isinf(dist_i)):
+      # if some neighbors cross a boundary then query a larger
+      # set of nearest neighbors from the KDTree
+      query_size += N
+      dist_i,neighbors_i = T.query(pnts[i],query_size)
+      neighbors_i = neighbors_i[1:]
+      # recompute distance to larger set of neighbors
+      dist_i = distance(pnts[i],pnts[neighbors_i],vert,smp)
+      # assign the closest N neighbors to the neighbors array
+      neighbors[i] = neighbors_i[np.argsort(dist_i)[:N]]
+      dist_i = dist_i[np.argsort(dist_i)[:N]]
+      mindist[i] = dist_i[0]
+      if query_size >= (M-N):
+        print('WARNING: could not find %s nearest neighbors for point '
+              '%s without crossing a boundary' % (N,pnts[i]))
+        break
 
-def mindist(x):
-  T = scipy.spatial.cKDTree(x)
-  d,i = T.query(x,2)
-  return d[:,1]
+  return neighbors,mindist
 
 
 def normal(M):
@@ -98,6 +148,15 @@ def bnd_crossed(inside,outside,vertices,simplices):
 
   return out
 
+def bnd_contains(points,vertices,simplices):
+  dim = points.shape[1]
+  if dim == 2:
+    out = rbf.geometry.contains_2d(points,vertices,simplices)
+  if dim == 3:
+    out = rbf.geometry.contains_3d(points,vertices,simplices)
+
+  return out
+
   
 def _repel_step(free_nodes,fix_nodes,n,delta,rho):
   nodes = np.vstack((free_nodes,fix_nodes))
@@ -139,13 +198,7 @@ def repel_bounce(free_nodes,
   for k in range(itr):
     free_nodes_new = _repel_step(free_nodes,
                                  fix_nodes,n,delta,rho)
-    if dim == 2:
-      crossed = ~rbf.geometry.contains_2d(free_nodes_new,
-                                          vertices,simplices)
-    if dim == 3:
-      crossed = ~rbf.geometry.contains_3d(free_nodes_new,
-                                          vertices,simplices)
-
+    crossed = ~bnd_contains(free_nodes_new,vertices,simplices)
     bounces = 0
     while np.any(crossed):
       inter = bnd_intersection(
@@ -165,12 +218,7 @@ def repel_bounce(free_nodes,
 
       else: 
         free_nodes_new[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
-        if dim == 2:
-          crossed = ~rbf.geometry.contains_2d(free_nodes_new,
-                                              vertices,simplices)
-        if dim == 3:
-          crossed = ~rbf.geometry.contains_3d(free_nodes_new,
-                                              vertices,simplices)
+        crossed = ~bnd_contains(free_nodes_new,vertices,simplices)
         bounces += 1
 
     free_nodes = free_nodes_new  
@@ -209,13 +257,7 @@ def repel_stick(free_nodes,
     ungrouped_free_nodes_new = _repel_step(
                                  ungrouped_free_nodes,
                                  all_fix_nodes,n,delta,rho)
-    if dim == 2:
-      crossed = ~rbf.geometry.contains_2d(ungrouped_free_nodes_new,
-                                          vertices,simplices)
-    if dim == 3:
-      crossed = ~rbf.geometry.contains_3d(ungrouped_free_nodes_new,
-                                          vertices,simplices)
-
+    crossed = ~bnd_contains(ungrouped_free_nodes_new,vertices,simplices)
     inter = bnd_intersection(
               ungrouped_free_nodes[crossed],     
               ungrouped_free_nodes_new[crossed],
@@ -259,11 +301,7 @@ def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
     if rho is not None:
       new_nodes = new_nodes[rho(new_nodes) > seq1d]
 
-    if ndim == 2:
-      new_nodes = new_nodes[rbf.geometry.contains_2d(new_nodes,vertices,simplices)]
-    if ndim == 3:
-      new_nodes = new_nodes[rbf.geometry.contains_3d(new_nodes,vertices,simplices)]
-
+    new_nodes = new_nodes[bnd_contains(new_nodes,vertices,simplices)]
     nodes = np.vstack((nodes,new_nodes))
     logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
@@ -279,8 +317,6 @@ def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
                                 itr=itr,n=n,
                                 delta=delta,rho=rho)
 
-  #logger.info('computing boundary normals')
-  #bnd_norms = bnd_normal(bnd_nodes,bnd)
   return nodes,norms,grp
 
 
