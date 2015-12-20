@@ -2,6 +2,8 @@
 from __future__ import division
 import numpy as np
 import rbf.basis
+import modest
+import scipy
 
 def poly(p,order,diff=0):
   p = np.asarray(p,dtype=float)
@@ -33,7 +35,7 @@ def vpoly(c,order=None):
   return out
 
 
-def vrbf(n,c,basis=rbf.basis.mq,eps=None,Np=0):
+def vrbf(n,eps,Np,basis):
   '''
   returns the matrix:
 
@@ -43,10 +45,10 @@ def vrbf(n,c,basis=rbf.basis.mq,eps=None,Np=0):
   where Ar is consists of RBFs with specified cnts evaluated
   at those cnts. Ap consists of additional polynomial terms
   '''
+  n = np.asarray(n)
   Ns,Ndim = n.shape
-  if eps is None:
-    eps = np.ones(Ns)
-  Ar = basis(n,c,eps).T
+  eps = eps*np.ones(Ns)
+  Ar = basis(n,n,eps)
   Ap = np.zeros((0,Ns))
   if Np > 0:
       Api = np.ones(len(n))
@@ -63,14 +65,13 @@ def vrbf(n,c,basis=rbf.basis.mq,eps=None,Np=0):
   return A
 
 
-def drbf(x,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
-  x = np.asarray(x,dtype=float)
-  c = np.asarray(c,dtype=float)
+def drbf(x,n,eps,Np,diff,basis):
+  n = np.asarray(n)
+  x = np.asarray(x)
   x = x[None,:]
-  Ns,Ndim = c.shape
-  if eps is None:
-    eps = np.ones(Ns)  
-  dr = basis(x,c,eps,diff=diff)[0,:]
+  Ns,Ndim = n.shape
+  eps = eps*np.ones(Ns)
+  dr = basis(x,n,eps,diff=diff)[0,:]
   dp = np.zeros(0)
   if Np > 0:
     dpi = [float(sum(diff) == 0)]
@@ -83,8 +84,26 @@ def drbf(x,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
   d = np.concatenate((dr,dp))
   return d    
 
+def pick_eps(n,basis,cond):
+  n = np.asarray(n)
+  def system(eps):
+    A = basis(n,n,eps[0]*np.ones(len(n)))
+    cond = np.linalg.cond(A)
+    return np.array([np.log10(cond)])
 
-def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
+  T = scipy.spatial.KDTree(n)
+  dist,idx = T.query(n,2)
+  eps = [0.1/np.mean(dist[:,1])]
+  #print('start %s' % eps[0])
+  eps = modest.nonlin_lstsq(system,[cond],eps,
+                            solver=modest.nnls,
+                            atol=0.1,rtol=0.01,
+                            LM_param=1e-2,
+                            maxitr=100)
+  #print('stop %s' % eps[0])
+  return eps[0]
+
+def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,cond=10):
   '''
   finds the weights, w, such that
 
@@ -94,19 +113,19 @@ def rbf_weight(x,n,c,diff,basis=rbf.basis.mq,eps=None,Np=0):
   |    :             :    | w = |     :         |
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
+  eps = pick_eps(n,basis,cond)  
   x = np.array(x,copy=True)
   n = np.array(n,copy=True)
-  c = np.array(c,copy=True)
+  # center about x
   n -= x
-  c -= x
   x -= x
-  A = vrbf(n,c,basis=basis,eps=eps,Np=Np)
-  d = drbf(x,c,basis=basis,eps=eps,Np=Np,diff=diff)
-  w = np.linalg.solve(A,d)[:c.shape[0]]
+  A = vrbf(n,eps,Np,basis)
+  d = drbf(x,n,eps,Np,diff,basis)
+  w = np.linalg.solve(A,d)[:n.shape[0]]
   return w 
 
 
-def poly_weight(x,c,diff):
+def poly_weight(x,n,diff):
   '''
   finds the weights, w, such that
 
@@ -117,11 +136,11 @@ def poly_weight(x,c,diff):
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
   x = np.array(x,copy=True)
-  c = np.array(c,copy=True)
-  c -= x
+  n = np.array(n,copy=True)
+  n -= x
   x -= x
-  A =  vpoly(c)
-  d =  [poly(x,j,diff=diff) for j in range(c.shape[0])]
+  A =  vpoly(n)
+  d =  [poly(x,j,diff=diff) for j in range(n.shape[0])]
   w = np.linalg.solve(A,d)
   return w 
 

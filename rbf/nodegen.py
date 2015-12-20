@@ -15,7 +15,7 @@ def mcint(f,vert,smp,N=10000):
   ub = np.max(vert,0)
   dim = lb.shape[0]
   pnts = rbf.halton.halton(N,dim)*(ub-lb) + lb
-  val = rho(pnts)
+  val = f(pnts)
   if dim == 2:
     val *= rbf.geometry.contains_2d(pnts,vert,smp).astype(float)
   if dim == 3:
@@ -53,40 +53,47 @@ def distance(pnt,pnts,vert,smp):
   between pnt and pnts crosses a boundary then the distance is inf
   '''  
   pnt = np.repeat(pnt[None,:],pnts.shape[0],axis=0)
-  cc = rbf.geometry.cross_count_2d(pnt,pnts,vert,smp)
   dist = np.sqrt(np.sum((pnts-pnt)**2,1))
+  cc = np.zeros(pnts.shape[0],dtype=int)
+  cc[dist!=0.0] = rbf.geometry.cross_count_2d(pnt[dist!=0.0],
+                                              pnts[dist!=0.0],
+                                              vert,smp)
   dist[cc>0] = np.inf
   return dist
 
-def stencilate(pnts,N,vert,smp):
-  M = pnts.shape[0]
+def nearest(test,pnts,N,vert=None,smp=None):
+  M = test.shape[0]
   T = scipy.spatial.cKDTree(pnts)
-  dist,neighbors= T.query(pnts,N+1)
-  neighbors = neighbors[:,1:]
-  mindist = dist[:,1]
+  dist,neighbors= T.query(test,N)
+  if N == 1:
+    dist = dist[:,None]
+    neighbors = neighbors[:,None]
+
+  if vert is None:
+    return neighbors,dist
+
   for i in range(M):
     # distance from point i to nearest neighbors, crossing
     # a boundary gives infinite distance
-    dist_i = distance(pnts[i],pnts[neighbors[i]],vert,smp)
-    query_size = N+1
+    dist_i = distance(test[i],pnts[neighbors[i]],vert,smp)
+    query_size = N
     while np.any(np.isinf(dist_i)):
       # if some neighbors cross a boundary then query a larger
       # set of nearest neighbors from the KDTree
       query_size += N
-      dist_i,neighbors_i = T.query(pnts[i],query_size)
-      neighbors_i = neighbors_i[1:]
+      dist_i,neighbors_i = T.query(test[i],query_size)
       # recompute distance to larger set of neighbors
-      dist_i = distance(pnts[i],pnts[neighbors_i],vert,smp)
+      dist_i = distance(test[i],pnts[neighbors_i],vert,smp)
       # assign the closest N neighbors to the neighbors array
       neighbors[i] = neighbors_i[np.argsort(dist_i)[:N]]
       dist_i = dist_i[np.argsort(dist_i)[:N]]
-      mindist[i] = dist_i[0]
+      dist[i] = dist_i
       if query_size >= (M-N):
         print('WARNING: could not find %s nearest neighbors for point '
               '%s without crossing a boundary' % (N,pnts[i]))
         break
 
-  return neighbors,mindist
+  return neighbors,dist
 
 
 def normal(M):
@@ -158,10 +165,10 @@ def bnd_contains(points,vertices,simplices):
   return out
 
   
-def _repel_step(free_nodes,fix_nodes,n,delta,rho):
+def _repel_step(free_nodes,fix_nodes,n,delta,rho,vert,smp):
   nodes = np.vstack((free_nodes,fix_nodes))
-  T = scipy.spatial.cKDTree(nodes)
-  d,i = T.query(free_nodes,n)
+  i,d = nearest(free_nodes,nodes,n,vert,smp)
+
   i = i[:,1:]
   d = d[:,1:]
   c = 1.0/rho(nodes)[i,None]*rho(free_nodes)[:,None,None]  
@@ -197,7 +204,9 @@ def repel_bounce(free_nodes,
 
   for k in range(itr):
     free_nodes_new = _repel_step(free_nodes,
-                                 fix_nodes,n,delta,rho)
+                                 fix_nodes,n,delta,rho,
+                                 vertices,
+                                 simplices)
     crossed = ~bnd_contains(free_nodes_new,vertices,simplices)
     bounces = 0
     while np.any(crossed):
@@ -213,7 +222,7 @@ def repel_bounce(free_nodes,
       free_nodes[crossed] = inter - 1e-10*norms
       # 3 is the number of bounces allowed   
       if bounces > max_bounces:
-        free_nodes_new[crossed] = inter
+        free_nodes_new[crossed] = inter - 1e-10*norms
         break
 
       else: 
@@ -256,7 +265,9 @@ def repel_stick(free_nodes,
     ungrouped_free_nodes = free_nodes[ungrouped]
     ungrouped_free_nodes_new = _repel_step(
                                  ungrouped_free_nodes,
-                                 all_fix_nodes,n,delta,rho)
+                                 all_fix_nodes,n,delta,rho,
+                                 vertices,
+                                 simplices)
     crossed = ~bnd_contains(ungrouped_free_nodes_new,vertices,simplices)
     inter = bnd_intersection(
               ungrouped_free_nodes[crossed],     
@@ -270,7 +281,7 @@ def repel_stick(free_nodes,
                                 ungrouped_free_nodes[crossed],     
                                 ungrouped_free_nodes_new[crossed], 
                                 vertices,simplices)
-    ungrouped_free_nodes_new[crossed] = inter
+    ungrouped_free_nodes_new[crossed] = inter - 1e-10*norm[ungrouped[crossed]]
     free_nodes[ungrouped] = ungrouped_free_nodes_new
 
   return free_nodes,norm,grp
