@@ -5,6 +5,7 @@ import rbf.basis
 import modest
 import scipy
 
+
 def poly(p,order,diff=0):
   p = np.asarray(p,dtype=float)
   if diff == 0:
@@ -84,26 +85,29 @@ def drbf(x,n,eps,Np,diff,basis):
   d = np.concatenate((dr,dp))
   return d    
 
-def pick_eps(n,basis,cond):
+@modest.funtime
+def optimal_eps(n,basis,cond):
   n = np.asarray(n)
   def system(eps):
     A = basis(n,n,eps[0]*np.ones(len(n)))
     cond = np.linalg.cond(A)
     return np.array([np.log10(cond)])
 
-  T = scipy.spatial.KDTree(n)
+  T = scipy.spatial.cKDTree(n)
   dist,idx = T.query(n,2)
-  eps = [0.1/np.mean(dist[:,1])]
-  #print('start %s' % eps[0])
-  eps = modest.nonlin_lstsq(system,[cond],eps,
+  # average shortest distance between nodes
+  dx = np.mean(dist[:,1])
+  eps = [0.1/dx]
+  eps = modest.nonlin_lstsq(system,[cond],
+                            eps,
                             solver=modest.nnls,
-                            atol=0.1,rtol=0.01,
+                            atol=1e-2,rtol=1e-4,
                             LM_param=1e-2,
                             maxitr=100)
-  #print('stop %s' % eps[0])
   return eps[0]
 
-def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,cond=10):
+@modest.funtime
+def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   '''
   finds the weights, w, such that
 
@@ -113,7 +117,9 @@ def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,cond=10):
   |    :             :    | w = |     :         |
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
-  eps = pick_eps(n,basis,cond)  
+  if eps is None:
+    eps = optimal_eps(n,basis,cond)  
+
   x = np.array(x,copy=True)
   n = np.array(n,copy=True)
   # center about x

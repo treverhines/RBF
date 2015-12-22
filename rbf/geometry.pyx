@@ -284,13 +284,12 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
     raise MemoryError()
   
   try:
-    with nogil:
-      for i in prange(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        out[i] = _cross_which_2d(seg_array[i],vertices,simplices)
+    for i in range(N):
+      seg_array[i].a.x = start_pnts[i,0]
+      seg_array[i].a.y = start_pnts[i,1]
+      seg_array[i].b.x = end_pnts[i,0]
+      seg_array[i].b.y = end_pnts[i,1]
+      out[i] = _cross_which_2d(seg_array[i],vertices,simplices)
 
   finally:
     free(seg_array)
@@ -302,7 +301,7 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
 @wraparound(False)
 cdef int _cross_which_2d(segment2d seg,
                          double[:,:] vertices,
-                         long[:,:] simplices) nogil:
+                         long[:,:] simplices) except -1:
   cdef:
     int i
     segment2d dummy_seg
@@ -315,6 +314,8 @@ cdef int _cross_which_2d(segment2d seg,
     if is_intersecting_2d(seg,dummy_seg):
       return i
 
+  raise ValueError('No intersection found for segment [[%s,%s],[%s,%s]]' % 
+                   (seg.a.x,seg.a.y,seg.b.x,seg.b.y))
 
 @boundscheck(False)
 @wraparound(False)
@@ -338,15 +339,14 @@ cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
     raise MemoryError()
 
   try:
-    with nogil:
-      for i in prange(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        vec = _cross_where_2d(seg_array[i],vertices,simplices)
-        out[i,0] = vec.x
-        out[i,1] = vec.y
+    for i in range(N):
+      seg_array[i].a.x = start_pnts[i,0]
+      seg_array[i].a.y = start_pnts[i,1]
+      seg_array[i].b.x = end_pnts[i,0]
+      seg_array[i].b.y = end_pnts[i,1]
+      vec = _cross_where_2d(seg_array[i],vertices,simplices)
+      out[i,0] = vec.x
+      out[i,1] = vec.y
 
   finally:
     free(seg_array)
@@ -358,7 +358,7 @@ cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
 @wraparound(False)
 cdef vector2d _cross_where_2d(segment2d seg,
                               double[:,:] vertices,
-                              long[:,:] simplices) nogil:
+                              long[:,:] simplices) except *:
   cdef:
     int idx
     double proj1,proj2,n1,n2
@@ -409,15 +409,14 @@ cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
     raise MemoryError()
 
   try:
-    with nogil:
-      for i in prange(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        vec = _cross_normals_2d(seg_array[i],vertices,simplices)
-        out[i,0] = vec.x
-        out[i,1] = vec.y
+    for i in range(N):
+      seg_array[i].a.x = start_pnts[i,0]
+      seg_array[i].a.y = start_pnts[i,1]
+      seg_array[i].b.x = end_pnts[i,0]
+      seg_array[i].b.y = end_pnts[i,1]
+      vec = _cross_normals_2d(seg_array[i],vertices,simplices)
+      out[i,0] = vec.x
+      out[i,1] = vec.y
     
   finally:
     free(seg_array)
@@ -429,7 +428,7 @@ cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
 @wraparound(False)
 cdef vector2d _cross_normals_2d(segment2d seg,
                                 double[:,:] vertices,
-                                long[:,:] simplices) nogil:         
+                                long[:,:] simplices) except *:      
   cdef:
     double proj,n
     int idx
@@ -603,15 +602,15 @@ cdef bint is_intersecting_3d(segment3d seg,
     dummy_seg4.b.y = tri.a.y
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg2,True,False):
+  if is_intersecting_2d(dummy_seg1,dummy_seg2,True,True):
     count += 1
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg3,True,False):
+  if is_intersecting_2d(dummy_seg1,dummy_seg3,True,True):
     count += 1
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg4,True,False):
+  if is_intersecting_2d(dummy_seg1,dummy_seg4,True,True):
     count += 1
 
   return count%2 == 1
@@ -691,15 +690,14 @@ cpdef np.ndarray cross_which_3d(double[:,:] start_pnts,
     raise MemoryError()
 
   try:
-    with nogil:
-      for i in prange(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].a.z = start_pnts[i,2]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        seg_array[i].b.z = end_pnts[i,2]
-        out[i] = _cross_which_3d(seg_array[i],vertices,simplices)
+    for i in range(N):
+      seg_array[i].a.x = start_pnts[i,0]
+      seg_array[i].a.y = start_pnts[i,1]
+      seg_array[i].a.z = start_pnts[i,2]
+      seg_array[i].b.x = end_pnts[i,0]
+      seg_array[i].b.y = end_pnts[i,1]
+      seg_array[i].b.z = end_pnts[i,2]
+      out[i] = _cross_which_3d(seg_array[i],vertices,simplices)
     
   finally:
     free(seg_array)
@@ -711,7 +709,7 @@ cpdef np.ndarray cross_which_3d(double[:,:] start_pnts,
 @wraparound(False)
 cdef int _cross_which_3d(segment3d seg,
                          double[:,:] vertices,
-                         long[:,:] simplices) nogil:         
+                         long[:,:] simplices) except -1:         
   cdef:
     int i
     int N = simplices.shape[0]
@@ -730,6 +728,8 @@ cdef int _cross_which_3d(segment3d seg,
     if is_intersecting_3d(seg,tri):
       return i
  
+  raise ValueError('No intersection found for segment [[%s,%s,%s],[%s,%s,%s]]' % 
+                   (seg.a.x,seg.a.y,seg.a.z,seg.b.x,seg.b.y,seg.b.z))
 
 @boundscheck(False)
 @wraparound(False)
@@ -748,18 +748,17 @@ cpdef np.ndarray cross_where_3d(double[:,:] start_pnts,
     raise MemoryError()
 
   try:
-    with nogil:
-      for i in prange(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].a.z = start_pnts[i,2]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        seg_array[i].b.z = end_pnts[i,2]
-        vec = _cross_where_3d(seg_array[i],vertices,simplices)
-        out[i,0] = vec.x
-        out[i,1] = vec.y
-        out[i,2] = vec.z
+    for i in range(N):
+      seg_array[i].a.x = start_pnts[i,0]
+      seg_array[i].a.y = start_pnts[i,1]
+      seg_array[i].a.z = start_pnts[i,2]
+      seg_array[i].b.x = end_pnts[i,0]
+      seg_array[i].b.y = end_pnts[i,1]
+      seg_array[i].b.z = end_pnts[i,2]
+      vec = _cross_where_3d(seg_array[i],vertices,simplices)
+      out[i,0] = vec.x
+      out[i,1] = vec.y
+      out[i,2] = vec.z
 
   finally:
     free(seg_array)
@@ -771,7 +770,7 @@ cpdef np.ndarray cross_where_3d(double[:,:] start_pnts,
 @wraparound(False)
 cdef vector3d _cross_where_3d(segment3d seg,
                               double[:,:] vertices,
-                              long[:,:] simplices) nogil:         
+                              long[:,:] simplices) except *:         
   cdef:
     double proj1,proj2
     int idx
@@ -829,18 +828,17 @@ cpdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
     raise MemoryError()
 
   try:
-    with nogil:
-      for i in prange(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].a.z = start_pnts[i,2]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        seg_array[i].b.z = end_pnts[i,2]
-        vec = _cross_normals_3d(seg_array[i],vertices,simplices)
-        out[i,0] = vec.x
-        out[i,1] = vec.y
-        out[i,2] = vec.z
+    for i in range(N):
+      seg_array[i].a.x = start_pnts[i,0]
+      seg_array[i].a.y = start_pnts[i,1]
+      seg_array[i].a.z = start_pnts[i,2]
+      seg_array[i].b.x = end_pnts[i,0]
+      seg_array[i].b.y = end_pnts[i,1]
+      seg_array[i].b.z = end_pnts[i,2]
+      vec = _cross_normals_3d(seg_array[i],vertices,simplices)
+      out[i,0] = vec.x
+      out[i,1] = vec.y
+      out[i,2] = vec.z
 
   finally:
     free(seg_array)
@@ -852,7 +850,7 @@ cpdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
 @wraparound(False)
 cdef vector3d _cross_normals_3d(segment3d seg,
                                 double[:,:] vertices,
-                                long[:,:] simplices) nogil:         
+                                long[:,:] simplices) except *:         
 
   cdef:
     double proj,n

@@ -4,12 +4,15 @@ import numpy as np
 import scipy.spatial
 import rbf.halton
 import rbf.geometry
+import rbf.weights
 import modest
 from modest import funtime
 import logging
+import random
 logger = logging.getLogger(__name__)
 
 
+@modest.funtime
 def mcint(f,vert,smp,N=10000):
   lb = np.min(vert,0)
   ub = np.max(vert,0)
@@ -47,6 +50,7 @@ def merge_nodes(**kwargs):
   return out_array,out_dict
 
 
+@modest.funtime
 def distance(pnt,pnts,vert,smp):
   '''
   returns euclidean distance between pnt and pnts. If the line segment
@@ -61,6 +65,41 @@ def distance(pnt,pnts,vert,smp):
   dist[cc>0] = np.inf
   return dist
 
+
+def shape_factor(nodes,s,basis,cond=10,samples=100):
+  '''
+  The shape factor for stencil i, eps_i, is chosen by
+
+    eps_i = alpha/mu_i
+
+  where mu_i is the mean shortest path between nodes in stencil i. and
+  alpha is a proportionality constant chosen to obtain the desired 
+  condition number for each stencils Vandermonde matrix.  This 
+  function assumes that the optimal alpha for each stencil is equal. 
+  Alpha is then estimated from the specified number of stencil samples
+  and then eps_i is returned for each stencil
+  '''
+  alpha_list = np.zeros(samples)
+  for i,si in enumerate(random.sample(s,samples)):
+    eps = rbf.weights.optimal_eps(nodes[si,:],basis,cond)
+    T = scipy.spatial.cKDTree(nodes[si,:])
+    dx,idx = T.query(nodes[si,:],2)
+    mu = np.mean(dx[:,1])
+    alpha_list[i] = eps*mu
+ 
+  alpha = np.mean(alpha_list)  
+  eps_list = np.zeros(s.shape[0])
+  for i,si in enumerate(s):
+    T = scipy.spatial.cKDTree(nodes[si,:])
+    dx,idx = T.query(nodes[si,:],2)
+    mu = np.mean(dx[:,1])
+    eps_list[i] = alpha/mu          
+
+  return eps_list
+
+  
+
+@modest.funtime
 def nearest(test,pnts,N,vert=None,smp=None):
   M = test.shape[0]
   T = scipy.spatial.cKDTree(pnts)
@@ -164,11 +203,15 @@ def bnd_contains(points,vertices,simplices):
 
   return out
 
-  
-def _repel_step(free_nodes,fix_nodes,n,delta,rho,vert,smp):
-  nodes = np.vstack((free_nodes,fix_nodes))
-  i,d = nearest(free_nodes,nodes,n,vert,smp)
 
+@modest.funtime  
+def _repel_step(free_nodes,fix_nodes,n,delta,rho,vert,smp,
+                bounded_field):
+  nodes = np.vstack((free_nodes,fix_nodes))
+  if bounded_field: 
+    i,d = nearest(free_nodes,nodes,n,vert,smp)
+  else:
+    i,d = nearest(free_nodes,nodes,n)
   i = i[:,1:]
   d = d[:,1:]
   c = 1.0/rho(nodes)[i,None]*rho(free_nodes)[:,None,None]  
@@ -184,13 +227,16 @@ def _repel_step(free_nodes,fix_nodes,n,delta,rho,vert,smp):
 def default_rho(p):
   return 1.0 + 0*p[:,0]
 
+@modest.funtime
 def repel_bounce(free_nodes,
                  vertices,
                  simplices,
                  fix_nodes=None,
                  itr=10,n=10,delta=0.1,
-                 rho=None,max_bounces=3):
+                 rho=None,max_bounces=3,
+                 bounded_field=False):
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
+  scale = np.max(vertices) - np.min(vertices)
   dim = free_nodes.shape[1]
   if rho is None:
     rho = default_rho
@@ -206,7 +252,8 @@ def repel_bounce(free_nodes,
     free_nodes_new = _repel_step(free_nodes,
                                  fix_nodes,n,delta,rho,
                                  vertices,
-                                 simplices)
+                                 simplices,
+                                 bounded_field)
     crossed = ~bnd_contains(free_nodes_new,vertices,simplices)
     bounces = 0
     while np.any(crossed):
@@ -219,10 +266,10 @@ def repel_bounce(free_nodes,
                 free_nodes_new[crossed],
                 vertices,simplices)
       res = free_nodes_new[crossed] - inter
-      free_nodes[crossed] = inter - 1e-10*norms
+      free_nodes[crossed] = inter - 1e-10*scale*norms
       # 3 is the number of bounces allowed   
       if bounces > max_bounces:
-        free_nodes_new[crossed] = inter - 1e-10*norms
+        free_nodes_new[crossed] = inter - 1e-10*scale*norms
         break
 
       else: 
@@ -234,19 +281,21 @@ def repel_bounce(free_nodes,
   
   return free_nodes
 
-
+@modest.funtime
 def repel_stick(free_nodes,
                 vertices,
                 simplices,
                 groups, 
                 fix_nodes=None,
                 itr=10,n=10,delta=0.1,
-                rho=None,max_bounces=3):
+                rho=None,max_bounces=3,
+                bounded_field=False):
 
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
   norm = np.zeros(free_nodes.shape,dtype=float)
   grp = np.zeros(free_nodes.shape[0],dtype=int)
   dim = free_nodes.shape[1]
+  scale = np.max(vertices) - np.min(vertices)
   if rho is None:
     rho = default_rho
 
@@ -267,7 +316,8 @@ def repel_stick(free_nodes,
                                  ungrouped_free_nodes,
                                  all_fix_nodes,n,delta,rho,
                                  vertices,
-                                 simplices)
+                                 simplices,
+                                 bounded_field)
     crossed = ~bnd_contains(ungrouped_free_nodes_new,vertices,simplices)
     inter = bnd_intersection(
               ungrouped_free_nodes[crossed],     
@@ -281,14 +331,15 @@ def repel_stick(free_nodes,
                                 ungrouped_free_nodes[crossed],     
                                 ungrouped_free_nodes_new[crossed], 
                                 vertices,simplices)
-    ungrouped_free_nodes_new[crossed] = inter - 1e-10*norm[ungrouped[crossed]]
+    ungrouped_free_nodes_new[crossed] = inter - 1e-10*scale*norm[ungrouped[crossed]]
     free_nodes[ungrouped] = ungrouped_free_nodes_new
 
   return free_nodes,norm,grp
 
 
+@modest.funtime
 def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
-                   itr=20,n=10,delta=0.1):
+                   itr=20,n=10,delta=0.1,bounded_field=False):
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)
   max_sample_size = 100*N  
@@ -320,13 +371,14 @@ def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
   nodes = nodes[:N]
   logger.info('repelling nodes with boundary bouncing') 
   nodes = repel_bounce(nodes,vertices,simplices,fix_nodes=fix_nodes,itr=itr,
-                       n=n,delta=delta,rho=rho)
+                       n=n,delta=delta,rho=rho,bounded_field=bounded_field)
 
   logger.info('repelling nodes with boundary sticking') 
   nodes,norms,grp = repel_stick(nodes,vertices,simplices,groups,
                                 fix_nodes=fix_nodes,
                                 itr=itr,n=n,
-                                delta=delta,rho=rho)
+                                delta=delta,rho=rho,
+                                bounded_field=bounded_field)
 
   return nodes,norms,grp
 
