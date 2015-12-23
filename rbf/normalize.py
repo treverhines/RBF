@@ -45,6 +45,7 @@ def mcint(f,vert,smp,N=10000):
     val = val[rbf.geometry.contains_2d(pnts,vert,smp)]
   if dim == 3:
     val = val[rbf.geometry.contains_3d(pnts,vert,smp)]
+
   soln = np.sum(val)*np.prod(ub-lb)/N
   return soln
 
@@ -65,6 +66,7 @@ def mcmax(f,vert,smp,N=10000):
     val = val[rbf.geometry.contains_2d(pnts,vert,smp)]
   if dim == 3:
     val = val[rbf.geometry.contains_3d(pnts,vert,smp)]
+
   soln = np.max(val)
   return soln
 
@@ -90,6 +92,13 @@ def normalize_1d(fin,lb,ub,by='integral',N=10000):
   return fout
 
 
+def normalize_decorator_1d(*args,**kwargs):
+  def dout(fin):
+    fout = normalize_1d(fin,*args,**kwargs)
+    return fout
+  return dout
+
+
 def normalize(fin,vert,smp,by='integral',N=10000):
   '''
   normalize a function that takes a (N,2) or (N,3) array and returns
@@ -110,3 +119,9 @@ def normalize(fin,vert,smp,by='integral',N=10000):
     return fin(p)/denom
 
   return fout
+
+def normalize_decorator(*args,**kwargs):
+  def dout(fin):
+    fout = normalize(fin,*args,**kwargs)
+    return fout
+  return dout

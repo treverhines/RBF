@@ -271,8 +271,8 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
   '''
   returns an array identifying the index of the facet (i.e. which
   doublet of simplices) intersected by start_pnts[i] and
-  end_pnts[i]. Note: if there is no intersection then an arbitrary
-  integer is returned.
+  end_pnts[i]. Note: if there is no intersection then a ValueError
+  is returned.
   '''
   cdef:
     int i
@@ -326,7 +326,7 @@ cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
   '''
   returns an array identifying the position where the boundary is
   intersected by start_pnts[i] and end_pnts[i]. Note: if there is no
-  intersection then an arbitrary vector is returned.
+  intersection then a ValueError is returned.
   '''
   cdef:
     int i
@@ -396,7 +396,7 @@ cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
   '''
   returns an array of normal vectors to the facets intersected by
   start_pnts[i] and end_pnts[i]. Note: if there is no intersection
-  then an arbitrary vector is returned.
+  then a ValueError is returned.
   '''
   cdef:
     int i
