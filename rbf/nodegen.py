@@ -4,35 +4,14 @@ import numpy as np
 import scipy.spatial
 import rbf.halton
 import rbf.geometry
+import rbf.normalize
 import rbf.weights
+import rbf.stencil
 import modest
 from modest import funtime
 import logging
 import random
 logger = logging.getLogger(__name__)
-
-
-@modest.funtime
-def mcint(f,vert,smp,N=10000):
-  lb = np.min(vert,0)
-  ub = np.max(vert,0)
-  dim = lb.shape[0]
-  pnts = rbf.halton.halton(N,dim)*(ub-lb) + lb
-  val = f(pnts)
-  if dim == 2:
-    val *= rbf.geometry.contains_2d(pnts,vert,smp).astype(float)
-  if dim == 3:
-    val *= rbf.geometry.contains_3d(pnts,vert,smp).astype(float)
-  soln = np.mean(val)*np.prod(ub-lb)
-  return soln
-
-
-def normalize(fin,vert,smp):
-  integral = mcint(fin,vert,smp)
-  def fout(p):
-    return fin(p)/integral
-
-  return fout
 
 
 def merge_nodes(**kwargs):
@@ -48,91 +27,6 @@ def merge_nodes(**kwargs):
 
   out_array = np.vstack(out_array)
   return out_array,out_dict
-
-
-@modest.funtime
-def distance(pnt,pnts,vert,smp):
-  '''
-  returns euclidean distance between pnt and pnts. If the line segment
-  between pnt and pnts crosses a boundary then the distance is inf
-  '''  
-  pnt = np.repeat(pnt[None,:],pnts.shape[0],axis=0)
-  dist = np.sqrt(np.sum((pnts-pnt)**2,1))
-  cc = np.zeros(pnts.shape[0],dtype=int)
-  cc[dist!=0.0] = rbf.geometry.cross_count_2d(pnt[dist!=0.0],
-                                              pnts[dist!=0.0],
-                                              vert,smp)
-  dist[cc>0] = np.inf
-  return dist
-
-
-def shape_factor(nodes,s,basis,cond=10,samples=100):
-  '''
-  The shape factor for stencil i, eps_i, is chosen by
-
-    eps_i = alpha/mu_i
-
-  where mu_i is the mean shortest path between nodes in stencil i. and
-  alpha is a proportionality constant chosen to obtain the desired 
-  condition number for each stencils Vandermonde matrix.  This 
-  function assumes that the optimal alpha for each stencil is equal. 
-  Alpha is then estimated from the specified number of stencil samples
-  and then eps_i is returned for each stencil
-  '''
-  alpha_list = np.zeros(samples)
-  for i,si in enumerate(random.sample(s,samples)):
-    eps = rbf.weights.optimal_eps(nodes[si,:],basis,cond)
-    T = scipy.spatial.cKDTree(nodes[si,:])
-    dx,idx = T.query(nodes[si,:],2)
-    mu = np.mean(dx[:,1])
-    alpha_list[i] = eps*mu
- 
-  alpha = np.mean(alpha_list)  
-  eps_list = np.zeros(s.shape[0])
-  for i,si in enumerate(s):
-    T = scipy.spatial.cKDTree(nodes[si,:])
-    dx,idx = T.query(nodes[si,:],2)
-    mu = np.mean(dx[:,1])
-    eps_list[i] = alpha/mu          
-
-  return eps_list
-
-  
-
-@modest.funtime
-def nearest(test,pnts,N,vert=None,smp=None):
-  M = test.shape[0]
-  T = scipy.spatial.cKDTree(pnts)
-  dist,neighbors= T.query(test,N)
-  if N == 1:
-    dist = dist[:,None]
-    neighbors = neighbors[:,None]
-
-  if vert is None:
-    return neighbors,dist
-
-  for i in range(M):
-    # distance from point i to nearest neighbors, crossing
-    # a boundary gives infinite distance
-    dist_i = distance(test[i],pnts[neighbors[i]],vert,smp)
-    query_size = N
-    while np.any(np.isinf(dist_i)):
-      # if some neighbors cross a boundary then query a larger
-      # set of nearest neighbors from the KDTree
-      query_size += N
-      dist_i,neighbors_i = T.query(test[i],query_size)
-      # recompute distance to larger set of neighbors
-      dist_i = distance(test[i],pnts[neighbors_i],vert,smp)
-      # assign the closest N neighbors to the neighbors array
-      neighbors[i] = neighbors_i[np.argsort(dist_i)[:N]]
-      dist_i = dist_i[np.argsort(dist_i)[:N]]
-      dist[i] = dist_i
-      if query_size >= (M-N):
-        print('WARNING: could not find %s nearest neighbors for point '
-              '%s without crossing a boundary' % (N,pnts[i]))
-        break
-
-  return neighbors,dist
 
 
 def normal(M):
@@ -209,9 +103,9 @@ def _repel_step(free_nodes,fix_nodes,n,delta,rho,vert,smp,
                 bounded_field):
   nodes = np.vstack((free_nodes,fix_nodes))
   if bounded_field: 
-    i,d = nearest(free_nodes,nodes,n,vert,smp)
+    i,d = rbf.stencil.nearest(free_nodes,nodes,n,vert,smp)
   else:
-    i,d = nearest(free_nodes,nodes,n)
+    i,d = rbf.stencil.nearest(free_nodes,nodes,n)
   i = i[:,1:]
   d = d[:,1:]
   c = 1.0/rho(nodes)[i,None]*rho(free_nodes)[:,None,None]  
@@ -338,8 +232,55 @@ def repel_stick(free_nodes,
 
 
 @modest.funtime
+def generate_nodes_1d(N,lower,upper,rho=None,itr=100,n=10,delta=0.01):
+  if n > (N-2):
+    n = (N-2)
+
+  if rho is None:
+    rho = default_rho
+
+  rho = rbf.normalize.normalize_1d(rho,lower,upper,by='max')
+
+  max_sample_size = 100*N
+  H = rbf.halton.Halton(2)
+  nodes = np.zeros((0,1))
+  cnt = 0
+  acceptance = 1.0
+  while nodes.shape[0] < (N-2):
+    if acceptance == 0.0:
+      sample_size = max_sample_size
+    else:
+      sample_size = int(((N-2)-nodes.shape[0])/acceptance) + 1
+      if sample_size > max_sample_size:
+        sample_size = max_sample_size
+
+    cnt += sample_size
+    seq = H(sample_size)
+    seq1 = seq[:,[0]]
+    seq2 = seq[:,1]
+    new_nodes = (upper-lower)*seq1 + lower
+    new_nodes = new_nodes[rho(new_nodes) > seq2]
+    nodes = np.vstack((nodes,new_nodes))
+    acceptance = nodes.shape[0]/cnt
+
+  nodes = nodes[:(N-2)]
+  for i in range(itr):
+    nodes = _repel_step(nodes,np.array([[lower],[upper]]),
+                        n,delta,rho,[],[],False)
+
+  nodes = np.vstack(([[lower],[upper]],nodes))
+  nodes = np.sort(nodes,axis=0)
+  return nodes
+
+
+@modest.funtime
 def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
                    itr=20,n=10,delta=0.1,bounded_field=False):
+  if rho is None:
+    rho = default_rho
+
+  rho = rbf.normalize.normalize(rho,vertices,simplices,by='max')
+
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)
   max_sample_size = 100*N  
@@ -360,8 +301,7 @@ def generate_nodes(N,vertices,simplices,groups,fix_nodes=None,rho=None,
     seqNd = H(sample_size)
     seq1d = seqNd[:,-1]
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
-    if rho is not None:
-      new_nodes = new_nodes[rho(new_nodes) > seq1d]
+    new_nodes = new_nodes[rho(new_nodes) > seq1d]
 
     new_nodes = new_nodes[bnd_contains(new_nodes,vertices,simplices)]
     nodes = np.vstack((nodes,new_nodes))

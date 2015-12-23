@@ -4,6 +4,8 @@ import numpy as np
 import rbf.basis
 import modest
 import scipy
+import scipy.spatial
+import random
 
 
 def poly(p,order,diff=0):
@@ -85,8 +87,41 @@ def drbf(x,n,eps,Np,diff,basis):
   d = np.concatenate((dr,dp))
   return d    
 
+
+def shape_factor(nodes,s,basis,cond=10,samples=100):
+  '''
+  The shape factor for stencil i, eps_i, is chosen by
+ 
+    eps_i = alpha/mu_i                  
+ 
+  where mu_i is the mean shortest path between nodes in stencil i. and 
+  alpha is a proportionality constant chosen to obtain the desired  
+  condition number for each stencils Vandermonde matrix.  This    
+  function assumes that the optimal alpha for each stencil is equal. 
+  Alpha is then estimated from the specified number of stencil samples
+  and then eps_i is returned for each stencil
+  '''
+  alpha_list = np.zeros(samples)
+  for i,si in enumerate(random.sample(s,samples)):
+    eps = optimal_shape_factor(nodes[si,:],basis,cond)
+    T = scipy.spatial.cKDTree(nodes[si,:])
+    dx,idx = T.query(nodes[si,:],2)
+    mu = np.mean(dx[:,1])
+    alpha_list[i] = eps*mu
+
+  alpha = np.mean(alpha_list)
+  eps_list = np.zeros(s.shape[0])
+  for i,si in enumerate(s):
+    T = scipy.spatial.cKDTree(nodes[si,:])
+    dx,idx = T.query(nodes[si,:],2)
+    mu = np.mean(dx[:,1])
+    eps_list[i] = alpha/mu
+
+  return eps_list
+
+
 @modest.funtime
-def optimal_eps(n,basis,cond):
+def optimal_shape_factor(n,basis,cond):
   n = np.asarray(n)
   def system(eps):
     A = basis(n,n,eps[0]*np.ones(len(n)))
@@ -118,7 +153,7 @@ def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
   if eps is None:
-    eps = optimal_eps(n,basis,cond)  
+    eps = optimal_shape_factor(n,basis,cond)  
 
   x = np.array(x,copy=True)
   n = np.array(n,copy=True)
