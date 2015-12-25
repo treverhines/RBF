@@ -11,7 +11,47 @@ import modest
 from modest import funtime
 import logging
 import random
+from itertools import combinations
 logger = logging.getLogger(__name__)
+
+
+def contains_duplicates(s):
+  '''                                                                                         
+  returns True if every element in s is unique                                                
+  '''
+  return len(list(set(s))) != len(s)
+
+
+def is_closed(smp):
+  '''                                                                                         
+  returns True if every simplex shares an edge with one and only one                          
+  other simplex.  This is a sufficient but not necessary condition                            
+  for a boundary to be closed.  If some vertices are collinear then                           
+  this function may indicate an open domain when it is in fact closed                         
+  '''
+  smp = np.asarray(smp)
+  dim = smp.shape[1]
+  sub_smp = []
+  for s in smp:
+    if contains_duplicates(s):
+      return False
+
+    for c in combinations(s,dim-1):
+      c_list = list(c)
+      c_list.sort()
+      sub_smp.append(c_list)
+
+  for s in sub_smp:
+    count = 0
+    for t in sub_smp:
+      if s == t:
+        count += 1
+
+    if count != 2:
+      return False
+
+  return True
+
 
 
 def merge_nodes(**kwargs):
@@ -355,6 +395,15 @@ def generate_nodes(N,vertices,simplices,groups=None,fix_nodes=None,rho=None,
 
   if normalize_rho:
     rho = rbf.normalize.normalize(rho,vertices,simplices,by='max')
+
+  if not is_closed(simplices):
+    print(
+      'WARNING: One or more simplexes do not share an edge with '
+      'another simplex which may indicate that the specified boundary '
+      'is not closed. ')
+    logger.warning(
+      'One or more simplexes do not share an edge with another simplex '
+      'which may indicate that the specified boundary is not closed. ')
 
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)

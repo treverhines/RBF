@@ -6,6 +6,8 @@ import modest
 import scipy
 import scipy.spatial
 import random
+import logging
+logger = logging.getLogger(__name__)
 
 
 def poly(p,order,diff=0):
@@ -120,7 +122,6 @@ def shape_factor(nodes,s,basis,cond=10,samples=100):
   return eps_list
 
 
-@modest.funtime
 def optimal_shape_factor(n,basis,cond):
   n = np.asarray(n)
   def system(eps):
@@ -141,7 +142,7 @@ def optimal_shape_factor(n,basis,cond):
                             maxitr=100)
   return eps[0]
 
-@modest.funtime
+
 def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   '''
   finds the weights, w, such that
@@ -162,7 +163,19 @@ def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   x -= x
   A = vrbf(n,eps,Np,basis)
   d = drbf(x,n,eps,Np,diff,basis)
-  w = np.linalg.solve(A,d)[:n.shape[0]]
+  try:
+    w = np.linalg.solve(A,d)[:n.shape[0]]
+
+  except np.linalg.linalg.LinAlgError:
+    print(
+      'WARNING: encountered singular matrix. Now trying to compute weights '
+      'with condition number of 10^%s' % (cond-1))
+    logger.warning(
+      'encountered singular matrix. Now trying to compute weights '
+      'with condition number of 10^%s' % (cond-1))
+    return rbf_weight(x,n,diff,basis=basis,
+                      Np=Np,eps=None,cond=cond-1)       
+    
   return w 
 
 
