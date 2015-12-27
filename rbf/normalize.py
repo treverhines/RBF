@@ -46,6 +46,8 @@ def mcint(f,vert,smp,N=None):
   vertices and simplices which define the bounds of integration. N
   is the number of samples.
   '''
+  assert rbf.geometry.is_valid(smp), (
+    'invalid simplices, see documentation for rbf.geometry.is_valid')
   sample_size = 1000000  
   lb = np.min(vert,0)
   ub = np.max(vert,0)
@@ -79,6 +81,9 @@ def mcmax(f,vert,smp,N=None):
   smp are the vertices and simplices which define the bounds over which
   a maximum will be estimated. N is the number of samples.
   '''
+  assert rbf.geometry.is_valid(smp), (
+    'invalid simplices, see documentation for rbf.geometry.is_valid')
+
   sample_size = 1000000  
   lb = np.min(vert,0)
   ub = np.max(vert,0)

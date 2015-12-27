@@ -412,7 +412,7 @@ def generate_nodes_1d(rho,lower,upper,
 
 @modest.funtime
 def generate_nodes(rho,vertices,simplices,groups=None,fix_nodes=None,
-                   itr=20,n=10,delta=0.1):
+                   itr=40,n=None,delta=0.1):
 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
@@ -464,6 +464,10 @@ def generate_nodes(rho,vertices,simplices,groups=None,fix_nodes=None,
 
   nodes = nodes[:N]
   logger.info('repelling nodes with boundary bouncing') 
+
+  if n is None:
+    n = 3**ndim + 1
+
   nodes = repel_bounce(nodes,vertices,simplices,fix_nodes=fix_nodes,itr=itr,
                        n=n,delta=delta,rho=rho)
 
