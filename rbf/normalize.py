@@ -62,10 +62,7 @@ def mcint(f,vert,smp,N=None):
 
     pnts = H(sample_size)*(ub-lb) + lb
     val = f(pnts)
-    if dim == 2:
-      val = val[rbf.geometry.contains_2d(pnts,vert,smp)]
-    if dim == 3:
-      val = val[rbf.geometry.contains_3d(pnts,vert,smp)]
+    val = val[rbf.nodegen.bnd_contains(pnts,vert,smp)]
 
     soln += np.sum(val)*np.prod(ub-lb)
     count += sample_size
@@ -98,10 +95,7 @@ def mcmax(f,vert,smp,N=None):
 
     pnts = H(sample_size)*(ub-lb) + lb
     val = f(pnts)
-    if dim == 2:
-      val = val[rbf.geometry.contains_2d(pnts,vert,smp)]
-    if dim == 3:
-      val = val[rbf.geometry.contains_3d(pnts,vert,smp)]
+    val = val[rbf.nodegen.bnd_contains(pnts,vert,smp)]    
 
     maxval = np.max(val)
     if maxval > soln:
@@ -130,7 +124,7 @@ def normalize_1d(fin,lb,ub,kind='integral',N=None,nodes=None):
   if kind == 'density':
     if nodes is None:
       raise ValueError(
-        'must specify number of nodes with 'nodes' key word argument '
+        'must specify number of nodes with "nodes" key word argument '
         'if normalizing by density')
 
     denom = mcint_1d(fin,lb,ub,N=N)/nodes
@@ -153,7 +147,7 @@ def normalize_decorator_1d(*args,**kwargs):
   return dout
 
 
-def normalize(fin,vert,smp,by='integral',N=None,nodes=None):
+def normalize(fin,vert,smp,kind='integral',N=None,nodes=None):
   '''
   normalize a function that takes a (N,1) array and returns an (N,)
   array. The kind of normalization is specified with "kind", which can
@@ -162,18 +156,18 @@ def normalize(fin,vert,smp,by='integral',N=None,nodes=None):
   the function returns a node density with "nodes" being the total
   number of nodes in the domain
   '''
-  if by == 'integral':
+  if kind == 'integral':
     denom = mcint(fin,vert,smp,N=N)
-  if by == 'max':
+  if kind == 'max':
     denom = mcmax(fin,vert,smp,N=N)
 
-  if by == 'density':
+  if kind == 'density':
     if nodes is None:
       raise ValueError(
         'must specify number of nodes with "nodes" key word argument '
         'if normalizing by density')
 
-    denom = mcint_1d(fin,lb,ub,N=N)/nodes
+    denom = mcint(fin,vert,smp,N=N)/nodes
 
   if denom == 0.0:
     raise ValueError(

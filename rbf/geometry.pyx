@@ -6,6 +6,7 @@ from cython.parallel cimport prange
 from cython cimport boundscheck,wraparound
 from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
+from itertools import combinations
 
 cdef extern from "math.h":
   cdef float abs(float x) nogil
@@ -924,4 +925,62 @@ cpdef np.ndarray contains_3d(double[:,:] pnt,
     free(seg_array)
 
   return np.asarray(out,dtype=bool)
+
+
+def contains_N_duplicates(iterable,N=1):
+  '''            
+  returns True if every element in iterable is repeated N times
+  '''
+  for s in iterable:
+    count = 0
+    for t in iterable:
+      # s == t can either return a boolean, or a boolean array in the
+      # event of s and t being numpy arrays.  np.all returns the 
+      # appropriate value in either case
+      if np.all(s == t):
+        count += 1
+
+    if count != N:
+      return False
+
+  return True
+
+
+def is_valid(smp):
+  '''             
+  Returns True if the following conditions are met:
+
+    every simplex is unique
+
+    every simplex contains unique vertices
+
+    (for 2D and 3D) every simplex shares an edge with exactly one 
+    other simplex. (for 1D) exactly 2 simplexes are given                     
+
+  Note: This function can take a while for a large (>1000) number of 
+  simplexes 
+  '''
+  smp = np.asarray(smp)
+  smp = np.array([np.sort(i) for i in smp])
+  dim = smp.shape[1]
+  sub_smp = []
+  # check for repeated simplexes 
+  if not contains_N_duplicates(smp,1):
+    return False
+
+  for s in smp:
+    # check for repeated vertices in a simplex
+    if not contains_N_duplicates(s,1):
+      return False
+
+    for c in combinations(s,dim-1):
+      c_list = list(c)
+      c_list.sort()
+      sub_smp.append(c_list)
+
+  return contains_N_duplicates(sub_smp,2)
+
+
+
+
 

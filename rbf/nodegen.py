@@ -15,45 +15,6 @@ from itertools import combinations
 logger = logging.getLogger(__name__)
 
 
-def contains_duplicates(s):
-  '''                                                                                         
-  returns True if every element in s is unique                                                
-  '''
-  return len(list(set(s))) != len(s)
-
-
-def is_closed(smp):
-  '''                                                                                         
-  returns True if every simplex shares an edge with one and only one                          
-  other simplex.  This is a sufficient but not necessary condition                            
-  for a boundary to be closed.  If some vertices are collinear then                           
-  this function may indicate an open domain when it is in fact closed                         
-  '''
-  smp = np.asarray(smp)
-  dim = smp.shape[1]
-  sub_smp = []
-  for s in smp:
-    if contains_duplicates(s):
-      return False
-
-    for c in combinations(s,dim-1):
-      c_list = list(c)
-      c_list.sort()
-      sub_smp.append(c_list)
-
-  for s in sub_smp:
-    count = 0
-    for t in sub_smp:
-      if s == t:
-        count += 1
-
-    if count != 2:
-      return False
-
-  return True
-
-
-
 def merge_nodes(**kwargs):
   out_dict = {}
   out_array = ()
@@ -89,9 +50,23 @@ def normal(M):
   
   
 def bnd_intersection(inside,outside,vertices,simplices):
+  inside = np.asarray(inside) 
+  outside = np.asarray(outside) 
+  vertices = np.asarray(vertices) 
+  simplices = np.asarray(simplices) 
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
   dim = inside.shape[1]
+  if dim == 1:
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+    out = vert[crossed_idx]
+
   if dim == 2:
     out = rbf.geometry.cross_where_2d(inside,outside,vertices,simplices)
+
   if dim == 3:
     out = rbf.geometry.cross_where_3d(inside,outside,vertices,simplices)
 
@@ -99,9 +74,25 @@ def bnd_intersection(inside,outside,vertices,simplices):
   
 
 def bnd_normal(inside,outside,vertices,simplices):
+  inside = np.asarray(inside) 
+  outside = np.asarray(outside) 
+  vertices = np.asarray(vertices) 
+  simplices = np.asarray(simplices) 
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
   dim = inside.shape[1]
+  if dim == 1:
+    out = np.ones(inside.shape,dtype=float)
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+    crossed_vert = vert[crossed_idx]
+    out[crossed_vert < inside] = -1.0
+
   if dim == 2:
     out = rbf.geometry.cross_normals_2d(inside,outside,vertices,simplices)
+
   if dim == 3:
     out = rbf.geometry.cross_normals_3d(inside,outside,vertices,simplices)
 
@@ -109,9 +100,24 @@ def bnd_normal(inside,outside,vertices,simplices):
 
 
 def bnd_group(inside,outside,vertices,simplices,group):
+  inside = np.asarray(inside,dtype=float) 
+  outside = np.asarray(outside,dtype=float) 
+  vertices = np.asarray(vertices,dtype=float) 
+  simplices = np.asarray(simplices,dtype=int) 
+  group = np.asarray(group,dtype=int)
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
   dim = inside.shape[1]
+  if dim == 1:
+    out = np.ones(inside.shape,dtype=float)
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0 
+    smp_ids = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+
   if dim == 2:
     smp_ids = rbf.geometry.cross_which_2d(inside,outside,vertices,simplices)
+
   if dim == 3:
     smp_ids= rbf.geometry.cross_which_3d(inside,outside,vertices,simplices)
 
@@ -120,18 +126,43 @@ def bnd_group(inside,outside,vertices,simplices,group):
 
 
 def bnd_crossed(inside,outside,vertices,simplices):
+  inside = np.asarray(inside,dtype=float) 
+  outside = np.asarray(outside,dtype=float) 
+  vertices = np.asarray(vertices,dtype=float) 
+  simplices = np.asarray(simplices,dtype=int) 
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
   dim = inside.shape[1]
+  if dim == 1:
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    out = np.sum(crossed_bool,axis=1)
+
   if dim == 2:
     out = rbf.geometry.cross_count_2d(inside,outside,vertices,simplices)
+
   if dim == 3:
     out = rbf.geometry.cross_count_3d(inside,outside,vertices,simplices)
 
   return out
 
 def bnd_contains(points,vertices,simplices):
+  points = np.asarray(points) 
+  vertices = np.asarray(vertices) 
+  simplices = np.asarray(simplices) 
   dim = points.shape[1]
+  assert points.shape[1] == vertices.shape[1]
+  if dim == 1:
+    vert = vertices[simplices[:,0]]
+    outside = np.ones(np.shape(points))*np.min(vertices) - 1.0
+    crossed_bool = (points-vert.T)*(outside-vert.T) <= 0.0
+    crossed_count = np.sum(crossed_bool,axis=1)
+    out = np.array(crossed_count%2,dtype=bool)
+
   if dim == 2:
     out = rbf.geometry.contains_2d(points,vertices,simplices)
+
   if dim == 3:
     out = rbf.geometry.contains_3d(points,vertices,simplices)
 
@@ -302,8 +333,7 @@ def repel_stick(free_nodes,
 
     # indices if free nodes which crossed a boundary
     crossed = ~bnd_contains(ungrouped_free_nodes_new,vertices,simplices)
-
-
+  
     # if a node intersected a boundary then associate it with a group
     node_group[ungrouped[crossed]] = bnd_group(
                                        ungrouped_free_nodes[crossed],     
@@ -331,23 +361,24 @@ def repel_stick(free_nodes,
 
 
 @modest.funtime
-def generate_nodes_1d(N,lower,upper,
-                      rho=None,itr=100,n=10,delta=0.01,
-                      normalize_rho=True):
+def generate_nodes_1d(rho,lower,upper,
+                      itr=100,n=10,delta=0.01):
+
+  N = int(rbf.normalize.mcint_1d(rho,lower,upper))
+
   if n > N:
     n = N
 
   if N < 2:
     nodes = np.array([[lower],[upper]])
+    nodes = np.sort(nodes,axis=0)
     return nodes[:N]
 
-  if rho is None:
-    rho = default_rho
+  # normalize so that the max value is 1.0
+  rho = rbf.normalize.normalize_1d(rho,lower,upper,kind='max')
 
-  if normalize_rho:
-    rho = rbf.normalize.normalize_1d(rho,lower,upper,by='max')
+  max_sample_size = 1000000
 
-  max_sample_size = 100*N
   H = rbf.halton.Halton(2)
   nodes = np.zeros((0,1))
   cnt = 0
@@ -380,23 +411,13 @@ def generate_nodes_1d(N,lower,upper,
 
 
 @modest.funtime
-def generate_nodes(N,vertices,simplices,groups=None,fix_nodes=None,rho=None,
-                   itr=20,n=10,delta=0.1,normalize_rho=True):
+def generate_nodes(rho,vertices,simplices,groups=None,fix_nodes=None,
+                   itr=20,n=10,delta=0.1):
 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
-  if groups is None:
-    groups = np.ones(simplices.shape[0],dtype=int)
 
-  groups = np.asarray(groups,dtype=int) 
-
-  if rho is None:
-    rho = default_rho
-
-  if normalize_rho:
-    rho = rbf.normalize.normalize(rho,vertices,simplices,by='max')
-
-  if not is_closed(simplices):
+  if not rbf.geometry.is_valid(simplices):
     print(
       'WARNING: One or more simplexes do not share an edge with '
       'another simplex which may indicate that the specified boundary '
@@ -405,9 +426,18 @@ def generate_nodes(N,vertices,simplices,groups=None,fix_nodes=None,rho=None,
       'One or more simplexes do not share an edge with another simplex '
       'which may indicate that the specified boundary is not closed. ')
 
+  N = int(rbf.normalize.mcint(rho,vertices,simplices))
+
+  if groups is None:
+    groups = np.ones(simplices.shape[0],dtype=int)
+
+  groups = np.asarray(groups,dtype=int) 
+
+  rho = rbf.normalize.normalize(rho,vertices,simplices,kind='max')
+
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)
-  max_sample_size = 100*N  
+  max_sample_size = 1000000
   ndim = lb.shape[0]
   H = rbf.halton.Halton(ndim+1)
   nodes = np.zeros((0,ndim))

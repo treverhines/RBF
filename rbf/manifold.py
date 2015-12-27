@@ -84,13 +84,11 @@ def simplex_rotation(vert):
     R = R2.dot(R1)
     return R
 
-def nodes_on_simplex(vert,rho,Ntot):
+def nodes_on_simplex(rho,vert):
   '''
   This finds nodes on the given simplex which would be consistent
   with the given node density function rho.  
 
-  Rho needs to be normalized so that its integral over the domain 
-  is 1.0
   '''
   r,c = np.shape(vert)
   assert r == c, (
@@ -124,16 +122,16 @@ def nodes_on_simplex(vert,rho,Ntot):
     # rotate back to original coordinate system
     p = np.einsum('ij,...j->...i',R.T,p_r)
     if dim == 2:
-      return (Ntot*rho(p))**(1.0/2.0)
+      return rho(p)**(1.0/2.0)
     if dim == 3:
-      return (Ntot*rho(p))**(2.0/3.0)
+      return rho(p)**(2.0/3.0)
 
   if dim == 2:
     lb = vert_r[0,0]
     ub = vert_r[1,0]
-    N = int(rbf.normalize.mcint_1d(rho_r,lb,ub))
+    nodes_r = rbf.nodegen.generate_nodes_1d(rho_r,lb,ub)
+    N = nodes_r.shape[0]
     a = np.ones((N,1))*const_r
-    nodes_r = rbf.nodegen.generate_nodes_1d(N,lb,ub,rho=rho_r)
     nodes_r = np.hstack((nodes_r,a))
     nodes = np.einsum('ij,...j->...i',R.T,nodes_r)
    
@@ -147,21 +145,17 @@ def nodes_on_simplex(vert,rho,Ntot):
 
     # make the group ids for the nodes
     groups = np.zeros(N)
-    if lb < ub:
-      groups[0] = 1
-      groups[-1] = 2
-    else:
-      groups[0] = 2
-      groups[-1] = 1
+    groups[nodes_r[:,0] == vert_r[0,0]] = 1
+    groups[nodes_r[:,0] == vert_r[1,0]] = 2
 
   if dim == 3:
     smp_r = np.array([[0,1],[1,2],[2,0]])
     grp_r = np.array([1,2,3])
-    N = int(rbf.normalize.mcint(rho_r,vert_r,smp_r))
-    a = np.ones((N,1))*const_r
     nodes_r,norms_r,groups = rbf.nodegen.generate_nodes(
-                               N,vert_r,smp_r,
-                               groups=grp_r,rho=rho_r)
+                               rho_r,vert_r,smp_r,
+                               groups=grp_r)
+    N = nodes_r.shape[0]
+    a = np.ones((N,1))*const_r
     nodes_r = np.hstack((nodes_r,a))
     nodes = np.einsum('ij,...j->...i',R.T,nodes_r)
 

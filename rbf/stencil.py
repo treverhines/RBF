@@ -3,6 +3,7 @@ from __future__ import division
 import numpy as np
 import scipy.spatial
 import rbf.geometry
+import rbf.nodegen
 import logging
 logger = logging.getLogger(__name__)
 
@@ -14,12 +15,16 @@ def distance(test,pnts,vert,smp):
   is inf
 
   '''  
+  test = np.asarray(test,dtype=float)
+  pnts = np.asarray(pnts,dtype=float)
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
   test = np.repeat(test[None,:],pnts.shape[0],axis=0)
   dist = np.sqrt(np.sum((pnts-test)**2,1))
   cc = np.zeros(pnts.shape[0],dtype=int)
-  cc[dist!=0.0] = rbf.geometry.cross_count_2d(test[dist!=0.0],
-                                              pnts[dist!=0.0],
-                                              vert,smp)
+  cc[dist!=0.0] = rbf.nodegen.bnd_crossed(test[dist!=0.0],
+                                          pnts[dist!=0.0],
+                                          vert,smp)
   dist[cc>0] = np.inf
   return dist
 
@@ -31,7 +36,15 @@ def nearest(test,pnts,N,vert=None,smp=None):
   line segment intersects any of the simplexes are considered to
   be infinitely far away
   '''
-  M = test.shape[0]
+  test = np.asarray(test,dtype=float)
+  pnts = np.asarray(pnts,dtype=float)
+
+  assert N <= pnts.shape[0], (
+    'cannot find %s nearest neighbors with %s points' % (N,pnts.shape[0]))
+
+  assert N >= 1, (
+    'must specify a non-negative non-zero number of nearest neighbors')
+ 
   T = scipy.spatial.cKDTree(pnts)
   dist,neighbors= T.query(test,N)
   if N == 1:
@@ -41,7 +54,9 @@ def nearest(test,pnts,N,vert=None,smp=None):
   if vert is None:
     return neighbors,dist
 
-  for i in range(M):
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  for i in range(test.shape[0]):
     # distance from point i to nearest neighbors, crossing
     # a boundary gives infinite distance
     dist_i = distance(test[i],pnts[neighbors[i]],vert,smp)
@@ -50,6 +65,9 @@ def nearest(test,pnts,N,vert=None,smp=None):
       # if some neighbors cross a boundary then query a larger
       # set of nearest neighbors from the KDTree
       query_size += N
+      if query_size > pnts.shape[0]:
+        query_size = pnts.shape[0]
+         
       dist_i,neighbors_i = T.query(test[i],query_size)
       # recompute distance to larger set of neighbors
       dist_i = distance(test[i],pnts[neighbors_i],vert,smp)
@@ -57,7 +75,7 @@ def nearest(test,pnts,N,vert=None,smp=None):
       neighbors[i] = neighbors_i[np.argsort(dist_i)[:N]]
       dist_i = dist_i[np.argsort(dist_i)[:N]]
       dist[i] = dist_i
-      if query_size >= (M-N):
+      if (query_size == pnts.shape[0]) & (np.any(np.isinf(dist_i))):
         print('WARNING: could not find %s nearest neighbors for point '
               '%s without crossing a boundary' % (N,pnts[i]))
         logger.warning('could not find %s nearest neighbors for point '
