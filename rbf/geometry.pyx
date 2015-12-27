@@ -927,6 +927,147 @@ cpdef np.ndarray contains_3d(double[:,:] pnt,
   return np.asarray(out,dtype=bool)
 
 
+def normal(M):
+  '''                                                                                      
+  returns the normal vector to the N-1 N-vectors  
+                                     
+  PARAMETERS                         
+  ----------                 
+    M: (N-1,N) array of vectors  
+                           
+  supports broadcasting        
+  '''
+  N = M.shape[-1]
+  Msubs = [np.delete(M,i,-1) for i in range(N)]
+  out = np.linalg.det(Msubs)
+  out[1::2] *= -1
+  out = np.rollaxis(out,-1)
+  out /= np.linalg.norm(out,axis=-1)[...,None]
+  return out
+
+
+def boundary_intersection(inside,outside,vertices,simplices):
+  inside = np.asarray(inside)
+  outside = np.asarray(outside)
+  vertices = np.asarray(vertices)
+  simplices = np.asarray(simplices)
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
+  dim = inside.shape[1]
+  if dim == 1:
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+    out = vert[crossed_idx]
+
+  if dim == 2:
+    out = cross_where_2d(inside,outside,vertices,simplices)
+
+  if dim == 3:
+    out = cross_where_3d(inside,outside,vertices,simplices)
+
+  return out
+
+
+def boundary_normal(inside,outside,vertices,simplices):
+  inside = np.asarray(inside)
+  outside = np.asarray(outside)
+  vertices = np.asarray(vertices)
+  simplices = np.asarray(simplices)
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
+  dim = inside.shape[1]
+  if dim == 1:
+    out = np.ones(inside.shape,dtype=float)
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+    crossed_vert = vert[crossed_idx]
+    out[crossed_vert < inside] = -1.0
+
+  if dim == 2:
+    out = cross_normals_2d(inside,outside,vertices,simplices)
+
+  if dim == 3:
+    out = cross_normals_3d(inside,outside,vertices,simplices)
+
+  return out
+
+
+def boundary_group(inside,outside,vertices,simplices,group):
+  inside = np.asarray(inside,dtype=float)
+  outside = np.asarray(outside,dtype=float)
+  vertices = np.asarray(vertices,dtype=float)
+  simplices = np.asarray(simplices,dtype=int)
+  group = np.asarray(group,dtype=int)
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
+  dim = inside.shape[1]
+  if dim == 1:
+    out = np.ones(inside.shape,dtype=float)
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    smp_ids = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+
+  if dim == 2:
+    smp_ids = cross_which_2d(inside,outside,vertices,simplices)
+
+  if dim == 3:
+    smp_ids= cross_which_3d(inside,outside,vertices,simplices)
+
+  out = np.array(group[smp_ids],copy=True)
+  return out
+
+
+def boundary_cross_count(inside,outside,vertices,simplices):
+  inside = np.asarray(inside,dtype=float)
+  outside = np.asarray(outside,dtype=float)
+  vertices = np.asarray(vertices,dtype=float)
+  simplices = np.asarray(simplices,dtype=int)
+  assert inside.shape[1] == outside.shape[1]
+  assert inside.shape[1] == vertices.shape[1]
+  assert inside.shape[0] == outside.shape[0]
+  dim = inside.shape[1]
+  if dim == 1:
+    vert = vertices[simplices[:,0]]
+    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
+    out = np.sum(crossed_bool,axis=1)
+
+  if dim == 2:
+    out = cross_count_2d(inside,outside,vertices,simplices)
+
+  if dim == 3:
+    out = cross_count_3d(inside,outside,vertices,simplices)
+
+  return out
+
+
+def boundary_contains(points,vertices,simplices):
+  points = np.asarray(points)
+  vertices = np.asarray(vertices)
+  simplices = np.asarray(simplices)
+  dim = points.shape[1]
+  assert points.shape[1] == vertices.shape[1]
+  if dim == 1:
+    vert = vertices[simplices[:,0]]
+    outside = np.ones(np.shape(points))*np.min(vertices) - 1.0
+    crossed_bool = (points-vert.T)*(outside-vert.T) <= 0.0
+    crossed_count = np.sum(crossed_bool,axis=1)
+    out = np.array(crossed_count%2,dtype=bool)
+
+  if dim == 2:
+    out = contains_2d(points,vertices,simplices)
+
+  if dim == 3:
+    out = contains_3d(points,vertices,simplices)
+
+  return out
+
+
+
 def contains_N_duplicates(iterable,N=1):
   '''            
   returns True if every element in iterable is repeated N times

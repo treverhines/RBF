@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 from __future__ import division
 import numpy as np
-import scipy.spatial
 import rbf.halton
-import rbf.geometry
+from rbf.geometry import (boundary_intersection,
+                          boundary_normal,
+                          boundary_group,
+                          boundary_contains,
+                          boundary_cross_count,
+                          is_valid)
 import rbf.normalize
-import rbf.weights
 import rbf.stencil
-import modest
 from modest import funtime
 import logging
-import random
 from itertools import combinations
 logger = logging.getLogger(__name__)
 
@@ -30,150 +31,11 @@ def merge_nodes(**kwargs):
   return out_array,out_dict
 
 
-def normal(M):
-  '''                                       
-  returns the normal vector to the N-1 N-vectors  
-
-  PARAMETERS
-  ----------
-    M: (N-1,N) array of vectors                      
-
-  supports broadcasting    
-  '''
-  N = M.shape[-1]
-  Msubs = [np.delete(M,i,-1) for i in range(N)]
-  out = np.linalg.det(Msubs)
-  out[1::2] *= -1
-  out = np.rollaxis(out,-1)
-  out /= np.linalg.norm(out,axis=-1)[...,None]
-  return out
-  
-  
-def bnd_intersection(inside,outside,vertices,simplices):
-  inside = np.asarray(inside) 
-  outside = np.asarray(outside) 
-  vertices = np.asarray(vertices) 
-  simplices = np.asarray(simplices) 
-  assert inside.shape[1] == outside.shape[1]
-  assert inside.shape[1] == vertices.shape[1]
-  assert inside.shape[0] == outside.shape[0]
-  dim = inside.shape[1]
-  if dim == 1:
-    vert = vertices[simplices[:,0]]
-    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
-    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
-    out = vert[crossed_idx]
-
-  if dim == 2:
-    out = rbf.geometry.cross_where_2d(inside,outside,vertices,simplices)
-
-  if dim == 3:
-    out = rbf.geometry.cross_where_3d(inside,outside,vertices,simplices)
-
-  return out
-  
-
-def bnd_normal(inside,outside,vertices,simplices):
-  inside = np.asarray(inside) 
-  outside = np.asarray(outside) 
-  vertices = np.asarray(vertices) 
-  simplices = np.asarray(simplices) 
-  assert inside.shape[1] == outside.shape[1]
-  assert inside.shape[1] == vertices.shape[1]
-  assert inside.shape[0] == outside.shape[0]
-  dim = inside.shape[1]
-  if dim == 1:
-    out = np.ones(inside.shape,dtype=float)
-    vert = vertices[simplices[:,0]]
-    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
-    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
-    crossed_vert = vert[crossed_idx]
-    out[crossed_vert < inside] = -1.0
-
-  if dim == 2:
-    out = rbf.geometry.cross_normals_2d(inside,outside,vertices,simplices)
-
-  if dim == 3:
-    out = rbf.geometry.cross_normals_3d(inside,outside,vertices,simplices)
-
-  return out
-
-
-def bnd_group(inside,outside,vertices,simplices,group):
-  inside = np.asarray(inside,dtype=float) 
-  outside = np.asarray(outside,dtype=float) 
-  vertices = np.asarray(vertices,dtype=float) 
-  simplices = np.asarray(simplices,dtype=int) 
-  group = np.asarray(group,dtype=int)
-  assert inside.shape[1] == outside.shape[1]
-  assert inside.shape[1] == vertices.shape[1]
-  assert inside.shape[0] == outside.shape[0]
-  dim = inside.shape[1]
-  if dim == 1:
-    out = np.ones(inside.shape,dtype=float)
-    vert = vertices[simplices[:,0]]
-    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0 
-    smp_ids = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
-
-  if dim == 2:
-    smp_ids = rbf.geometry.cross_which_2d(inside,outside,vertices,simplices)
-
-  if dim == 3:
-    smp_ids= rbf.geometry.cross_which_3d(inside,outside,vertices,simplices)
-
-  out = np.array(group[smp_ids],copy=True)
-  return out
-
-
-def bnd_crossed(inside,outside,vertices,simplices):
-  inside = np.asarray(inside,dtype=float) 
-  outside = np.asarray(outside,dtype=float) 
-  vertices = np.asarray(vertices,dtype=float) 
-  simplices = np.asarray(simplices,dtype=int) 
-  assert inside.shape[1] == outside.shape[1]
-  assert inside.shape[1] == vertices.shape[1]
-  assert inside.shape[0] == outside.shape[0]
-  dim = inside.shape[1]
-  if dim == 1:
-    vert = vertices[simplices[:,0]]
-    crossed_bool = (inside-vert.T)*(outside-vert.T) <= 0.0
-    out = np.sum(crossed_bool,axis=1)
-
-  if dim == 2:
-    out = rbf.geometry.cross_count_2d(inside,outside,vertices,simplices)
-
-  if dim == 3:
-    out = rbf.geometry.cross_count_3d(inside,outside,vertices,simplices)
-
-  return out
-
-def bnd_contains(points,vertices,simplices):
-  points = np.asarray(points) 
-  vertices = np.asarray(vertices) 
-  simplices = np.asarray(simplices) 
-  dim = points.shape[1]
-  assert points.shape[1] == vertices.shape[1]
-  if dim == 1:
-    vert = vertices[simplices[:,0]]
-    outside = np.ones(np.shape(points))*np.min(vertices) - 1.0
-    crossed_bool = (points-vert.T)*(outside-vert.T) <= 0.0
-    crossed_count = np.sum(crossed_bool,axis=1)
-    out = np.array(crossed_count%2,dtype=bool)
-
-  if dim == 2:
-    out = rbf.geometry.contains_2d(points,vertices,simplices)
-
-  if dim == 3:
-    out = rbf.geometry.contains_3d(points,vertices,simplices)
-
-  return out
-
-
 def default_rho(p):
   return 1.0 + 0*p[:,0]
 
 
-@modest.funtime  
+@funtime  
 def repel_step(free_nodes,
                fix_nodes=None,
                n=10,delta=0.1,
@@ -200,7 +62,7 @@ def repel_step(free_nodes,
   return new_free_nodes
 
 
-@modest.funtime
+@funtime
 def repel_bounce(free_nodes,
                  vertices,
                  simplices,
@@ -234,17 +96,17 @@ def repel_bounce(free_nodes,
                                 n=n,delta=delta,rho=rho)
 
     # boolean array of nodes which are now outside the domain
-    crossed = ~bnd_contains(free_nodes_new,vertices,simplices)
+    crossed = ~boundary_contains(free_nodes_new,vertices,simplices)
     bounces = 0
     while np.any(crossed):
       # point where nodes intersected the boundary
-      inter = bnd_intersection(
+      inter = boundary_intersection(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
                 vertices,simplices)
 
       # normal vector to intersection point
-      norms = bnd_normal(
+      norms = boundary_normal(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
                 vertices,simplices)
@@ -265,14 +127,15 @@ def repel_bounce(free_nodes,
         free_nodes_new[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
         # check to see if the bounced node is now within the domain, 
         # if not then iterations continue
-        crossed = ~bnd_contains(free_nodes_new,vertices,simplices)
+        crossed = ~boundary_contains(free_nodes_new,vertices,simplices)
         bounces += 1
 
     free_nodes = free_nodes_new  
   
   return free_nodes
 
-@modest.funtime
+
+@funtime
 def repel_stick(free_nodes,
                 vertices,
                 simplices,
@@ -332,22 +195,22 @@ def repel_stick(free_nodes,
                                  n=n,delta=delta,rho=rho)
 
     # indices if free nodes which crossed a boundary
-    crossed = ~bnd_contains(ungrouped_free_nodes_new,vertices,simplices)
+    crossed = ~boundary_contains(ungrouped_free_nodes_new,vertices,simplices)
   
     # if a node intersected a boundary then associate it with a group
-    node_group[ungrouped[crossed]] = bnd_group(
+    node_group[ungrouped[crossed]] = boundary_group(
                                        ungrouped_free_nodes[crossed],     
                                        ungrouped_free_nodes_new[crossed], 
                                        vertices,simplices,groups)
 
     # if a node intersected a boundary then associate it with a normal
-    node_norm[ungrouped[crossed]] = bnd_normal(
+    node_norm[ungrouped[crossed]] = boundary_normal(
                                       ungrouped_free_nodes[crossed],     
                                       ungrouped_free_nodes_new[crossed], 
                                       vertices,simplices)
 
     # intersection point for nodes which crossed a boundary
-    inter = bnd_intersection(
+    inter = boundary_intersection(
               ungrouped_free_nodes[crossed],     
               ungrouped_free_nodes_new[crossed],
               vertices,simplices)
@@ -360,64 +223,14 @@ def repel_stick(free_nodes,
   return free_nodes,node_norm,node_group
 
 
-@modest.funtime
-def generate_nodes_1d(rho,lower,upper,
-                      itr=100,n=10,delta=0.01):
-
-  N = int(rbf.normalize.mcint_1d(rho,lower,upper))
-
-  if n > N:
-    n = N
-
-  if N < 2:
-    nodes = np.array([[lower],[upper]])
-    nodes = np.sort(nodes,axis=0)
-    return nodes[:N]
-
-  # normalize so that the max value is 1.0
-  rho = rbf.normalize.normalize_1d(rho,lower,upper,kind='max')
-
-  max_sample_size = 1000000
-
-  H = rbf.halton.Halton(2)
-  nodes = np.zeros((0,1))
-  cnt = 0
-  acceptance = 1.0
-  while nodes.shape[0] < (N-2):
-    if acceptance == 0.0:
-      sample_size = max_sample_size
-    else:
-      sample_size = int(((N-2)-nodes.shape[0])/acceptance) + 1
-      if sample_size > max_sample_size:
-        sample_size = max_sample_size
-
-    cnt += sample_size
-    seq = H(sample_size)
-    seq1 = seq[:,[0]]
-    seq2 = seq[:,1]
-    new_nodes = (upper-lower)*seq1 + lower
-    new_nodes = new_nodes[rho(new_nodes) > seq2]
-    nodes = np.vstack((nodes,new_nodes))
-    acceptance = nodes.shape[0]/cnt
-
-  nodes = nodes[:(N-2)]
-  for i in range(itr):
-    nodes = repel_step(nodes,fix_nodes=np.array([[lower],[upper]]),
-                       n=n,delta=delta,rho=rho)
-
-  nodes = np.vstack(([[lower],[upper]],nodes))
-  nodes = np.sort(nodes,axis=0)
-  return nodes
-
-
-@modest.funtime
-def generate_nodes(rho,vertices,simplices,groups=None,fix_nodes=None,
-                   itr=40,n=None,delta=0.1):
+@funtime
+def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
+           itr=40,n=None,delta=0.1):
 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
 
-  if not rbf.geometry.is_valid(simplices):
+  if not is_valid(simplices):
     print(
       'WARNING: One or more simplexes do not share an edge with '
       'another simplex which may indicate that the specified boundary '
@@ -457,7 +270,7 @@ def generate_nodes(rho,vertices,simplices,groups=None,fix_nodes=None,
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
     new_nodes = new_nodes[rho(new_nodes) > seq1d]
 
-    new_nodes = new_nodes[bnd_contains(new_nodes,vertices,simplices)]
+    new_nodes = new_nodes[boundary_contains(new_nodes,vertices,simplices)]
     nodes = np.vstack((nodes,new_nodes))
     logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
@@ -480,10 +293,235 @@ def generate_nodes(rho,vertices,simplices,groups=None,fix_nodes=None,
   return nodes,norms,grp
 
 
+def simplex_rotation(vert):
+  '''                                                                                      
+  returns a matrix that rotates the simplex such that      
+  its normal is pointing in the direction of the last axis    
+  '''
+  vert = np.asarray(vert)
+  dim = vert.shape[1]
+  if dim == 2:
+    # anchor one node of the simplex at the origin      
+    v1 = vert[1,:] - vert[0,:]
+    # find the normal vector to the simplex         
+    normal = rbf.geometry.normal(np.array([v1]))
+    # find the angle between the y axis and the simplex normal   
+    argz = np.arctan2(normal[0],normal[1])
+    # create a rotation matrix that rotates the normal onto the y axis
+    R = np.array([[np.cos(argz), -np.sin(argz)],
+                  [np.sin(argz),  np.cos(argz)]])
+    return R
+
+  if dim == 3:
+    # anchor one node of the simplex at the origin 
+    v1 = vert[1,:] - vert[0,:]
+    v2 = vert[2,:] - vert[0,:]
+    # find the normal vector to the simplex      
+    normal = rbf.geometry.normal(np.array([v1,v2]))
+
+    # project the normal onto to y-z plane and then compute     
+    # the angle between the normal and the z axis      
+    argx = np.arctan2(normal[1],normal[2])
+
+    # rotate about x axis                
+    R1 = np.array([[1.0, 0.0, 0.0],
+                   [0.0, np.cos(argx), -np.sin(argx)],
+                   [0.0, np.sin(argx),  np.cos(argx)]])
+
+    # rotate normal by the above angle so that the normal  
+    # is now on the x-z plane                          
+    normal = R1.dot(normal)
+
+    # find the angle between rotated normal and the z axis 
+    argy = np.arctan2(normal[0],normal[2])
+
+    # rotate about the y axis                        
+    R2 = np.array([[np.cos(argy), 0.0,-np.sin(argy)],
+                   [0.0, 1.0, 0.0],
+                   [np.sin(argy), 0.0, np.cos(argy)]])
+
+    # this matrix product takes the original normal and rotates it
+    # onto the z axis                   
+    R = R2.dot(R1)
+    return R
+
+
+def nodes_on_simplex(rho,vert,fix_nodes=None):
+  '''                                                                                      
+  This finds nodes on the given simplex which would be consistent 
+  with the given node density function rho.    
+                                                                                           
+  '''
+  r,c = np.shape(vert)
+  assert r == c, (
+    'number of vertices given should be the equal to the number of '
+    'spatial dimensions')
+
+  vert = np.asarray(vert)
+  dim = vert.shape[1]
+
+  if fix_nodes is None:
+    fix_nodes = np.zeros((0,dim))
+
+  # find the rotation matrix which rotates the simplex normal onto the
+  # last axis                             
+  R = simplex_rotation(vert)
+
+  # _r denotes rotated values           
+  vert_r = np.einsum('ij,...j->...i',R,vert)
+  const_r = vert_r[0,-1]
+
+  # remove last dimension from the vertices  
+  vert_r = vert_r[:,:-1]
+
+  # _r denotes rotated values               
+  fix_r = np.einsum('ij,...j->...i',R,fix_nodes)
+
+  # remove last dimension from the vertices       
+  fix_r = fix_r[:,:-1]
+
+  # define a facet node density function, which takes positions in the
+  # rotated coordinate system, rotates them back to the original  
+  # coordinate system, finds the node density per unit volume (3D) 
+  # or area (2D) and then converts it to node density per unit area 
+  # (3D) or length (2D)                 
+  def rho_r(p_r):
+    a = np.ones((p_r.shape[0],1))*const_r
+    # append constant value needed to rotate back to the right 
+    # position                      
+    p_r = np.hstack((p_r,a))
+    # rotate back to original coordinate system  
+    p = np.einsum('ij,...j->...i',R.T,p_r)
+    if dim == 2:
+      return rho(p)**(1.0/2.0)
+    if dim == 3:
+      return rho(p)**(2.0/3.0)
+
+  if dim == 2:
+    smp_r = np.array([[0],[1]])
+    grp_r = np.array([1,2])
+    # find the normal vector to the simplex                                                
+    v1 = vert[1,:] - vert[0,:]
+    normal = rbf.geometry.normal(np.array([v1]))
+
+  if dim == 3:
+    smp_r = np.array([[0,1],[0,2],[1,2]])
+    grp_r = np.array([1,2,3])
+    # find the normal vector to the simplex                                                
+    v1 = vert[1,:] - vert[0,:]
+    v2 = vert[2,:] - vert[0,:]
+    normal = rbf.geometry.normal(np.array([v1,v2]))
+
+  nodes_r,norms_r,groups = rbf.nodegen.volume(
+                             rho_r,vert_r,smp_r,
+                             groups=grp_r,fix_nodes=fix_r)
+  N = nodes_r.shape[0]
+  a = np.ones((N,1))*const_r
+  nodes_r = np.hstack((nodes_r,a))
+  nodes = np.einsum('ij,...j->...i',R.T,nodes_r)
+
+  if normal[-1] < 0.0:
+    normal *= -1
+
+  normals = np.repeat(normal[None,:],N,axis=0)
+
+
+  return nodes,normals,groups
+
+
+def find_free_edges(smp):
+  '''                                                                                      
+  finds the simplices of all of the unconnected simplex edges 
+  '''
+  smp = np.asarray(smp,dtype=int)
+  dim = smp.shape[1]
+  out = []
+  sub_smp = []
+  # collect all the simplex edges 
+  for s in smp:
+    for c in combinations(s,dim-1):
+      c_list = list(c)
+      c_list.sort()
+      sub_smp.append(c_list)
+
+  # count the number of repeated edges  
+  for s in sub_smp:
+    count = 0
+    for t in sub_smp:
+      if s == t:
+        count += 1
+
+    # if the edge appears only once in the collection then it is a
+    # free edge              
+    if count == 1:
+      out.append(s)
+
+  return out
+
+
+def find_edges(smp):
+  '''                                                                                      
+  finds the simplices of all of the simplex edges  
+  '''
+  smp = np.asarray(smp,dtype=int)
+  dim = smp.shape[1]
+  out = []
+  for s in smp:
+    for c in combinations(s,dim-1):
+      c_list = list(c)
+      c_list.sort()
+      if c_list not in out:
+        out.append(c_list)
+
+  return out
+
+
+@funtime
+def surface(rho,vert,smp):
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  dim = vert.shape[1]
+
+  nodes = np.zeros((0,dim),dtype=float)
+  normals = np.zeros((0,dim),dtype=float)
+  groups = np.zeros((0),dtype=int)
+
+  # edges of all simplexes on the suface  
+  edges = find_edges(smp) # list of lists  
+
+  # free edges of the surface         
+  free_edges = find_free_edges(smp) # list of lists  
+
+  edge_nodes = [np.zeros((0,dim))]*len(edges)
+  for s in smp:
+    fix_nodes = np.zeros((0,dim))
+    for e in find_edges([s]):
+      fix_nodes = np.vstack((fix_nodes,
+                             edge_nodes[edges.index(e)]))
+
+    v = vert[s]
+    # there can be more than two simplexes that share the same vertices
+    # in 3D and it is necessary to make all vertices into fixed nodes    
+    if dim == 3:
+      fix_nodes = np.vstack((fix_nodes,v))
+
+    n,m,g1 = nodes_on_simplex(rho,v,fix_nodes=fix_nodes)
+    g2 = np.zeros(n.shape[0],dtype=int)
+    for i,e in enumerate(find_edges([s])):
+      new_edge_nodes = n[g1==i+1]
+      edge_nodes[edges.index(e)] = np.vstack((edge_nodes[edges.index(e)],
+                                              new_edge_nodes))
+      if e in free_edges:
+        g2[g1==i+1] = 1
+
+    nodes = np.vstack((nodes,n))
+    normals = np.vstack((normals,m))
+    groups = np.hstack((groups,g2))
+
+  return nodes,normals,groups
 
 
 
 
-    
 
-  
+
