@@ -13,17 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 @funtime
-def mcint(f,vert,smp,samples=None,lower_bounds=None,upper_bounds=None):
+def mcint(f,vert,smp,samples=None,lower_bounds=None,
+          upper_bounds=None,check_valid=True):
   '''
   Monte Carlo integration of a function that takes a (M,2) or (M,3)
   array of points and returns an (M,) vector. vert and smp are the
   vertices and simplices which define the bounds of integration. N
   is the number of samples.
   '''
-  dim = vert.shape[1]
-  assert is_valid(smp), (
-    'invalid simplices, see documentation for rbf.geometry.is_valid')
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  if check_valid:
+    assert is_valid(smp), (
+      'invalid simplices, see documentation for rbf.geometry.is_valid')
 
+  dim = vert.shape[1]
+  
   batch_size = 1000000
 
   if lower_bounds is None:
@@ -100,6 +105,10 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   smp = np.asarray(smp,dtype=int)
   dim = vert.shape[1]
 
+  if _depth == 0:
+    assert is_valid(smp), (
+      'invalid simplices, see documentation for rbf.geometry.is_valid')
+
   if lower_bounds is None:
     lb = np.min(vert,0)
   else:
@@ -117,8 +126,9 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
     # integral is made and then the tolerance is set to 0.001 times
     # the uncertainty of that estimate
     init_est = mcint(f,vert,smp,samples=samples,
-                       lower_bounds=lower_bounds,
-                       upper_bounds=upper_bounds)
+                     lower_bounds=lower_bounds,
+                     upper_bounds=upper_bounds,
+                     check_valid=False)
     init_integral = init_est[0]
     init_err = init_est[1]
     if abs(init_integral) > init_err:
@@ -135,7 +145,8 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   maxval = -np.inf
   for lbi,ubi in divide_bbox(lb,ub,depth=_depth):
     out = mcint(f,vert,smp,samples=samples,
-                lower_bounds=lbi,upper_bounds=ubi)
+                lower_bounds=lbi,upper_bounds=ubi,
+                check_valid=False)
     solni,erri,mini,maxi = out
 
     if mini < minval:
