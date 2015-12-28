@@ -39,8 +39,12 @@ def default_rho(p):
 def repel_step(free_nodes,
                fix_nodes=None,
                n=10,delta=0.1,
-               rho=None):
-  free_nodes = np.asarray(free_nodes,dtype=float)
+               rho=None):  
+  free_nodes = np.array(free_nodes,dtype=float,copy=True)
+  # if n is 0 or 1 then the nodes remain stationary
+  if n <= 1:
+    return free_nodes
+
   if fix_nodes is None:
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
 
@@ -67,7 +71,7 @@ def repel_bounce(free_nodes,
                  vertices,
                  simplices,
                  fix_nodes=None,
-                 itr=10,n=10,delta=0.1,
+                 itr=20,n=10,delta=0.1,
                  rho=None,max_bounces=3):
   '''
   nodes are repelled by eachother and bounce off boundaries
@@ -141,7 +145,7 @@ def repel_stick(free_nodes,
                 simplices,
                 groups=None, 
                 fix_nodes=None,
-                itr=10,n=10,delta=0.1,
+                itr=20,n=10,delta=0.1,
                 rho=None,max_bounces=3):
   '''
   nodes are repelled by eachother and then become fixed when they hit 
@@ -225,7 +229,7 @@ def repel_stick(free_nodes,
 
 @funtime
 def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
-           itr=40,n=None,delta=0.1):
+           itr=20,n=10,delta=0.1):
 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
@@ -244,7 +248,7 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     'values in node density function must be positive')
   
   N = int(N)
-
+  print(N)
   def rho_normalized(p):
     return rho(p)/maxval
 
@@ -282,9 +286,6 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
 
   nodes = nodes[:N]
   logger.info('repelling nodes with boundary bouncing') 
-
-  if n is None:
-    n = 3**ndim + 1
 
   nodes = repel_bounce(nodes,vertices,simplices,fix_nodes=fix_nodes,itr=itr,
                        n=n,delta=delta,rho=rho_normalized)
@@ -351,7 +352,7 @@ def simplex_rotation(vert):
     return R
 
 
-def nodes_on_simplex(rho,vert,fix_nodes=None):
+def nodes_on_simplex(rho,vert,fix_nodes=None,**kwargs):
   '''                                                                                      
   This finds nodes on the given simplex which would be consistent 
   with the given node density function rho.    
@@ -419,7 +420,8 @@ def nodes_on_simplex(rho,vert,fix_nodes=None):
 
   nodes_r,norms_r,groups = rbf.nodegen.volume(
                              rho_r,vert_r,smp_r,
-                             groups=grp_r,fix_nodes=fix_r)
+                             groups=grp_r,fix_nodes=fix_r,
+                             **kwargs)
   N = nodes_r.shape[0]
   a = np.ones((N,1))*const_r
   nodes_r = np.hstack((nodes_r,a))
@@ -482,7 +484,7 @@ def find_edges(smp):
 
 
 @funtime
-def surface(rho,vert,smp):
+def surface(rho,vert,smp,**kwargs):
   vert = np.asarray(vert,dtype=float)
   smp = np.asarray(smp,dtype=int)
   dim = vert.shape[1]
@@ -510,7 +512,7 @@ def surface(rho,vert,smp):
     if dim == 3:
       fix_nodes = np.vstack((fix_nodes,v))
 
-    n,m,g1 = nodes_on_simplex(rho,v,fix_nodes=fix_nodes)
+    n,m,g1 = nodes_on_simplex(rho,v,fix_nodes=fix_nodes,**kwargs)
     g2 = np.zeros(n.shape[0],dtype=int)
     for i,e in enumerate(find_edges([s])):
       new_edge_nodes = n[g1==i+1]

@@ -56,8 +56,8 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     if (count + batch_size) > samples:
       batch_size = samples - count
 
-    #pnts = H(batch_size)*(ub-lb) + lb
-    pnts = np.random.random((batch_size,dim))*(ub-lb) + lb
+    pnts = H(batch_size)*(ub-lb) + lb
+    #pnts = np.random.random((batch_size,dim))*(ub-lb) + lb
     val = f(pnts)
     is_inside = boundary_contains(pnts,vert,smp)
     if np.any(is_inside):

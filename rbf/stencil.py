@@ -41,14 +41,20 @@ def nearest(test,pnts,N,vert=None,smp=None):
   assert N <= pnts.shape[0], (
     'cannot find %s nearest neighbors with %s points' % (N,pnts.shape[0]))
 
-  assert N >= 1, (
-    'must specify a non-negative non-zero number of nearest neighbors')
+  assert N >= 0, (
+    'must specify a non-negative number of nearest neighbors')
  
-  T = scipy.spatial.cKDTree(pnts)
-  dist,neighbors= T.query(test,N)
-  if N == 1:
-    dist = dist[:,None]
-    neighbors = neighbors[:,None]
+  # querying the KDTree returns a segmentation fault if N is zero and 
+  # so this needs to be handles seperately 
+  if N == 0:
+    dist = np.zeros((test.shape[0],0),dtype=float)
+    neighbors = np.zeros((test.shape[0],0),dtype=int)
+  else:
+    T = scipy.spatial.cKDTree(pnts)
+    dist,neighbors= T.query(test,N)
+    if N == 1:
+      dist = dist[:,None]
+      neighbors = neighbors[:,None]
 
   if vert is None:
     return neighbors,dist
