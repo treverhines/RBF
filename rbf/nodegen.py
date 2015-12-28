@@ -239,14 +239,19 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
       'One or more simplexes do not share an edge with another simplex '
       'which may indicate that the specified boundary is not closed. ')
 
-  N = int(rbf.normalize.mcint(rho,vertices,simplices))
+  N,err,minval,maxval = rbf.normalize.rmcint(rho,vertices,simplices)
+  assert minval >= 0.0, (
+    'values in node density function must be positive')
+  
+  N = int(N)
+
+  def rho_normalized(p):
+    return rho(p)/maxval
 
   if groups is None:
     groups = np.ones(simplices.shape[0],dtype=int)
 
   groups = np.asarray(groups,dtype=int) 
-
-  rho = rbf.normalize.normalize(rho,vertices,simplices,kind='max')
 
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)
@@ -268,7 +273,7 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     seqNd = H(sample_size)
     seq1d = seqNd[:,-1]
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
-    new_nodes = new_nodes[rho(new_nodes) > seq1d]
+    new_nodes = new_nodes[rho_normalized(new_nodes) > seq1d]
 
     new_nodes = new_nodes[boundary_contains(new_nodes,vertices,simplices)]
     nodes = np.vstack((nodes,new_nodes))
@@ -282,13 +287,13 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     n = 3**ndim + 1
 
   nodes = repel_bounce(nodes,vertices,simplices,fix_nodes=fix_nodes,itr=itr,
-                       n=n,delta=delta,rho=rho)
+                       n=n,delta=delta,rho=rho_normalized)
 
   logger.info('repelling nodes with boundary sticking') 
   nodes,norms,grp = repel_stick(nodes,vertices,simplices,groups,
                                 fix_nodes=fix_nodes,
                                 itr=itr,n=n,
-                                delta=delta,rho=rho)
+                                delta=delta,rho=rho_normalized)
 
   return nodes,norms,grp
 
