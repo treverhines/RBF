@@ -51,8 +51,8 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,upper_bounds=None):
     if (count + batch_size) > samples:
       batch_size = samples - count
 
-    pnts = H(batch_size)*(ub-lb) + lb
-    #pnts = np.random.random((batch_size,dim))*(ub-lb) + lb
+    #pnts = H(batch_size)*(ub-lb) + lb
+    pnts = np.random.random((batch_size,dim))*(ub-lb) + lb
     val = f(pnts)
     is_inside = boundary_contains(pnts,vert,smp)
     if np.any(is_inside):
@@ -81,50 +81,17 @@ def divide_bbox(lb,ub,depth=0):
   ub = np.asarray(ub,dtype=float)
   mp = (lb + ub)/2.0
   dim = lb.shape[0]
-  out = []
+  out = [(np.copy(lb),np.copy(ub)),
+         (np.copy(lb),np.copy(ub))]
 
-  # there is surely a more elegent way to do this, but it is faster
-  # to code up the brute force method than to think of a better way
-  # to do this               
-  if dim == 1:
-    out += [(np.array([lb[0]]),
-             np.array([mp[0]]))]
-    out += [(np.array([mp[0]]),
-             np.array([ub[0]]))]
-
-  if dim == 2:
-    if depth%2 == 0:
-      out += [(np.array([lb[0],lb[1]]),
-               np.array([mp[0],ub[1]]))]
-      out += [(np.array([mp[0],lb[1]]),
-               np.array([ub[0],ub[1]]))]
-    if depth%2 == 1:
-      out += [(np.array([lb[0],lb[1]]),
-               np.array([ub[0],mp[1]]))]
-      out += [(np.array([lb[0],mp[1]]),
-               np.array([ub[0],ub[1]]))]
-
-  if dim == 3:
-    if depth%3 == 0:
-      out += [(np.array([lb[0],lb[1],lb[2]]),
-               np.array([mp[0],ub[1],ub[2]]))]
-      out += [(np.array([mp[0],lb[1],lb[2]]),
-               np.array([ub[0],ub[1],ub[2]]))]
-    if depth%3 == 1:
-      out += [(np.array([lb[0],lb[1],lb[2]]),
-               np.array([ub[0],mp[1],ub[2]]))]
-      out += [(np.array([lb[0],mp[1],lb[2]]),
-               np.array([ub[0],ub[1],ub[2]]))]
-    if depth%3 == 2:
-      out += [(np.array([lb[0],lb[1],lb[2]]),
-               np.array([ub[0],ub[1],mp[2]]))]
-      out += [(np.array([lb[0],lb[1],mp[2]]),
-               np.array([ub[0],ub[1],ub[2]]))]
-
+  # change upper bound for first box to the midpoint
+  out[0][1][depth%dim] = mp[depth%dim]
+  # change lower bound for second box to the midpoint
+  out[1][0][depth%dim] = mp[depth%dim]
   return out
 
 
-def rmcint(f,vert,smp,tol=None,max_depth=20,samples=None,
+def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
            lower_bounds=None,upper_bounds=None,_depth=0):
   '''
   recursive Monte Carlo integration
@@ -146,14 +113,22 @@ def rmcint(f,vert,smp,tol=None,max_depth=20,samples=None,
     assert ub.shape[0] == dim
 
   if tol is None:
-    # if no tolerance is specified then an rough initial guess for the
+    # if no tolerance is specified then an rough initial estimate for the
     # integral is made and then the tolerance is set to 0.001 times
-    # that value
-    init_guess = mcint(f,vert,smp,samples=samples,
+    # the uncertainty of that estimate
+    init_est = mcint(f,vert,smp,samples=samples,
                        lower_bounds=lower_bounds,
                        upper_bounds=upper_bounds)
-    tol = np.abs(init_guess[0]/1000.0)
+    init_integral = init_est[0]
+    init_err = init_est[1]
+    if abs(init_integral) > init_err:
+      tol = abs(init_integral*1e-3)
+    else:
+      tol = abs(init_err*1e-3)
 
+  # uncomment to enforce that the final solution is less that tol rather
+  # that each iterative solution. 
+  tol = tol/np.sqrt(2)
   soln = 0.0
   err = 0.0
   minval = np.inf
@@ -168,6 +143,10 @@ def rmcint(f,vert,smp,tol=None,max_depth=20,samples=None,
 
     if maxi > maxval:
       maxval = maxi
+
+    if _depth == max_depth:
+      print('WARNING: reached soft recursion depth limit of %s' % max_depth) 
+      logger.warning('reached soft recursion depth limit of %s' % max_depth)
 
     if (erri > tol) & (_depth < max_depth):
       out = rmcint(f,vert,smp,tol=tol,samples=samples,
@@ -195,7 +174,7 @@ def rmcint(f,vert,smp,tol=None,max_depth=20,samples=None,
   return soln,err,minval,maxval
 
 
-def normalize(fin,vert,smp,kind='integral',tol=None,nodes=None):
+def _normalizer(fin,vert,smp,kind='integral',tol=None,nodes=None):
   '''
   normalize a function that takes a (N,1) array and returns an (N,)
   array. The kind of normalization is specified with "kind", which can
@@ -231,8 +210,8 @@ def normalize(fin,vert,smp,kind='integral',tol=None,nodes=None):
   return fout
 
 
-def normalize_decorator(*args,**kwargs):
+def normalizer(*args,**kwargs):
   def dout(fin):
-    fout = normalize(fin,*args,**kwargs)
+    fout = _normalizer(fin,*args,**kwargs)
     return fout
   return dout
