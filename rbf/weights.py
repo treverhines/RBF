@@ -142,6 +142,22 @@ def optimal_shape_factor(n,basis,cond):
                             maxitr=100)
   return eps[0]
 
+def is_operator(diff):
+  '''
+  diff can either be a tuple describing the differentiation order in
+  each direction, e.g. (0,0,1), or it can describe a differential
+  operator, e.g. [(1,(0,0,1)),(2,(0,1,0))], where each element
+  contains a coefficient and differentiation tuple for each term in
+  the operator. This function returns true if diff is describing an
+  operator.
+  '''
+  # if each element in diff is iterable then return True. This returns
+  # True if diff is an empty list 
+  if all(hasattr(d,'__iter__') for d in diff):
+    return True
+  else:
+    return False
+
 
 def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   '''
@@ -162,7 +178,18 @@ def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   n -= x
   x -= x
   A = vrbf(n,eps,Np,basis)
-  d = drbf(x,n,eps,Np,diff,basis)
+  if is_operator(diff):
+    if Np == 0:
+      d = np.zeros(n.shape[0])
+    else:
+      d = np.zeros(n.shape[0] + 1 + (Np-1)*n.shape[1])
+
+    for coeff,diff_tuple in diff:
+      d += coeff*drbf(x,n,eps,Np,diff_tuple,basis)
+
+  else:
+    d = drbf(x,n,eps,Np,diff,basis)
+
   try:
     w = np.linalg.solve(A,d)[:n.shape[0]]
 

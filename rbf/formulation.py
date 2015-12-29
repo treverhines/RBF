@@ -1,46 +1,37 @@
 #!/usr/bin/env python
 import sympy as sp
 import numpy as np
-sp.init_printing()
-
-def lamb(x,diff=(0,0)):
-  return 
-
-def mu(x,diff=(0,0)):
-  return 
-
-def norm1(x):
-  return 
-
-def norm2(x):
-  return 
-
-def norm3(x):
-  return 
-
-dim = 3
-x = sp.symbols('x0:%s' % dim)
-n = sp.symbols('n0:%s' % dim)
-L = sp.Function('L')(*x)
-M = sp.Function('M')(*x)
-u = (sp.Function('u0')(*x),
-     sp.Function('u1')(*x),
-     sp.Function('u2')(*x))
-
-#sym2num = {L:lamb,M:mu,
-#           sp.Integer(1):1.0,
-#           sp.Integer(2):2.0,
-#           x[0]:0,x[1]:1,x[2]:2}
+import logging
+logger = logging.getLogger(__name__)
 
 
-half = sp.Rational(1,2)
-dirs = range(dim)
+class FormulationError(Exception):
+  pass
 
-strain = [[half*(u[j].diff(x[i]) + u[i].diff(x[j])) for i in dirs] for j in dirs]
-strain = sp.Matrix(strain)
-stress = L*sp.eye(dim)*sp.trace(strain) + 2*M*strain
-PDEs = [sum(stress[i,j].diff(x[j]) for j in dirs) for i in dirs]
-BCs = [sum(stress[i,j]*n[j] for j in dirs) for i in dirs]
+
+def unique(x):
+  '''
+  returns unique values of x
+  '''
+  out = []
+  for v in x:
+    if out.count(v) == 0:
+      out.append(v)
+
+  return out 
+
+
+def indices(x,val):
+  '''
+  return indices of x which equal val
+  '''
+  out = []
+  for i,v in enumerate(x):
+    if v == val:
+      out.append(i)
+
+  return out    
+ 
 
 def derivative_order(expr):
   '''
@@ -63,7 +54,7 @@ def symbolic_coeffs_and_diffs(expr,u):
   # convert expr to a list of terms
   expr = expr.expand()
   expr = expr.as_ordered_terms()
-  # throw out terms not containing f
+  # throw out terms not containing u
   expr = [i for i in expr if i.has(u)]
   coeffs = []
   diffs = []
@@ -80,13 +71,14 @@ def symbolic_coeffs_and_diffs(expr,u):
 
     # find multipliers with the queried term
     with_u = [i for i in e if i.has(u)]
-    assert len(with_u) == 1, (
-      'term contains multiple multipliers with %s' % u)
+    if not (len(with_u) == 1):
+      raise FormulationError(
+        'the term %s has multiple occurrences of %s' % (sp.prod(e),u))
 
     base,diff = derivative_order(with_u[0])
-    assert base == u, (
-      'cannot find the derivatives with respect to %s for the '
-      'expression %s' % (u,base))
+    if not (base == u):
+      raise FormulationError( 
+        'cannot express %s as a differential operation of %s' % (base,u))
       
     diffs += diff,
 
@@ -101,6 +93,8 @@ def rmap(val,mappings):
     try:
       return mappings[val]
     except KeyError:
+      logger.warning('cannot map %s, attempting to coerce it to a '
+            'float' % val)
       print('WARNING: cannot map %s, attempting to coerce it to a '
             'float' % val)
       return float(val)
@@ -113,17 +107,18 @@ def rmap(val,mappings):
     return out
 
 
-def reformat_diff(diff,dirs):
+def reformat_diff(diff,ivars):
   '''
   converts diff from a collection of differentiation directions to
   the count for each differentiation direction
   '''
   diff = list(diff)
-  assert all([i in dirs for i in diff]), (
-    'not all differentiation directions provided')
+  if not all([i in ivars for i in diff]):
+    raise FormulationError(
+      'not all differentiation directions provided')
 
-  out = [0]*len(dirs)
-  for i,xi in enumerate(dirs):
+  out = [0]*len(ivars)
+  for i,xi in enumerate(ivars):
     out[i] = diff.count(xi)
 
   return tuple(out)
@@ -164,44 +159,44 @@ def function_sum(*args):
   return fsum
     
 
-def numerical_coeffs_and_diffs(expr,u,dirs=None,mapping=None):
-  if dirs is None:
-    dirs = ()
+def coeffs_and_diffs(expr,u,ivar,mapping=None):
+  if len(ivar) == 0:
+    raise FormulationError(
+      'at least one independent variable must be provides')  
+
   if mapping is None:
     mapping = {}
 
-  out = []
-  a = symbolic_coeffs_and_diffs(expr,u)
-  for coeff,diff in a:
-    coeff = rmap(coeff,mapping)   
-    diff = reformat_diff(diff,dirs) 
-    out += (function_product(*coeff),diff),
+  coeff_list = []
+  diff_list = []
+  for coeff,diff in symbolic_coeffs_and_diffs(expr,u):
+    coeff = function_product(*rmap(coeff,mapping))
+    diff = reformat_diff(diff,ivar) 
+    coeff_list += [coeff]
+    diff_list += [diff]
 
-  # I need to combine like terms in the out list to cut
-  # down the computation time
+  compressed_diff_list = unique(diff_list)
+  compressed_coeff_list = []
+  for d in compressed_diff_list:
+    # find the indices of matching diff tuples
+    idx = indices(diff_list,d)
+    # find the coefficients for associated with the matching diff 
+    # tuples
+    coeffs_with_same_diff = [coeff_list[i] for i in idx]
+    # sum up coefficients    
+    compressed_coeff_list += [function_sum(*coeffs_with_same_diff)]
+    
+  out = zip(compressed_coeff_list,compressed_diff_list)
   return out    
 
-mapping = {sp.Integer(1):1.0,sp.Integer(2):2.0, 
-           L:lamb,
-           n[0]:norm1,n[1]:norm2,n[2]:norm3,  
-           L.diff(x[0]):lambda x:lamb(x,diff=(1,0,0)),
-           L.diff(x[1]):lambda x:lamb(x,diff=(0,1,0)),
-           L.diff(x[2]):lambda x:lamb(x,diff=(0,0,1)),
-           M:mu,
-           M.diff(x[0]):lambda x:mu(x,diff=(1,0,0)),
-           M.diff(x[1]):lambda x:mu(x,diff=(0,1,0)),
-           M.diff(x[2]):lambda x:mu(x,diff=(0,0,1))}
 
-import modest
+def evaluate_coeffs_and_diffs(cd,*args,**kwargs):
+  out = []
+  for c,d in cd:
+    c_evaluated = c(*args,**kwargs)
+    # if the coefficient evaluates to zeros then ignore the term
+    if c_evaluated != 0.0:
+      out += (c(*args,**kwargs),d),
 
-modest.tic()
-for i in dirs:
-  for j in dirs:
-    #out = numerical_coeffs_and_diffs(PDEs[i],u[j],dirs=x,mapping=mapping)
-    out = numerical_coeffs_and_diffs(BCs[i],u[j],dirs=x,mapping=mapping)
-    print(out)
-
-print(modest.toc())
-#sp.pprint(out)
-#sp.pprint(rmap(out,sym2num))
+  return out
 
