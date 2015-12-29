@@ -247,8 +247,8 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
   assert minval >= 0.0, (
     'values in node density function must be positive')
   
-  N = int(N)
-  print(N)
+  N = int(np.round(N))
+
   def rho_normalized(p):
     return rho(p)/maxval
 
@@ -269,7 +269,7 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     if acceptance == 0.0:
       sample_size = max_sample_size    
     else:
-      sample_size = int((N-nodes.shape[0])/acceptance) + 1
+      sample_size = int(np.ceil((N-nodes.shape[0])/acceptance))
       if sample_size > max_sample_size:
         sample_size = max_sample_size
 
