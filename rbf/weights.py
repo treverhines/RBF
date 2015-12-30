@@ -40,6 +40,7 @@ def vpoly(c,order=None):
   return out
 
 
+@modest.funtime
 def vrbf(n,eps,Np,basis):
   '''
   returns the matrix:
@@ -70,6 +71,7 @@ def vrbf(n,eps,Np,basis):
   return A
 
 
+@modest.funtime
 def drbf(x,n,eps,Np,diff,basis):
   n = np.asarray(n)
   x = np.asarray(x)
@@ -137,11 +139,12 @@ def optimal_shape_factor(n,basis,cond):
   eps = modest.nonlin_lstsq(system,[cond],
                             eps,
                             solver=modest.nnls,
-                            atol=1e-2,rtol=1e-4,
+                            atol=1e-2,rtol=1e-8,
                             LM_param=1e-2,
-                            maxitr=100)
+                            maxitr=500)
   return eps[0]
 
+@modest.funtime
 def is_operator(diff):
   '''
   diff can either be a tuple describing the differentiation order in
@@ -159,7 +162,8 @@ def is_operator(diff):
     return False
 
 
-def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
+@modest.funtime
+def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10.0):
   '''
   finds the weights, w, such that
 
@@ -196,12 +200,12 @@ def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10):
   except np.linalg.linalg.LinAlgError:
     print(
       'WARNING: encountered singular matrix. Now trying to compute weights '
-      'with condition number of 10^%s' % (cond-1))
+      'with condition number of 10^%s' % (cond-0.5))
     logger.warning(
       'encountered singular matrix. Now trying to compute weights '
-      'with condition number of 10^%s' % (cond-1))
+      'with condition number of 10^%s' % (cond-0.5))
     return rbf_weight(x,n,diff,basis=basis,
-                      Np=Np,eps=None,cond=cond-1)       
+                      Np=Np,eps=None,cond=cond-0.5)       
     
   return w 
 
