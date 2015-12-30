@@ -53,21 +53,24 @@ def vrbf(n,eps,Np,basis):
   n = np.asarray(n)
   Ns,Ndim = n.shape
   eps = eps*np.ones(Ns)
-  Ar = basis(n,n,eps)
-  Ap = np.zeros((0,Ns))
-  if Np > 0:
-      Api = np.ones(len(n))
-      Ap = np.vstack((Ap,Api))
-    
-  for i in range(Ndim):
-    Api = vpoly(n[:,i],range(1,Np))  
-    Ap = np.vstack((Ap,Api))
+  if Np == 0:
+    out = np.zeros((Ns,Ns))
+  else:
+    out = np.zeros((Ns + 1 + (Np-1)*Ndim,
+                    Ns + 1 + (Np-1)*Ndim))
 
-  Z = np.zeros((Ap.shape[0],Ap.shape[0]))
-  left = np.vstack((Ar,Ap))
-  right = np.vstack((Ap.T,Z))
-  A = np.hstack((left,right))
-  return A
+  out[:Ns,:Ns] = basis(n,n,eps)
+  if Np > 0:
+    out[Ns,:Ns] = 1
+    out[:Ns,Ns] = 1
+
+  if Np > 1:
+    poly_mat = np.vstack([vpoly(n[:,i],range(1,Np)) 
+                          for i in range(Ndim)])
+    out[Ns+1:,:Ns] = poly_mat
+    out[:Ns,Ns+1:] = poly_mat.T
+
+  return out
 
 
 def drbf(x,n,eps,Np,diff,basis):
@@ -75,17 +78,14 @@ def drbf(x,n,eps,Np,diff,basis):
   x = np.asarray(x)
   x = x[None,:]
   Ns,Ndim = n.shape
+  eps = eps*np.ones(Ns)
   if Np == 0:
     out = np.zeros(Ns)
   else:
     out = np.zeros(Ns + 1 + (Np-1)*Ndim)
 
-  eps = eps*np.ones(Ns)
   out[:Ns] = basis(x,n,eps,diff=diff)[0,:]
-  #dp = np.zeros(0)
   if Np > 0:
-    #dpi = [float(sum(diff) == 0)]
-    #dp = np.concatenate((dp,dpi))       
     out[Ns] = float(sum(diff) == 0)
 
   if Np > 1:
@@ -94,11 +94,7 @@ def drbf(x,n,eps,Np,diff,basis):
                    for i in range(Ndim)]
     poly_terms = np.array(poly_terms).flatten()
     out[Ns+1:] = poly_terms
-  #for i in range(Ndim):
-    #dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
-    #dp = np.concatenate((dp,dpi))
-  #  out[Ns+1:] = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
-  #d = np.concatenate((dr,dp))
+
   return out
 
 
