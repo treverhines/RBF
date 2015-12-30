@@ -40,7 +40,6 @@ def vpoly(c,order=None):
   return out
 
 
-@modest.funtime
 def vrbf(n,eps,Np,basis):
   '''
   returns the matrix:
@@ -71,25 +70,36 @@ def vrbf(n,eps,Np,basis):
   return A
 
 
-@modest.funtime
 def drbf(x,n,eps,Np,diff,basis):
   n = np.asarray(n)
   x = np.asarray(x)
   x = x[None,:]
   Ns,Ndim = n.shape
+  if Np == 0:
+    out = np.zeros(Ns)
+  else:
+    out = np.zeros(Ns + 1 + (Np-1)*Ndim)
+
   eps = eps*np.ones(Ns)
-  dr = basis(x,n,eps,diff=diff)[0,:]
-  dp = np.zeros(0)
+  out[:Ns] = basis(x,n,eps,diff=diff)[0,:]
+  #dp = np.zeros(0)
   if Np > 0:
-    dpi = [float(sum(diff) == 0)]
-    dp = np.concatenate((dp,dpi))       
+    #dpi = [float(sum(diff) == 0)]
+    #dp = np.concatenate((dp,dpi))       
+    out[Ns] = float(sum(diff) == 0)
 
-  for i in range(Ndim):
-    dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
-    dp = np.concatenate((dp,dpi))
-
-  d = np.concatenate((dr,dp))
-  return d    
+  if Np > 1:
+    poly_terms = [[poly(x[0,i],j,diff=diff[i]) 
+                   for j in range(1,Np)] 
+                   for i in range(Ndim)]
+    poly_terms = np.array(poly_terms).flatten()
+    out[Ns+1:] = poly_terms
+  #for i in range(Ndim):
+    #dpi = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
+    #dp = np.concatenate((dp,dpi))
+  #  out[Ns+1:] = [poly(x[0,i],j,diff=diff[i]) for j in range(1,Np)]
+  #d = np.concatenate((dr,dp))
+  return out
 
 
 def shape_factor(nodes,s,basis,cond=10,samples=100):
@@ -144,7 +154,7 @@ def optimal_shape_factor(n,basis,cond):
                             maxitr=500)
   return eps[0]
 
-@modest.funtime
+
 def is_operator(diff):
   '''
   diff can either be a tuple describing the differentiation order in
@@ -162,7 +172,7 @@ def is_operator(diff):
     return False
 
 
-@modest.funtime
+
 def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10.0):
   '''
   finds the weights, w, such that
