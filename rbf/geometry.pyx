@@ -560,7 +560,7 @@ cdef bint is_intersecting_3d(segment3d seg,
     dummy_seg4.b.x = tri.a.y
     dummy_seg4.b.y = tri.a.z
 
-  if (abs(n2) >= abs(n1)) & (abs(n2) >= abs(n3)):
+  elif (abs(n2) >= abs(n1)) & (abs(n2) >= abs(n3)):
     dummy_seg1.a.x = dummy_pnt1.x
     dummy_seg1.a.y = dummy_pnt1.z
     dummy_seg1.b.x = dummy_pnt2.x
@@ -581,7 +581,7 @@ cdef bint is_intersecting_3d(segment3d seg,
     dummy_seg4.b.x = tri.a.x
     dummy_seg4.b.y = tri.a.z
 
-  if (abs(n3) >= abs(n1)) & (abs(n3) >= abs(n2)):
+  elif (abs(n3) >= abs(n1)) & (abs(n3) >= abs(n2)):
     dummy_seg1.a.x = dummy_pnt1.x
     dummy_seg1.a.y = dummy_pnt1.y
     dummy_seg1.b.x = dummy_pnt2.x

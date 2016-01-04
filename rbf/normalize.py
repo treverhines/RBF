@@ -46,7 +46,7 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
   H = Halton(dim)
 
   if samples is None:
-    samples = 50**dim
+    samples = 100**dim
 
   soln = 0
   count = 0
