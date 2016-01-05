@@ -103,7 +103,7 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 cond=10
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 50000
+N = 5000
 
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
@@ -147,9 +147,9 @@ grp[[0,1,2]] = 1
 # density function
 @normalizer(vert,smp,kind='density',nodes=N)
 def rho(p):
-  out = 1.0/(1 + 1.1*np.linalg.norm(p - np.array([0.0,11.0]),axis=1)**2)
-  out += 1.0/(1 + 1.1*np.linalg.norm(p - np.array([2.0,10.0]),axis=1)**2)
-  out += 1.0/(1 + 1.1*np.linalg.norm(p - np.array([-2.0,10.0]),axis=1)**2)
+  out = 1.0/(1 + 0.2*np.linalg.norm(p - np.array([0.0,11.0]),axis=1)**2)
+  out += 1.0/(1 + 0.2*np.linalg.norm(p - np.array([2.0,10.0]),axis=1)**2)
+  out += 1.0/(1 + 0.2*np.linalg.norm(p - np.array([-2.0,10.0]),axis=1)**2)
   return out
 
 scale = np.max(vert) - np.min(vert)
@@ -234,8 +234,8 @@ G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
 
 # add gravitational force
-data[1][ix['interior']] -= (nodes[ix['interior'],1] > 10.01).astype(float)
-data[1][ix['free']] -= (nodes[ix['free'],1] > 10.01).astype(float)
+data[1][ix['interior']] += (nodes[ix['interior'],1] > 10.01).astype(float)
+data[1][ix['free']] += (nodes[ix['free'],1] > 10.01).astype(float)
 data = np.concatenate(data)
 
 modest.toc('forming G')
@@ -247,7 +247,7 @@ cs = ax.tripcolor(nodes[:,0],
                   np.linalg.norm(out,axis=0),cmap=slip2)
 plt.colorbar(cs)
 plt.quiver(nodes[::2,0],nodes[::2,1],
-           out[0,::2],out[1,::2],color='k',scale=100)
+           out[0,::2],out[1,::2],color='k',scale=10)
 
 
 

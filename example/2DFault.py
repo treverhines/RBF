@@ -103,7 +103,7 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 cond=10
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 100000
+N = 10000
 
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
@@ -115,7 +115,7 @@ Np = 1
 
 surf_vert_x = np.linspace(-10,10,100)
 surf_vert_y = 1.0/(1 + 1.0*(surf_vert_x - 2)**2)
-surf_vert_y = 2.0*np.sin(4*np.pi*surf_vert_x/10.0)
+surf_vert_y = 0.2*np.sin(4*np.pi*surf_vert_x/10.0)
 
 surf_vert = np.array([surf_vert_x,surf_vert_y+12]).T
 surf_smp = np.array([np.arange(99),np.arange(1,100)]).T
