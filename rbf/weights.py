@@ -98,28 +98,36 @@ def drbf(x,n,eps,Np,diff,basis):
   return out
 
 
-def shape_factor(nodes,s,basis,cond=10,samples=100):
+def shape_factor(nodes,s,basis,alpha=None,cond=10,samples=100):
   '''
   The shape factor for stencil i, eps_i, is chosen by
  
     eps_i = alpha/mu_i                  
  
   where mu_i is the mean shortest path between nodes in stencil i. and 
-  alpha is a proportionality constant chosen to obtain the desired  
-  condition number for each stencils Vandermonde matrix.  This    
-  function assumes that the optimal alpha for each stencil is equal. 
-  Alpha is then estimated from the specified number of stencil samples
-  and then eps_i is returned for each stencil
+  alpha is a proportionality constant.  This function assumes the same 
+  alpha for each stencil.  If alpha is not given then an alpha is estimated
+  which produces the desired condition number for the Vandermonde matrix 
+  of each stencil. if alpha is given then cond does nothing.  This funtion
+  returns eps_i for each stencil
   '''
-  alpha_list = np.zeros(samples)
-  for i,si in enumerate(random.sample(s,samples)):
-    eps = optimal_shape_factor(nodes[si,:],basis,cond)
-    T = scipy.spatial.cKDTree(nodes[si,:])
-    dx,idx = T.query(nodes[si,:],2)
-    mu = np.mean(dx[:,1])
-    alpha_list[i] = eps*mu
+  if alpha is None:
+    alpha_list = []
+    for si in random.sample(s,samples):
+      eps = optimal_shape_factor(nodes[si,:],basis,cond)
+      if eps is not None:
+        T = scipy.spatial.cKDTree(nodes[si,:])
+        dx,idx = T.query(nodes[si,:],2)
+        mu = np.mean(dx[:,1])
+        alpha_list += [eps*mu]
 
-  alpha = np.mean(alpha_list)
+    if len(alpha_list) == 0:
+      raise ValueError(
+        'did not find a shape parameters which produces the desired '
+        'condition number for any stencils')
+  
+    alpha = np.mean(alpha_list)
+
   eps_list = np.zeros(s.shape[0])
   for i,si in enumerate(s):
     T = scipy.spatial.cKDTree(nodes[si,:])
@@ -142,13 +150,21 @@ def optimal_shape_factor(n,basis,cond):
   # average shortest distance between nodes
   dx = np.mean(dist[:,1])
   eps = [0.1/dx]
-  eps = modest.nonlin_lstsq(system,[cond],
-                            eps,
-                            solver=modest.nnls,
-                            atol=1e-2,rtol=1e-8,
-                            LM_param=1e-2,
-                            maxitr=500)
-  return eps[0]
+  eps,pred_cond = modest.nonlin_lstsq(system,[cond],
+                                      eps,
+                                      solver=modest.nnls,
+                                      atol=1e-2,rtol=1e-8,
+                                      LM_param=1e-2,
+                                      maxitr=500,
+                                      output=['solution','predicted'])
+  if np.abs(pred_cond - cond) > 1e-2:
+    logger.warning(
+      'did not find a shape parameter which produces the desired '
+      'condition number')  
+    return None
+
+  else:
+    return eps[0]
 
 
 def is_operator(diff):

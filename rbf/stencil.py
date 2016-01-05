@@ -7,17 +7,24 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def distance(test,pnts,vert,smp):
+def distance(test,pnts,vert=None,smp=None):
   '''
   returns euclidean distance between test and pnts. If the line
   segment between test and pnts crosses a boundary then the distance
   is inf
 
   '''  
+  if smp is None:
+    smp = np.zeros((0,len(test)),dtype=int)
+
+  if vert is None:
+    vert = np.zeros((0,len(test)),dtype=float)
+
   test = np.asarray(test,dtype=float)
   pnts = np.asarray(pnts,dtype=float)
   vert = np.asarray(vert,dtype=float)
   smp = np.asarray(smp,dtype=int)
+
   test = np.repeat(test[None,:],pnts.shape[0],axis=0)
   dist = np.sqrt(np.sum((pnts-test)**2,1))
   cc = np.zeros(pnts.shape[0],dtype=int)
@@ -28,15 +35,25 @@ def distance(test,pnts,vert,smp):
   return dist
 
 
-def nearest(test,pnts,N,vert=None,smp=None):
+def nearest(test,pnts,N,vert=None,smp=None,excluding=None):
   '''
   returns the N points within pnts that are closest to the given
   test points.  If vert and smp are specified then two points whos
   line segment intersects any of the simplexes are considered to
-  be infinitely far away
+  be infinitely far away. If excluding is given then the specified
+  indices will not included as the nearest nodes
   '''
   test = np.asarray(test,dtype=float)
   pnts = np.asarray(pnts,dtype=float)
+
+  if excluding is None:
+    # dont exclude any points
+    excluding_bool = np.zeros(pnts.shape[0],dtype=bool)
+
+  else:
+    # exclude indicated points
+    excluding_bool = np.zeros(pnts.shape[0],dtype=bool)
+    excluding_bool[excluding] = True
 
   assert N <= pnts.shape[0], (
     'cannot find %s nearest neighbors with %s points' % (N,pnts.shape[0]))
@@ -56,15 +73,17 @@ def nearest(test,pnts,N,vert=None,smp=None):
       dist = dist[:,None]
       neighbors = neighbors[:,None]
 
-  if vert is None:
+  if (vert is None) & (excluding is None):
     return neighbors,dist
 
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
   for i in range(test.shape[0]):
     # distance from point i to nearest neighbors, crossing
-    # a boundary gives infinite distance
-    dist_i = distance(test[i],pnts[neighbors[i]],vert,smp)
+    # a boundary gives infinite distance. If the neighbor 
+    # is in the excluding list then it also has infinite 
+    # distance
+    dist_i = distance(test[i],pnts[neighbors[i]],vert=vert,smp=smp)
+    dist_i[excluding_bool[neighbors[i]]] = np.inf
+    
     query_size = N
     while np.any(np.isinf(dist_i)):
       # if some neighbors cross a boundary then query a larger
@@ -75,7 +94,8 @@ def nearest(test,pnts,N,vert=None,smp=None):
          
       dist_i,neighbors_i = T.query(test[i],query_size)
       # recompute distance to larger set of neighbors
-      dist_i = distance(test[i],pnts[neighbors_i],vert,smp)
+      dist_i = distance(test[i],pnts[neighbors_i],vert=vert,smp=smp)
+      dist_i[excluding_bool[neighbors_i]] = np.inf
       # assign the closest N neighbors to the neighbors array
       neighbors[i] = neighbors_i[np.argsort(dist_i)[:N]]
       dist_i = dist_i[np.argsort(dist_i)[:N]]
