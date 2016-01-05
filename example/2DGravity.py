@@ -18,7 +18,6 @@ import scipy.sparse.linalg
 import logging
 from modest import summary
 import sympy as sp
-from elastostatics import okada
 logging.basicConfig(level=logging.INFO)
 
 
@@ -190,8 +189,8 @@ eps = rbf.weights.shape_factor(nodes,s,basis,cond=cond,samples=200)
 N = len(nodes)
 modest.tic('forming G')
 
-G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float64) for mi in range(dim)] for di in range(dim)]
-data = [np.zeros(N) for i in range(dim)]
+G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float32) for mi in range(dim)] for di in range(dim)]
+data = [np.zeros(N,dtype=np.float32) for i in range(dim)]
 # This can be parallelized!!!!
 for di in range(dim):
   for mi in range(dim):
@@ -234,8 +233,8 @@ G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
 
 # add gravitational force
-data[1][ix['interior']] += (nodes[ix['interior'],1] > 10.01).astype(float)
-data[1][ix['free']] += (nodes[ix['free'],1] > 10.01).astype(float)
+data[1][ix['interior']] += (nodes[ix['interior'],1] > 10.01).astype(np.float32)
+data[1][ix['free']] += (nodes[ix['free'],1] > 10.01).astype(np.float32)
 data = np.concatenate(data)
 
 modest.toc('forming G')
