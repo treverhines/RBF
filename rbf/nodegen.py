@@ -16,24 +16,28 @@ from itertools import combinations
 logger = logging.getLogger(__name__)
 
 
-def ensure_node_spacing(rho,nodes,norms,groups):
+def verify_node_spacing(rho,nodes,tol=0.5):
+  '''
+  Returns indices of nodes which are consistent with the node
+  density function rho. Indexing nodes with the output 
+  will return a pared down node set that is consistent with rho
+  '''
   logger.info('verifying node spacing')  
-  # ensure that all nodes are sufficiently far away from eachother
   dim = nodes.shape[1]
-  mindist = 0.1/(rho(nodes)**(1.0/dim))
+  valid_indices = np.arange(nodes.shape[0],dtype=int)
+  # minimum distance allowed between nodes
+  mindist = tol/(rho(nodes)**(1.0/dim))
   s,dx = rbf.stencil.nearest(nodes,nodes,2)
   while np.any(dx[:,1] < mindist):
-    logger.info('throwing out node which is too close to an adjacent node')
-    toss_idx = np.argmin(dx[:,1])    
-
-    nodes = np.delete(nodes,toss_idx,axis=0)
-    norms = np.delete(norms,toss_idx,axis=0)
-    groups = np.delete(groups,toss_idx,axis=0)
-
-    mindist = 0.1/(rho(nodes)**(1.0/dim))
+    toss = np.argmin(dx[:,1]/mindist)
+    logger.info('removing node %s for being too close to adjacent node' 
+                % valid_indices[toss])
+    nodes = np.delete(nodes,toss,axis=0)
+    valid_indices = np.delete(valid_indices,toss,axis=0)
+    mindist = tol/(rho(nodes)**(1.0/dim))
     s,dx = rbf.stencil.nearest(nodes,nodes,2)
 
-  return nodes,norms,groups  
+  return valid_indices
 
 
 def merge_nodes(**kwargs):
@@ -356,7 +360,10 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
                                 itr=itr,n=n,
                                 delta=delta,rho=rho_normalized)
 
-  nodes,norms,grp = ensure_node_spacing(rho,nodes,norms,grp)
+  idx = verify_node_spacing(rho,nodes)
+  nodes = nodes[idx]
+  norms = norms[idx]
+  grp = grp[idx]
 
   return nodes,norms,grp
 
@@ -588,7 +595,10 @@ def surface(rho,vert,smp,**kwargs):
     normals = np.vstack((normals,m))
     groups = np.hstack((groups,g2))
 
-  nodes,normals,groups = ensure_node_spacing(rho,nodes,normals,groups)
+  idx = verify_node_spacing(rho,nodes)
+  nodes = nodes[idx]
+  normals = normals[idx]
+  groups = groups[idx]
 
   return nodes,normals,groups
 

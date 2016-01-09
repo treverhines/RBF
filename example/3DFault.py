@@ -155,15 +155,15 @@ smp_f =  np.array([[0,1,2],
 @normalizer(vert,smp,kind='density',nodes=N)
 def rho(p):
   out = np.zeros(p.shape[0])
-  out += 1.0#/(1.0 + 1000*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
+  out += 1.0/(1.0 + 100*np.linalg.norm(p-np.array([1.0,1.0,1.0]),axis=1)**2)
 
   return out
 
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
-mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],nodes_f[:,2],scale_factor=0.01)
+nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert,smp)
+mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],nodes_f[:,2],scale_factor=0.005)
 mayavi.mlab.show()
 
 # cut out any fault nodes outside of the domain

@@ -18,7 +18,6 @@ import scipy.sparse.linalg
 import logging
 from modest import summary
 import sympy as sp
-from elastostatics import okada
 logging.basicConfig(level=logging.INFO)
 
 
