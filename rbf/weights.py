@@ -40,7 +40,7 @@ def vpoly(c,order=None):
   return out
 
 
-def vrbf(n,eps,Np,basis):
+def vrbf(nodes,centers,eps,Np,basis):
   '''
   returns the matrix:
 
@@ -50,8 +50,9 @@ def vrbf(n,eps,Np,basis):
   where Ar is consists of RBFs with specified cnts evaluated
   at those cnts. Ap consists of additional polynomial terms
   '''
-  n = np.asarray(n)
-  Ns,Ndim = n.shape
+  nodes = np.asarray(nodes)
+  centers = np.asarray(centers)
+  Ns,Ndim = nodes.shape
   eps = eps*np.ones(Ns)
   if Np == 0:
     out = np.zeros((Ns,Ns))
@@ -59,13 +60,13 @@ def vrbf(n,eps,Np,basis):
     out = np.zeros((Ns + 1 + (Np-1)*Ndim,
                     Ns + 1 + (Np-1)*Ndim))
 
-  out[:Ns,:Ns] = basis(n,n,eps)
+  out[:Ns,:Ns] = basis(nodes,centers,eps).T
   if Np > 0:
     out[Ns,:Ns] = 1
     out[:Ns,Ns] = 1
 
   if Np > 1:
-    poly_mat = np.vstack([vpoly(n[:,i],range(1,Np)) 
+    poly_mat = np.vstack([vpoly(nodes[:,i],range(1,Np)) 
                           for i in range(Ndim)])
     out[Ns+1:,:Ns] = poly_mat
     out[:Ns,Ns+1:] = poly_mat.T
@@ -73,18 +74,18 @@ def vrbf(n,eps,Np,basis):
   return out
 
 
-def drbf(x,n,eps,Np,diff,basis):
-  n = np.asarray(n)
+def drbf(x,centers,eps,Np,diff,basis):
+  centers = np.asarray(centers)
   x = np.asarray(x)
   x = x[None,:]
-  Ns,Ndim = n.shape
+  Ns,Ndim = centers.shape
   eps = eps*np.ones(Ns)
   if Np == 0:
     out = np.zeros(Ns)
   else:
     out = np.zeros(Ns + 1 + (Np-1)*Ndim)
 
-  out[:Ns] = basis(x,n,eps,diff=diff)[0,:]
+  out[:Ns] = basis(x,centers,eps,diff=diff)[0,:]
   if Np > 0:
     out[Ns] = float(sum(diff) == 0)
 
@@ -98,7 +99,7 @@ def drbf(x,n,eps,Np,diff,basis):
   return out
 
 
-def shape_factor(nodes,s,basis,alpha=None,cond=10,samples=100):
+def shape_factor(nodes,s,basis,centers=None,alpha=None,cond=10,samples=100):
   '''
   The shape factor for stencil i, eps_i, is chosen by
  
@@ -111,13 +112,20 @@ def shape_factor(nodes,s,basis,alpha=None,cond=10,samples=100):
   of each stencil. if alpha is given then cond does nothing.  This funtion
   returns eps_i for each stencil
   '''
+  if centers is None:
+    centers = nodes
+
+  nodes = np.asarray(nodes,dtype=float)
+  s = np.asarray(s,dtype=int)
+  centers = np.asarray(centers,dtype=float)
+
   if alpha is None:
     alpha_list = []
     for si in random.sample(s,samples):
-      eps = optimal_shape_factor(nodes[si,:],basis,cond)
+      eps = condition_based_shape_factor(nodes[si,:],centers[si,:],basis,cond)
       if eps is not None:
-        T = scipy.spatial.cKDTree(nodes[si,:])
-        dx,idx = T.query(nodes[si,:],2)
+        T = scipy.spatial.cKDTree(centers[si,:])
+        dx,idx = T.query(centers[si,:],2)
         mu = np.mean(dx[:,1])
         alpha_list += [eps*mu]
 
@@ -127,26 +135,28 @@ def shape_factor(nodes,s,basis,alpha=None,cond=10,samples=100):
         'condition number for any stencils')
   
     alpha = np.mean(alpha_list)
+    logger.info('using shape parameter %s' % alpha)
 
   eps_list = np.zeros(s.shape[0])
   for i,si in enumerate(s):
-    T = scipy.spatial.cKDTree(nodes[si,:])
-    dx,idx = T.query(nodes[si,:],2)
+    T = scipy.spatial.cKDTree(centers[si,:])
+    dx,idx = T.query(centers[si,:],2)
     mu = np.mean(dx[:,1])
     eps_list[i] = alpha/mu
 
   return eps_list
 
 
-def optimal_shape_factor(n,basis,cond):
-  n = np.asarray(n)
+def condition_based_shape_factor(nodes,centers,basis,cond):
+  nodes = np.asarray(nodes)
+  centers = np.asarray(centers)
   def system(eps):
-    A = basis(n,n,eps[0]*np.ones(len(n)))
+    A = basis(nodes,centers,eps[0]*np.ones(len(nodes)))
     cond = np.linalg.cond(A)
     return np.array([np.log10(cond)])
 
-  T = scipy.spatial.cKDTree(n)
-  dist,idx = T.query(n,2)
+  T = scipy.spatial.cKDTree(centers)
+  dist,idx = T.query(centers,2)
   # average shortest distance between nodes
   dx = np.mean(dist[:,1])
   eps = [0.1/dx]
@@ -185,39 +195,49 @@ def is_operator(diff):
 
 
 
-def rbf_weight(x,n,diff,basis=rbf.basis.mq,Np=1,eps=None,cond=10.0):
+def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.mq,Np=1,eps=None,cond=10.0):
   '''
   finds the weights, w, such that
 
-  f_i(c_j) = f(||c_j - c_i||) 
+  f_i(n_j) = f(||n_j - c_i||) 
 
-  | f_0(c_0) ... f_0(c_N) |     | L[f_0(y)]y=x  |
+  | f_0(n_0) ... f_0(n_N) |     | L[f_0(y)]y=x  |
   |    :             :    | w = |     :         |
-  | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
+  | f_N(n_0) ... f_N(n_N) |     | L[f_N(y)]y=x  |
   '''
+  if centers is None:
+    centers = nodes
+
   if eps is None:
-    eps = optimal_shape_factor(n,basis,cond)  
+    eps = condition_based_shape_factor(nodes,centers,basis,cond)  
+    if eps is None:
+      raise ValueError(
+        'cannot find shape parameter that produces a condition number '
+        'of %s' % cond)
 
   x = np.array(x,copy=True)
-  n = np.array(n,copy=True)
+  nodes = np.array(nodes,copy=True)
+  centers = np.array(centers,copy=True)
   # center about x
-  n -= x
+  nodes -= x
   x -= x
-  A = vrbf(n,eps,Np,basis)
+  centers -= x
+
+  A = vrbf(nodes,centers,eps,Np,basis)
   if is_operator(diff):
     if Np == 0:
-      d = np.zeros(n.shape[0])
+      d = np.zeros(nodes.shape[0])
     else:
-      d = np.zeros(n.shape[0] + 1 + (Np-1)*n.shape[1])
+      d = np.zeros(nodes.shape[0] + 1 + (Np-1)*nodes.shape[1])
 
     for coeff,diff_tuple in diff:
-      d += coeff*drbf(x,n,eps,Np,diff_tuple,basis)
+      d += coeff*drbf(x,centers,eps,Np,diff_tuple,basis)
 
   else:
-    d = drbf(x,n,eps,Np,diff,basis)
+    d = drbf(x,centers,eps,Np,diff,basis)
 
   try:
-    w = np.linalg.solve(A,d)[:n.shape[0]]
+    w = np.linalg.solve(A,d)[:nodes.shape[0]]
 
   except np.linalg.linalg.LinAlgError:
     print(

@@ -6,15 +6,12 @@ from rbf.geometry import boundary_contains
 from rbf.geometry import is_valid
 import logging 
 from modest import funtime
-import matplotlib.pyplot as plt
-import mayavi.mlab
 import modest
 logger = logging.getLogger(__name__)
 
 
-@funtime
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
-          upper_bounds=None,check_valid=True):
+          upper_bounds=None,check_valid=True,rng=None):
   '''
   Monte Carlo integration of a function that takes a (M,2) or (M,3)
   array of points and returns an (M,) vector. vert and smp are the
@@ -43,7 +40,8 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     ub = np.asarray(upper_bounds)
     assert ub.shape[0] == dim
 
-  H = Halton(dim)
+  if rng is None:
+    rng = Halton(dim)
 
   if samples is None:
     samples = 100**dim
@@ -56,8 +54,7 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     if (count + batch_size) > samples:
       batch_size = samples - count
 
-    pnts = H(batch_size)*(ub-lb) + lb
-    #pnts = np.random.random((batch_size,dim))*(ub-lb) + lb
+    pnts = rng(batch_size)*(ub-lb) + lb
     val = f(pnts)
     is_inside = boundary_contains(pnts,vert,smp)
     if np.any(is_inside):
@@ -97,7 +94,8 @@ def divide_bbox(lb,ub,depth=0):
 
 
 def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
-           lower_bounds=None,upper_bounds=None,_depth=0):
+           lower_bounds=None,upper_bounds=None,_depth=0,
+           rng=None):
   '''
   recursive Monte Carlo integration
   '''
@@ -121,23 +119,27 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
     ub = np.asarray(upper_bounds)
     assert ub.shape[0] == dim
 
+  if rng is None:
+    rng = Halton(dim)
+
   if tol is None:
     # if no tolerance is specified then an rough initial estimate for the
-    # integral is made and then the tolerance is set to 0.001 times
-    # the uncertainty of that estimate
+    # integral is made and then the tolerance is set to 1e-3 times
+    # the uncertainty of that estimate. If the initial estimate is less
+    # than 1e-3 then the tolerance is set to 1e-6  
     init_est = mcint(f,vert,smp,samples=samples,
                      lower_bounds=lower_bounds,
                      upper_bounds=upper_bounds,
-                     check_valid=False)
+                     check_valid=False,rng=rng)
     init_integral = init_est[0]
-    init_err = init_est[1]
-    if abs(init_integral) > init_err:
+    if abs(init_integral) > 1e-3:
       tol = abs(init_integral*1e-3)
     else:
-      tol = abs(init_err*1e-3)
+      tol = 1e-6
 
-  # uncomment to enforce that the final solution is less that tol rather
-  # that each iterative solution. 
+  # The tolerance decreases by a factor of 1/sqrt(2) for each
+  # recursion depth. This ensures that combined uncertainties
+  # is less than the specified tolerance. 
   tol = tol/np.sqrt(2)
   soln = 0.0
   err = 0.0
@@ -146,7 +148,7 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   for lbi,ubi in divide_bbox(lb,ub,depth=_depth):
     out = mcint(f,vert,smp,samples=samples,
                 lower_bounds=lbi,upper_bounds=ubi,
-                check_valid=False)
+                check_valid=False,rng=rng)
     solni,erri,mini,maxi = out
 
     if mini < minval:
@@ -162,7 +164,8 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
     if (erri > tol) & (_depth < max_depth):
       out = rmcint(f,vert,smp,tol=tol,samples=samples,
                    lower_bounds=lbi,upper_bounds=ubi,
-                   _depth=_depth+1,max_depth=max_depth)
+                   _depth=_depth+1,max_depth=max_depth,
+                   rng=rng)
       new_solni,new_erri,mini,maxi = out
 
       if mini < minval:

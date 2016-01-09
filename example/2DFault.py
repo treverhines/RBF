@@ -103,7 +103,7 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 cond=10
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 10000
+N = 40000
 
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
@@ -158,7 +158,7 @@ def rho(p):
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f,itr=100,n=3)
 
 # cut out any fault nodes outside of the domain
 is_inside = boundary_contains(nodes_f,vert,smp)

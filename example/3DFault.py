@@ -109,13 +109,13 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-cond=10
-shape_factor=0.6
-N = 20000
+cond=3
+shape_factor=0.8
+N = 10000
 
 # values of Ns=8 are needed when slip has sharp discontinuities. 
 # Much higher values can be used for even C1 continuous slip
-Ns = 27
+Ns = 15
 Np = 1
 
 vert = np.array([[0.0,0.0,0.0],
@@ -145,8 +145,8 @@ grp[2] = 2
 grp[3] = 2
 
 vert_f = np.array([[0.5,0.25,0.5],
-                   [0.5,0.25,1.01],
-                   [0.5,0.75,1.01],
+                   [0.5,0.25,1.0],
+                   [0.5,0.75,1.0],
                    [0.5,0.75,0.5]])
 smp_f =  np.array([[0,1,2],
                    [0,2,3]])
@@ -155,14 +155,16 @@ smp_f =  np.array([[0,1,2],
 @normalizer(vert,smp,kind='density',nodes=N)
 def rho(p):
   out = np.zeros(p.shape[0])
-  out += 1.0/(1.0 + 10*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
+  out += 1.0#/(1.0 + 1000*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
 
   return out
 
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f,itr=100,n=15)
+nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],nodes_f[:,2],scale_factor=0.01)
+mayavi.mlab.show()
 
 # cut out any fault nodes outside of the domain
 is_inside = boundary_contains(nodes_f,vert,smp)
@@ -183,9 +185,11 @@ mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],nodes_f[:,2],slip[1,:])
 mayavi.mlab.show()
 # domain nodes
 nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
-                                             fix_nodes=nodes_f,itr=100,n=15)
+                                             fix_nodes=nodes_f)
 
-
+s,dx = rbf.stencil.nearest(nodes_d,nodes_d,2)
+plt.hist(dx[:,1],100)
+plt.show()
 # split fault nodes into hanging wall and foot wall nodes
 nodes_fh = nodes_f + 1e-10*scale*norms_f
 nodes_ff = nodes_f - 1e-10*scale*norms_f
@@ -209,12 +213,13 @@ norms,ix = rbf.nodegen.merge_nodes(interior=norms_d[group_d==0],
                                    fault_foot=norms_ff)
 
 
+mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.5,color=(1,0,0))
+mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.5,color=(1,0,0))
 for k,v in ix.iteritems():
-  mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.2,color=(1,1,1))
-  mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.2,color=(1,0,0))
-  mayavi.mlab.points3d(nodes[v,0],nodes[v,1],nodes[v,2],scale_factor=0.03)
-  print(k)
-  mayavi.mlab.show()
+  mayavi.mlab.points3d(nodes[v,0],nodes[v,1],nodes[v,2],scale_factor=0.01)
+
+print(k)
+mayavi.mlab.show()
 
 
 # find the nearest neighbors for the ghost nodes          

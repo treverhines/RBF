@@ -16,6 +16,26 @@ from itertools import combinations
 logger = logging.getLogger(__name__)
 
 
+def ensure_node_spacing(rho,nodes,norms,groups):
+  logger.info('verifying node spacing')  
+  # ensure that all nodes are sufficiently far away from eachother
+  dim = nodes.shape[1]
+  mindist = 0.1/(rho(nodes)**(1.0/dim))
+  s,dx = rbf.stencil.nearest(nodes,nodes,2)
+  while np.any(dx[:,1] < mindist):
+    logger.info('throwing out node which is too close to an adjacent node')
+    toss_idx = np.argmin(dx[:,1])    
+
+    nodes = np.delete(nodes,toss_idx,axis=0)
+    norms = np.delete(norms,toss_idx,axis=0)
+    groups = np.delete(groups,toss_idx,axis=0)
+
+    mindist = 0.1/(rho(nodes)**(1.0/dim))
+    s,dx = rbf.stencil.nearest(nodes,nodes,2)
+
+  return nodes,norms,groups  
+
+
 def merge_nodes(**kwargs):
   out_dict = {}
   out_array = ()
@@ -35,10 +55,9 @@ def default_rho(p):
   return 1.0 + 0*p[:,0]
 
 
-@funtime  
 def repel_step(free_nodes,
                fix_nodes=None,
-               n=10,delta=0.1,
+               n=3,delta=0.1,
                rho=None):  
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
   # if n is 0 or 1 then the nodes remain stationary
@@ -66,12 +85,11 @@ def repel_step(free_nodes,
   return new_free_nodes
 
 
-@funtime
 def repel_bounce(free_nodes,
                  vertices,
                  simplices,
                  fix_nodes=None,
-                 itr=20,n=10,delta=0.1,
+                 itr=100,n=3,delta=0.1,
                  rho=None,max_bounces=3):
   '''
   nodes are repelled by eachother and bounce off boundaries
@@ -139,13 +157,12 @@ def repel_bounce(free_nodes,
   return free_nodes
 
 
-@funtime
 def repel_stick(free_nodes,
                 vertices,
                 simplices,
                 groups=None, 
                 fix_nodes=None,
-                itr=20,n=10,delta=0.1,
+                itr=100,n=3,delta=0.1,
                 rho=None,max_bounces=3):
   '''
   nodes are repelled by eachother and then become fixed when they hit 
@@ -229,8 +246,51 @@ def repel_stick(free_nodes,
 
 @funtime
 def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
-           itr=20,n=10,delta=0.1):
+           itr=100,n=3,delta=0.1):
+  '''
+  Generates nodes within the N-dimensional volume enclosed by the 
+  simplexes using a minimum energy algorithm.  At each iteration 
+  the nearest neighbors to each node are found and then a repulsion
+  force is calculated using the distance to the nearest neighbors and
+  their charges (which is inversely proportional to the node density).
+  Each node then moves in the direction of the net force acting on it.  
+  The step size is equal to delta times the distance to the nearest 
+  node.  
 
+  Paramters
+  ---------
+    rho: node density function. Takes a (M,N) array of coordinates
+      in N dimensional space and returns an (M,) array of node
+      densities at those coordinates 
+
+    vertices: boundary vertices
+
+    simplices: describes how the vertices are connected to form the 
+      boundary
+    
+    groups (default=None): Array of integers identifying groups that
+      the simplexes belong to. This is used to identify nodes
+      belonging to particular boundaries
+  
+    fix_nodes (default=None): Nodes which do not move and only provide
+      a repulsion force
+ 
+    itr (default=100): number of repulsion iterations.  If this number
+      is small then the nodes will not reach a minimum energy
+      equilibrium.
+
+    n (default=3): number of neighboring nodes to use when calculating
+      repulsion force. When n is small, the equilibrium state tends to
+      be a uniform node distribution (regardless of the specified
+      rho), when n is large, nodes tend to get pushed up against the
+      boundaries.  It is best to use a small n and a value for itr
+      which is large enough for the nodes to disperse a little bit but
+      not reach equilibrium.
+
+    delta (default=0.1): Controls the node step size for each
+      iteration.  The tep size is equal to delta times the distance to
+      the nearest neighbor
+  ''' 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
 
@@ -295,6 +355,8 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
                                 fix_nodes=fix_nodes,
                                 itr=itr,n=n,
                                 delta=delta,rho=rho_normalized)
+
+  nodes,norms,grp = ensure_node_spacing(rho,nodes,norms,grp)
 
   return nodes,norms,grp
 
@@ -427,6 +489,8 @@ def nodes_on_simplex(rho,vert,fix_nodes=None,**kwargs):
   nodes_r = np.hstack((nodes_r,a))
   nodes = np.einsum('ij,...j->...i',R.T,nodes_r)
 
+  # pick the normal vector with a positive value for the last 
+  # dimension 
   if normal[-1] < 0.0:
     normal *= -1
 
@@ -505,7 +569,6 @@ def surface(rho,vert,smp,**kwargs):
     for e in find_edges([s]):
       fix_nodes = np.vstack((fix_nodes,
                              edge_nodes[edges.index(e)]))
-
     v = vert[s]
     # there can be more than two simplexes that share the same vertices
     # in 3D and it is necessary to make all vertices into fixed nodes    
@@ -524,6 +587,8 @@ def surface(rho,vert,smp,**kwargs):
     nodes = np.vstack((nodes,n))
     normals = np.vstack((normals,m))
     groups = np.hstack((groups,g2))
+
+  nodes,normals,groups = ensure_node_spacing(rho,nodes,normals,groups)
 
   return nodes,normals,groups
 
