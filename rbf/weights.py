@@ -246,7 +246,7 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.mq,Np=1,eps=None,cond=1
     logger.warning(
       'encountered singular matrix. Now trying to compute weights '
       'with condition number of 10^%s' % (cond-0.5))
-    return rbf_weight(x,n,diff,basis=basis,
+    return rbf_weight(x,nodes,diff,centers=centers,basis=basis,
                       Np=Np,eps=None,cond=cond-0.5)       
     
   return w 

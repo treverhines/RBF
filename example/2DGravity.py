@@ -107,7 +107,7 @@ N = 10000
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
 # a really shitty mesh 9 is a safer bet 
-Ns = 9
+Ns = 7
 Np = 1
 
 # domain vertices

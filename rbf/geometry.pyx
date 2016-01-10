@@ -8,8 +8,9 @@ from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
 from itertools import combinations
 
+# NOTE: fabs is not the same as abs in C!!! 
 cdef extern from "math.h":
-  cdef float abs(float x) nogil
+  cdef float fabs(float x) nogil
 
 cdef extern from "math.h":
   cdef float sqrt(float x) nogil
@@ -40,7 +41,19 @@ cdef struct triangle3d:
   vector3d c
 
 
-cdef double min3(double a,double b, double c) nogil:
+cdef double min2(double a, double b) nogil:
+  if a <= b:
+    return a
+  else:
+    return b
+
+cdef double max2(double a, double b) nogil:
+  if a >= b:
+    return a
+  else:
+    return b
+
+cdef double min3(double a, double b, double c) nogil:
   if (a <= b) & (a <= c):
     return a
 
@@ -97,114 +110,60 @@ cdef vector3d find_outside_3d(double[:,:] v) nogil:
   out.z -= 1.123456789 + rand()*1.0/RAND_MAX
   return out
 
-@boundscheck(False)
-@wraparound(False)
-cdef bint is_collinear_2d(segment2d s1,
-                          segment2d s2) nogil:
-  cdef:
-    double a,b
-  
-  a = ((s2.a.x-s1.a.x)*(s1.b.y-s1.a.y) - 
-       (s1.b.x-s1.a.x)*(s2.a.y-s1.a.y))
-  b = ((s2.b.x-s2.a.x)*(s1.b.y-s1.a.y) - 
-       (s1.b.x-s1.a.x)*(s2.b.y-s2.a.y))
-
-  if not (a == 0.0):
-    return False
-
-  if not (b == 0.0):
-    return False
-
-  else:
-    return True
-
 
 @boundscheck(False)
 @wraparound(False)
-cdef bint is_overlapping_2d(segment2d s1,
-                            segment2d s2) nogil:
+cdef bint is_intersecting_2d(segment2d seg1,
+                             segment2d seg2) nogil:
+  '''
+  DESCRIPTION
+  -----------
+    Identifies whether two 2D segments intersect. An intersection is
+    detected if both segments are not colinear and if any part of the
+    two segments touch
+  '''
   cdef:
-    double a,b,c,t0,t1
+    double proj1,proj2,n1,n2
+    vector2d pnt
 
-  if not is_collinear_2d(s1,s2):
+  # find the normal vector components for segment 2
+  n1 =  (seg2.b.y-seg2.a.y)
+  n2 = -(seg2.b.x-seg2.a.x)
+
+  # project both points in segment 1 onto the normal vector
+  proj1 = ((seg1.a.x-seg2.a.x)*n1 +
+           (seg1.a.y-seg2.a.y)*n2)
+  proj2 = ((seg1.b.x-seg2.a.x)*n1 +
+           (seg1.b.y-seg2.a.y)*n2)
+
+  if proj1*proj2 > 0:
     return False
 
-  a = ((s2.a.x-s1.a.x)*(s1.b.x-s1.a.x) + 
-       (s2.a.y-s1.a.y)*(s1.b.y-s1.a.y))
-  b = ((s2.b.x-s2.a.x)*(s1.b.x-s1.a.x) + 
-       (s2.b.y-s2.a.y)*(s1.b.y-s1.a.y))
-  c = ((s1.b.x-s1.a.x)*(s1.b.x-s1.a.x) + 
-       (s1.b.y-s1.a.y)*(s1.b.y-s1.a.y))
-  t0 = a/c
-  t1 = t0 + b/c
-  if ((t0 <= 0.0) & (t1 <= 0.0)) | ((t0 >= 1.0) & (t1 >= 1.0)):
+  # return false if the segments are collinear
+  if (proj1 == 0) & (proj2 == 0):
     return False
 
-  else:
-    return True
+  # find the point where segment 1 intersects the line overlapping 
+  # segment 2 
+  pnt.x = seg1.a.x + (proj1/(proj1-proj2))*(
+          (seg1.b.x-seg1.a.x))
+  pnt.y = seg1.a.y + (proj1/(proj1-proj2))*(
+          (seg1.b.y-seg1.a.y))
 
-
-@boundscheck(False)
-@wraparound(False)
-cdef bint is_intersecting_2d(segment2d s1,
-                             segment2d s2,
-                             bint anchor=True,
-                             bint tip=True) nogil:
-  cdef:
-    double d,s,t
-
-  d = ((s2.b.x-s2.a.x)*(s1.b.y-s1.a.y) - 
-       (s1.b.x-s1.a.x)*(s2.b.y-s2.a.y))
-  if d == 0.0:
-    if is_overlapping_2d(s1,s2):
-      return False
-
-    elif ((s1.a.x == s2.a.x) & 
-          (s1.a.y == s2.a.y)):
-      s = 0.0
-      t = 0.0
-
-    elif ((s1.a.x == s2.b.x) & 
-          (s1.a.y == s2.b.y)):
-      s = 1.0
-      t = 0.0
-
-    elif ((s1.b.x == s2.b.x) & 
-          (s1.b.y == s2.b.y)):
-      s = 1.0
-      t = 1.0
-
-    elif ((s1.b.x == s2.a.x) & 
-          (s1.b.y == s2.a.y)):
-      s = 0.0
-      t = 1.0
-
+  # if the normal x component is larger then compare y values
+  if fabs(n1) >= fabs(n2):
+    if ((pnt.y >= min2(seg2.a.y,seg2.b.y)) & 
+        (pnt.y <= max2(seg2.a.y,seg2.b.y))):
+      return True
     else:
       return False
 
   else:
-    s = (1/d)*((s1.a.x-s2.a.x)*(s1.b.y-s1.a.y) - 
-               (s1.a.y-s2.a.y)*(s1.b.x-s1.a.x))
-    t = (1/d)*((s1.a.x-s2.a.x)*(s2.b.y-s2.a.y) - 
-               (s1.a.y-s2.a.y)*(s2.b.x-s2.a.x))
-
-  if anchor & tip:
-    if (s >= 0.0) & (s <= 1.0) & (t >= 0.0) & (t <= 1.0):
+    if ((pnt.x >= min2(seg2.a.x,seg2.b.x)) & 
+        (pnt.x <= max2(seg2.a.x,seg2.b.x))):
       return True
-
-  if (not anchor) & tip:
-    if (s > 0.0) & (s <= 1.0) & (t > 0.0) & (t <= 1.0):
-      return True
-
-  if anchor & (not tip):
-    if (s >= 0.0) & (s < 1.0) & (t >= 0.0) & (t < 1.0):
-      return True
-
-  if (not anchor) & (not tip):
-    if (s > 0.0) & (s < 1.0) & (t > 0.0) & (t < 1.0):
-      return True
-
-  return False
+    else:
+      return False
 
 
 @boundscheck(False)
@@ -214,9 +173,11 @@ cpdef np.ndarray cross_count_2d(double[:,:] start_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):
   '''
-  returns an array containing the number of boundary intersections
-  between start_pnts[i] and end_pnts[i].  The boundary is defined 
-  in terms of vertices and simplices.
+  DESCRIPTION
+  -----------
+    returns an array containing the number of boundary intersections
+    between start_pnts[i] and end_pnts[i].  The boundary is defined in
+    terms of vertices and simplices.
   '''
   cdef:
     int i
@@ -270,10 +231,13 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):
   '''
-  returns an array identifying the index of the facet (i.e. which
-  doublet of simplices) intersected by start_pnts[i] and
-  end_pnts[i]. Note: if there is no intersection then a ValueError
-  is returned.
+  DESCRIPTION
+  -----------
+    returns an array identifying the index of the facet (i.e. which
+    doublet of simplices) intersected by start_pnts[i] and
+    end_pnts[i]. Note: if there is no intersection then a ValueError
+    is returned.
+
   '''
   cdef:
     int i
@@ -302,7 +266,7 @@ cpdef np.ndarray cross_which_2d(double[:,:] start_pnts,
 @wraparound(False)
 cdef int _cross_which_2d(segment2d seg,
                          double[:,:] vertices,
-                         long[:,:] simplices) except -1:
+                         long[:,:] simplices) except *:
   cdef:
     int i
     segment2d dummy_seg
@@ -325,9 +289,12 @@ cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
                                 double[:,:] vertices,
                                 long[:,:] simplices):         
   '''
-  returns an array identifying the position where the boundary is
-  intersected by start_pnts[i] and end_pnts[i]. Note: if there is no
-  intersection then a ValueError is returned.
+  DESCRIPTION
+  -----------
+    returns an array identifying the position where the boundary is
+    intersected by start_pnts[i] and end_pnts[i]. Note: if there is no
+    intersection then a ValueError is returned.
+
   '''
   cdef:
     int i
@@ -395,9 +362,12 @@ cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
                                   double[:,:] vertices,
                                   long[:,:] simplices):         
   '''
-  returns an array of normal vectors to the facets intersected by
-  start_pnts[i] and end_pnts[i]. Note: if there is no intersection
-  then a ValueError is returned.
+  DESCRIPTION
+  -----------
+    returns an array of normal vectors to the facets intersected by
+    start_pnts[i] and end_pnts[i]. Note: if there is no intersection
+    then a ValueError is returned.
+
   '''
   cdef:
     int i
@@ -463,8 +433,11 @@ cpdef np.ndarray contains_2d(double[:,:] pnt,
                              double[:,:] vertices,
                              long[:,:] simplices):
   '''
-  returns a boolean array indentifying whether the pnts are 
-  contained within the domain specified by the vertices and simplices
+  DESCRIPTION
+  -----------
+    returns a boolean array indentifying whether the points are
+    contained within the domain specified by the vertices and
+    simplices
   '''
   cdef:
     int count,i
@@ -497,6 +470,23 @@ cpdef np.ndarray contains_2d(double[:,:] pnt,
 @wraparound(False)
 cdef bint is_intersecting_3d(segment3d seg,
                              triangle3d tri) nogil:
+  '''
+  DESCRIPTION 
+  ----------- 
+    returns True if the 3D segment intersects the 3D triangle. An
+    intersection is detected if the segment and triangle are not
+    coplanar and if any part of the segment touches the triangle at an
+    edge or in the interior. Intersections at corners are not detected
+
+  NOTE
+  ----
+    This function determines where the segment intersects the plane
+    containing the triangle and then projects the intersection point
+    and triangle into 2D where a point in polygon test
+    performed. Although rare, 2D point in polygon tests can fail if
+    the randomly determined outside point and the test point cross a
+    vertex of the polygon. 
+  '''
   cdef:
     vector3d dummy_pnt1,dummy_pnt2
     segment2d dummy_seg1,dummy_seg2,dummy_seg3,dummy_seg4
@@ -504,10 +494,16 @@ cdef bint is_intersecting_3d(segment3d seg,
     unsigned int i,idx1,idx2
     unsigned int count = 0
 
-  dummy_pnt2.x = min3(tri.a.x,tri.b.x,tri.c.x) - 1.234567890
-  dummy_pnt2.y = min3(tri.a.y,tri.b.y,tri.c.y) - 2.345678901
-  dummy_pnt2.z = min3(tri.a.z,tri.b.z,tri.c.z) - 3.456789012
+  # find point which is definitively outside of the triangle when
+  # viewed from either the x, y, or z axis 
+  dummy_pnt2.x = (min3(tri.a.x,tri.b.x,tri.c.x) - 
+                  (1.234567890 + rand()*1.0/RAND_MAX))
+  dummy_pnt2.y = (min3(tri.a.y,tri.b.y,tri.c.y) - 
+                  (1.234567890 + rand()*1.0/RAND_MAX))
+  dummy_pnt2.z = (min3(tri.a.z,tri.b.z,tri.c.z) - 
+                  (1.234567890 + rand()*1.0/RAND_MAX))
 
+  # find triangle normal vector components
   n1 =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) - 
          (tri.b.z-tri.a.z)*(tri.c.y-tri.a.y))
   n2 = -((tri.b.x-tri.a.x)*(tri.c.z-tri.a.z) - 
@@ -539,7 +535,7 @@ cdef bint is_intersecting_3d(segment3d seg,
   dummy_pnt1.z = seg.a.z + (proj1/(proj1-proj2))*(
                   (seg.b.z-seg.a.z))
 
-  if (abs(n1) >= abs(n2)) & (abs(n1) >= abs(n3)):
+  if (fabs(n1) >= fabs(n2)) & (fabs(n1) >= fabs(n3)):
     dummy_seg1.a.x = dummy_pnt1.y
     dummy_seg1.a.y = dummy_pnt1.z
     dummy_seg1.b.x = dummy_pnt2.y
@@ -560,7 +556,7 @@ cdef bint is_intersecting_3d(segment3d seg,
     dummy_seg4.b.x = tri.a.y
     dummy_seg4.b.y = tri.a.z
 
-  elif (abs(n2) >= abs(n1)) & (abs(n2) >= abs(n3)):
+  elif (fabs(n2) >= fabs(n1)) & (fabs(n2) >= fabs(n3)):
     dummy_seg1.a.x = dummy_pnt1.x
     dummy_seg1.a.y = dummy_pnt1.z
     dummy_seg1.b.x = dummy_pnt2.x
@@ -581,7 +577,7 @@ cdef bint is_intersecting_3d(segment3d seg,
     dummy_seg4.b.x = tri.a.x
     dummy_seg4.b.y = tri.a.z
 
-  elif (abs(n3) >= abs(n1)) & (abs(n3) >= abs(n2)):
+  elif (fabs(n3) >= fabs(n1)) & (fabs(n3) >= fabs(n2)):
     dummy_seg1.a.x = dummy_pnt1.x
     dummy_seg1.a.y = dummy_pnt1.y
     dummy_seg1.b.x = dummy_pnt2.x
@@ -603,15 +599,15 @@ cdef bint is_intersecting_3d(segment3d seg,
     dummy_seg4.b.y = tri.a.y
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg2,True,True):
+  if is_intersecting_2d(dummy_seg1,dummy_seg2):
     count += 1
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg3,True,True):
+  if is_intersecting_2d(dummy_seg1,dummy_seg3):
     count += 1
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg4,True,True):
+  if is_intersecting_2d(dummy_seg1,dummy_seg4):
     count += 1
 
   return count%2 == 1
@@ -710,7 +706,7 @@ cpdef np.ndarray cross_which_3d(double[:,:] start_pnts,
 @wraparound(False)
 cdef int _cross_which_3d(segment3d seg,
                          double[:,:] vertices,
-                         long[:,:] simplices) except -1:         
+                         long[:,:] simplices) except *:         
   cdef:
     int i
     int N = simplices.shape[0]
@@ -928,7 +924,7 @@ cpdef np.ndarray contains_3d(double[:,:] pnt,
 
 
 def normal(M):
-  '''                                                                                      
+  '''                                  
   returns the normal vector to the N-1 N-vectors  
                                      
   PARAMETERS                         
