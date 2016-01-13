@@ -46,19 +46,20 @@ class RBF(object):
 
     Parameters                                       
     ----------                                         
-      x: ((N,) or (N,D) array) locations to evaluate the RBF
+      x: (N,D) array of locations to evaluate the RBF
                                                                           
-      centers: ((M,) or (M,D) array) centers of each RBF
+      centers: (M,D) array of centers for each RBF
                                                                  
-      eps: ((M,) array, default=np.ones(M)) Scale parameter for each RBF
+      eps: (default=None) (M,) array of shape parameters for each RBF.
+        If not given then the shape parameter for each RBF is 1.0
                                                                            
-      diff: ((D,) tuple, default=(0,)*dim) a tuple whos length is
-        equal to the number of spatial dimensions.  Each value in the
-        tuple must be an integer indicating the order of the
-        derivative in that spatial dimension.  For example, if the the
-        spatial dimensions of the problem are 3 then diff=(2,0,1)
-        would compute the second derivative in the first dimension and
-        the first derivative in the third dimension.
+      diff: (default=None) a tuple whos length is equal to the number
+        of spatial dimensions.  Each value in the tuple must be an
+        integer indicating the order of the derivative in that spatial
+        dimension.  For example, if the the spatial dimensions of the
+        problem are 3 then diff=(2,0,1) would compute the second
+        derivative in the first dimension and the first derivative in
+        the third dimension.
 
     Returns
     -------
@@ -73,43 +74,41 @@ class RBF(object):
       than once in the Python session.
 
     ''' 
+    # Ensure that arguments have proper dimensions
     x = np.asarray(x)
     c = np.asarray(c)
-    if eps is not None:
-      eps = np.asarray(eps)
-   
+
     assert (x.ndim == 2), (
       'x must be a 2-D array')
     assert (c.ndim == 2), (
       'c must be a 2-D array')
-
-    x = x[:,None,:]
-    c = c[None,:,:]
-
-    N = x.shape[0]
-    M = c.shape[1]
-    assert x.shape[2] == c.shape[2], (
+    assert x.shape[1] == c.shape[1], (
       'the spatial dimensions of x and c must be equal')
 
-    dim = x.shape[2]
     if eps is None:
-      eps = np.ones(M)
+      eps = np.ones(c.shape[0])   
+
+    eps = np.asarray(eps)
 
     assert eps.ndim == 1, (
       'eps must be a 1D array')
 
-    assert eps.shape[0] == M, (
+    assert eps.shape[0] == c.shape[0], (
       'length of eps must be equal to the number of centers')
+
+    if diff is None:
+      diff = (0,)*x.shape[1]
+
+    assert len(diff) == x.shape[1], (
+      'length of derivative specification must be equal to the '
+      'spatial dimensions of x and c')
+
+    # expand to allow for broadcasting
+    x = x[:,None,:]
+    c = c[None,:,:]
 
     x = np.einsum('ijk->kij',x)
     c = np.einsum('ijk->kij',c)
-
-    if diff is None:
-      diff = (0,)*dim
-
-    assert len(diff) == dim, (
-      'length of derivative specification must be equal to the '
-      'spatial dimensions of x and c')
 
     # add function to cache if not already
     if diff not in self.cache:
@@ -122,7 +121,6 @@ class RBF(object):
         if order == 0:
           continue
         expr = expr.diff(*(x_sym[direction],)*order)
-        #expr = expr.expand().simplify()
 
       #self.cache[diff] = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
       self.cache[diff] = ufuncify(x_sym+c_sym+(_EPS,),expr)
@@ -273,74 +271,172 @@ _FUNCTION_DOC = '''
     a value for diff is used more than once in the Python session.        
 '''
 
-_TPS4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
-def tps4(*args,**kwargs):
+_PHS8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
+def phs8(*args,**kwargs):
   '''                             
-  thin plate spline
+  eighth order polyharmonic spline:
+    phi(r) = (eps*r)^8*log(eps*r)
+  
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_TPS4(*args,**kwargs))
+  return np.nan_to_num(_PHS8(*args,**kwargs))
 
-tps4.__doc__ += _FUNCTION_DOC
+phs8.__doc__ += _FUNCTION_DOC
 
 
-_TPS2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
-def tps2(*args,**kwargs):
+_PHS7 = RBF((_EPS*_R)**7)
+def phs7(*args,**kwargs):
   '''                             
-  thin plate spline
+  seventh order polyharmonic spline:
+    phi(r) = (eps*r)^7
+
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_TPS2(*args,**kwargs))
+  return np.nan_to_num(_PHS7(*args,**kwargs))
 
-tps2.__doc__ += _FUNCTION_DOC
+phs7.__doc__ += _FUNCTION_DOC
 
-_LINEAR = RBF(_EPS*_R)
-def linear(*args,**kwargs):
+
+_PHS6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
+def phs6(*args,**kwargs):
   '''                             
-  linear
+  sixth order polyharmonic spline:
+    phi(r) = (eps*r)^6*log(eps*r)
+  
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
   '''                                                             
-  return _LINEAR(*args,**kwargs)
+  return np.nan_to_num(_PHS6(*args,**kwargs))
 
-linear.__doc__ += _FUNCTION_DOC
+phs6.__doc__ += _FUNCTION_DOC
 
-_CUBIC = RBF((_EPS*_R)**3)
-def cubic(*args,**kwargs):
+
+_PHS5 = RBF((_EPS*_R)**5)
+def phs5(*args,**kwargs):
   '''                             
-  linear
-  '''                                                             
-  return _CUBIC(*args,**kwargs)
+  fifth order polyharmonic spline:
+    phi(r) = (eps*r)^5
 
-cubic.__doc__ += _FUNCTION_DOC
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
+  '''                                                             
+  return np.nan_to_num(_PHS5(*args,**kwargs))
+
+phs5.__doc__ += _FUNCTION_DOC
+
+
+_PHS4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
+def phs4(*args,**kwargs):
+  '''                             
+  fourth order polyharmonic spline:
+    phi(r) = (eps*r)^4*log(eps*r)
+  
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
+  '''                                                             
+  return np.nan_to_num(_PHS4(*args,**kwargs))
+
+phs4.__doc__ += _FUNCTION_DOC
+
+
+_PHS3 = RBF((_EPS*_R)**3)
+def phs3(*args,**kwargs):
+  '''                             
+  third order polyharmonic spline:
+    phi(r) = (eps*r)^3
+
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
+  '''                                                             
+  return np.nan_to_num(_PHS3(*args,**kwargs))
+
+phs3.__doc__ += _FUNCTION_DOC
+
+
+_PHS2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
+def phs2(*args,**kwargs):
+  '''                             
+  second order polyharmonic spline:
+    phi(r) = (eps*r)^2*log(eps*r)
+  
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
+  '''                                                             
+  return np.nan_to_num(_PHS2(*args,**kwargs))
+
+phs2.__doc__ += _FUNCTION_DOC
+
+
+_PHS1 = RBF(_EPS*_R)
+def phs1(*args,**kwargs):
+  '''                             
+  first order polyharmonic spline:
+    phi(r) = eps*r
+
+  NOTE 
+  ----
+    This RBF usually does not include a shape parameter. It is 
+    included here for the sake of consistency with the other RBF's
+  '''                                                             
+  return np.nan_to_num(_PHS1(*args,**kwargs))
+
+phs1.__doc__ += _FUNCTION_DOC
+
 
 _IMQ = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
 def imq(*args,**kwargs):
   '''                             
-  inverse multiquadratic
+  inverse multiquadratic:
+    phi(r) = 1/sqrt(1 + (eps*r)^2)
   '''                                                             
   return _IMQ(*args,**kwargs)
 
 imq.__doc__ += _FUNCTION_DOC
 
+
 _IQ = RBF(1/(1+(_EPS*_R)**2))
 def iq(*args,**kwargs):
   '''                             
-  inverse quadratic
+  inverse quadratic:
+    phi(r) = 1/(1 + (eps*r)^2)
   '''                                                             
   return _IQ(*args,**kwargs)
 
 iq.__doc__ += _FUNCTION_DOC
 
+
 _GA = RBF(sympy.exp(-(_EPS*_R)**2))
 def ga(*args,**kwargs):
   '''                        
-  Gaussian
+  Gaussian:
+    phi(r) = e^(-(eps*r)^2)
   '''
   return _GA(*args,**kwargs)
 
 ga.__doc__ += _FUNCTION_DOC
 
+
 _MQ = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
 def mq(*args,**kwargs):
   '''                     
-  multiquadratic
+  multiquadratic:
+    phi(r) = sqrt(1 + (eps*r)^2)
   '''
   return _MQ(*args,**kwargs)
 

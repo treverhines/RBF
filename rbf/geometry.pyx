@@ -3,7 +3,7 @@
 import numpy as np
 cimport numpy as np
 from cython.parallel cimport prange
-from cython cimport boundscheck,wraparound
+from cython cimport boundscheck,wraparound,cdivision
 from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
 from itertools import combinations
@@ -66,6 +66,7 @@ cdef double min3(double a, double b, double c) nogil:
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef vector2d find_outside_2d(double[:,:] v) nogil:
   cdef:
     unsigned int i
@@ -87,6 +88,7 @@ cdef vector2d find_outside_2d(double[:,:] v) nogil:
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef vector3d find_outside_3d(double[:,:] v) nogil:
   cdef:
     unsigned int i
@@ -113,6 +115,7 @@ cdef vector3d find_outside_3d(double[:,:] v) nogil:
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef bint is_intersecting_2d(segment2d seg1,
                              segment2d seg2) nogil:
   '''
@@ -324,6 +327,7 @@ cpdef np.ndarray cross_where_2d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef vector2d _cross_where_2d(segment2d seg,
                               double[:,:] vertices,
                               long[:,:] simplices) except *:
@@ -397,6 +401,7 @@ cpdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef vector2d _cross_normals_2d(segment2d seg,
                                 double[:,:] vertices,
                                 long[:,:] simplices) except *:      
@@ -468,6 +473,7 @@ cpdef np.ndarray contains_2d(double[:,:] pnt,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef bint is_intersecting_3d(segment3d seg,
                              triangle3d tri) nogil:
   '''
@@ -765,6 +771,7 @@ cpdef np.ndarray cross_where_3d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef vector3d _cross_where_3d(segment3d seg,
                               double[:,:] vertices,
                               long[:,:] simplices) except *:         
@@ -845,6 +852,7 @@ cpdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef vector3d _cross_normals_3d(segment3d seg,
                                 double[:,:] vertices,
                                 long[:,:] simplices) except *:         

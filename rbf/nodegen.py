@@ -16,7 +16,7 @@ from itertools import combinations
 logger = logging.getLogger(__name__)
 
 
-def verify_node_spacing(rho,nodes,tol=0.5):
+def verify_node_spacing(rho,nodes,tol=0.25):
   '''
   Returns indices of nodes which are consistent with the node
   density function rho. Indexing nodes with the output 
@@ -93,7 +93,7 @@ def repel_bounce(free_nodes,
                  vertices,
                  simplices,
                  fix_nodes=None,
-                 itr=100,n=3,delta=0.1,
+                 itr=50,n=3,delta=0.1,
                  rho=None,max_bounces=3):
   '''
   nodes are repelled by eachother and bounce off boundaries
@@ -166,7 +166,7 @@ def repel_stick(free_nodes,
                 simplices,
                 groups=None, 
                 fix_nodes=None,
-                itr=100,n=3,delta=0.1,
+                itr=50,n=3,delta=0.1,
                 rho=None,max_bounces=3):
   '''
   nodes are repelled by eachother and then become fixed when they hit 
@@ -250,7 +250,7 @@ def repel_stick(free_nodes,
 
 @funtime
 def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
-           itr=100,n=3,delta=0.1):
+           itr=50,n=3,delta=0.1):
   '''
   Generates nodes within the N-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  At each iteration 

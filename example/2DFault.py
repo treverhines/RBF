@@ -102,7 +102,7 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 cond=10
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 20000
+N = 2000
 
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 

@@ -209,11 +209,12 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.mq,Np=1,eps=None,cond=1
     centers = nodes
 
   if eps is None:
-    eps = condition_based_shape_factor(nodes,centers,basis,cond)  
-    if eps is None:
-      raise ValueError(
-        'cannot find shape parameter that produces a condition number '
-        'of %s' % cond)
+    eps = 1.0 
+    #eps = condition_based_shape_factor(nodes,centers,basis,cond)  
+    #if eps is None:
+    #  raise ValueError(
+    #    'cannot find shape parameter that produces a condition number '
+    #    'of %s' % cond)
 
   x = np.array(x,copy=True)
   nodes = np.array(nodes,copy=True)
@@ -241,14 +242,13 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.mq,Np=1,eps=None,cond=1
 
   except np.linalg.linalg.LinAlgError:
     print(
-      'WARNING: encountered singular matrix. Now trying to compute weights '
-      'with condition number of 10^%s' % (cond-0.5))
+      'WARNING: encountered singular matrix when computing weights '
+      'for node %s' % x)
     logger.warning(
-      'encountered singular matrix. Now trying to compute weights '
-      'with condition number of 10^%s' % (cond-0.5))
-    return rbf_weight(x,nodes,diff,centers=centers,basis=basis,
-                      Np=Np,eps=None,cond=cond-0.5)       
-    
+      'WARNING: encountered singular matrix when computing weights '
+      'for node %s' % x)
+    raise  np.linalg.linalg.LinAlgError
+
   return w 
 
 

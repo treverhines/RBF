@@ -7,8 +7,8 @@ from rbf.geometry import is_valid
 import logging 
 from modest import funtime
 import modest
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
           upper_bounds=None,check_valid=True,rng=None):

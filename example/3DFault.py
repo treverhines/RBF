@@ -111,7 +111,7 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 cond=3
 shape_factor=0.8
-N = 10000
+N = 50000
 
 # values of Ns=8 are needed when slip has sharp discontinuities. 
 # Much higher values can be used for even C1 continuous slip

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import rbf.nodegen
-from rbf.basis import mq as basis
+from rbf.basis import phs4 as basis
 from rbf.normalize import normalizer
 from rbf.geometry import boundary_contains
 import modest
@@ -184,8 +184,8 @@ plt.show()
 # moved
 s,dx = rbf.stencil.nearest(nodes,nodes,Ns)
 
-eps = rbf.weights.shape_factor(nodes,s,basis,cond=cond,samples=200)
-
+#eps = rbf.weights.shape_factor(nodes,s,basis,cond=cond,samples=200)
+eps = [None for i in range(len(nodes))]
 N = len(nodes)
 modest.tic('forming G')
 
