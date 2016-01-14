@@ -141,6 +141,7 @@ def maximum_order(stencil_size,dim,_cache={}):
   _cache[(stencil_size,dim)] = order
   return order  
 
+
 def vpoly(centers,order):
   ''''
   Description

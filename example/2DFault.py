@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import rbf.nodegen
-from rbf.basis import mq as basis
+from rbf.basis import phs4 as basis
 from rbf.normalize import normalizer
 from rbf.geometry import boundary_contains
 import modest
@@ -100,15 +100,14 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-cond=10
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 2000
+N = 1000
 
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
 # a really shitty mesh 9 is a safer bet 
-Ns = 7
-Np = 1
+Ns = 20
+order = 'max'
 
 # domain vertices
 
@@ -185,7 +184,7 @@ plt.show()
 
 # domain nodes
 nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
-                                             fix_nodes=nodes_f)
+                                             fix_nodes=nodes_f,n=4)
 
 # split fault nodes into hanging wall and foot wall nodes
 nodes_fh = nodes_f + 1e-10*scale*norms_f
@@ -244,14 +243,6 @@ plt.show()
 #  plt.plot(nodes[s[i][0],0],nodes[s[i][0],1],'ro')
 #  plt.show()
 
-# find the optimal shape factor for each stencil. In 2D the optimal
-# shape parameter tends to smallest one that yeilds a still invertible 
-# Vandermonde matrix.  So the shape parameter is chosen so that the 
-# Vandermonde matrix has a condition number of about 10^10.  This is 
-# NOT an effective strategy in 3D because the Vandermonde matrix tends
-# to be much better conditioned
-eps = rbf.weights.shape_factor(nodes,s,basis,cond=cond,samples=200)
-
 N = len(nodes)
 modest.tic('forming G')
 
@@ -265,20 +256,18 @@ for di in range(dim):
       w = rbf_weight(nodes[i],
                      nodes[s[i]],
                      evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
+
       G[di][mi][i,s[i]] = w
 
     for i in ix['fixed']:
       w = rbf_weight(nodes[i],
                      nodes[s[i]],
                      evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
+
       G[di][mi][i,s[i]] = w
 
     # treat fault nodes as free nodes and the later reorganize the G
@@ -287,10 +276,9 @@ for di in range(dim):
       w = rbf_weight(nodes[i],
                  nodes[s[i]],
                  evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
-                 eps=eps[i],
-                 Np=Np,
-                 basis=basis,
-                 cond=cond)
+                 order=order,
+                 basis=basis)
+
       G[di][mi][i,s[i]] = w
 
     # use the ghost node rows to enforce the free boundary conditions
@@ -300,10 +288,9 @@ for di in range(dim):
       w = rbf_weight(nodes[j],
                      nodes[s[j]],
                      evaluate_coeffs_and_diffs(FreeBCOps[di][mi],j),
-                     eps=eps[j],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
+
       G[di][mi][i,s[j]] = w
     
 # adjust G and d to allow for split nodes

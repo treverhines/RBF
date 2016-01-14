@@ -100,18 +100,16 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-cond=10
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 10000
+N = 1000
 
 # Ns=7 produces fantastic results in 2D because it is the number of 
 # adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
 # a really shitty mesh 9 is a safer bet 
-Ns = 7
-Np = 1
+Ns = 20
+order = 'max'
 
 # domain vertices
-
 surf_vert_x = np.linspace(-20,20,200)
 surf_vert_y = 1.0/(1 + 1.0*(surf_vert_x)**2)
 #surf_vert_y = 2.0*np.sin(4*np.pi*surf_vert_x/10.0)
@@ -123,25 +121,10 @@ bot_vert = np.array([[-20.0,-10.0],
 vert = np.vstack((bot_vert,surf_vert))
 smp = np.concatenate(([[0,1],[0,2],[1,201]],surf_smp+2))
 smp = np.array(smp,dtype=int)
-
-#vert = np.array([[-20.0,-10.0],
-#                 [20.0,-10.0],
-#                 [20.0,10.0],
-#                 [2.0,10.0],
-#                 [0.0,11.0],
-#                 [-2.0,10.0],
-#                 [-20.0,10.0]])
-#smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0]])
 grp = 2*np.ones(len(smp))
 grp[[0,1,2]] = 1
-#for s in smp:
-#  plt.plot(vert[s,0],vert[s,1],'o-')
-#plt.show()
 # 1 = fixed
 # 2 = free
-
-#grp = np.array(grp,dtype=int)
-
 
 # density function
 @normalizer(vert,smp,kind='density',nodes=N)
@@ -155,7 +138,6 @@ scale = np.max(vert) - np.min(vert)
 
 # domain nodes
 nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp)
-
 
 nodes,ix = rbf.nodegen.merge_nodes(interior=nodes_d[group_d==0],
                                    fixed=nodes_d[group_d==1],
@@ -184,8 +166,6 @@ plt.show()
 # moved
 s,dx = rbf.stencil.nearest(nodes,nodes,Ns)
 
-#eps = rbf.weights.shape_factor(nodes,s,basis,cond=cond,samples=200)
-eps = [None for i in range(len(nodes))]
 N = len(nodes)
 modest.tic('forming G')
 
@@ -199,20 +179,16 @@ for di in range(dim):
       w = rbf_weight(nodes[i],
                      nodes[s[i]],
                      evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
       G[di][mi][i,s[i]] = w
 
     for i in ix['fixed']:
       w = rbf_weight(nodes[i],
                      nodes[s[i]],
                      evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
       G[di][mi][i,s[i]] = w
 
     # use the ghost node rows to enforce the free boundary conditions
@@ -222,10 +198,8 @@ for di in range(dim):
       w = rbf_weight(nodes[j],
                      nodes[s[j]],
                      evaluate_coeffs_and_diffs(FreeBCOps[di][mi],j),
-                     eps=eps[j],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
       G[di][mi][i,s[j]] = w
     
 
@@ -237,30 +211,17 @@ data[1][ix['interior']] += (nodes[ix['interior'],1] > 10.01).astype(np.float32)
 data[1][ix['free']] += (nodes[ix['free'],1] > 10.01).astype(np.float32)
 data = np.concatenate(data)
 
+idx_noghost = ix['free'] + ix['fixed'] + ix['interior']
 modest.toc('forming G')
 out = solver(G,data)
 out = np.reshape(out,(dim,N))
 fig,ax = plt.subplots()
-cs = ax.tripcolor(nodes[:,0],
-                  nodes[:,1],
-                  np.linalg.norm(out,axis=0),cmap=slip2)
+cs = ax.tripcolor(nodes[idx_noghost,0],
+                  nodes[idx_noghost,1],
+                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=slip2)
 plt.colorbar(cs)
-plt.quiver(nodes[::2,0],nodes[::2,1],
-           out[0,::2],out[1,::2],color='k',scale=10)
-
-
-
-x = nodes[:,0]
-z = nodes[:,1] - 10.0
-y = 0 + 0*x
-pnts = np.array([x,y,z]).T
-
-#soln = okada.okada92(pnts,np.array([0.0,0.0,2.0]),np.array([0.0,-10.0,0.0]),20.0,1.0,0.0,np.pi/2.0)
-#solnint = soln[ix['interior'],:]
-#outint = out[:,ix['interior']].T
-#print(np.max(np.abs(solnint[:,[0,1]]-outint)))
-#plt.quiver(x[::2],z[::2]+10.0,soln[::2,0],soln[::2,2],color='b',scale=20.0)
-#plt.show()
+plt.quiver(nodes[idx_noghost[::2],0],nodes[idx_noghost[::2],1],
+           out[0,idx_noghost[::2]],out[1,idx_noghost[::2]],color='k',scale=10)
 
 
 logging.basicConfig(level=logging.INFO)
