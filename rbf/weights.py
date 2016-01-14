@@ -9,8 +9,34 @@ import random
 import logging
 from itertools import combinations_with_replacement as cr
 from scipy.special import binom
+from functools import wraps
 
 logger = logging.getLogger(__name__)
+
+def memoize(f):
+  '''
+  Description
+  -----------
+    decorator that stores the output of functions with hashable
+    arguments and returns that output when the function is called
+    again with the same arguments.
+
+  Note
+  ----
+    Cached output is not copied. If the function output is mutable
+    then any modifications to the output will result in modifications
+    to the cached output
+
+  '''
+  cache = {}
+  @wraps(f)
+  def fout(*args):
+    if args not in cache:
+      cache[args] = f(*args)
+    return cache[args]
+
+  return fout  
+
 
 def uvmono(x,power,diff):
   '''
@@ -74,7 +100,8 @@ def mvmono(x,power,diff):
   return out
 
 
-def monomial_powers(order,dim,_cache={}):
+@memoize
+def monomial_powers(order,dim):
   '''
   Description
   -----------
@@ -96,11 +123,6 @@ def monomial_powers(order,dim,_cache={}):
       Out[1]: [(0,0),(1,0),(0,1)]
 
   '''
-  # if this function has already been called with these arguments then
-  # return the cached output
-  if (order,dim) in _cache:
-    return _cache[(order,dim)]
-
   out = []
   for p in range(order):
     if p == 0:
@@ -108,11 +130,10 @@ def monomial_powers(order,dim,_cache={}):
     else:
       out.extend(tuple(sum(i)) for i in cr(np.eye(dim,dtype=int),p))
 
-  # save the output in the cache
-  _cache[(order,dim)] = out
   return out
-  
 
+  
+@memoize
 def monomial_count(order,dim):
   '''
   Description
@@ -124,26 +145,23 @@ def monomial_count(order,dim):
   return int(binom(order+dim-1,dim))
 
 
-def maximum_order(stencil_size,dim,_cache={}):
+@memoize
+def maximum_order(stencil_size,dim):
   '''
   Description
   -----------
     returns the maximum polynomial order allowed for the given stencil
     size and number of dimensions
   '''
-  if (stencil_size,dim) in _cache:
-    return _cache[(stencil_size,dim)]
-
   order = 0
   while (monomial_count(order+1,dim) <= stencil_size):
     order += 1
 
-  _cache[(stencil_size,dim)] = order
   return order  
 
 
 def vpoly(centers,order):
-  ''''
+  '''
   Description
   -----------
     returns the polynomial Vandermond matrix, A_ij, consisting of
@@ -349,7 +367,7 @@ def is_operator(diff):
     return False
 
 
-def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs4,order='max',eps=None):
+def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs5,order='max',eps=1.0):
   '''
   Description
   -----------
@@ -407,9 +425,6 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs4,order='max',eps=No
 
   centers = np.array(centers,dtype=float,copy=True)
 
-  if eps is None:
-    eps = 1.0 
-
   if order == 'max':
     order = maximum_order(*nodes.shape)
 
@@ -439,7 +454,7 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs4,order='max',eps=No
   return w 
 
 
-def poly_weight(x,n,diff):
+def poly_weight(x,nodes,diff):
   '''
   finds the weights, w, such that
 
@@ -450,11 +465,16 @@ def poly_weight(x,n,diff):
   | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
   '''
   x = np.array(x,copy=True)
-  n = np.array(n,copy=True)
-  n -= x
+  nodes = np.array(nodes,copy=True)
+  order = rbf.weights.maximum_order(*nodes.shape)
+  Np = rbf.weights.monomial_count(order,nodes.shape[1])
+  assert Np == nodes.shape[0], (
+    'the number of nodes in a 2D stencil needs to be 1,3,6,10,15,21,... '
+    'the number of nodes in a 3D stencil needs to be 1,4,10,20,35,56,... ')
+  nodes -= x
   x -= x
-  A =  vpoly(n)
-  d =  [poly(x,j,diff=diff) for j in range(n.shape[0])]
+  A =  vpoly(nodes,order)
+  d =  dpoly(x,order,diff) 
   w = np.linalg.solve(A,d)
   return w 
 

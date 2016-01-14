@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import rbf.nodegen
-from rbf.basis import phs4 as basis
+from rbf.basis import phs5 as basis
 from rbf.normalize import normalizer
 from rbf.geometry import boundary_contains
 import modest
@@ -102,10 +102,6 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 # The number of nodes needed will depend entirely on how sharply slip varies
 N = 1000
-
-# Ns=7 produces fantastic results in 2D because it is the number of 
-# adjacent nodes assuming HCP.  but 7 can be dangerous if there is 
-# a really shitty mesh 9 is a safer bet 
 Ns = 20
 order = 'max'
 
