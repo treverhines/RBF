@@ -400,18 +400,18 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs4,order='max',eps=No
     eps:
 
   '''
+  x = np.array(x,dtype=float,copy=True)
+  nodes = np.array(nodes,dtype=float,copy=True)
   if centers is None:
     centers = nodes
+
+  centers = np.array(centers,dtype=float,copy=True)
 
   if eps is None:
     eps = 1.0 
 
   if order == 'max':
     order = maximum_order(*nodes.shape)
-
-  x = np.array(x,dtype=float,copy=True)
-  nodes = np.array(nodes,dtype=float,copy=True)
-  centers = np.array(centers,dtype=float,copy=True)
 
   # center about x
   centers -= x
