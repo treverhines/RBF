@@ -7,96 +7,247 @@ import scipy
 import scipy.spatial
 import random
 import logging
+from itertools import combinations_with_replacement as cr
+from scipy.special import binom
+
 logger = logging.getLogger(__name__)
 
+def uvmono(x,power,diff):
+  '''
+  Description
+  -----------
+    univariate monomial 
 
-def poly(p,order,diff=0):
-  p = np.asarray(p,dtype=float)
+  Parameters
+  ----------
+    x: (N,) array of positions where the monomial will be evaluated
+
+    power: scalar power of the monomial
+
+    diff: integer derivative order of the monomial
+
+  Returns
+  -------
+    out: (N,) array
+
+  '''
+  x = np.asarray(x,dtype=float) 
+  power = float(power)
+  diff = int(diff)
+
   if diff == 0:
-    if order == 0:
-      out = 0.0*p + 1.0
-    else:
-      out = p**order
+    out = x**power
 
   else:
-    if order == 0:
-      out = 0.0*p
+    if power == 0.0:
+      out = np.zeros(x.shape)
     else:
-      out = order*poly(p,order-1,diff-1)
-
-  return np.asarray(out,dtype=float)
-
-
-def vpoly(c,order=None):
-  c = np.asarray(c,dtype=float)
-  if order is None:
-    order = range(c.shape[0])
-
-  order = np.asarray(order,dtype=int)
-  out = np.zeros((order.shape[0],c.shape[0]))
-  for i,r in enumerate(order):
-    out[i,:] = poly(c,r)
+      out = power*uvmono(x,power-1,diff-1)
 
   return out
 
 
-def vrbf(nodes,centers,eps,Np,basis):
+def mvmono(x,power,diff):
   '''
-  returns the matrix:
+  Description
+  -----------
+    multivariate monomial
 
-  A =   | Ar Ap |
-        | Ap 0  |
-     
-  where Ar is consists of RBFs with specified cnts evaluated
-  at those cnts. Ap consists of additional polynomial terms
+  Parameters
+  ----------
+    x: (N,D) array of positions where the monomial will be evaluated
+
+    power: (D,) list of powers for each variable 
+
+    diff: (D,) list of derivative order for each variable
+
+  Returns
+  -------
+    out: (N,) array
+
+  '''
+  x = np.asarray(x,dtype=float)
+  out = np.ones(x.shape[0])
+  for i in range(x.shape[1]):
+    out *= uvmono(x[:,i],power[i],diff[i])
+
+  return out
+
+
+def monomial_powers(order,dim,_cache={}):
+  '''
+  Description
+  -----------
+    returns a list of tuples describing the powers for each monomial
+    in a polymonial with the given order and number of dimensions.
+    Because there should be the possibility of having zero terms in a
+    polynomial, the integer value of order given to this function
+    needs to be the polynomial order minus 1.  Calling this function
+    with 0 for the order will return an empty list. Calling this
+    function with 1 for the order will return the monomial powers for
+    a polynomial of degree 0 (i.e. [(0,)*dim]).
+
+  Example
+  -------
+    This will return the powers of x and y for each monomial term in a
+    two dimensional polynomial with order 1 
+
+      In [1]: monomial_powers(2,2) 
+      Out[1]: [(0,0),(1,0),(0,1)]
+
+  '''
+  # if this function has already been called with these arguments then
+  # return the cached output
+  if (order,dim) in _cache:
+    return _cache[(order,dim)]
+
+  out = []
+  for p in range(order):
+    if p == 0:
+      out.append((0,)*dim)    
+    else:
+      out.extend(tuple(sum(i)) for i in cr(np.eye(dim,dtype=int),p))
+
+  # save the output in the cache
+  _cache[(order,dim)] = out
+  return out
+  
+
+def monomial_count(order,dim):
+  '''
+  Description
+  -----------
+    returns the number of monomial terms in a polynomial with the
+    given order and number of dimensions
+
+  '''
+  return int(binom(order+dim-1,dim))
+
+
+def maximum_order(stencil_size,dim,_cache={}):
+  '''
+  Description
+  -----------
+    returns the maximum polynomial order allowed for the given stencil
+    size and number of dimensions
+  '''
+  if (stencil_size,dim) in _cache:
+    return _cache[(stencil_size,dim)]
+
+  order = 0
+  while (monomial_count(order+1,dim) <= stencil_size):
+    order += 1
+
+  _cache[(stencil_size,dim)] = order
+  return order  
+
+def vpoly(centers,order):
+  ''''
+  Description
+  -----------
+    returns the polynomial Vandermond matrix, A_ij, consisting of
+    monomial i evaluated at center j.  The monomials used consist of
+    all monomials which would be found in a polynomial of the given
+    order.
+
+  '''
+  centers = np.asarray(centers,dtype=float)
+  diff = (0,)*centers.shape[1]
+  powers = monomial_powers(order,centers.shape[1])
+  out = np.zeros((len(powers),centers.shape[0]))
+  for itr,p in enumerate(powers):
+    out[itr,:] = mvmono(centers,p,diff)
+
+  return out
+
+
+def dpoly(x,order,diff):
+  '''
+  Description
+  -----------
+    returns the data vector, d_i, consisting of monomial i evaluated 
+    at x.
+
+  '''
+  x = np.asarray(x,dtype=float)
+  x = x[None,:]
+  powers = monomial_powers(order,x.shape[1])
+  out = np.zeros(len(powers))
+  for itr,p in enumerate(powers):
+    out[itr] = mvmono(x,p,diff)  
+  
+  return out
+
+
+def vrbf(nodes,centers,eps,order,basis):
+  '''
+  Description
+  -----------
+    returns the matrix:
+
+    A =   | Ar Ap.T |
+          | Ap 0    |
+
+    where Ar is the RBF Vandermonde matrix which consists of the
+    specified centers evaluated at the specified nodes.  Ap is the
+    polynomial Vandermonde matrix.
+
   '''
   nodes = np.asarray(nodes)
   centers = np.asarray(centers)
+
+  # number of centers and dimensions
   Ns,Ndim = nodes.shape
+
+  # number of monomial terms  
+  Np = monomial_count(order,Ndim)
+
   eps = eps*np.ones(Ns)
-  if Np == 0:
-    out = np.zeros((Ns,Ns))
-  else:
-    out = np.zeros((Ns + 1 + (Np-1)*Ndim,
-                    Ns + 1 + (Np-1)*Ndim))
+  A = np.zeros((Ns+Np,Ns+Np))
 
-  out[:Ns,:Ns] = basis(nodes,centers,eps).T
-  if Np > 0:
-    out[Ns,:Ns] = 1
-    out[:Ns,Ns] = 1
+  # Ar
+  A[:Ns,:Ns] = basis(nodes,centers,eps).T
 
-  if Np > 1:
-    poly_mat = np.vstack([vpoly(nodes[:,i],range(1,Np)) 
-                          for i in range(Ndim)])
-    out[Ns+1:,:Ns] = poly_mat
-    out[:Ns,Ns+1:] = poly_mat.T
-
-  return out
+  # Ap
+  Ap = vpoly(centers,order)  
+  A[Ns:,:Ns] = Ap
+  A[:Ns,Ns:] = Ap.T
+  return A
 
 
-def drbf(x,centers,eps,Np,diff,basis):
+def drbf(x,centers,eps,order,diff,basis): 
+  '''
+  Description
+  -----------
+    returns the vector:
+
+      d = |dr|
+          |dp|
+
+    where dr consists of RBFs with the given centers evaulated at x
+    and dp consists of the the polynomial data
+
+  '''
   centers = np.asarray(centers)
   x = np.asarray(x)
   x = x[None,:]
+
+  # number of centers and dimensions
   Ns,Ndim = centers.shape
+
+  # number of monomial terms
+  Np = monomial_count(order,Ndim)
+
   eps = eps*np.ones(Ns)
-  if Np == 0:
-    out = np.zeros(Ns)
-  else:
-    out = np.zeros(Ns + 1 + (Np-1)*Ndim)
+  d = np.zeros(Ns+Np)
 
-  out[:Ns] = basis(x,centers,eps,diff=diff)[0,:]
-  if Np > 0:
-    out[Ns] = float(sum(diff) == 0)
+  # dr
+  d[:Ns] = basis(x,centers,eps,diff=diff)[0,:]
 
-  if Np > 1:
-    poly_terms = [[poly(x[0,i],j,diff=diff[i]) 
-                   for j in range(1,Np)] 
-                   for i in range(Ndim)]
-    poly_terms = np.array(poly_terms).flatten()
-    out[Ns+1:] = poly_terms
+  # dp
+  d[Ns:] = dpoly(x[0,:],order,diff)
 
-  return out
+  return d
 
 
 def shape_factor(nodes,s,basis,centers=None,alpha=None,cond=10,samples=100):
@@ -179,12 +330,15 @@ def condition_based_shape_factor(nodes,centers,basis,cond):
 
 def is_operator(diff):
   '''
-  diff can either be a tuple describing the differentiation order in
-  each direction, e.g. (0,0,1), or it can describe a differential
-  operator, e.g. [(1,(0,0,1)),(2,(0,1,0))], where each element
-  contains a coefficient and differentiation tuple for each term in
-  the operator. This function returns true if diff is describing an
-  operator.
+  Description
+  -----------
+    diff can either be a tuple describing the differentiation order in
+    each direction, e.g. (0,0,1), or it can describe a differential
+    operator, e.g. [(1,(0,0,1)),(2,(0,1,0))], where each element
+    contains a coefficient and differentiation tuple for each term in
+    the operator. This function returns true if diff is describing an
+    operator.
+
   '''
   # if each element in diff is iterable then return True. This returns
   # True if diff is an empty list 
@@ -194,60 +348,92 @@ def is_operator(diff):
     return False
 
 
-
-def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.mq,Np=1,eps=None,cond=10.0):
+def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs4,order='max',eps=None):
   '''
-  finds the weights, w, such that
+  Description
+  -----------
+    Finds the finite difference weights, w_i, such that 
 
-  f_i(n_j) = f(||n_j - c_i||) 
+      L[f(x)] \approx \sum_i w_i*f(n_i)
 
-  | f_0(n_0) ... f_0(n_N) |     | L[f_0(y)]y=x  |
-  |    :             :    | w = |     :         |
-  | f_N(n_0) ... f_N(n_N) |     | L[f_N(y)]y=x  |
+    where n_i are the provided nodes and L is a differential operaotor
+    specified with the diff argument.  The weights are found by
+    assuming that the function, f(x), consists of a linear combination
+    of M monomial terms, p_i(x), and radial basis functions, r(x),
+    with N centers, c_i
+
+      f(x) = \sum_i a_i*r(||x - c_i||) + \sum_i b_i*p_i(x)
+
+    To ensure an equal number of equations and unknown parameters, we
+    add M constaints to the parameters a_i
+    
+      \sum_i a_i*p_j(n_i) = 0.
+
+    The weights are then found by solving the following linear system
+ 
+      | r(||n_0-c_0||) ... r(||n_N-c_0||) p_0(n_0) ... p_M(n_0) |    
+      |       :         :        :          :             :     | 
+      | r(||n_0-c_N||) ... r(||n_N-c_N||) p_0(n_N) ... p_M(n_N) | w = d    
+      |    p_0(n_0)    ...    p_0(n_N)                          |    
+      |       :        ...       :                  0           |    
+      |    p_M(n_0)    ...    p_M(n_N)                          |    
+
+    where d is
+
+          | L[r(||y-c_o||)]|_y=x |
+          |         :            |
+      d = | L[r(||y-c_N||)]|_y=x |
+          |    L[p_0(y)]|_y=x    |
+          |         :            |
+          |    L[p_M(y)]|_y=x    |
+
+
+  Parameters
+  ----------
+    x: 
+    nodes:
+    diff:
+    centers:
+    basis:
+    order:
+    eps:
+
   '''
   if centers is None:
     centers = nodes
 
   if eps is None:
     eps = 1.0 
-    #eps = condition_based_shape_factor(nodes,centers,basis,cond)  
-    #if eps is None:
-    #  raise ValueError(
-    #    'cannot find shape parameter that produces a condition number '
-    #    'of %s' % cond)
 
-  x = np.array(x,copy=True)
-  nodes = np.array(nodes,copy=True)
-  centers = np.array(centers,copy=True)
+  if order == 'max':
+    order = maximum_order(*nodes.shape)
+
+  x = np.array(x,dtype=float,copy=True)
+  nodes = np.array(nodes,dtype=float,copy=True)
+  centers = np.array(centers,dtype=float,copy=True)
+
   # center about x
-  nodes -= x
-  x -= x
   centers -= x
+  nodes -= x 
+  x -= x
 
-  A = vrbf(nodes,centers,eps,Np,basis)
+  # number of polynomial terms that will be used
+  Np = monomial_count(order,x.shape[0])
+  assert Np <= nodes.shape[0], (
+    'the number of monomials exceeds the number of RBFs for the '
+    'stencil. Lower the polynomial order or ' 
+    'increase the stencil size')
+
+  A = vrbf(nodes,centers,eps,order,basis)
   if is_operator(diff):
-    if Np == 0:
-      d = np.zeros(nodes.shape[0])
-    else:
-      d = np.zeros(nodes.shape[0] + 1 + (Np-1)*nodes.shape[1])
-
+    d = np.zeros(nodes.shape[0] + Np)
     for coeff,diff_tuple in diff:
-      d += coeff*drbf(x,centers,eps,Np,diff_tuple,basis)
+      d += coeff*drbf(x,centers,eps,order,diff_tuple,basis)
 
   else:
-    d = drbf(x,centers,eps,Np,diff,basis)
+    d = drbf(x,centers,eps,order,diff,basis)
 
-  try:
-    w = np.linalg.solve(A,d)[:nodes.shape[0]]
-
-  except np.linalg.linalg.LinAlgError:
-    print(
-      'WARNING: encountered singular matrix when computing weights '
-      'for node %s' % x)
-    logger.warning(
-      'WARNING: encountered singular matrix when computing weights '
-      'for node %s' % x)
-    raise  np.linalg.linalg.LinAlgError
+  w = np.linalg.solve(A,d)[:nodes.shape[0]]
 
   return w 
 
