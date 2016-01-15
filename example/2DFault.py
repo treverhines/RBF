@@ -145,7 +145,7 @@ plt.show()
 
 # domain nodes
 nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
-                                             fix_nodes=nodes_f,itr=1000,delta=0.01,n=6)
+                                             fix_nodes=nodes_f,itr=20,delta=0.1,n=10)
 
 # split fault nodes into hanging wall and foot wall nodes
 # THROW AWAY THE END NODES!

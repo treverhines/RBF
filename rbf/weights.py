@@ -38,6 +38,26 @@ def memoize(f):
   return fout  
 
 
+@memoize
+def power_rule(power,diff):
+  '''
+  Description 
+  -----------
+    returns the coefficients and power of a differentiated monomial
+  '''
+  coeff = 1
+  while diff > 0:
+    coeff *= power
+    power -= 1
+    diff -= 1
+
+  # prevents division by zero error
+  if coeff == 0:
+    power = 0
+
+  return coeff,power
+
+
 def uvmono(x,power,diff):
   '''
   Description
@@ -57,20 +77,8 @@ def uvmono(x,power,diff):
     out: (N,) array
 
   '''
-  x = np.asarray(x,dtype=float) 
-  power = float(power)
-  diff = int(diff)
-
-  if diff == 0:
-    out = x**power
-
-  else:
-    if power == 0.0:
-      out = np.zeros(x.shape)
-    else:
-      out = power*uvmono(x,power-1,diff-1)
-
-  return out
+  c,d = power_rule(power,diff)
+  return c*x**d
 
 
 def mvmono(x,power,diff):
