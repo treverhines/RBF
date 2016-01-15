@@ -24,20 +24,20 @@ def verify_node_spacing(rho,nodes,tol=0.25):
   '''
   logger.info('verifying node spacing')  
   dim = nodes.shape[1]
-  valid_indices = np.arange(nodes.shape[0],dtype=int)
+  keep_indices = np.arange(nodes.shape[0],dtype=int)
   # minimum distance allowed between nodes
   mindist = tol/(rho(nodes)**(1.0/dim))
   s,dx = rbf.stencil.nearest(nodes,nodes,2)
   while np.any(dx[:,1] < mindist):
     toss = np.argmin(dx[:,1]/mindist)
     logger.info('removing node %s for being too close to adjacent node' 
-                % valid_indices[toss])
+                % keep_indices[toss])
     nodes = np.delete(nodes,toss,axis=0)
-    valid_indices = np.delete(valid_indices,toss,axis=0)
+    keep_indices = np.delete(keep_indices,toss,axis=0)
     mindist = tol/(rho(nodes)**(1.0/dim))
     s,dx = rbf.stencil.nearest(nodes,nodes,2)
 
-  return valid_indices
+  return keep_indices
 
 
 def merge_nodes(**kwargs):
@@ -45,7 +45,7 @@ def merge_nodes(**kwargs):
   out_array = ()
   n = 0
   for k,a in kwargs.items():
-    a = np.asarray(a,dtype=np.float64,order='c')
+    a = np.array(a,dtype=np.float64,order='c',copy=True)
     idx = range(n,n+a.shape[0])
     n += a.shape[0]
     out_array += a,
@@ -55,14 +55,9 @@ def merge_nodes(**kwargs):
   return out_array,out_dict
 
 
-def default_rho(p):
-  return 1.0 + 0*p[:,0]
-
-
-def repel_step(free_nodes,
+def repel_step(free_nodes,rho,
                fix_nodes=None,
-               n=3,delta=0.1,
-               rho=None):  
+               n=10,delta=0.1):
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
   # if n is 0 or 1 then the nodes remain stationary
   if n <= 1:
@@ -72,8 +67,6 @@ def repel_step(free_nodes,
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
 
   fix_nodes = np.asarray(fix_nodes,dtype=float)
-  if rho is None:
-    rho = default_rho
 
   nodes = np.vstack((free_nodes,fix_nodes))
   i,d = rbf.stencil.nearest(free_nodes,nodes,n)
@@ -89,12 +82,11 @@ def repel_step(free_nodes,
   return new_free_nodes
 
 
-def repel_bounce(free_nodes,
-                 vertices,
-                 simplices,
+def repel_bounce(free_nodes,vertices,
+                 simplices,rho,   
                  fix_nodes=None,
-                 itr=50,n=3,delta=0.1,
-                 rho=None,max_bounces=3):
+                 itr=20,n=10,delta=0.1,
+                 max_bounces=3):
   '''
   nodes are repelled by eachother and bounce off boundaries
   '''
@@ -105,8 +97,6 @@ def repel_bounce(free_nodes,
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
 
   fix_nodes = np.asarray(fix_nodes,dtype=float)
-  if rho is None:
-    rho = default_rho
 
   # this is used for the lengthscale of the domain
   scale = np.max(vertices) - np.min(vertices)
@@ -117,9 +107,9 @@ def repel_bounce(free_nodes,
     n = free_nodes.shape[0]+fix_nodes.shape[0]
 
   for k in range(itr):
-    free_nodes_new = repel_step(free_nodes,
+    free_nodes_new = repel_step(free_nodes,rho,
                                 fix_nodes=fix_nodes,
-                                n=n,delta=delta,rho=rho)
+                                n=n,delta=delta)
 
     # boolean array of nodes which are now outside the domain
     crossed = ~boundary_contains(free_nodes_new,vertices,simplices)
@@ -161,13 +151,12 @@ def repel_bounce(free_nodes,
   return free_nodes
 
 
-def repel_stick(free_nodes,
-                vertices,
-                simplices,
+def repel_stick(free_nodes,vertices,
+                simplices,rho,   
                 groups=None, 
                 fix_nodes=None,
-                itr=50,n=3,delta=0.1,
-                rho=None,max_bounces=3):
+                itr=20,n=10,delta=0.1,
+                max_bounces=3):
   '''
   nodes are repelled by eachother and then become fixed when they hit 
   a boundary
@@ -182,8 +171,6 @@ def repel_stick(free_nodes,
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
 
   fix_nodes = np.asarray(fix_nodes,dtype=float)
-  if rho is None:
-    rho = default_rho
 
   # these arrays will be populated 
   node_norm = np.zeros(free_nodes.shape,dtype=float)
@@ -215,9 +202,9 @@ def repel_stick(free_nodes,
 
     # new position of free nodes
     ungrouped_free_nodes_new = repel_step(
-                                 ungrouped_free_nodes,
+                                 ungrouped_free_nodes,rho,
                                  fix_nodes=all_fix_nodes,
-                                 n=n,delta=delta,rho=rho)
+                                 n=n,delta=delta)
 
     # indices of free nodes which crossed a boundary
     crossed = ~boundary_contains(ungrouped_free_nodes_new,vertices,simplices)
@@ -250,9 +237,8 @@ def repel_stick(free_nodes,
 
 @funtime
 def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
-           itr=50,n=3,delta=0.1):
-  '''
-  Generates nodes within the N-dimensional volume enclosed by the 
+           itr=20,n=10,delta=0.1):
+  '''Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  At each iteration 
   the nearest neighbors to each node are found and then a repulsion
   force is calculated using the distance to the nearest neighbors and
@@ -263,8 +249,8 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
 
   Paramters
   ---------
-    rho: node density function. Takes a (M,N) array of coordinates
-      in N dimensional space and returns an (M,) array of node
+    rho: node density function. Takes a (N,D) array of coordinates
+      in D dimensional space and returns an (N,) array of node
       densities at those coordinates 
 
     vertices: boundary vertices
@@ -274,16 +260,16 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     
     groups (default=None): Array of integers identifying groups that
       the simplexes belong to. This is used to identify nodes
-      belonging to particular boundaries
+      belonging to particular boundaries. 
   
     fix_nodes (default=None): Nodes which do not move and only provide
       a repulsion force
  
-    itr (default=100): number of repulsion iterations.  If this number
+    itr (default=20): number of repulsion iterations.  If this number
       is small then the nodes will not reach a minimum energy
       equilibrium.
 
-    n (default=3): number of neighboring nodes to use when calculating
+    n (default=10): number of neighboring nodes to use when calculating
       repulsion force. When n is small, the equilibrium state tends to
       be a uniform node distribution (regardless of the specified
       rho), when n is large, nodes tend to get pushed up against the
@@ -292,8 +278,20 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
       not reach equilibrium.
 
     delta (default=0.1): Controls the node step size for each
-      iteration.  The tep size is equal to delta times the distance to
+      iteration.  The step size is equal to delta times the distance to
       the nearest neighbor
+
+  Returns
+  -------
+    nodes: (N,D) array of nodes 
+
+    norms: (N,D) array of outward pointing boundary-normal vectors.
+     The only nonzero rows in this array are those corresponding to
+     boundary nodes
+
+    groups: (N,) array of integers indicating what group the nodes 
+      belong to.  If 'groups' was not given then values are 0 for 
+      interior nodes and 1 for boundary nodes.
   ''' 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
@@ -351,14 +349,16 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
   nodes = nodes[:N]
   logger.info('repelling nodes with boundary bouncing') 
 
-  nodes = repel_bounce(nodes,vertices,simplices,fix_nodes=fix_nodes,itr=itr,
-                       n=n,delta=delta,rho=rho_normalized)
+  nodes = repel_bounce(nodes,vertices,simplices,rho_normalized,
+                       fix_nodes=fix_nodes,itr=itr,
+                       n=n,delta=delta)
 
   logger.info('repelling nodes with boundary sticking') 
-  nodes,norms,grp = repel_stick(nodes,vertices,simplices,groups,
+  nodes,norms,grp = repel_stick(nodes,vertices,simplices,
+                                rho_normalized,groups=groups,
                                 fix_nodes=fix_nodes,
                                 itr=itr,n=n,
-                                delta=delta,rho=rho_normalized)
+                                delta=delta)
 
   idx = verify_node_spacing(rho,nodes)
   nodes = nodes[idx]

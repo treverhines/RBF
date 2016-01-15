@@ -12,7 +12,7 @@ img = Image.open('Lenna.png')
 imga = np.array(img,dtype=float)/256.0
 c = np.linalg.norm(imga,axis=-1)
 
-N = 20000
+N = 50000
 
 t = np.linspace(0,2*np.pi,100)
 vert = np.array([0.5+0.5*np.cos(t),0.5+0.5*np.sin(t)]).T
@@ -25,7 +25,7 @@ def rho(p):
   return np.max(c)+0.0001 - c[511-p[:,1],p[:,0]]
 
 modest.tic()
-nodes,norms,groups = rbf.nodegen.volume(rho,vert,smp,itr=20,delta=0.1,n=9)
+nodes,norms,groups = rbf.nodegen.volume(rho,vert,smp)
 print(modest.toc())
 
 plt.plot(nodes[groups==0,0],nodes[groups==0,1],'k.',markersize=3)

@@ -81,8 +81,8 @@ cdef vector2d find_outside_2d(double[:,:] v) nogil:
     if v[i,1] < out.y:
       out.y = v[i,1] 
 
-  out.x -= 1.123456789 + rand()*1.0/RAND_MAX
-  out.y -= 1.123456789 + rand()*1.0/RAND_MAX
+  out.x -= 1.23456789# + rand()*1.0/RAND_MAX
+  out.y -= 2.34567891# + rand()*1.0/RAND_MAX
 
   return out
 
@@ -107,9 +107,9 @@ cdef vector3d find_outside_3d(double[:,:] v) nogil:
     if v[i,2] < out.z:
       out.z = v[i,2] 
 
-  out.x -= 1.123456789 + rand()*1.0/RAND_MAX
-  out.y -= 1.123456789 + rand()*1.0/RAND_MAX
-  out.z -= 1.123456789 + rand()*1.0/RAND_MAX
+  out.x -= 1.23456789# + rand()*1.0/RAND_MAX
+  out.y -= 2.34567891# + rand()*1.0/RAND_MAX
+  out.z -= 3.45678912# + rand()*1.0/RAND_MAX
   return out
 
 
@@ -503,11 +503,11 @@ cdef bint is_intersecting_3d(segment3d seg,
   # find point which is definitively outside of the triangle when
   # viewed from either the x, y, or z axis 
   dummy_pnt2.x = (min3(tri.a.x,tri.b.x,tri.c.x) - 
-                  (1.234567890 + rand()*1.0/RAND_MAX))
+                  1.23456789)# + rand()*1.0/RAND_MAX)
   dummy_pnt2.y = (min3(tri.a.y,tri.b.y,tri.c.y) - 
-                  (1.234567890 + rand()*1.0/RAND_MAX))
+                  2.34567891)# + rand()*1.0/RAND_MAX)
   dummy_pnt2.z = (min3(tri.a.z,tri.b.z,tri.c.z) - 
-                  (1.234567890 + rand()*1.0/RAND_MAX))
+                  3.45678912)# + rand()*1.0/RAND_MAX)
 
   # find triangle normal vector components
   n1 =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) - 

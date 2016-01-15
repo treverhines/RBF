@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import rbf.nodegen
-from rbf.basis import mq as basis
+from rbf.basis import phs3 as basis
 from rbf.normalize import normalizer
 from rbf.geometry import boundary_contains
 import modest
@@ -35,12 +35,12 @@ def jacobi_preconditioned_solve(G,d):
   d = d[perm]
 
   # form jacobi preconditioner       
-  diag = np.array(G[range(G.shape[0]),range(G.shape[0])])[0]
-  if np.any(diag == 0.0):
-    raise ValueError(
-      'matrix cannot be sorted into a diagonal dominant matrix')
+  #diag = np.array(G[range(G.shape[0]),range(G.shape[0])])[0]
+  #if np.any(diag == 0.0):
+  #  raise ValueError(
+  #    'matrix cannot be sorted into a diagonal dominant matrix')
 
-  M = scipy.sparse.diags(1.0/diag,0)
+  #M = scipy.sparse.diags(1.0/diag,0)
   #out,status = scipy.sparse.linalg.lgmres(G,d,M=M)
   out = scipy.sparse.linalg.spsolve(G,d)
   #if status != 0:
@@ -72,7 +72,6 @@ stress = L*sp.eye(dim)*sp.trace(strain) + 2*M*strain
 PDEs = [sum(stress[i,j].diff(x[j]) for j in range(dim)) for i in range(dim)]
 FreeBCs = [sum(stress[i,j]*n[j] for j in range(dim)) for i in range(dim)]
 FixBCs = [u[i] for i in range(dim)]
-sp.pprint(PDEs)
 
 def lamb(i):
   return 1.0
@@ -95,6 +94,8 @@ def lamb_diffy(i):
 # norms is an array which is later defined
 sym2num = {L:1.0,
            M:1.0,
+           sp.Integer(1):1.0,
+           sp.Integer(2):2.0,
            L.diff(x[0]):0.0,
            L.diff(x[1]):0.0,
            L.diff(x[2]):0.0,
@@ -109,14 +110,9 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-cond=3
-shape_factor=0.8
-N = 50000
-
-# values of Ns=8 are needed when slip has sharp discontinuities. 
-# Much higher values can be used for even C1 continuous slip
-Ns = 15
-Np = 1
+N = 2000
+Ns = 25
+order = 3
 
 vert = np.array([[0.0,0.0,0.0],
                  [0.0,0.0,1.0],
@@ -144,34 +140,34 @@ grp = np.ones(len(smp))
 grp[2] = 2
 grp[3] = 2
 
-vert_f = np.array([[0.5,0.25,0.5],
+vert_f = np.array([[0.5001,0.25,0.5],
                    [0.5,0.25,1.0],
                    [0.5,0.75,1.0],
-                   [0.5,0.75,0.5]])
+                   [0.5001,0.75,0.5]])
 smp_f =  np.array([[0,1,2],
                    [0,2,3]])
 
-
 @normalizer(vert,smp,kind='density',nodes=N)
 def rho(p):
-  out = np.zeros(p.shape[0])
-  out += 1.0/(1.0 + 10*np.linalg.norm(p-np.array([1.0,1.0,1.0]),axis=1)**2)
-
-  return out
+  #out = np.zeros(p.shape[0])
+  #out += 1.0/(1.0 + 10*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
+  return 1.0 + 0*p[:,0]
 
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-#vert_f += 0.01*np.random.random(np.shape(vert_f))
 nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
-mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],nodes_f[:,2],scale_factor=0.005)
-mayavi.mlab.show()
-
+nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
+                                             fix_nodes=nodes_f)
 # cut out any fault nodes outside of the domain
 is_inside = boundary_contains(nodes_f,vert,smp)
 nodes_f = nodes_f[is_inside]
 norms_f = norms_f[is_inside]
 group_f = group_f[is_inside]
+
+nodes_f = nodes_f[group_f==0]
+norms_f = norms_f[group_f==0]
+group_f = group_f[group_f==0]
 
 slip = np.zeros((dim,len(nodes_f)))
 knots_z = np.linspace(0.5,1.5,4)
@@ -179,31 +175,28 @@ knots_y = np.linspace(0.25,0.75,4)
 import rbf.bspline
 basis_no = rbf.bspline.basis_number(knots_z,2)
 slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
+slip[1,:] = 1.0
 
-plt.plot(slip[1,:])
-plt.show()
-mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],nodes_f[:,2],slip[1,:])
-mayavi.mlab.show()
+#mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
+#                     nodes_f[:,2],slip[1,:])
+#mayavi.mlab.show()
 # domain nodes
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
-                                             fix_nodes=nodes_f)
 
-s,dx = rbf.stencil.nearest(nodes_d,nodes_d,2)
-plt.hist(dx[:,1],100)
-plt.show()
 # split fault nodes into hanging wall and foot wall nodes
 nodes_fh = nodes_f + 1e-10*scale*norms_f
 nodes_ff = nodes_f - 1e-10*scale*norms_f
 norms_fh = norms_f
 norms_ff = norms_f
 
+
 nodes,ix = rbf.nodegen.merge_nodes(interior=nodes_d[group_d==0],
                                    free=nodes_d[group_d==2],
                                    free_ghost=nodes_d[group_d==2],
                                    fixed=nodes_d[group_d==1],
                                    fault_hanging=nodes_fh,
-                                   fault_foot=nodes_ff)
-
+                                   fault_hanging_ghost=nodes_fh,
+                                   fault_foot=nodes_ff,
+                                   fault_foot_ghost=nodes_ff)
 
 
 norms,ix = rbf.nodegen.merge_nodes(interior=norms_d[group_d==0],
@@ -211,49 +204,32 @@ norms,ix = rbf.nodegen.merge_nodes(interior=norms_d[group_d==0],
                                    free_ghost=norms_d[group_d==2],
                                    fixed=norms_d[group_d==1],
                                    fault_hanging=norms_fh,
-                                   fault_foot=norms_ff)
-
-
-mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.5,color=(1,0,0))
-mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.5,color=(1,0,0))
-for k,v in ix.iteritems():
-  mayavi.mlab.points3d(nodes[v,0],nodes[v,1],nodes[v,2],scale_factor=0.01)
-
-print(k)
-mayavi.mlab.show()
+                                   fault_hanging_ghost=norms_fh,
+                                   fault_foot=norms_ff,
+                                   fault_foot_ghost=norms_ff)
 
 
 # find the nearest neighbors for the ghost nodes          
-s,dx = rbf.stencil.nearest(nodes[ix['free_ghost']],nodes,3,vert=vert_f,smp=smp_f)
+s,dx = rbf.stencil.nearest(nodes,nodes,Ns,vert=vert_f,smp=smp_f)
 
 # The closest nodes are going the be the free nodes, which currently      
 # are on top of the ghost nodes. find the distance to the next closest    
 # node                                                              
-dx = dx[:,[2]]
+dx_next_closest = dx[:,[2]]
 
 # shift the ghost nodes outside           
-nodes[ix['free_ghost']] += dx*norms[ix['free_ghost']]
+nodes[ix['free_ghost']] += dx_next_closest[ix['free_ghost']]*norms[ix['free_ghost']]
 
-# find the stencils and distances now that the ghost nodes have been    
-# moved                             
-s,dx = rbf.stencil.nearest(nodes,nodes,Ns,vert=vert_f,smp=smp_f)
+# move hanging wall ghost nodes towards the foot wall and vice versa                                                  
+nodes[ix['fault_hanging_ghost']] -= dx_next_closest[ix['fault_hanging_ghost']]*norms[ix['fault_hanging_ghost']]
+nodes[ix['fault_foot_ghost']] += dx_next_closest[ix['fault_foot_ghost']]*norms[ix['fault_foot_ghost']]
 
-# change stencils so that fault nodes, where traction forces are  
-# estimated, do not include other fault nodes. This greatly improves     
-# accuracy and reduces the odds of instability when slip has sharp   
-# discontinuities.  Adding ghost nodes to the fault does not improve    
-# the solution and may make it worse              
-fault_indices = np.array(ix['fault_hanging']+ix['fault_foot'])
-fault_stencil = rbf.stencil.nearest(nodes[fault_indices],nodes,Ns-1,
-                                    vert=vert_f,smp=smp_f,
-                                    excluding=fault_indices)[0]
-# make sure the stencil includes itself                
-fault_stencil = np.hstack((fault_indices[:,None],fault_stencil))
-s[fault_indices] = fault_stencil
-
-
-# find the optimal shape factor for each stencil
-eps = rbf.weights.shape_factor(nodes,s,basis,alpha=shape_factor,cond=cond,samples=200)
+#for k,v in ix.iteritems():
+#  mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.5,color=(1,0,0))
+#  mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.5,color=(1,0,0))
+#  mayavi.mlab.points3d(nodes[v,0],nodes[v,1],nodes[v,2],scale_factor=0.01)
+#  print(k)
+#  mayavi.mlab.show()
 
 N = len(nodes)
 
@@ -263,45 +239,74 @@ modest.tic('forming G')
 # This can be parallelized!!!!
 for di in range(dim):
   for mi in range(dim):
-    for i in ix['interior']+ix['free']:
+    for i in ix['interior']:
       w = rbf_weight(nodes[i],
                      nodes[s[i]],
                      evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
+
+      G[di][mi][i,s[i]] = w
+
+    for i in ix['free']:
+      w = rbf_weight(nodes[i],
+                     nodes[s[i]],
+                     evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
+                     order=order,
+                     basis=basis)
+
       G[di][mi][i,s[i]] = w
 
     for i in ix['fixed']:
       w = rbf_weight(nodes[i],
                      nodes[s[i]],
                      evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     order=order,
+                     basis=basis)
+
       G[di][mi][i,s[i]] = w
 
+    # treat fault nodes as free nodes and the later reorganize the G                                                  
+    # matrix so that the fault nodes are forces to be equal                                                           
     for i in ix['fault_hanging']+ix['fault_foot']:
       w = rbf_weight(nodes[i],
-                     nodes[s[i]],
-                     evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
-                     eps=eps[i],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                 nodes[s[i]],
+                 evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
+                 order=order,
+                 basis=basis)
+
       G[di][mi][i,s[i]] = w
 
+    # use the ghost node rows to enforce the free boundary conditions                                                 
+    # at the boundary nodes                                                                                           
     for itr,i in enumerate(ix['free_ghost']):
       j = ix['free'][itr]
       w = rbf_weight(nodes[j],
                      nodes[s[j]],
-                     evaluate_coeffs_and_diffs(FreeBCOps[di][mi],j),
-                     eps=eps[j],
-                     Np=Np,
-                     basis=basis,
-                     cond=cond)
+                     evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                     order=order,
+                     basis=basis)
+
+      G[di][mi][i,s[j]] = w
+
+    for itr,i in enumerate(ix['fault_hanging_ghost']):
+      j = ix['fault_hanging'][itr]
+      w = rbf_weight(nodes[j],
+                     nodes[s[j]],
+                     evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                     order=order,
+                     basis=basis)
+
+      G[di][mi][i,s[j]] = w
+
+    for itr,i in enumerate(ix['fault_foot_ghost']):
+      j = ix['fault_foot'][itr]
+      w = rbf_weight(nodes[j],
+                     nodes[s[j]],
+                     evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                     order=order,
+                     basis=basis)
+
       G[di][mi][i,s[j]] = w
 
 for di in range(dim):
@@ -324,20 +329,22 @@ for di in range(dim):
 G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
 data = np.concatenate(data)
-
-modest.toc('forming G')
-
-
 G = G.tocsc()
+
 out = jacobi_preconditioned_solve(G,data)
 out = np.reshape(out,(dim,N))
+out[:,ix['fault_foot']] = out[:,ix['fault_foot']] - slip
+out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
 out = out.T
+
+idx = ix['fault_foot'] + ix['fault_hanging'] + ix['interior'] + ix['fixed'] + ix['free']
+modest.toc('forming G')
 
 import matplotlib.pyplot as plt
 plt.quiver(nodes[ix['free'],0],nodes[ix['free'],1],out[ix['free'],0],out[ix['free'],1])
 plt.show()
-idx = ix['free'] + ix['interior'] + ix['fixed']
-mayavi.mlab.quiver3d(nodes[idx,0],nodes[idx,1],nodes[idx,2],out[idx,0],out[idx,1],out[idx,2],mode='arrow',color=(0,1,0),scale_factor=0.1)
+
+mayavi.mlab.quiver3d(nodes[idx,0],nodes[idx,1],nodes[idx,2],out[idx,0],out[idx,1],out[idx,2],mode='arrow',color=(0,1,0))
 
 
 mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.2,color=(1,1,1))

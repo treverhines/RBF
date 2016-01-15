@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
           upper_bounds=None,check_valid=True,rng=None):
   '''
-  Monte Carlo integration of a function that takes a (M,2) or (M,3)
-  array of points and returns an (M,) vector. vert and smp are the
-  vertices and simplices which define the bounds of integration. N
+  Monte Carlo integration of a function that takes a (N,1),(N,2) or
+  (N,3) array of points and returns an (N,) vector. vert and smp are
+  the vertices and simplices which define the bounds of integration. N
   is the number of samples.
   '''
   vert = np.asarray(vert,dtype=float)
@@ -123,10 +123,10 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
     rng = Halton(dim)
 
   if tol is None:
-    # if no tolerance is specified then an rough initial estimate for the
-    # integral is made and then the tolerance is set to 1e-3 times
-    # the uncertainty of that estimate. If the initial estimate is less
-    # than 1e-3 then the tolerance is set to 1e-6  
+    # if no tolerance is specified then an rough initial estimate for
+    # the integral is made and then the tolerance is set to 1e-3 times
+    # that estimate. If the initial estimate is less than 1e-3 then
+    # the tolerance is set to 1e-6
     init_est = mcint(f,vert,smp,samples=samples,
                      lower_bounds=lower_bounds,
                      upper_bounds=upper_bounds,
@@ -190,12 +190,15 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
 
 def _normalizer(fin,vert,smp,kind='integral',tol=None,nodes=None):
   '''
-  normalize a function that takes a (N,1) array and returns an (N,)
-  array. The kind of normalization is specified with "kind", which can
-  either be "integral" to normalize so that the function integrates to
-  1.0, "max" so that the maximum value is 1.0, or "density" so that
-  the function returns a node density with "nodes" being the total
-  number of nodes in the domain
+  normalize a scalar values function in 1,2 or 3 dimensional space.
+  The function should takes an (N,1), (N,2), or (N,3) array of points
+  as its only argument and return an (N,) array.  The kind of
+  normalization is specified with "kind", which can either be
+  "integral" to normalize so that the function integrates to 1.0,
+  "max" so that the maximum value is 1.0, or "density" so that the
+  function returns a node density with "nodes" being the total number
+  of nodes in the domain
+
   '''
   out = rmcint(fin,vert,smp,tol=tol)
   integral,err,minval,maxval = out 
