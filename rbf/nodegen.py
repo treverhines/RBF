@@ -219,7 +219,7 @@ def repel_stick(free_nodes,
                                  fix_nodes=all_fix_nodes,
                                  n=n,delta=delta,rho=rho)
 
-    # indices if free nodes which crossed a boundary
+    # indices of free nodes which crossed a boundary
     crossed = ~boundary_contains(ungrouped_free_nodes_new,vertices,simplices)
   
     # if a node intersected a boundary then associate it with a group
