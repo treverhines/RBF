@@ -80,6 +80,8 @@ def lamb_diffy(i):
 # norms is an array which is later defined
 sym2num = {L:1.0,
            M:1.0,
+           sp.Integer(1):1.0,
+           sp.Integer(2):2.0,
            L.diff(x[0]):0.0,
            L.diff(x[1]):lamb_diffy,
            M.diff(x[0]):0.0,

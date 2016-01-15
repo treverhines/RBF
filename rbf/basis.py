@@ -20,6 +20,7 @@ from __future__ import division
 import sympy 
 from sympy.utilities.autowrap import ufuncify
 import numpy as np
+import warnings
 
 _R = sympy.symbols('R')
 _EPS = sympy.symbols('EPS')
@@ -129,6 +130,7 @@ class RBF(object):
     return self.cache[diff](*args)
 
 
+# DEPRICATED
 class RBFInterpolant(object):
   '''
   A callable RBF interpolant
@@ -282,7 +284,11 @@ def phs8(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS8(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS8(*args,**kwargs))
 
 phs8.__doc__ += _FUNCTION_DOC
 
@@ -298,7 +304,11 @@ def phs7(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS7(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS7(*args,**kwargs))
 
 phs7.__doc__ += _FUNCTION_DOC
 
@@ -314,7 +324,11 @@ def phs6(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS6(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS6(*args,**kwargs))
 
 phs6.__doc__ += _FUNCTION_DOC
 
@@ -330,7 +344,11 @@ def phs5(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS5(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS5(*args,**kwargs))
 
 phs5.__doc__ += _FUNCTION_DOC
 
@@ -346,7 +364,11 @@ def phs4(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS4(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS4(*args,**kwargs))
 
 phs4.__doc__ += _FUNCTION_DOC
 
@@ -362,7 +384,11 @@ def phs3(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS3(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS3(*args,**kwargs))
 
 phs3.__doc__ += _FUNCTION_DOC
 
@@ -378,7 +404,11 @@ def phs2(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS2(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS2(*args,**kwargs))
 
 phs2.__doc__ += _FUNCTION_DOC
 
@@ -394,7 +424,11 @@ def phs1(*args,**kwargs):
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
   '''                                                             
-  return np.nan_to_num(_PHS1(*args,**kwargs))
+  # division by zero errors may occur for R=0. Ignore warnings and
+  # replace nan's with zeros
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    return np.nan_to_num(_PHS1(*args,**kwargs))
 
 phs1.__doc__ += _FUNCTION_DOC
 
