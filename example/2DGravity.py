@@ -133,7 +133,7 @@ def rho(p):
 scale = np.max(vert) - np.min(vert)
 
 # domain nodes
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp)
+nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,n=3,itr=100)
 
 nodes,ix = rbf.nodegen.merge_nodes(interior=nodes_d[group_d==0],
                                    fixed=nodes_d[group_d==1],

@@ -273,6 +273,13 @@ _FUNCTION_DOC = '''
     a value for diff is used more than once in the Python session.        
 '''
 
+def replace_nan(x):
+  '''
+  this is orders of magnitude faster than np.nan_to_num
+  '''
+  x[np.isnan(x)] = 0.0
+  return x
+
 _PHS8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
 def phs8(*args,**kwargs):
   '''                             
@@ -288,7 +295,7 @@ def phs8(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS8(*args,**kwargs))
+    return replace_nan(_PHS8(*args,**kwargs))
 
 phs8.__doc__ += _FUNCTION_DOC
 
@@ -308,7 +315,7 @@ def phs7(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS7(*args,**kwargs))
+    return replace_nan(_PHS7(*args,**kwargs))
 
 phs7.__doc__ += _FUNCTION_DOC
 
@@ -328,7 +335,7 @@ def phs6(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS6(*args,**kwargs))
+    return replace_nan(_PHS6(*args,**kwargs))
 
 phs6.__doc__ += _FUNCTION_DOC
 
@@ -348,7 +355,7 @@ def phs5(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS5(*args,**kwargs))
+    return replace_nan(_PHS5(*args,**kwargs))
 
 phs5.__doc__ += _FUNCTION_DOC
 
@@ -368,7 +375,7 @@ def phs4(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS4(*args,**kwargs))
+    return replace_nan(_PHS4(*args,**kwargs))
 
 phs4.__doc__ += _FUNCTION_DOC
 
@@ -388,7 +395,7 @@ def phs3(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS3(*args,**kwargs))
+    return replace_nan(_PHS3(*args,**kwargs))
 
 phs3.__doc__ += _FUNCTION_DOC
 
@@ -408,7 +415,7 @@ def phs2(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS2(*args,**kwargs))
+    return replace_nan(_PHS2(*args,**kwargs))
 
 phs2.__doc__ += _FUNCTION_DOC
 
@@ -428,7 +435,7 @@ def phs1(*args,**kwargs):
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return np.nan_to_num(_PHS1(*args,**kwargs))
+    return replace_nan(_PHS1(*args,**kwargs))
 
 phs1.__doc__ += _FUNCTION_DOC
 

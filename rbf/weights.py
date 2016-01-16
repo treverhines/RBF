@@ -66,7 +66,7 @@ def uvmono(x,power,diff):
 
   Parameters
   ----------
-    x: (N,) array of positions where the monomial will be evaluated
+    x: (N,) numpy array of positions where the monomial will be evaluated
 
     power: scalar power of the monomial
 
@@ -89,7 +89,7 @@ def mvmono(x,power,diff):
 
   Parameters
   ----------
-    x: (N,D) array of positions where the monomial will be evaluated
+    x: (N,D) numpy array of positions where the monomial will be evaluated
 
     power: (D,) list of powers for each variable 
 
@@ -100,9 +100,8 @@ def mvmono(x,power,diff):
     out: (N,) array
 
   '''
-  x = np.asarray(x,dtype=float)
-  out = np.ones(x.shape[0])
-  for i in range(x.shape[1]):
+  out = uvmono(x[:,0],power[0],diff[0])
+  for i in xrange(1,x.shape[1]):
     out *= uvmono(x[:,i],power[i],diff[i])
 
   return out
@@ -132,7 +131,7 @@ def monomial_powers(order,dim):
 
   '''
   out = []
-  for p in range(order):
+  for p in xrange(order):
     if p == 0:
       out.append((0,)*dim)    
     else:
@@ -168,7 +167,7 @@ def maximum_order(stencil_size,dim):
   return order  
 
 
-def vpoly(centers,order):
+def vpoly(nodes,order):
   '''
   Description
   -----------
@@ -177,13 +176,16 @@ def vpoly(centers,order):
     all monomials which would be found in a polynomial of the given
     order.
 
+  Paramters
+  ---------
+    nodes: (N,D) numpy array of collocation points
+    order: order of polynomial terms
   '''
-  centers = np.asarray(centers,dtype=float)
-  diff = (0,)*centers.shape[1]
-  powers = monomial_powers(order,centers.shape[1])
-  out = np.zeros((len(powers),centers.shape[0]))
+  diff = (0,)*nodes.shape[1]
+  powers = monomial_powers(order,nodes.shape[1])
+  out = np.empty((len(powers),nodes.shape[0]))
   for itr,p in enumerate(powers):
-    out[itr,:] = mvmono(centers,p,diff)
+    out[itr,:] = mvmono(nodes,p,diff)
 
   return out
 
@@ -195,11 +197,17 @@ def dpoly(x,order,diff):
     returns the data vector, d_i, consisting of monomial i evaluated 
     at x.
 
+  Parameters
+  ----------
+    x: (D,) vector where the polynomials are evaluated
+
+    order: order of polynomials
+
+    diff: derivative order of polynomial terms 
   '''
-  x = np.asarray(x,dtype=float)
   x = x[None,:]
   powers = monomial_powers(order,x.shape[1])
-  out = np.zeros(len(powers))
+  out = np.empty(len(powers))
   for itr,p in enumerate(powers):
     out[itr] = mvmono(x,p,diff)  
   
@@ -219,21 +227,28 @@ def vrbf(nodes,centers,eps,order,basis):
     specified centers evaluated at the specified nodes.  Ap is the
     polynomial Vandermonde matrix.
 
+  Parameters
+  ----------
+    nodes: (N,D) numpy array of collocation points
+    centers: (N,D) numpy array of RBF centers
+    eps: RBF shape parameter
+    
   '''
-  nodes = np.asarray(nodes)
-  centers = np.asarray(centers)
-
   # number of centers and dimensions
   Ns,Ndim = nodes.shape
 
   # number of monomial terms  
   Np = monomial_count(order,Ndim)
 
-  eps = eps*np.ones(Ns)
+  # create an array of repeated eps values
+  # this is faster than using np.repeat
+  eps_array = np.empty(Ns)
+  eps_array[:] = eps
+
   A = np.zeros((Ns+Np,Ns+Np))
 
   # Ar
-  A[:Ns,:Ns] = basis(nodes,centers,eps).T
+  A[:Ns,:Ns] = basis(nodes,centers,eps_array).T
 
   # Ap
   Ap = vpoly(centers,order)  
@@ -255,8 +270,8 @@ def drbf(x,centers,eps,order,diff,basis):
     and dp consists of the the polynomial data
 
   '''
-  centers = np.asarray(centers)
-  x = np.asarray(x)
+  #centers = np.asarray(centers)
+  #x = np.asarray(x)
   x = x[None,:]
 
   # number of centers and dimensions
@@ -265,11 +280,15 @@ def drbf(x,centers,eps,order,diff,basis):
   # number of monomial terms
   Np = monomial_count(order,Ndim)
 
-  eps = eps*np.ones(Ns)
-  d = np.zeros(Ns+Np)
+  # create an array of repeated eps values
+  # this is faster than using np.repeat
+  eps_array = np.empty(Ns)
+  eps_array[:] = eps
+
+  d = np.empty(Ns+Np)
 
   # dr
-  d[:Ns] = basis(x,centers,eps,diff=diff)[0,:]
+  d[:Ns] = basis(x,centers,eps_array,diff=diff)[0,:]
 
   # dp
   d[Ns:] = dpoly(x[0,:],order,diff)

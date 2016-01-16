@@ -111,7 +111,7 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 N = 2000
-Ns = 25
+Ns = 50
 order = 3
 
 vert = np.array([[0.0,0.0,0.0],
@@ -175,7 +175,7 @@ knots_y = np.linspace(0.25,0.75,4)
 import rbf.bspline
 basis_no = rbf.bspline.basis_number(knots_z,2)
 slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
-slip[1,:] = 1.0
+#slip[1,:] = 1.0
 
 #mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
 #                     nodes_f[:,2],slip[1,:])
