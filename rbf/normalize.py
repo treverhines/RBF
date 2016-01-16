@@ -2,7 +2,7 @@
 from __future__ import division
 import numpy as np
 from rbf.halton import Halton
-from rbf.geometry import boundary_contains
+from rbf.geometry import complex_contains
 from rbf.geometry import is_valid
 import logging 
 from modest import funtime
@@ -56,7 +56,7 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
     pnts = rng(batch_size)*(ub-lb) + lb
     val = f(pnts)
-    is_inside = boundary_contains(pnts,vert,smp)
+    is_inside = complex_contains(pnts,vert,smp)
     if np.any(is_inside):
       if minval > np.min(val[is_inside]):
         minval = np.min(val[is_inside])

@@ -3,7 +3,7 @@ import numpy as np
 import rbf.nodegen
 from rbf.basis import phs3 as basis
 from rbf.normalize import normalizer
-from rbf.geometry import boundary_contains
+from rbf.geometry import complex_contains
 import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
@@ -128,7 +128,7 @@ scale = np.max(vert) - np.min(vert)
 nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
 
 # cut out any fault nodes outside of the domain
-is_inside = boundary_contains(nodes_f,vert,smp)
+is_inside = complex_contains(nodes_f,vert,smp)
 nodes_f = nodes_f[is_inside]
 norms_f = norms_f[is_inside]
 group_f = group_f[is_inside]

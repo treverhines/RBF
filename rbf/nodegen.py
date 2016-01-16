@@ -2,11 +2,11 @@
 from __future__ import division
 import numpy as np
 import rbf.halton
-from rbf.geometry import (boundary_intersection,
-                          boundary_normal,
-                          boundary_group,
-                          boundary_contains,
-                          boundary_cross_count,
+from rbf.geometry import (complex_intersection,
+                          complex_normal,
+                          complex_group,
+                          complex_contains,
+                          complex_cross_count,
                           is_valid)
 import rbf.normalize
 import rbf.stencil
@@ -112,17 +112,17 @@ def repel_bounce(free_nodes,vertices,
                                 n=n,delta=delta)
 
     # boolean array of nodes which are now outside the domain
-    crossed = ~boundary_contains(free_nodes_new,vertices,simplices)
+    crossed = ~complex_contains(free_nodes_new,vertices,simplices)
     bounces = 0
     while np.any(crossed):
       # point where nodes intersected the boundary
-      inter = boundary_intersection(
+      inter = complex_intersection(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
                 vertices,simplices)
 
       # normal vector to intersection point
-      norms = boundary_normal(
+      norms = complex_normal(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
                 vertices,simplices)
@@ -143,7 +143,7 @@ def repel_bounce(free_nodes,vertices,
         free_nodes_new[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
         # check to see if the bounced node is now within the domain, 
         # if not then iterations continue
-        crossed = ~boundary_contains(free_nodes_new,vertices,simplices)
+        crossed = ~complex_contains(free_nodes_new,vertices,simplices)
         bounces += 1
 
     free_nodes = free_nodes_new  
@@ -207,22 +207,22 @@ def repel_stick(free_nodes,vertices,
                                  n=n,delta=delta)
 
     # indices of free nodes which crossed a boundary
-    crossed = ~boundary_contains(ungrouped_free_nodes_new,vertices,simplices)
+    crossed = ~complex_contains(ungrouped_free_nodes_new,vertices,simplices)
   
     # if a node intersected a boundary then associate it with a group
-    node_group[ungrouped[crossed]] = boundary_group(
+    node_group[ungrouped[crossed]] = complex_group(
                                        ungrouped_free_nodes[crossed],     
                                        ungrouped_free_nodes_new[crossed], 
                                        vertices,simplices,groups)
 
     # if a node intersected a boundary then associate it with a normal
-    node_norm[ungrouped[crossed]] = boundary_normal(
+    node_norm[ungrouped[crossed]] = complex_normal(
                                       ungrouped_free_nodes[crossed],     
                                       ungrouped_free_nodes_new[crossed], 
                                       vertices,simplices)
 
     # intersection point for nodes which crossed a boundary
-    inter = boundary_intersection(
+    inter = complex_intersection(
               ungrouped_free_nodes[crossed],     
               ungrouped_free_nodes_new[crossed],
               vertices,simplices)
@@ -341,7 +341,7 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
     new_nodes = new_nodes[rho_normalized(new_nodes) > seq1d]
 
-    new_nodes = new_nodes[boundary_contains(new_nodes,vertices,simplices)]
+    new_nodes = new_nodes[complex_contains(new_nodes,vertices,simplices)]
     nodes = np.vstack((nodes,new_nodes))
     logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt

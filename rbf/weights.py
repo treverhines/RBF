@@ -172,7 +172,7 @@ def vpoly(nodes,order):
   Description
   -----------
     returns the polynomial Vandermond matrix, A_ij, consisting of
-    monomial i evaluated at center j.  The monomials used consist of
+    monomial i evaluated at node j.  The monomials used consist of
     all monomials which would be found in a polynomial of the given
     order.
 
