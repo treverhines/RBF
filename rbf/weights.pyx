@@ -1,6 +1,7 @@
-#!/usr/bin/env python
 from __future__ import division
 import numpy as np
+cimport numpy as np
+from cython cimport cdivision
 import rbf.basis
 import modest
 import scipy
@@ -38,27 +39,8 @@ def memoize(f):
   return fout  
 
 
-@memoize
-def power_rule(power,diff):
-  '''
-  Description 
-  -----------
-    returns the coefficients and power of a differentiated monomial
-  '''
-  coeff = 1
-  while diff > 0:
-    coeff *= power
-    power -= 1
-    diff -= 1
-
-  # prevents division by zero error
-  if coeff == 0:
-    power = 0
-
-  return coeff,power
-
-
-def uvmono(x,power,diff):
+def uvmono(np.ndarray[ndim=1,dtype=double] x,
+                       float power,int diff):
   '''
   Description
   -----------
@@ -77,11 +59,23 @@ def uvmono(x,power,diff):
     out: (N,) array
 
   '''
-  c,d = power_rule(power,diff)
-  return c*x**d
+  cdef:
+    float coeff = 1.0
+    
+  while diff > 0:
+    coeff *= power
+    power -= 1.0
+    diff -= 1
+
+  # prevents division by zero error
+  if coeff == 0.0:
+    power = 0.0
+
+  return coeff*x**power
 
 
-def mvmono(x,power,diff):
+cdef np.ndarray mvmono(np.ndarray[ndim=2,dtype=double] x,
+                       tuple power,tuple diff):
   '''
   Description
   -----------
@@ -100,9 +94,12 @@ def mvmono(x,power,diff):
     out: (N,) array
 
   '''
-  out = uvmono(x[:,0],power[0],diff[0])
-  for i in xrange(1,x.shape[1]):
-    out *= uvmono(x[:,i],power[i],diff[i])
+  cdef:
+    np.ndarray out = uvmono(x[:,0],power[0],diff[0])
+    int i
+
+  for i in range(1,x.shape[1]):
+    out *= uvmono(x[:,i],float(power[i]),int(diff[i]))
 
   return out
 
