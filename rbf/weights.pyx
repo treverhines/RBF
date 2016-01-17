@@ -41,7 +41,7 @@ def memoize(f):
 
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
+cdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
   '''
   Description
   -----------
@@ -101,7 +101,7 @@ def monomial_powers(order,dim):
   '''
   Description
   -----------
-    returns a list of tuples describing all possible monomial powers
+    returns an array describing all possible monomial powers
     in a polymonial with the given order and number of
     dimensions. Calling this function with a negative order will
     return an empty list (no terms in the polynomial)
@@ -118,8 +118,9 @@ def monomial_powers(order,dim):
     two dimensional polynomial with order 1 
 
       In [1]: monomial_powers(1,2) 
-      Out[1]: [(0,0),(1,0),(0,1)]
-
+      Out[1]: array([[0,0],
+                     [1,0],
+                     [0,1]])
   '''
   out = []
   for p in xrange(order+1):
