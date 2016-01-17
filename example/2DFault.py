@@ -19,7 +19,9 @@ import logging
 from modest import summary
 import sympy as sp
 import multiprocessing as mp
+import mkl
 logging.basicConfig(level=logging.INFO)
+
 
 
 @modest.funtime
@@ -275,7 +277,16 @@ def form_Gij(indices):
 
   return G
 
-G_flat = map(form_Gij,[(di,mi) for di in range(dim) for mi in range(dim)])
+# Ensure that each process only uses one thread. The program will
+# break otherwise
+mkl.set_num_threads(1)
+# initiate pool
+P = mp.Pool()
+# form stiffness matrix in parallel
+G_flat = P.map(form_Gij,[(di,mi) for di in range(dim) for mi in range(dim)])
+# reset so that the main process threads use the maximum number of threads
+mkl.set_num_threads(mkl.get_max_threads())
+
 G = [[G_flat.pop(0) for i in range(dim)] for j in range(dim)]
 data = [np.zeros(N) for i in range(dim)]    
 

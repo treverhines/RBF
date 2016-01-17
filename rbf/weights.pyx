@@ -8,6 +8,7 @@ import logging
 from itertools import combinations_with_replacement as cr
 from scipy.special import binom
 from functools import wraps
+import mkl
 
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
@@ -329,9 +330,10 @@ def is_operator(diff):
     return False
 
 
-def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs5,order='max',eps=1.0):
-  '''
-  Description
+def rbf_weight(x,nodes,diff,centers=None,
+               basis=rbf.basis.phs5,order='max',
+               eps=1.0):
+  '''Description
   -----------
     Finds the finite difference weights, w_i, such that 
 
@@ -378,6 +380,14 @@ def rbf_weight(x,nodes,diff,centers=None,basis=rbf.basis.phs5,order='max',eps=1.
     basis:
     order:
     eps:
+
+  Note
+  ----
+    The overhead associated with multithreading can greatly reduce
+    performance and it may be useful to set the appropriate
+    environment value so that this function is run with only one
+    thread.  Anaconda accelerate users can set the number of threads
+    within a python script with the command mkl.set_num_threads(1)
 
   '''
   x = np.array(x,dtype=float,copy=True)
