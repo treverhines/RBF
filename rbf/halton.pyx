@@ -1,6 +1,5 @@
 # distutils: extra_compile_args = -fopenmp
 # distutils: extra_link_args = -fopenmp
-
 from __future__ import division
 import numpy as np
 cimport numpy as np
@@ -8,6 +7,8 @@ from cython cimport boundscheck,wraparound,cdivision
 from cython.parallel cimport prange
 
 
+@cdivision(True)
+@boundscheck(False)
 cpdef np.ndarray primes(long N):
   '''
   computes the first N prime numbers
@@ -16,7 +17,7 @@ cpdef np.ndarray primes(long N):
     bint flag # lowered when a test number is not prime
     long test = 2 # test number
     long i,j  
-    long[:] out = np.empty(N,dtype=long)
+    long[:] out = np.empty(N,dtype=np.int)
 
   for i in range(N):
     while True:
@@ -34,6 +35,8 @@ cpdef np.ndarray primes(long N):
 
   return np.asarray(out)
 
+
+PRIMES = primes(1000)
 
 @cdivision(True)
 cdef double halton_n(long n,
@@ -78,8 +81,8 @@ cpdef np.ndarray halton(long N,
   '''
   cdef:
     long i,j
-    double[:,:] seq = np.empty((N,D),dtype=np.float64,order='C')
-    long[:] p = primes(prime_index+D)[-D:]
+    double[:,:] seq = np.empty((N,D),dtype=np.float64)
+    long[:] p = PRIMES[prime_index:prime_index+D]
 
   with nogil:
     for i in range(N):

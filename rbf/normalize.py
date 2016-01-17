@@ -5,8 +5,6 @@ from rbf.halton import Halton
 from rbf.geometry import complex_contains
 from rbf.geometry import is_valid
 import logging 
-from modest import funtime
-import modest
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +188,7 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
 
 def _normalizer(fin,vert,smp,kind='integral',tol=None,nodes=None):
   '''
-  normalize a scalar values function in 1,2 or 3 dimensional space.
+  normalize a scalar values fucntion in 1,2 or 3 dimensional space.
   The function should takes an (N,1), (N,2), or (N,3) array of points
   as its only argument and return an (N,) array.  The kind of
   normalization is specified with "kind", which can either be

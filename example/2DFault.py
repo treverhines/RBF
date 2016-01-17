@@ -18,6 +18,7 @@ import scipy.sparse.linalg
 import logging
 from modest import summary
 import sympy as sp
+import multiprocessing as mp
 logging.basicConfig(level=logging.INFO)
 
 
@@ -199,82 +200,86 @@ plt.show()
 N = len(nodes)
 modest.tic('forming G')
 
-G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float64) for mi in range(dim)] for di in range(dim)]
-data = [np.zeros(N) for i in range(dim)]
-# This can be parallelized!!!!
-for di in range(dim):
-  for mi in range(dim):
-    # apply the PDE to interior nodes and free nodes
-    for i in ix['interior']:
-      w = rbf_weight(nodes[i],
-                     nodes[s[i]],
-                     evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
-                     order=order,
-                     basis=basis)
+def form_Gij(indices):
+  di,mi = indices
+  G = scipy.sparse.lil_matrix((N,N),dtype=np.float64)
+  for i in ix['interior']:
+    w = rbf_weight(nodes[i],
+                   nodes[s[i]],
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[i]] = w
+    G[i,s[i]] = w
 
-    for i in ix['free']:
-      w = rbf_weight(nodes[i],
-                     nodes[s[i]],
-                     evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
-                     order=order,
-                     basis=basis)
+  for i in ix['free']:
+    w = rbf_weight(nodes[i],
+                   nodes[s[i]],
+                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[i]] = w
+    G[i,s[i]] = w
 
-    for i in ix['fixed']:
-      w = rbf_weight(nodes[i],
-                     nodes[s[i]],
-                     evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
-                     order=order,
-                     basis=basis)
+  for i in ix['fixed']:
+    w = rbf_weight(nodes[i],
+                   nodes[s[i]],
+                   evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[i]] = w
+    G[i,s[i]] = w
 
-    # treat fault nodes as free nodes and the later reorganize the G
-    # matrix so that the fault nodes are forces to be equal
-    for i in ix['fault_hanging']+ix['fault_foot']:
-      w = rbf_weight(nodes[i],
-                 nodes[s[i]],
-                 evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
-                 order=order,
-                 basis=basis)
+  # treat fault nodes as free nodes and the later reorganize the G
+  # matrix so that the fault nodes are forces to be equal
+  for i in ix['fault_hanging']+ix['fault_foot']:
+    w = rbf_weight(nodes[i],
+                   nodes[s[i]],
+                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[i]] = w
+    G[i,s[i]] = w
 
-    # use the ghost node rows to enforce the free boundary conditions
-    # at the boundary nodes
-    for itr,i in enumerate(ix['free_ghost']):
-      j = ix['free'][itr]
-      w = rbf_weight(nodes[j],
-                     nodes[s[j]],
-                     evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
-                     order=order,
-                     basis=basis)
+  # use the ghost node rows to enforce the free boundary conditions
+  # at the boundary nodes
+  for itr,i in enumerate(ix['free_ghost']):
+    j = ix['free'][itr]
+    w = rbf_weight(nodes[j],
+                   nodes[s[j]],
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[j]] = w
+    G[i,s[j]] = w
 
-    for itr,i in enumerate(ix['fault_hanging_ghost']):
-      j = ix['fault_hanging'][itr]
-      w = rbf_weight(nodes[j],
-                     nodes[s[j]],
-                     evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
-                     order=order,
-                     basis=basis)
+  for itr,i in enumerate(ix['fault_hanging_ghost']):
+    j = ix['fault_hanging'][itr]
+    w = rbf_weight(nodes[j],
+                   nodes[s[j]],
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[j]] = w
+    G[i,s[j]] = w
 
-    for itr,i in enumerate(ix['fault_foot_ghost']):
-      j = ix['fault_foot'][itr]
-      w = rbf_weight(nodes[j],
-                     nodes[s[j]],
-                     evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
-                     order=order,
-                     basis=basis)
+  for itr,i in enumerate(ix['fault_foot_ghost']):
+    j = ix['fault_foot'][itr]
+    w = rbf_weight(nodes[j],
+                   nodes[s[j]],
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                   order=order,
+                   basis=basis)
 
-      G[di][mi][i,s[j]] = w
-    
+    G[i,s[j]] = w
+
+  return G
+
+G_flat = map(form_Gij,[(di,mi) for di in range(dim) for mi in range(dim)])
+G = [[G_flat.pop(0) for i in range(dim)] for j in range(dim)]
+data = [np.zeros(N) for i in range(dim)]    
+
+
 # adjust G and d to allow for split nodes
 for di in range(dim):
   for mi in range(dim):

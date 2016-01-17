@@ -1,8 +1,6 @@
-#!/usr/bin/env python
 from __future__ import division
 import numpy as np
 import rbf.basis
-import modest
 import scipy
 import scipy.spatial
 import random
@@ -10,6 +8,9 @@ import logging
 from itertools import combinations_with_replacement as cr
 from scipy.special import binom
 from functools import wraps
+
+cimport numpy as np
+from cython cimport boundscheck,wraparound,cdivision
 
 logger = logging.getLogger(__name__)
 
@@ -38,106 +39,96 @@ def memoize(f):
   return fout  
 
 
-@memoize
-def power_rule(power,diff):
-  '''
-  Description 
-  -----------
-    returns the coefficients and power of a differentiated monomial
-  '''
-  coeff = 1
-  while diff > 0:
-    coeff *= power
-    power -= 1
-    diff -= 1
-
-  # prevents division by zero error
-  if coeff == 0:
-    power = 0
-
-  return coeff,power
-
-
-def uvmono(x,power,diff):
+@boundscheck(False)
+@wraparound(False)
+cpdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
   '''
   Description
   -----------
-    univariate monomial 
+    multivariate monomials
 
   Parameters
   ----------
-    x: (N,) numpy array of positions where the monomial will be evaluated
+    x: (N,D) float array of positions where the monomials will be evaluated
 
-    power: scalar power of the monomial
+    powers: (M,D) integer array of powers for each monomial
 
-    diff: integer derivative order of the monomial
-
-  Returns
-  -------
-    out: (N,) array
-
-  '''
-  c,d = power_rule(power,diff)
-  return c*x**d
-
-
-def mvmono(x,power,diff):
-  '''
-  Description
-  -----------
-    multivariate monomial
-
-  Parameters
-  ----------
-    x: (N,D) numpy array of positions where the monomial will be evaluated
-
-    power: (D,) list of powers for each variable 
-
-    diff: (D,) list of derivative order for each variable
+    diff: (D,) integer array of derivatives for each variable 
 
   Returns
   -------
-    out: (N,) array
+    out: (M,N) float array of the differentiated monomials evaluated at x
 
   '''
-  out = uvmono(x[:,0],power[0],diff[0])
-  for i in xrange(1,x.shape[1]):
-    out *= uvmono(x[:,i],power[i],diff[i])
+  cdef:
+    long i,j,k,l
+    # number of spatial dimensions
+    long D = x.shape[1]
+    # number of monomials
+    long M = powers.shape[0] 
+    # number of positions where the monomials are evaluated
+    long N = x.shape[0]
+    double[:,:] out = np.empty((M,N),dtype=float)
+    long coeff,power
 
-  return out
+  # loop over dimensions
+  for i in range(D):
+    # loop over monomials
+    for j in range(M):
+      # find the monomial coefficients after differentiation
+      coeff = 1
+      for k in range(diff[i]): 
+        coeff *= powers[j,i] - k
 
+      # if the monomial coefficient is zero then make sure the power  
+      # is also zero to prevent a zero division error
+      if coeff == 0:
+        power = 0
+      else:
+        power = powers[j,i] - diff[i]
 
+      # loop over evaluation points
+      for l in range(N):
+        if i == 0:
+          out[j,l] = coeff*x[l,i]**power              
+        else:
+          out[j,l] *= coeff*x[l,i]**power              
+
+  return np.asarray(out)
+  
 @memoize
 def monomial_powers(order,dim):
   '''
   Description
   -----------
-    returns a list of tuples describing the powers for each monomial
-    in a polymonial with the given order and number of dimensions.
-    Because there should be the possibility of having zero terms in a
-    polynomial, the integer value of order given to this function
-    needs to be the polynomial order minus 1.  Calling this function
-    with 0 for the order will return an empty list. Calling this
-    function with 1 for the order will return the monomial powers for
-    a polynomial of degree 0 (i.e. [(0,)*dim]).
+    returns a list of tuples describing all possible monomial powers
+    in a polymonial with the given order and number of
+    dimensions. Calling this function with a negative order will
+    return an empty list (no terms in the polynomial)
+
+  Parameters
+  ----------
+    order: polynomial order
+
+    dim: polynomial dimension
 
   Example
   -------
     This will return the powers of x and y for each monomial term in a
     two dimensional polynomial with order 1 
 
-      In [1]: monomial_powers(2,2) 
+      In [1]: monomial_powers(1,2) 
       Out[1]: [(0,0),(1,0),(0,1)]
 
   '''
   out = []
-  for p in xrange(order):
+  for p in xrange(order+1):
     if p == 0:
       out.append((0,)*dim)    
     else:
-      out.extend(tuple(sum(i)) for i in cr(np.eye(dim,dtype=int),p))
+      out.extend(sum(i) for i in cr(np.eye(dim,dtype=int),p))
 
-  return out
+  return np.array(out)
 
   
 @memoize
@@ -148,8 +139,14 @@ def monomial_count(order,dim):
     returns the number of monomial terms in a polynomial with the
     given order and number of dimensions
 
+  Parameters
+  ----------
+    order: polynomial order
+
+    dim: polynomial dimension
+
   '''
-  return int(binom(order+dim-1,dim))
+  return int(binom(order+dim,dim))
 
 
 @memoize
@@ -159,6 +156,13 @@ def maximum_order(stencil_size,dim):
   -----------
     returns the maximum polynomial order allowed for the given stencil
     size and number of dimensions
+
+  Parameters
+  ----------
+    stencil_size: number of nodes in the stencil
+
+    dim: spatial dimensions of the stencil
+
   '''
   order = 0
   while (monomial_count(order+1,dim) <= stencil_size):
@@ -171,21 +175,21 @@ def vpoly(nodes,order):
   '''
   Description
   -----------
-    returns the polynomial Vandermond matrix, A_ij, consisting of
-    monomial i evaluated at node j.  The monomials used consist of
-    all monomials which would be found in a polynomial of the given
-    order.
+    Returns the polynomial Vandermonde matrix, A[i,j], consisting of
+    monomial i evaluated at node j. The monomials have a coefficient
+    of 1 and powers determined from "monomial_powers"
 
   Paramters
   ---------
-    nodes: (N,D) numpy array of collocation points
+    nodes: (N,D) numpy array of points where the monomials are
+      evaluated
+
     order: order of polynomial terms
+
   '''
-  diff = (0,)*nodes.shape[1]
+  diff = np.zeros(nodes.shape[1],dtype=int)
   powers = monomial_powers(order,nodes.shape[1])
-  out = np.empty((len(powers),nodes.shape[0]))
-  for itr,p in enumerate(powers):
-    out[itr,:] = mvmono(nodes,p,diff)
+  out = mvmonos(nodes,powers,diff)
 
   return out
 
@@ -194,22 +198,23 @@ def dpoly(x,order,diff):
   '''
   Description
   -----------
-    returns the data vector, d_i, consisting of monomial i evaluated 
-    at x.
+    Returns the data vector, d[i], consisting of the differentiated
+    monomial i evaluated at x. The undifferentiated monomials have a
+    coefficient of 1 and powers determined from "monomial_powers"
 
   Parameters
   ----------
-    x: (D,) vector where the polynomials are evaluated
+    x: (D,) numpy array where the monomials are evaluated
 
-    order: order of polynomials
+    order: order of polynomial terms
 
-    diff: derivative order of polynomial terms 
+    diff: (D,) derivative for each spatial dimension
+
   '''
   x = x[None,:]
+  diff = np.array(diff,dtype=int)
   powers = monomial_powers(order,x.shape[1])
-  out = np.empty(len(powers))
-  for itr,p in enumerate(powers):
-    out[itr] = mvmono(x,p,diff)  
+  out = mvmonos(x,powers,diff)[:,0]
   
   return out
 
@@ -223,16 +228,23 @@ def vrbf(nodes,centers,eps,order,basis):
     A =   | Ar Ap.T |
           | Ap 0    |
 
-    where Ar is the RBF Vandermonde matrix which consists of the
-    specified centers evaluated at the specified nodes.  Ap is the
-    polynomial Vandermonde matrix.
+    where Ar[i,j] is the RBF Vandermonde matrix consisting of the RBF
+    with center i evaluated at nodes j.  Ap is the polynomial
+    Vandermonde matrix for the indicated order.
+   
 
   Parameters
   ----------
     nodes: (N,D) numpy array of collocation points
+
     centers: (N,D) numpy array of RBF centers
-    eps: RBF shape parameter
-    
+
+    eps: RBF shape parameter (constant for all RBFs)
+   
+    order: order of polynomial terms
+
+    basis: callable radial basis function     
+
   '''
   # number of centers and dimensions
   Ns,Ndim = nodes.shape
@@ -266,8 +278,8 @@ def drbf(x,centers,eps,order,diff,basis):
       d = |dr|
           |dp|
 
-    where dr consists of RBFs with the given centers evaulated at x
-    and dp consists of the the polynomial data
+    where dr[i] consists of a differentiated RBF with center i
+    evalauted at x. dp is the polynomial data.
 
   '''
   #centers = np.asarray(centers)
@@ -294,84 +306,6 @@ def drbf(x,centers,eps,order,diff,basis):
   d[Ns:] = dpoly(x[0,:],order,diff)
 
   return d
-
-
-def shape_factor(nodes,s,basis,centers=None,alpha=None,cond=10,samples=100):
-  '''
-  The shape factor for stencil i, eps_i, is chosen by
- 
-    eps_i = alpha/mu_i                  
- 
-  where mu_i is the mean shortest path between nodes in stencil i. and 
-  alpha is a proportionality constant.  This function assumes the same 
-  alpha for each stencil.  If alpha is not given then an alpha is estimated
-  which produces the desired condition number for the Vandermonde matrix 
-  of each stencil. if alpha is given then cond does nothing.  This funtion
-  returns eps_i for each stencil
-  '''
-  if centers is None:
-    centers = nodes
-
-  nodes = np.asarray(nodes,dtype=float)
-  s = np.asarray(s,dtype=int)
-  centers = np.asarray(centers,dtype=float)
-
-  if alpha is None:
-    alpha_list = []
-    for si in random.sample(s,samples):
-      eps = condition_based_shape_factor(nodes[si,:],centers[si,:],basis,cond)
-      if eps is not None:
-        T = scipy.spatial.cKDTree(centers[si,:])
-        dx,idx = T.query(centers[si,:],2)
-        mu = np.mean(dx[:,1])
-        alpha_list += [eps*mu]
-
-    if len(alpha_list) == 0:
-      raise ValueError(
-        'did not find a shape parameters which produces the desired '
-        'condition number for any stencils')
-  
-    alpha = np.mean(alpha_list)
-    logger.info('using shape parameter %s' % alpha)
-
-  eps_list = np.zeros(s.shape[0])
-  for i,si in enumerate(s):
-    T = scipy.spatial.cKDTree(centers[si,:])
-    dx,idx = T.query(centers[si,:],2)
-    mu = np.mean(dx[:,1])
-    eps_list[i] = alpha/mu
-
-  return eps_list
-
-
-def condition_based_shape_factor(nodes,centers,basis,cond):
-  nodes = np.asarray(nodes)
-  centers = np.asarray(centers)
-  def system(eps):
-    A = basis(nodes,centers,eps[0]*np.ones(len(nodes)))
-    cond = np.linalg.cond(A)
-    return np.array([np.log10(cond)])
-
-  T = scipy.spatial.cKDTree(centers)
-  dist,idx = T.query(centers,2)
-  # average shortest distance between nodes
-  dx = np.mean(dist[:,1])
-  eps = [0.1/dx]
-  eps,pred_cond = modest.nonlin_lstsq(system,[cond],
-                                      eps,
-                                      solver=modest.nnls,
-                                      atol=1e-2,rtol=1e-8,
-                                      LM_param=1e-2,
-                                      maxitr=500,
-                                      output=['solution','predicted'])
-  if np.abs(pred_cond - cond) > 1e-2:
-    logger.warning(
-      'did not find a shape parameter which produces the desired '
-      'condition number')  
-    return None
-
-  else:
-    return eps[0]
 
 
 def is_operator(diff):

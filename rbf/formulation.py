@@ -2,7 +2,6 @@
 import sympy as sp
 import numpy as np
 import logging
-import modest
 logger = logging.getLogger(__name__)
 
 

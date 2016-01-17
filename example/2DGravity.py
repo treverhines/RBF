@@ -3,7 +3,7 @@ import numpy as np
 import rbf.nodegen
 from rbf.basis import phs5 as basis
 from rbf.normalize import normalizer
-from rbf.geometry import boundary_contains
+from rbf.geometry import complex_contains
 import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
@@ -89,6 +89,8 @@ def lamb_diffy(i):
 # norms is an array which is later defined
 sym2num = {L:1.0,
            M:1.0,
+           sp.Integer(1):1.0,
+           sp.Integer(2):2.0,
            L.diff(x[0]):0.0,
            L.diff(x[1]):lamb_diffy,
            M.diff(x[0]):0.0,
@@ -101,19 +103,19 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 1000
+N = 10000
 Ns = 20
 order = 'max'
 
 # domain vertices
-surf_vert_x = np.linspace(-20,20,200)
+surf_vert_x = np.linspace(-5,5,200)
 surf_vert_y = 1.0/(1 + 1.0*(surf_vert_x)**2)
 #surf_vert_y = 2.0*np.sin(4*np.pi*surf_vert_x/10.0)
 
 surf_vert = np.array([surf_vert_x,surf_vert_y+10]).T
 surf_smp = np.array([np.arange(199),np.arange(1,200)]).T
-bot_vert = np.array([[-20.0,-10.0],
-                     [20.0,-10.0]])
+bot_vert = np.array([[-5.0,-5.0],
+                     [5.0,-5.0]])
 vert = np.vstack((bot_vert,surf_vert))
 smp = np.concatenate(([[0,1],[0,2],[1,201]],surf_smp+2))
 smp = np.array(smp,dtype=int)
@@ -125,15 +127,15 @@ grp[[0,1,2]] = 1
 # density function
 @normalizer(vert,smp,kind='density',nodes=N)
 def rho(p):
-  out = 1.0/(1 + 0.2*np.linalg.norm(p - np.array([0.0,11.0]),axis=1)**2)
-  out += 1.0/(1 + 0.2*np.linalg.norm(p - np.array([2.0,10.0]),axis=1)**2)
-  out += 1.0/(1 + 0.2*np.linalg.norm(p - np.array([-2.0,10.0]),axis=1)**2)
+  out = 1.0/(1 + 0.1*np.linalg.norm(p - np.array([0.0,11.0]),axis=1)**2)
+  out += 1.0/(1 + 0.1*np.linalg.norm(p - np.array([2.0,10.0]),axis=1)**2)
+  out += 1.0/(1 + 0.1*np.linalg.norm(p - np.array([-2.0,10.0]),axis=1)**2)
   return out
 
 scale = np.max(vert) - np.min(vert)
 
 # domain nodes
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,n=3,itr=100)
+nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp)
 
 nodes,ix = rbf.nodegen.merge_nodes(interior=nodes_d[group_d==0],
                                    fixed=nodes_d[group_d==1],

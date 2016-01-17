@@ -10,7 +10,6 @@ from rbf.geometry import (complex_intersection,
                           is_valid)
 import rbf.normalize
 import rbf.stencil
-from modest import funtime
 import logging
 from itertools import combinations
 logger = logging.getLogger(__name__)
@@ -235,7 +234,6 @@ def repel_stick(free_nodes,vertices,
   return free_nodes,node_norm,node_group
 
 
-@funtime
 def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
            itr=20,n=10,delta=0.1):
   '''Generates nodes within the D-dimensional volume enclosed by the 
@@ -554,7 +552,6 @@ def find_edges(smp):
   return out
 
 
-@funtime
 def surface(rho,vert,smp,**kwargs):
   vert = np.asarray(vert,dtype=float)
   smp = np.asarray(smp,dtype=int)
