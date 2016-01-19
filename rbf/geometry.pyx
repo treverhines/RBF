@@ -97,6 +97,8 @@ from cython cimport boundscheck,wraparound,cdivision
 from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
 from itertools import combinations
+import logging
+logger = logging.getLogger(__name__)
 
 # NOTE: fabs is not the same as abs in C!!! 
 cdef extern from "math.h":
@@ -1426,6 +1428,7 @@ def is_valid(smp):
     simplexes 
 
   '''
+  logger.debug('checking validity')
   smp = np.asarray(smp)
   smp = np.array([np.sort(i) for i in smp])
   dim = smp.shape[1]
@@ -1444,7 +1447,9 @@ def is_valid(smp):
       c_list.sort()
       sub_smp.append(c_list)
 
-  return contains_N_duplicates(sub_smp,2)
+  out = contains_N_duplicates(sub_smp,2)
+  logger.debug('finished checking validity')
+  return out
 
 
 

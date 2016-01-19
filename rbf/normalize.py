@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
-          upper_bounds=None,check_valid=True,rng=None):
+          upper_bounds=None,check_valid=False,rng=None):
   '''
   Monte Carlo integration of a function that takes a (N,1),(N,2) or
   (N,3) array of points and returns an (N,) vector. vert and smp are
@@ -93,7 +93,7 @@ def divide_bbox(lb,ub,depth=0):
 
 def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
            lower_bounds=None,upper_bounds=None,_depth=0,
-           rng=None):
+           rng=None,check_valid=False):
   '''
   recursive Monte Carlo integration
   '''
@@ -102,8 +102,12 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   dim = vert.shape[1]
 
   if _depth == 0:
-    assert is_valid(smp), (
-      'invalid simplices, see documentation for rbf.geometry.is_valid')
+    logger.debug('integrating function with domain defined by %s '
+                 'vertices and %s simplices' % (len(vert),len(smp)))
+
+    if check_valid:
+      assert is_valid(smp), (
+        'invalid simplices, see documentation for rbf.geometry.is_valid')
 
   if lower_bounds is None:
     lb = np.min(vert,0)
@@ -182,6 +186,9 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
     err += erri**2
 
   err = np.sqrt(err)
+
+  if _depth == 0:
+    logger.debug('finished integration')
 
   return soln,err,minval,maxval
 

@@ -235,7 +235,7 @@ def repel_stick(free_nodes,vertices,
 
 
 def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
-           itr=20,n=10,delta=0.1):
+           itr=20,n=10,delta=0.1,check_valid=False):
   '''Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  At each iteration 
   the nearest neighbors to each node are found and then a repulsion
@@ -294,14 +294,15 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
 
-  if not is_valid(simplices):
-    print(
-      'WARNING: One or more simplexes do not share an edge with '
-      'another simplex which may indicate that the specified boundary '
-      'is not closed. ')
-    logger.warning(
-      'One or more simplexes do not share an edge with another simplex '
-      'which may indicate that the specified boundary is not closed. ')
+  if check_valid:
+    if not is_valid(simplices):
+      print(
+        'WARNING: One or more simplexes do not share an edge with '
+        'another simplex which may indicate that the specified boundary '
+        'is not closed. ')
+      logger.warning(
+        'One or more simplexes do not share an edge with another simplex '
+        'which may indicate that the specified boundary is not closed. ')
 
   N,err,minval,maxval = rbf.normalize.rmcint(rho,vertices,simplices)
   assert minval >= 0.0, (
