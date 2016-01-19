@@ -1,7 +1,6 @@
 # distutils: extra_compile_args = -fopenmp 
 # distutils: extra_link_args = -fopenmp
-'''
-Description 
+'''Description 
 ----------- 
   Defines functions for basic computational geometry in 1, 2, and 3
   dimensions. This modules requires all volumes, surfaces and segments
@@ -82,6 +81,13 @@ Description
   simplicial complex then the above command returns a ValueError. If
   there are multiple intersections for a single segment then only the 
   first detected intersection will be returned.
+
+  Note
+  ----
+    There are numerous other packages which can perform the same tasks
+    as this module.  For example geos (http://trac.osgeo.org/geos/)
+    and gts (http://gts.sourceforge.net/).  However, the python
+    bindings for these packages are too slow for RBF purposes.
 
 '''
 import numpy as np
@@ -1376,7 +1382,6 @@ def complex_contains(points,vertices,simplices):
     out = contains_3d(points,vertices,simplices)
 
   return out
-
 
 
 def contains_N_duplicates(iterable,N=1):

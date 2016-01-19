@@ -6,7 +6,6 @@ cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
 from cython.parallel cimport prange
 
-
 @cdivision(True)
 @boundscheck(False)
 cpdef np.ndarray primes(long N):

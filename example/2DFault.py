@@ -97,7 +97,7 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 # The number of nodes needed depends on how sharp slip varies on the fault
-N = 1000
+N = 2000
 Ns = 50
 # It seems like using the maximum polynomial order is not helpful for
 # this problem. Stick with cubic order polynomials and RBFs 

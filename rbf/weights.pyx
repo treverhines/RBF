@@ -1,14 +1,10 @@
 from __future__ import division
 import numpy as np
 import rbf.basis
-import scipy
-import scipy.spatial
-import random
 import logging
 from itertools import combinations_with_replacement as cr
 from scipy.special import binom
 from functools import wraps
-import mkl
 
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
