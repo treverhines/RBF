@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from PIL import Image
 import numpy as np
-from rbf.normalize import normalizer
+from rbf.integrate import density_normalizer
 import rbf.nodegen
 import matplotlib.pyplot as plt
 import logging
@@ -20,7 +20,7 @@ vert = np.array([0.5+radius*np.cos(t),
                  0.5+radius*np.sin(t)]).T
 smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 
-@normalizer(vert,smp,kind='density',nodes=N)
+@density_normalizer(vert,smp,N)
 def rho(p):
   p = p*512
   p = np.array(p,dtype=int)

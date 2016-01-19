@@ -1,6 +1,5 @@
-# distutils: extra_compile_args = -fopenmp 
-# distutils: extra_link_args = -fopenmp
-'''Description 
+'''
+Description 
 ----------- 
   Defines functions for basic computational geometry in 1, 2, and 3
   dimensions. This modules requires all volumes, surfaces and segments
@@ -92,7 +91,6 @@
 '''
 import numpy as np
 cimport numpy as np
-from cython.parallel cimport prange
 from cython cimport boundscheck,wraparound,cdivision
 from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
@@ -285,7 +283,8 @@ cdef np.ndarray cross_count_2d(double[:,:] start_pnts,
 
   try:
     with nogil:
-      for i in prange(N):
+      # This can be parallelized with prange
+      for i in range(N):
         seg_array[i].a.x = start_pnts[i,0]
         seg_array[i].a.y = start_pnts[i,1]
         seg_array[i].b.x = end_pnts[i,0]
@@ -557,7 +556,8 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
   try:
     vec = find_outside_2d(vertices)
     with nogil:
-      for i in prange(N):
+      # this can be parallelized with prange
+      for i in range(N):
         seg_array[i].a.x = vec.x
         seg_array[i].a.y = vec.y
         seg_array[i].b.x = pnt[i,0]
@@ -743,7 +743,8 @@ cdef np.ndarray cross_count_3d(double[:,:] start_pnts,
 
   try:
     with nogil:
-      for i in prange(N):
+      # this can be parallelized with prange
+      for i in range(N):
         seg_array[i].a.x = start_pnts[i,0]
         seg_array[i].a.y = start_pnts[i,1]
         seg_array[i].a.z = start_pnts[i,2]
@@ -1065,7 +1066,8 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
   try:
     vec = find_outside_3d(vertices)
     with nogil:
-      for i in prange(N):
+      # this can be parallelized with prange
+      for i in range(N):
         seg_array[i].a.x = vec.x
         seg_array[i].a.y = vec.y
         seg_array[i].a.z = vec.z

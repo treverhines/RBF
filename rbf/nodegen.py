@@ -8,7 +8,7 @@ from rbf.geometry import (complex_intersection,
                           complex_contains,
                           complex_cross_count,
                           is_valid)
-import rbf.normalize
+import rbf.integrate
 import rbf.stencil
 import logging
 from itertools import combinations
@@ -304,7 +304,7 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
         'One or more simplexes do not share an edge with another simplex '
         'which may indicate that the specified boundary is not closed. ')
 
-  N,err,minval,maxval = rbf.normalize.rmcint(rho,vertices,simplices)
+  N,err,minval,maxval = rbf.integrate.rmcint(rho,vertices,simplices)
   assert minval >= 0.0, (
     'values in node density function must be positive')
   

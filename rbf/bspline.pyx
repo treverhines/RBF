@@ -1,11 +1,7 @@
-# distutils: extra_compile_args = -fopenmp  
-# distutils: extra_link_args = -fopenmp
-
 from __future__ import division
 import numpy as np
 cimport numpy as np
 from cython cimport boundscheck,wraparound
-from cython.parallel cimport prange
 
 cpdef bint is_sorted(double[:] x):
   cdef:
@@ -75,8 +71,8 @@ cpdef np.ndarray bsp1d(double[:] x,
   tol = (k[k.shape[0]-1] - k[0])*1e-6
   a = tol
   with nogil:
-    #for i in prange(N,schedule='static',chunksize=CHUNKSIZE):
-    for i in prange(N):
+    # can be parallelized with prange
+    for i in range(N):
       out[i] = bsp1d_k(x[i],k,n,p,diff,tol)
   
   return np.asarray(out)

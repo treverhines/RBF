@@ -2,7 +2,7 @@
 import numpy as np
 import rbf.nodegen
 from rbf.basis import phs3 as basis
-from rbf.normalize import normalizer
+from rbf.integrate import density_normalizer
 from rbf.geometry import complex_contains
 import modest
 from rbf.weights import rbf_weight
@@ -119,7 +119,7 @@ vert_f = np.array([[0.0,-0.5],
 smp_f =  np.array([[0,1]])
 
 # density function
-@normalizer(vert,smp,kind='density',nodes=N)
+@density_normalizer(vert,smp,N)
 def rho(p):
   out = 1.0/(1 + 50*np.linalg.norm(p-np.array([0.0,0.5]),axis=1)**2)
   out += 1.0/(1 + 50*np.linalg.norm(p-np.array([0.0,-0.5]),axis=1)**2)
