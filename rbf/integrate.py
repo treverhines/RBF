@@ -202,16 +202,16 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
 
   if tol is None:
     # if no tolerance is specified then an rough initial estimate for
-    # the integral is made and then the tolerance is set to 0.001 times
-    # that estimate. If the initial estimate is less than 0.1 then
-    # the tolerance is set to 0.0001
+    # the integral is made and then the tolerance is set to 1e-2 times
+    # that estimate. If the initial estimate is less than 1e-2 then
+    # the tolerance is set to 1e-4
     init_est = mcint(f,vert,smp,samples=samples,
                      lower_bounds=lower_bounds,
                      upper_bounds=upper_bounds,
                      check_valid=False,rng=rng)
     init_integral = init_est[0]
-    if abs(init_integral) > 1e-1:
-      tol = abs(init_integral*1e-3)
+    if abs(init_integral) > 1e-2:
+      tol = abs(init_integral*1e-2)
     else:
       tol = 1e-4
 

@@ -24,7 +24,7 @@ smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 def rho(p):
   p = p*512
   p = np.array(p,dtype=int)
-  return np.max(c)+0.0001 - c[511-p[:,1],p[:,0]]
+  return np.max(c)+1e-6 - c[511-p[:,1],p[:,0]]
 
 nodes,norms,groups = rbf.nodegen.volume(rho,vert,smp)
 
