@@ -202,9 +202,9 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
 
   if tol is None:
     # if no tolerance is specified then an rough initial estimate for
-    # the integral is made and then the tolerance is set to 1e-3 times
-    # that estimate. If the initial estimate is less than 1e-3 then
-    # the tolerance is set to 1e-6
+    # the integral is made and then the tolerance is set to 0.001 times
+    # that estimate. If the initial estimate is less than 0.1 then
+    # the tolerance is set to 0.0001
     init_est = mcint(f,vert,smp,samples=samples,
                      lower_bounds=lower_bounds,
                      upper_bounds=upper_bounds,
@@ -275,7 +275,7 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   return soln,err,minval,maxval
 
 
-def _normalizer(fin,vert,smp,kind='integral',N=None):
+def _normalizer(fin,vert,smp,kind='integral',N=None,tol=None):
   '''
   normalize a scalar values fucntion in 1,2 or 3 dimensional space.
   The function should takes an (N,D) array of points as its only
@@ -284,7 +284,7 @@ def _normalizer(fin,vert,smp,kind='integral',N=None):
   the function so that it integrates to N, or "max" so that the
   maximum value is 1.
   '''
-  out = rmcint(fin,vert,smp)
+  out = rmcint(fin,vert,smp,tol=tol)
   integral,err,minval,maxval = out 
   if kind == 'max':
     denom = maxval
@@ -302,7 +302,7 @@ def _normalizer(fin,vert,smp,kind='integral',N=None):
 
   return fout
 
-def density_normalizer(vert,smp,N):
+def density_normalizer(vert,smp,N,tol=None):
   '''
   Description 
   ----------- 
@@ -324,12 +324,12 @@ def density_normalizer(vert,smp,N):
 
   '''
   def dout(fin):
-    fout = _normalizer(fin,vert,smp,kind='density',N=N)
+    fout = _normalizer(fin,vert,smp,kind='density',N=N,tol=tol)
     return fout
   return dout
 
 
-def max_normalizer(vert,smp):
+def max_normalizer(vert,smp,tol=None):
   '''
   Description 
   ----------- 
@@ -349,6 +349,6 @@ def max_normalizer(vert,smp):
 
   '''
   def dout(fin):
-    fout = _normalizer(fin,vert,smp,kind='max')
+    fout = _normalizer(fin,vert,smp,kind='max',tol=tol)
     return fout
   return dout

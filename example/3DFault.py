@@ -153,7 +153,7 @@ smp_f =  np.array([[0,1,2],
 def rho(p):
   #out = np.zeros(p.shape[0])
   #out += 1.0/(1.0 + 10*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
-  return 1.0 + 0*p[:,0]
+  return 0.01 + np.sin(np.pi*p[:,0])
 
 scale = np.max(vert) - np.min(vert)
 
@@ -161,6 +161,7 @@ scale = np.max(vert) - np.min(vert)
 nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
 nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
                                              fix_nodes=nodes_f)
+
 # cut out any fault nodes outside of the domain
 is_inside = complex_contains(nodes_f,vert,smp)
 nodes_f = nodes_f[is_inside]
@@ -179,9 +180,9 @@ basis_no = rbf.bspline.basis_number(knots_z,2)
 slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
 #slip[1,:] = 1.0
 
-#mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
-#                     nodes_f[:,2],slip[1,:])
-#mayavi.mlab.show()
+mayavi.mlab.points3d(nodes_d[:,0],nodes_d[:,1],
+                     nodes_d[:,2],scale_factor=0.01)
+mayavi.mlab.show()
 # domain nodes
 
 # split fault nodes into hanging wall and foot wall nodes
