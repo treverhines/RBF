@@ -72,7 +72,7 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     rng = Halton(dim)
 
   if samples is None:
-    samples = 50**dim
+    samples = 20**dim
 
   pnts = rng(samples)*(ub-lb) + lb
   val = f(pnts)
@@ -86,7 +86,10 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     minval = np.inf
     maxval = -np.inf
 
+  # copy val because its contents are going to be changed
+  val = np.copy(val)
   val[~is_inside] = 0.0
+
   soln = np.sum(val)*np.prod(ub-lb)/samples
   err = np.prod(ub-lb)*np.std(val)/np.sqrt(samples)
 
@@ -207,10 +210,10 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
                      upper_bounds=upper_bounds,
                      check_valid=False,rng=rng)
     init_integral = init_est[0]
-    if abs(init_integral) > 1e-3:
+    if abs(init_integral) > 1e-1:
       tol = abs(init_integral*1e-3)
     else:
-      tol = 1e-6
+      tol = 1e-4
 
   # The tolerance decreases by a factor of 1/sqrt(2) for each
   # recursion depth. This ensures that combined uncertainties
