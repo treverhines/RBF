@@ -2,7 +2,7 @@
 from __future__ import division
 import numpy as np
 import scipy.spatial
-from rbf.geometry import complex_cross_count
+from rbf.geometry import cross_count
 import logging
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,9 @@ def distance(test,pnts,vert=None,smp=None):
   test = np.repeat(test[None,:],pnts.shape[0],axis=0)
   dist = np.sqrt(np.sum((pnts-test)**2,1))
   cc = np.zeros(pnts.shape[0],dtype=int)
-  cc[dist!=0.0] = complex_cross_count(test[dist!=0.0],
-                                      pnts[dist!=0.0],
-                                      vert,smp)
+  cc[dist!=0.0] = cross_count(test[dist!=0.0],
+                              pnts[dist!=0.0],
+                              vert,smp)
   dist[cc>0] = np.inf
   return dist
 

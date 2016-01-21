@@ -3,7 +3,7 @@ import numpy as np
 import rbf.nodegen
 from rbf.basis import phs5 as basis
 from rbf.integrate import density_normalizer
-from rbf.geometry import complex_contains
+from rbf.geometry import contains
 import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
@@ -103,7 +103,7 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 # The number of nodes needed will depend entirely on how sharply slip varies
-N = 10000
+N = 2000
 Ns = 20
 order = 'max'
 
@@ -135,8 +135,23 @@ def rho(p):
 scale = np.max(vert) - np.min(vert)
 
 # domain nodes
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp)
+smp = rbf.geometry.oriented_simplices(vert,smp)
+simplex_normals = rbf.geometry.simplex_normals(vert,smp)
+#for itr,s in enumerate(smp):
+#  plt.plot(vert[s,0],vert[s,1],'o-')
+#  plt.quiver(vert[s,0],vert[s,1],simplex_normals[[itr,itr],0],simplex_normals[[itr,itr],1])
 
+#plt.show()
+#vert += 0.001*np.random.random(vert.shape)
+nodes_d,sidx = rbf.nodegen.volume(rho,vert,smp)
+norms_d = simplex_normals[sidx]
+group_d = grp[sidx]
+group_d[sidx==-1] = 0
+
+#plt.plot(nodes_d[group_d==0,0],nodes_d[group_d==0,1],'bo')
+#plt.plot(nodes_d[group_d==1,0],nodes_d[group_d==1,1],'ro')
+#plt.plot(nodes_d[group_d==2,0],nodes_d[group_d==2,1],'go')
+#plt.show()
 nodes,ix = rbf.nodegen.merge_nodes(interior=nodes_d[group_d==0],
                                    fixed=nodes_d[group_d==1],
                                    free=nodes_d[group_d==2],
@@ -157,8 +172,8 @@ dx = dx[:,[2]]
 
 # shift the ghost nodes outside        
 nodes[ix['free_ghost']] += dx*norms[ix['free_ghost']]
-plt.plot(nodes[:,0],nodes[:,1],'o')
-plt.show()
+#plt.plot(nodes[:,0],nodes[:,1],'o')
+#plt.show()
 
 # find the stencils and distances now that the ghost nodes have been
 # moved
@@ -225,6 +240,6 @@ plt.quiver(nodes[idx_noghost[::2],0],nodes[idx_noghost[::2],1],
 logging.basicConfig(level=logging.INFO)
 summary()
 
-plt.show()
+#plt.show()
 
 

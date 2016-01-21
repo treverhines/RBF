@@ -3,7 +3,7 @@ import numpy as np
 import rbf.nodegen
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
-from rbf.geometry import complex_contains
+from rbf.geometry import contains
 import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
@@ -21,7 +21,6 @@ import sympy as sp
 import multiprocessing as mp
 import mkl
 logging.basicConfig(level=logging.INFO)
-
 
 
 @modest.funtime
@@ -115,7 +114,7 @@ grp = np.array([1,1,2,1])
 
 # fault vertices
 vert_f = np.array([[0.0,-0.5],
-                   [0.0001,0.5]])
+                   [-0.0,0.5]])
 smp_f =  np.array([[0,1]])
 
 # density function
@@ -128,14 +127,22 @@ def rho(p):
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+simplex_normals = rbf.geometry.simplex_upward_normals(vert_f,smp_f)
+norms_f = simplex_normals[smpid_f]
+group_f = np.array(is_edge_f,dtype=int)
 
 # cut out any fault nodes outside of the domain
-is_inside = complex_contains(nodes_f,vert,smp)
+is_inside = contains(nodes_f,vert,smp)
 nodes_f = nodes_f[is_inside]
 norms_f = norms_f[is_inside]
 group_f = group_f[is_inside]
 
+plt.plot(nodes_f[:,0],nodes_f[:,1],'o')
+plt.quiver(nodes_f[:,0],nodes_f[:,1],norms_f[:,0],norms_f[:,1])
+plt.xlim((-1,1))
+plt.ylim((-1,1))
+plt.show()
 # define slip
 slip = np.zeros((dim,len(nodes_f[group_f==0])))
 knots = np.linspace(-0.5,0.5,6)
@@ -147,8 +154,15 @@ plt.plot(nodes_f[group_f==0,1],slip[0,:],'bo')
 plt.show()
 
 # domain nodes
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
-                                             fix_nodes=nodes_f,itr=20,delta=0.1,n=10)
+nodes_d,smpid_d = rbf.nodegen.volume(rho,vert,smp,fix_nodes=nodes_f)
+simplex_normals = rbf.geometry.simplex_outward_normals(vert,smp)
+norms_d = simplex_normals[smpid_d]
+norms_d[smpid_d<0] = 0
+group_d = np.zeros(nodes_d.shape[0],dtype=int)
+group_d[smpid_d==0] = 1
+group_d[smpid_d==1] = 1
+group_d[smpid_d==2] = 2
+group_d[smpid_d==3] = 1
 
 # split fault nodes into hanging wall and foot wall nodes
 # THROW AWAY THE END NODES!

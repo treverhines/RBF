@@ -2,11 +2,11 @@
 from __future__ import division
 import numpy as np
 import rbf.halton
-from rbf.geometry import (complex_intersection,
-                          complex_normal,
-                          complex_group,
-                          complex_contains,
-                          complex_cross_count,
+from rbf.geometry import (intersection_point,
+                          intersection_normal,
+                          intersection_index,
+                          contains,
+                          cross_count,
                           is_valid)
 import rbf.integrate
 import rbf.stencil
@@ -77,8 +77,8 @@ def repel_step(free_nodes,rho,
   # in the case of a zero vector replace nans with zeros
   direction = np.nan_to_num(direction)  
   step = delta*d[:,0,None]*direction
-  new_free_nodes = free_nodes + step
-  return new_free_nodes
+  free_nodes += step
+  return free_nodes
 
 
 def repel_bounce(free_nodes,vertices,
@@ -101,27 +101,28 @@ def repel_bounce(free_nodes,vertices,
   scale = np.max(vertices) - np.min(vertices)
 
   # ensure that the number of nodes used to determine repulsion force
-  # is less than the total number of nodes
+  # is less than or equal to the total number of nodes
   if n > (free_nodes.shape[0]+fix_nodes.shape[0]):
     n = free_nodes.shape[0]+fix_nodes.shape[0]
 
   for k in range(itr):
+    # node positions after repulsion 
     free_nodes_new = repel_step(free_nodes,rho,
                                 fix_nodes=fix_nodes,
                                 n=n,delta=delta)
 
     # boolean array of nodes which are now outside the domain
-    crossed = ~complex_contains(free_nodes_new,vertices,simplices)
+    crossed = ~contains(free_nodes_new,vertices,simplices)
     bounces = 0
     while np.any(crossed):
       # point where nodes intersected the boundary
-      inter = complex_intersection(
+      inter = intersection_point(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
                 vertices,simplices)
 
       # normal vector to intersection point
-      norms = complex_normal(
+      norms = intersection_normal(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
                 vertices,simplices)
@@ -142,7 +143,7 @@ def repel_bounce(free_nodes,vertices,
         free_nodes_new[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
         # check to see if the bounced node is now within the domain, 
         # if not then iterations continue
-        crossed = ~complex_contains(free_nodes_new,vertices,simplices)
+        crossed = ~contains(free_nodes_new,vertices,simplices)
         bounces += 1
 
     free_nodes = free_nodes_new  
@@ -152,7 +153,6 @@ def repel_bounce(free_nodes,vertices,
 
 def repel_stick(free_nodes,vertices,
                 simplices,rho,   
-                groups=None, 
                 fix_nodes=None,
                 itr=20,n=10,delta=0.1,
                 max_bounces=3):
@@ -163,17 +163,14 @@ def repel_stick(free_nodes,vertices,
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
-  if groups is None:
-    groups = np.ones(simplices.shape[0],dtype=int)
 
   if fix_nodes is None:
     fix_nodes = np.zeros((0,free_nodes.shape[1]))
 
   fix_nodes = np.asarray(fix_nodes,dtype=float)
 
-  # these arrays will be populated 
-  node_norm = np.zeros(free_nodes.shape,dtype=float)
-  node_group = np.zeros(free_nodes.shape[0],dtype=int)
+  # this array will be populated 
+  node_group = np.repeat(-1,free_nodes.shape[0])
 
   # length scale of the domain
   scale = np.max(vertices) - np.min(vertices)
@@ -184,13 +181,13 @@ def repel_stick(free_nodes,vertices,
     n = free_nodes.shape[0]+fix_nodes.shape[0]
 
   for k in range(itr):
-    # indices of all nodes not associated with a group (i.e. free 
+    # indices of all nodes not associated with a simplex (i.e. free 
     # nodes)
-    ungrouped = np.nonzero(node_group==0)[0]
+    ungrouped = np.nonzero(node_group==-1)[0]
 
-    # indices of nodes associated with a group (i.e. nodes which 
+    # indices of nodes associated with a simplex (i.e. nodes which 
     # intersected a boundary
-    grouped = np.nonzero(node_group!=0)[0]
+    grouped = np.nonzero(node_group>=0)[0]
 
     # nodes which are stationary 
     grouped_free_nodes = free_nodes[grouped]    
@@ -206,37 +203,38 @@ def repel_stick(free_nodes,vertices,
                                  n=n,delta=delta)
 
     # indices of free nodes which crossed a boundary
-    crossed = ~complex_contains(ungrouped_free_nodes_new,vertices,simplices)
+    crossed = ~contains(ungrouped_free_nodes_new,vertices,simplices)
   
-    # if a node intersected a boundary then associate it with a group
-    node_group[ungrouped[crossed]] = complex_group(
+    # if a node intersected a boundary then associate it with a simplex
+    node_group[ungrouped[crossed]] = intersection_index(
                                        ungrouped_free_nodes[crossed],     
                                        ungrouped_free_nodes_new[crossed], 
-                                       vertices,simplices,groups)
+                                       vertices,simplices)
 
-    # if a node intersected a boundary then associate it with a normal
-    node_norm[ungrouped[crossed]] = complex_normal(
-                                      ungrouped_free_nodes[crossed],     
-                                      ungrouped_free_nodes_new[crossed], 
-                                      vertices,simplices)
+    # outward normal vector at intesection points
+    norms = intersection_normal(
+              ungrouped_free_nodes[crossed],     
+              ungrouped_free_nodes_new[crossed], 
+              vertices,simplices)
 
     # intersection point for nodes which crossed a boundary
-    inter = complex_intersection(
+    inter = intersection_point(
               ungrouped_free_nodes[crossed],     
               ungrouped_free_nodes_new[crossed],
               vertices,simplices)
 
     # new position of nodes which crossed the boundary is just within
     # the intersection point
-    ungrouped_free_nodes_new[crossed] = inter - 1e-10*scale*node_norm[ungrouped[crossed]]
+    ungrouped_free_nodes_new[crossed] = inter - 1e-10*scale*norms
     free_nodes[ungrouped] = ungrouped_free_nodes_new
 
-  return free_nodes,node_norm,node_group
+  return free_nodes,node_group
 
 
-def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
+def volume(rho,vertices,simplices,fix_nodes=None,
            itr=20,n=10,delta=0.1,check_valid=False):
-  '''Generates nodes within the D-dimensional volume enclosed by the 
+  '''
+  Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  At each iteration 
   the nearest neighbors to each node are found and then a repulsion
   force is calculated using the distance to the nearest neighbors and
@@ -256,10 +254,6 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     simplices: describes how the vertices are connected to form the 
       boundary
     
-    groups (default=None): Array of integers identifying groups that
-      the simplexes belong to. This is used to identify nodes
-      belonging to particular boundaries. 
-  
     fix_nodes (default=None): Nodes which do not move and only provide
       a repulsion force
  
@@ -283,13 +277,10 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
   -------
     nodes: (N,D) array of nodes 
 
-    norms: (N,D) array of outward pointing boundary-normal vectors.
-     The only nonzero rows in this array are those corresponding to
-     boundary nodes
+    simplex_indices: (N,) Index of the simplex that each node is on.
+      If a node is not on a simplex (i.e. it is an interior node) then
+      the simplex index is -1.
 
-    groups: (N,) array of integers indicating what group the nodes 
-      belong to.  If 'groups' was not given then values are 0 for 
-      interior nodes and 1 for boundary nodes.
   ''' 
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
@@ -313,11 +304,6 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
   def rho_normalized(p):
     return rho(p)/maxval
 
-  if groups is None:
-    groups = np.ones(simplices.shape[0],dtype=int)
-
-  groups = np.asarray(groups,dtype=int) 
-
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)
   max_sample_size = 1000000
@@ -340,7 +326,7 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
     new_nodes = new_nodes[rho_normalized(new_nodes) > seq1d]
 
-    new_nodes = new_nodes[complex_contains(new_nodes,vertices,simplices)]
+    new_nodes = new_nodes[contains(new_nodes,vertices,simplices)]
     nodes = np.vstack((nodes,new_nodes))
     logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
@@ -349,22 +335,17 @@ def volume(rho,vertices,simplices,groups=None,fix_nodes=None,
   logger.info('repelling nodes with boundary bouncing') 
 
   nodes = repel_bounce(nodes,vertices,simplices,rho_normalized,
-                       fix_nodes=fix_nodes,itr=itr,
-                       n=n,delta=delta)
+                       fix_nodes=fix_nodes,itr=itr,n=n,delta=delta)
 
   logger.info('repelling nodes with boundary sticking') 
-  nodes,norms,grp = repel_stick(nodes,vertices,simplices,
-                                rho_normalized,groups=groups,
-                                fix_nodes=fix_nodes,
-                                itr=itr,n=n,
-                                delta=delta)
+  nodes,smpid = repel_stick(nodes,vertices,simplices,rho_normalized,
+                            fix_nodes=fix_nodes,itr=itr,n=n,delta=delta)
 
   idx = verify_node_spacing(rho,nodes)
   nodes = nodes[idx]
-  norms = norms[idx]
-  grp = grp[idx]
-
-  return nodes,norms,grp
+  smpid = smpid[idx]
+  
+  return nodes,smpid
 
 
 def simplex_rotation(vert):
@@ -376,22 +357,19 @@ def simplex_rotation(vert):
   dim = vert.shape[1]
   if dim == 2:
     # anchor one node of the simplex at the origin      
-    v1 = vert[1,:] - vert[0,:]
-    # find the normal vector to the simplex         
-    normal = rbf.geometry.normal(np.array([v1]))
+    normal = rbf.geometry.simplex_normals(vert,[[0,1]])[0]
+
     # find the angle between the y axis and the simplex normal   
     argz = np.arctan2(normal[0],normal[1])
+
     # create a rotation matrix that rotates the normal onto the y axis
     R = np.array([[np.cos(argz), -np.sin(argz)],
                   [np.sin(argz),  np.cos(argz)]])
     return R
 
   if dim == 3:
-    # anchor one node of the simplex at the origin 
-    v1 = vert[1,:] - vert[0,:]
-    v2 = vert[2,:] - vert[0,:]
     # find the normal vector to the simplex      
-    normal = rbf.geometry.normal(np.array([v1,v2]))
+    normal = rbf.geometry.simplex_normals(vert,[[0,1,2]])[0]
 
     # project the normal onto to y-z plane and then compute     
     # the angle between the normal and the z axis      
@@ -473,42 +451,25 @@ def nodes_on_simplex(rho,vert,fix_nodes=None,**kwargs):
 
   if dim == 2:
     smp_r = np.array([[0],[1]])
-    grp_r = np.array([1,2])
-    # find the normal vector to the simplex                                                
-    v1 = vert[1,:] - vert[0,:]
-    normal = rbf.geometry.normal(np.array([v1]))
 
   if dim == 3:
     smp_r = np.array([[0,1],[0,2],[1,2]])
-    grp_r = np.array([1,2,3])
-    # find the normal vector to the simplex                                                
-    v1 = vert[1,:] - vert[0,:]
-    v2 = vert[2,:] - vert[0,:]
-    normal = rbf.geometry.normal(np.array([v1,v2]))
 
-  nodes_r,norms_r,groups = rbf.nodegen.volume(
-                             rho_r,vert_r,smp_r,
-                             groups=grp_r,fix_nodes=fix_r,
-                             **kwargs)
+  nodes_r,smpid = rbf.nodegen.volume(
+                    rho_r,vert_r,smp_r,
+                    fix_nodes=fix_r,
+                    **kwargs)
   N = nodes_r.shape[0]
   a = np.ones((N,1))*const_r
   nodes_r = np.hstack((nodes_r,a))
   nodes = np.einsum('ij,...j->...i',R.T,nodes_r)
 
-  # pick the normal vector with a positive value for the last 
-  # dimension 
-  if normal[-1] < 0.0:
-    normal *= -1
-
-  normals = np.repeat(normal[None,:],N,axis=0)
-
-
-  return nodes,normals,groups
+  return nodes,smpid
 
 
 def find_free_edges(smp):
   '''                                                                                      
-  finds the simplices of all of the unconnected simplex edges 
+  finds the vertex indices making up all of the unconnected simplex edges 
   '''
   smp = np.asarray(smp,dtype=int)
   dim = smp.shape[1]
@@ -538,7 +499,7 @@ def find_free_edges(smp):
 
 def find_edges(smp):
   '''                                                                                      
-  finds the simplices of all of the simplex edges  
+  finds the vertex indices making up all of the simplex edges  
   '''
   smp = np.asarray(smp,dtype=int)
   dim = smp.shape[1]
@@ -559,8 +520,8 @@ def surface(rho,vert,smp,**kwargs):
   dim = vert.shape[1]
 
   nodes = np.zeros((0,dim),dtype=float)
-  normals = np.zeros((0,dim),dtype=float)
   groups = np.zeros((0),dtype=int)
+  is_on_free_edge = np.zeros((0),dtype=bool)
 
   # edges of all simplexes on the suface  
   edges = find_edges(smp) # list of lists  
@@ -568,9 +529,12 @@ def surface(rho,vert,smp,**kwargs):
   # free edges of the surface         
   free_edges = find_free_edges(smp) # list of lists  
 
+  # keep track of all nodes which have stuck to a simplex edge
   edge_nodes = [np.zeros((0,dim))]*len(edges)
-  for s in smp:
+  for sidx,s in enumerate(smp):
     fix_nodes = np.zeros((0,dim))
+    # find any existing nodes which are on this simplex's edges
+    # and consider them to be fixed nodes
     for e in find_edges([s]):
       fix_nodes = np.vstack((fix_nodes,
                              edge_nodes[edges.index(e)]))
@@ -580,25 +544,29 @@ def surface(rho,vert,smp,**kwargs):
     if dim == 3:
       fix_nodes = np.vstack((fix_nodes,v))
 
-    n,m,g1 = nodes_on_simplex(rho,v,fix_nodes=fix_nodes,**kwargs)
-    g2 = np.zeros(n.shape[0],dtype=int)
+    n,g = nodes_on_simplex(rho,v,fix_nodes=fix_nodes,**kwargs)
+
+    is_on_free_edge_i = np.zeros(n.shape[0],dtype=bool)
     for i,e in enumerate(find_edges([s])):
-      new_edge_nodes = n[g1==i+1]
+      new_edge_nodes = n[g==i]
       edge_nodes[edges.index(e)] = np.vstack((edge_nodes[edges.index(e)],
                                               new_edge_nodes))
+      # if the current edge is a free edge then assign its simplex index
+      # to be sidx 
       if e in free_edges:
-        g2[g1==i+1] = 1
+        is_on_free_edge_i[g==i] = True
 
     nodes = np.vstack((nodes,n))
-    normals = np.vstack((normals,m))
-    groups = np.hstack((groups,g2))
+    g = np.repeat(sidx,n.shape[0])
+    groups = np.hstack((groups,g))
+    is_on_free_edge = np.hstack((is_on_free_edge,is_on_free_edge_i))
 
   idx = verify_node_spacing(rho,nodes)
   nodes = nodes[idx]
-  normals = normals[idx]
   groups = groups[idx]
+  is_on_free_edge = is_on_free_edge[idx] 
 
-  return nodes,normals,groups
+  return nodes,groups,is_on_free_edge
 
 
 

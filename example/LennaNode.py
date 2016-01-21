@@ -26,9 +26,11 @@ def rho(p):
   p = np.array(p,dtype=int)
   return np.max(c)+1e-6 - c[511-p[:,1],p[:,0]]
 
-nodes,norms,groups = rbf.nodegen.volume(rho,vert,smp)
+nodes,smpid = rbf.nodegen.volume(rho,vert,smp)
+is_boundary = smpid >= 0
+is_interior = smpid == -1
 
-plt.plot(nodes[groups==0,0],nodes[groups==0,1],'k.',markersize=3)
-plt.plot(nodes[groups==1,0],nodes[groups==1,1],'b.',markersize=5)
+plt.plot(nodes[is_interior,0],nodes[is_interior,1],'k.',markersize=3)
+plt.plot(nodes[is_boundary,0],nodes[is_boundary,1],'b.',markersize=5)
 plt.show()
 

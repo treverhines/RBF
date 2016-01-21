@@ -2,7 +2,7 @@
 from __future__ import division
 import numpy as np
 from rbf.halton import Halton
-from rbf.geometry import complex_contains
+from rbf.geometry import contains
 from rbf.geometry import is_valid
 import logging 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
   pnts = rng(samples)*(ub-lb) + lb
   val = f(pnts)
-  is_inside = complex_contains(pnts,vert,smp)
+  is_inside = contains(pnts,vert,smp)
   # If there are any points within the domain then return
   # the max and min value found within the domain
   if np.any(is_inside):

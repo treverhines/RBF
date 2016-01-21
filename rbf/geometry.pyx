@@ -1,3 +1,5 @@
+# distutils: extra_compile_args = -fopenmp
+# distutils: extra_link_args = -fopenmp
 '''
 Description 
 ----------- 
@@ -58,7 +60,7 @@ Description
   within a simplicial complex, defined by 'vertices' and 'simplices'
   with the command
 
-  >>> complex_contains(points,vertices,simplices)
+  >>> contains(points,vertices,simplices)
 
   which returns a boolean array.
 
@@ -66,14 +68,14 @@ Description
   defined by 'start_points' and 'end_points', intersect a simplicial
   complex with the command
 
-  >> complex_cross_count(start_points,end_points,vertices,simplices)
+  >> cross_count(start_points,end_points,vertices,simplices)
 
   which returns an array of the number of simplexes intersections for
   each segment. If it is known that a collection of line segments
   intersect a simplicial complex then the intersection point can be
   found with the command
 
-  >> complex_intersection(start_points,end_points,vertices,simplices)
+  >> intersection_point(start_points,end_points,vertices,simplices)
  
   This returns an (N,D) array of intersection points where N is the
   number of line segments.  If a line segment does not intersect the 
@@ -92,10 +94,12 @@ Description
 import numpy as np
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
+from cython.parallel import prange
 from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
 from itertools import combinations
 import logging
+from scipy.special import factorial
 logger = logging.getLogger(__name__)
 
 # NOTE: fabs is not the same as abs in C!!! 
@@ -153,6 +157,26 @@ cdef double min3(double a, double b, double c) nogil:
   if (c <= a) & (c <= b):
     return c
 
+
+cdef vector2d segment_normal_2d(segment2d seg) nogil:
+  cdef:
+    vector2d out
+
+  out.x = seg.b.y-seg.a.y
+  out.y = -(seg.b.x-seg.a.x)
+  return out
+  
+cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
+  cdef:
+    vector3d out
+
+  out.x =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) - 
+            (tri.b.z-tri.a.z)*(tri.c.y-tri.a.y))
+  out.y = -((tri.b.x-tri.a.x)*(tri.c.z-tri.a.z) - 
+            (tri.b.z-tri.a.z)*(tri.c.x-tri.a.x)) 
+  out.z =  ((tri.b.x-tri.a.x)*(tri.c.y-tri.a.y) - 
+            (tri.b.y-tri.a.y)*(tri.c.x-tri.a.x))
+  return out
 
 @boundscheck(False)
 @wraparound(False)
@@ -216,18 +240,18 @@ cdef bint is_intersecting_2d(segment2d seg1,
     two segments touch
   '''
   cdef:
-    double proj1,proj2,n1,n2
+    double proj1,proj2
     vector2d pnt
+    vector2d n
 
   # find the normal vector components for segment 2
-  n1 =  (seg2.b.y-seg2.a.y)
-  n2 = -(seg2.b.x-seg2.a.x)
+  n = segment_normal_2d(seg2)
 
   # project both points in segment 1 onto the normal vector
-  proj1 = ((seg1.a.x-seg2.a.x)*n1 +
-           (seg1.a.y-seg2.a.y)*n2)
-  proj2 = ((seg1.b.x-seg2.a.x)*n1 +
-           (seg1.b.y-seg2.a.y)*n2)
+  proj1 = ((seg1.a.x-seg2.a.x)*n.x +
+           (seg1.a.y-seg2.a.y)*n.y)
+  proj2 = ((seg1.b.x-seg2.a.x)*n.x +
+           (seg1.b.y-seg2.a.y)*n.y)
 
   if proj1*proj2 > 0:
     return False
@@ -244,7 +268,7 @@ cdef bint is_intersecting_2d(segment2d seg1,
           (seg1.b.y-seg1.a.y))
 
   # if the normal x component is larger then compare y values
-  if fabs(n1) >= fabs(n2):
+  if fabs(n.x) >= fabs(n.y):
     if ((pnt.y >= min2(seg2.a.y,seg2.b.y)) & 
         (pnt.y <= max2(seg2.a.y,seg2.b.y))):
       return True
@@ -262,9 +286,9 @@ cdef bint is_intersecting_2d(segment2d seg1,
 @boundscheck(False)
 @wraparound(False)
 cdef np.ndarray cross_count_2d(double[:,:] start_pnts,
-                                double[:,:] end_pnts,
-                                double[:,:] vertices,
-                                long[:,:] simplices):
+                               double[:,:] end_pnts,
+                               double[:,:] vertices,
+                               long[:,:] simplices):
   '''
   Description
   -----------
@@ -276,43 +300,37 @@ cdef np.ndarray cross_count_2d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment2d *seg_array = <segment2d *>malloc(N*sizeof(segment2d))
+    segment2d seg
     
-  if not seg_array:
-    raise MemoryError()
+  # This can be parallelized with prange
+  #for i in prange(N):
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    out[i] = _cross_count_2d(seg,vertices,simplices)
 
-  try:
-    with nogil:
-      # This can be parallelized with prange
-      for i in range(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        out[i] = _cross_count_2d(seg_array[i],vertices,simplices)
-
-  finally:
-    free(seg_array)
 
   return np.asarray(out,dtype=int)
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef int _cross_count_2d(segment2d seg,
+cdef int _cross_count_2d(segment2d seg1,
                          double[:,:] vertices,
                          long[:,:] simplices) nogil:
   cdef:
     unsigned int i
     unsigned int count = 0
-    segment2d dummy_seg
+    segment2d seg2
 
   for i in range(simplices.shape[0]):
-    dummy_seg.a.x = vertices[simplices[i,0],0]
-    dummy_seg.a.y = vertices[simplices[i,0],1]
-    dummy_seg.b.x = vertices[simplices[i,1],0]
-    dummy_seg.b.y = vertices[simplices[i,1],1]
-    if is_intersecting_2d(seg,dummy_seg):
+    seg2.a.x = vertices[simplices[i,0],0]
+    seg2.a.y = vertices[simplices[i,0],1]
+    seg2.b.x = vertices[simplices[i,1],0]
+    seg2.b.y = vertices[simplices[i,1],1]
+    if is_intersecting_2d(seg1,seg2):
       count += 1
 
   return count
@@ -320,10 +338,10 @@ cdef int _cross_count_2d(segment2d seg,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_which_2d(double[:,:] start_pnts,
-                               double[:,:] end_pnts,
-                               double[:,:] vertices,
-                               long[:,:] simplices):
+cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
+                                      double[:,:] end_pnts,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices):
   '''
   Description
   -----------
@@ -339,51 +357,45 @@ cdef np.ndarray cross_which_2d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment2d *seg_array = <segment2d *>malloc(N*sizeof(segment2d))
+    segment2d seg
     
-  if not seg_array:
-    raise MemoryError()
-  
-  try:
-    for i in range(N):
-      seg_array[i].a.x = start_pnts[i,0]
-      seg_array[i].a.y = start_pnts[i,1]
-      seg_array[i].b.x = end_pnts[i,0]
-      seg_array[i].b.y = end_pnts[i,1]
-      out[i] = _cross_which_2d(seg_array[i],vertices,simplices)
-
-  finally:
-    free(seg_array)
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    out[i] = _intersection_index_2d(seg,vertices,simplices)
 
   return np.asarray(out)
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef int _cross_which_2d(segment2d seg,
-                         double[:,:] vertices,
-                         long[:,:] simplices) except *:
+cdef int _intersection_index_2d(segment2d seg1,
+                                double[:,:] vertices,
+                                long[:,:] simplices) except *:
   cdef:
     int i
-    segment2d dummy_seg
+    segment2d seg2
   
   for i in range(simplices.shape[0]):
-    dummy_seg.a.x = vertices[simplices[i,0],0]
-    dummy_seg.a.y = vertices[simplices[i,0],1]
-    dummy_seg.b.x = vertices[simplices[i,1],0]
-    dummy_seg.b.y = vertices[simplices[i,1],1]
-    if is_intersecting_2d(seg,dummy_seg):
+    seg2.a.x = vertices[simplices[i,0],0]
+    seg2.a.y = vertices[simplices[i,0],1]
+    seg2.b.x = vertices[simplices[i,1],0]
+    seg2.b.y = vertices[simplices[i,1],1]
+    if is_intersecting_2d(seg1,seg2):
       return i
 
   raise ValueError('No intersection found for segment [[%s,%s],[%s,%s]]' % 
-                   (seg.a.x,seg.a.y,seg.b.x,seg.b.y))
+                   (seg1.a.x,seg1.a.y,seg1.b.x,seg1.b.y))
+
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_where_2d(double[:,:] start_pnts,
-                               double[:,:] end_pnts,
-                               double[:,:] vertices,
-                               long[:,:] simplices):         
+cdef np.ndarray intersection_point_2d(double[:,:] start_pnts,
+                                      double[:,:] end_pnts,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices):         
   '''
   Description
   -----------
@@ -399,24 +411,17 @@ cdef np.ndarray cross_where_2d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     double[:,:] out = np.empty((N,2),dtype=float,order='c')
+    segment2d seg
     vector2d vec
-    segment2d *seg_array = <segment2d *>malloc(N*sizeof(segment2d))
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    for i in range(N):
-      seg_array[i].a.x = start_pnts[i,0]
-      seg_array[i].a.y = start_pnts[i,1]
-      seg_array[i].b.x = end_pnts[i,0]
-      seg_array[i].b.y = end_pnts[i,1]
-      vec = _cross_where_2d(seg_array[i],vertices,simplices)
-      out[i,0] = vec.x
-      out[i,1] = vec.y
-
-  finally:
-    free(seg_array)
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    vec = _intersection_point_2d(seg,vertices,simplices)
+    out[i,0] = vec.x
+    out[i,1] = vec.y
 
   return np.asarray(out)
 
@@ -424,33 +429,31 @@ cdef np.ndarray cross_where_2d(double[:,:] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector2d _cross_where_2d(segment2d seg,
-                              double[:,:] vertices,
-                              long[:,:] simplices) except *:
+cdef vector2d _intersection_point_2d(segment2d seg1,
+                                     double[:,:] vertices,
+                                     long[:,:] simplices) except *:
   cdef:
     int idx
-    double proj1,proj2,n1,n2
-    segment2d dummy_seg
-    vector2d out
+    double proj1,proj2
+    segment2d seg2
+    vector2d out,n
+    
 
-  idx = _cross_which_2d(seg,vertices,simplices)
-  dummy_seg.a.x = vertices[simplices[idx,0],0]
-  dummy_seg.a.y = vertices[simplices[idx,0],1]
-  dummy_seg.b.x = vertices[simplices[idx,1],0]
-  dummy_seg.b.y = vertices[simplices[idx,1],1]
+  idx = _intersection_index_2d(seg1,vertices,simplices)
+  seg2.a.x = vertices[simplices[idx,0],0]
+  seg2.a.y = vertices[simplices[idx,0],1]
+  seg2.b.x = vertices[simplices[idx,1],0]
+  seg2.b.y = vertices[simplices[idx,1],1]
 
-  n1 =  (dummy_seg.b.y-dummy_seg.a.y)
-  n2 = -(dummy_seg.b.x-dummy_seg.a.x)
+  n = segment_normal_2d(seg2) 
 
-  proj1 = ((seg.a.x-dummy_seg.a.x)*n1 +
-           (seg.a.y-dummy_seg.a.y)*n2)
-  proj2 = ((seg.b.x-dummy_seg.a.x)*n1 +
-           (seg.b.y-dummy_seg.a.y)*n2)
+  proj1 = ((seg1.a.x-seg2.a.x)*n.x +
+           (seg1.a.y-seg2.a.y)*n.y)
+  proj2 = ((seg1.b.x-seg2.a.x)*n.x +
+           (seg1.b.y-seg2.a.y)*n.y)
 
-  out.x = seg.a.x + (proj1/(proj1-proj2))*(
-           (seg.b.x-seg.a.x))
-  out.y = seg.a.y + (proj1/(proj1-proj2))*(
-           (seg.b.y-seg.a.y))
+  out.x = seg1.a.x + (proj1/(proj1-proj2))*(seg1.b.x-seg1.a.x)
+  out.y = seg1.a.y + (proj1/(proj1-proj2))*(seg1.b.y-seg1.a.y)
 
   return out
 
@@ -467,7 +470,7 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
     returns an array of normal vectors to the simplices intersected by
     the line segments described in terms of start_pnts and end_pnts
 
-  Note
+p  Note
   ----
     if there is not intersection then a ValueError is returned
 
@@ -476,59 +479,55 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     double[:,:] out = np.empty((N,2),dtype=float,order='c')
-    segment2d *seg_array = <segment2d *>malloc(N*sizeof(segment2d))
+    segment2d seg
     vector2d vec
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    for i in range(N):
-      seg_array[i].a.x = start_pnts[i,0]
-      seg_array[i].a.y = start_pnts[i,1]
-      seg_array[i].b.x = end_pnts[i,0]
-      seg_array[i].b.y = end_pnts[i,1]
-      vec = _cross_normals_2d(seg_array[i],vertices,simplices)
-      out[i,0] = vec.x
-      out[i,1] = vec.y
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    vec = _cross_normals_2d(seg,vertices,simplices)
+    out[i,0] = vec.x
+    out[i,1] = vec.y
     
-  finally:
-    free(seg_array)
-
   return np.asarray(out)  
 
 
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector2d _cross_normals_2d(segment2d seg,
+cdef vector2d _cross_normals_2d(segment2d seg1,
                                 double[:,:] vertices,
                                 long[:,:] simplices) except *:      
   cdef:
-    double proj,n
+    double proj,mag
     int idx
-    segment2d dummy_seg
-    vector2d vec
+    segment2d seg2
+    vector2d n
 
-  idx = _cross_which_2d(seg,vertices,simplices)
-  dummy_seg.a.x = vertices[simplices[idx,0],0]
-  dummy_seg.a.y = vertices[simplices[idx,0],1]
-  dummy_seg.b.x = vertices[simplices[idx,1],0]
-  dummy_seg.b.y = vertices[simplices[idx,1],1]
+  idx = _intersection_index_2d(seg1,vertices,simplices)
+  seg2.a.x = vertices[simplices[idx,0],0]
+  seg2.a.y = vertices[simplices[idx,0],1]
+  seg2.b.x = vertices[simplices[idx,1],0]
+  seg2.b.y = vertices[simplices[idx,1],1]
 
-  vec.x =  (dummy_seg.b.y-dummy_seg.a.y)
-  vec.y = -(dummy_seg.b.x-dummy_seg.a.x)
-  proj = ((seg.b.x-dummy_seg.a.x)*vec.x +
-          (seg.b.y-dummy_seg.a.y)*vec.y)
-  if proj <= 0:
-    vec.x *= -1
-    vec.y *= -1
+  n = segment_normal_2d(seg2)
 
-  n = sqrt(vec.x**2 + vec.y**2)
-  vec.x /= n
-  vec.y /= n
+  proj = ((seg1.b.x-seg2.a.x)*n.x +
+          (seg1.b.y-seg2.a.y)*n.y)
 
-  return vec
+  # This ensures that the normal vector points in the direction of seg1
+  if proj < 0:
+    n.x *= -1
+    n.y *= -1
+
+  # normalize the normal vector to 1
+  mag = sqrt(n.x**2 + n.y**2)
+  n.x /= mag
+  n.y /= mag
+
+  return n
 
 
 @boundscheck(False)
@@ -547,26 +546,17 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
     int count,i
     int N = pnt.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c') 
-    segment2d *seg_array = <segment2d *>malloc(N*sizeof(segment2d))
-    vector2d vec
+    segment2d seg
+    vector2d outside_pnt
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    vec = find_outside_2d(vertices)
-    with nogil:
-      # this can be parallelized with prange
-      for i in range(N):
-        seg_array[i].a.x = vec.x
-        seg_array[i].a.y = vec.y
-        seg_array[i].b.x = pnt[i,0]
-        seg_array[i].b.y = pnt[i,1]
-        count = _cross_count_2d(seg_array[i],vertices,simplices)
-        out[i] = count%2
-
-  finally:
-    free(seg_array)
+  outside_pnt = find_outside_2d(vertices)
+  for i in range(N):
+    seg.a.x = outside_pnt.x
+    seg.a.y = outside_pnt.y
+    seg.b.x = pnt[i,0]
+    seg.b.y = pnt[i,1]
+    count = _cross_count_2d(seg,vertices,simplices)
+    out[i] = count%2
 
   return np.asarray(out,dtype=bool)
 
@@ -594,35 +584,27 @@ cdef bint is_intersecting_3d(segment3d seg,
     vertex of the polygon. 
   '''
   cdef:
-    vector3d dummy_pnt1,dummy_pnt2
-    segment2d dummy_seg1,dummy_seg2,dummy_seg3,dummy_seg4
+    vector3d pnt1,pnt2,n
+    segment2d seg1,seg2,seg3,seg4
     double proj1,proj2,n1,n2,n3
     unsigned int i,idx1,idx2
     unsigned int count = 0
 
   # find point which is definitively outside of the triangle when
   # viewed from either the x, y, or z axis 
-  dummy_pnt2.x = (min3(tri.a.x,tri.b.x,tri.c.x) - 
-                  1.23456789)# + rand()*1.0/RAND_MAX)
-  dummy_pnt2.y = (min3(tri.a.y,tri.b.y,tri.c.y) - 
-                  2.34567891)# + rand()*1.0/RAND_MAX)
-  dummy_pnt2.z = (min3(tri.a.z,tri.b.z,tri.c.z) - 
-                  3.45678912)# + rand()*1.0/RAND_MAX)
+  pnt2.x = min3(tri.a.x,tri.b.x,tri.c.x) - 1.23456789
+  pnt2.y = min3(tri.a.y,tri.b.y,tri.c.y) - 2.34567891
+  pnt2.z = min3(tri.a.z,tri.b.z,tri.c.z) - 3.45678912
 
   # find triangle normal vector components
-  n1 =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) - 
-         (tri.b.z-tri.a.z)*(tri.c.y-tri.a.y))
-  n2 = -((tri.b.x-tri.a.x)*(tri.c.z-tri.a.z) - 
-         (tri.b.z-tri.a.z)*(tri.c.x-tri.a.x)) 
-  n3 =  ((tri.b.x-tri.a.x)*(tri.c.y-tri.a.y) - 
-         (tri.b.y-tri.a.y)*(tri.c.x-tri.a.x))
+  n = triangle_normal_3d(tri)
 
-  proj1 = ((seg.a.x-tri.a.x)*n1 + 
-           (seg.a.y-tri.a.y)*n2 +
-           (seg.a.z-tri.a.z)*n3)
-  proj2 = ((seg.b.x-tri.a.x)*n1 + 
-           (seg.b.y-tri.a.y)*n2 +
-           (seg.b.z-tri.a.z)*n3)
+  proj1 = ((seg.a.x-tri.a.x)*n.x + 
+           (seg.a.y-tri.a.y)*n.y +
+           (seg.a.z-tri.a.z)*n.z)
+  proj2 = ((seg.b.x-tri.a.x)*n.x + 
+           (seg.b.y-tri.a.y)*n.y +
+           (seg.b.z-tri.a.z)*n.z)
 
   if proj1*proj2 > 0:
     return False
@@ -634,86 +616,83 @@ cdef bint is_intersecting_3d(segment3d seg,
     return False
 
   # intersection point
-  dummy_pnt1.x = seg.a.x + (proj1/(proj1-proj2))*(
-                  (seg.b.x-seg.a.x))
-  dummy_pnt1.y = seg.a.y + (proj1/(proj1-proj2))*(
-                  (seg.b.y-seg.a.y))
-  dummy_pnt1.z = seg.a.z + (proj1/(proj1-proj2))*(
-                  (seg.b.z-seg.a.z))
+  pnt1.x = seg.a.x + (proj1/(proj1-proj2))*(seg.b.x-seg.a.x)
+  pnt1.y = seg.a.y + (proj1/(proj1-proj2))*(seg.b.y-seg.a.y)
+  pnt1.z = seg.a.z + (proj1/(proj1-proj2))*(seg.b.z-seg.a.z)
 
-  if (fabs(n1) >= fabs(n2)) & (fabs(n1) >= fabs(n3)):
-    dummy_seg1.a.x = dummy_pnt1.y
-    dummy_seg1.a.y = dummy_pnt1.z
-    dummy_seg1.b.x = dummy_pnt2.y
-    dummy_seg1.b.y = dummy_pnt2.z
+  if (fabs(n.x) >= fabs(n.y)) & (fabs(n.x) >= fabs(n.z)):
+    seg1.a.x = pnt1.y
+    seg1.a.y = pnt1.z
+    seg1.b.x = pnt2.y
+    seg1.b.y = pnt2.z
 
-    dummy_seg2.a.x = tri.a.y
-    dummy_seg2.a.y = tri.a.z
-    dummy_seg2.b.x = tri.b.y
-    dummy_seg2.b.y = tri.b.z
+    seg2.a.x = tri.a.y
+    seg2.a.y = tri.a.z
+    seg2.b.x = tri.b.y
+    seg2.b.y = tri.b.z
 
-    dummy_seg3.a.x = tri.b.y
-    dummy_seg3.a.y = tri.b.z
-    dummy_seg3.b.x = tri.c.y
-    dummy_seg3.b.y = tri.c.z
+    seg3.a.x = tri.b.y
+    seg3.a.y = tri.b.z
+    seg3.b.x = tri.c.y
+    seg3.b.y = tri.c.z
 
-    dummy_seg4.a.x = tri.c.y
-    dummy_seg4.a.y = tri.c.z
-    dummy_seg4.b.x = tri.a.y
-    dummy_seg4.b.y = tri.a.z
+    seg4.a.x = tri.c.y
+    seg4.a.y = tri.c.z
+    seg4.b.x = tri.a.y
+    seg4.b.y = tri.a.z
 
-  elif (fabs(n2) >= fabs(n1)) & (fabs(n2) >= fabs(n3)):
-    dummy_seg1.a.x = dummy_pnt1.x
-    dummy_seg1.a.y = dummy_pnt1.z
-    dummy_seg1.b.x = dummy_pnt2.x
-    dummy_seg1.b.y = dummy_pnt2.z
+  elif (fabs(n.y) >= fabs(n.x)) & (fabs(n.y) >= fabs(n.z)):
+    seg1.a.x = pnt1.x
+    seg1.a.y = pnt1.z
+    seg1.b.x = pnt2.x
+    seg1.b.y = pnt2.z
 
-    dummy_seg2.a.x = tri.a.x
-    dummy_seg2.a.y = tri.a.z
-    dummy_seg2.b.x = tri.b.x
-    dummy_seg2.b.y = tri.b.z
+    seg2.a.x = tri.a.x
+    seg2.a.y = tri.a.z
+    seg2.b.x = tri.b.x
+    seg2.b.y = tri.b.z
 
-    dummy_seg3.a.x = tri.b.x
-    dummy_seg3.a.y = tri.b.z
-    dummy_seg3.b.x = tri.c.x
-    dummy_seg3.b.y = tri.c.z
+    seg3.a.x = tri.b.x
+    seg3.a.y = tri.b.z
+    seg3.b.x = tri.c.x
+    seg3.b.y = tri.c.z
 
-    dummy_seg4.a.x = tri.c.x
-    dummy_seg4.a.y = tri.c.z
-    dummy_seg4.b.x = tri.a.x
-    dummy_seg4.b.y = tri.a.z
+    seg4.a.x = tri.c.x
+    seg4.a.y = tri.c.z
+    seg4.b.x = tri.a.x
+    seg4.b.y = tri.a.z
 
-  elif (fabs(n3) >= fabs(n1)) & (fabs(n3) >= fabs(n2)):
-    dummy_seg1.a.x = dummy_pnt1.x
-    dummy_seg1.a.y = dummy_pnt1.y
-    dummy_seg1.b.x = dummy_pnt2.x
-    dummy_seg1.b.y = dummy_pnt2.y
+  elif (fabs(n.z) >= fabs(n.x)) & (fabs(n.z) >= fabs(n.y)):
+    seg1.a.x = pnt1.x
+    seg1.a.y = pnt1.y
+    seg1.b.x = pnt2.x
+    seg1.b.y = pnt2.y
 
-    dummy_seg2.a.x = tri.a.x
-    dummy_seg2.a.y = tri.a.y
-    dummy_seg2.b.x = tri.b.x
-    dummy_seg2.b.y = tri.b.y
+    seg2.a.x = tri.a.x
+    seg2.a.y = tri.a.y
+    seg2.b.x = tri.b.x
+    seg2.b.y = tri.b.y
 
-    dummy_seg3.a.x = tri.b.x
-    dummy_seg3.a.y = tri.b.y
-    dummy_seg3.b.x = tri.c.x
-    dummy_seg3.b.y = tri.c.y
+    seg3.a.x = tri.b.x
+    seg3.a.y = tri.b.y
+    seg3.b.x = tri.c.x
+    seg3.b.y = tri.c.y
 
-    dummy_seg4.a.x = tri.c.x
-    dummy_seg4.a.y = tri.c.y
-    dummy_seg4.b.x = tri.a.x
-    dummy_seg4.b.y = tri.a.y
+    seg4.a.x = tri.c.x
+    seg4.a.y = tri.c.y
+    seg4.b.x = tri.a.x
+    seg4.b.y = tri.a.y
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg2):
+  if is_intersecting_2d(seg1,seg2):
     count += 1
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg3):
+  if is_intersecting_2d(seg1,seg3):
     count += 1
 
 
-  if is_intersecting_2d(dummy_seg1,dummy_seg4):
+  if is_intersecting_2d(seg1,seg4):
     count += 1
 
   return count%2 == 1
@@ -736,25 +715,16 @@ cdef np.ndarray cross_count_3d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment3d *seg_array = <segment3d *>malloc(N*sizeof(segment3d))
+    segment3d seg
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    with nogil:
-      # this can be parallelized with prange
-      for i in range(N):
-        seg_array[i].a.x = start_pnts[i,0]
-        seg_array[i].a.y = start_pnts[i,1]
-        seg_array[i].a.z = start_pnts[i,2]
-        seg_array[i].b.x = end_pnts[i,0]
-        seg_array[i].b.y = end_pnts[i,1]
-        seg_array[i].b.z = end_pnts[i,2]
-        out[i] = _cross_count_3d(seg_array[i],vertices,simplices)
-    
-  finally:
-    free(seg_array)
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.a.z = start_pnts[i,2]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    seg.b.z = end_pnts[i,2]
+    out[i] = _cross_count_3d(seg,vertices,simplices)
 
   return np.asarray(out)  
 
@@ -787,10 +757,10 @@ cdef int _cross_count_3d(segment3d seg,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_which_3d(double[:,:] start_pnts,
-                               double[:,:] end_pnts,                         
-                               double[:,:] vertices,
-                               long[:,:] simplices):
+cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
+                                      double[:,:] end_pnts,                         
+                                      double[:,:] vertices,
+                                      long[:,:] simplices):
   '''
   Description
   -----------
@@ -807,32 +777,25 @@ cdef np.ndarray cross_which_3d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment3d *seg_array = <segment3d *>malloc(N*sizeof(segment3d))
+    segment3d seg
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    for i in range(N):
-      seg_array[i].a.x = start_pnts[i,0]
-      seg_array[i].a.y = start_pnts[i,1]
-      seg_array[i].a.z = start_pnts[i,2]
-      seg_array[i].b.x = end_pnts[i,0]
-      seg_array[i].b.y = end_pnts[i,1]
-      seg_array[i].b.z = end_pnts[i,2]
-      out[i] = _cross_which_3d(seg_array[i],vertices,simplices)
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.a.z = start_pnts[i,2]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    seg.b.z = end_pnts[i,2]
+    out[i] = _intersection_index_3d(seg,vertices,simplices)
     
-  finally:
-    free(seg_array)
-
   return np.asarray(out)  
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef int _cross_which_3d(segment3d seg,
-                         double[:,:] vertices,
-                         long[:,:] simplices) except *:         
+cdef int _intersection_index_3d(segment3d seg,
+                                double[:,:] vertices,
+                                long[:,:] simplices) except *:         
   cdef:
     int i
     int N = simplices.shape[0]
@@ -854,12 +817,13 @@ cdef int _cross_which_3d(segment3d seg,
   raise ValueError('No intersection found for segment [[%s,%s,%s],[%s,%s,%s]]' % 
                    (seg.a.x,seg.a.y,seg.a.z,seg.b.x,seg.b.y,seg.b.z))
 
+
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_where_3d(double[:,:] start_pnts,
-                               double[:,:] end_pnts,
-                               double[:,:] vertices,
-                               long[:,:] simplices):         
+cdef np.ndarray intersection_point_3d(double[:,:] start_pnts,
+                                      double[:,:] end_pnts,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices):         
   '''
   Description
   -----------
@@ -876,26 +840,19 @@ cdef np.ndarray cross_where_3d(double[:,:] start_pnts,
     int N = start_pnts.shape[0]
     double[:,:] out = np.empty((N,3),dtype=float,order='c')
     vector3d vec
-    segment3d *seg_array = <segment3d *>malloc(N*sizeof(segment3d))
+    segment3d seg
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    for i in range(N):
-      seg_array[i].a.x = start_pnts[i,0]
-      seg_array[i].a.y = start_pnts[i,1]
-      seg_array[i].a.z = start_pnts[i,2]
-      seg_array[i].b.x = end_pnts[i,0]
-      seg_array[i].b.y = end_pnts[i,1]
-      seg_array[i].b.z = end_pnts[i,2]
-      vec = _cross_where_3d(seg_array[i],vertices,simplices)
-      out[i,0] = vec.x
-      out[i,1] = vec.y
-      out[i,2] = vec.z
-
-  finally:
-    free(seg_array)
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.a.z = start_pnts[i,2]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    seg.b.z = end_pnts[i,2]
+    vec = _intersection_point_3d(seg,vertices,simplices)
+    out[i,0] = vec.x
+    out[i,1] = vec.y
+    out[i,2] = vec.z
 
   return np.asarray(out)
 
@@ -903,17 +860,17 @@ cdef np.ndarray cross_where_3d(double[:,:] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector3d _cross_where_3d(segment3d seg,
-                              double[:,:] vertices,
-                              long[:,:] simplices) except *:         
+cdef vector3d _intersection_point_3d(segment3d seg,
+                                     double[:,:] vertices,
+                                     long[:,:] simplices) except *:         
   cdef:
     double proj1,proj2
     int idx
-    vector3d norm
+    vector3d n
     triangle3d tri
     vector3d out 
 
-  idx = _cross_which_3d(seg,vertices,simplices)
+  idx = _intersection_index_3d(seg,vertices,simplices)
   tri.a.x = vertices[simplices[idx,0],0]
   tri.a.y = vertices[simplices[idx,0],1]
   tri.a.z = vertices[simplices[idx,0],2]
@@ -924,24 +881,18 @@ cdef vector3d _cross_where_3d(segment3d seg,
   tri.c.y = vertices[simplices[idx,2],1]
   tri.c.z = vertices[simplices[idx,2],2]
 
-  norm.x =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) -
-             (tri.b.z-tri.a.z)*(tri.c.y-tri.a.y))
-  norm.y = -((tri.b.x-tri.a.x)*(tri.c.z-tri.a.z) -
-             (tri.b.z-tri.a.z)*(tri.c.x-tri.a.x))
-  norm.z =  ((tri.b.x-tri.a.x)*(tri.c.y-tri.a.y) -
-             (tri.b.y-tri.a.y)*(tri.c.x-tri.a.x))
-  proj1 = ((seg.a.x-tri.a.x)*norm.x +
-           (seg.a.y-tri.a.y)*norm.y +
-           (seg.a.z-tri.a.z)*norm.z)
-  proj2 = ((seg.b.x-tri.a.x)*norm.x +
-           (seg.b.y-tri.a.y)*norm.y +
-           (seg.b.z-tri.a.z)*norm.z)
-  out.x = seg.a.x + (proj1/(proj1-proj2))*(
-          (seg.b.x-seg.a.x))
-  out.y = seg.a.y + (proj1/(proj1-proj2))*(
-          (seg.b.y-seg.a.y))
-  out.z = seg.a.z + (proj1/(proj1-proj2))*(
-          (seg.b.z-seg.a.z))
+  n = triangle_normal_3d(tri)
+
+  proj1 = ((seg.a.x-tri.a.x)*n.x +
+           (seg.a.y-tri.a.y)*n.y +
+           (seg.a.z-tri.a.z)*n.z)
+  proj2 = ((seg.b.x-tri.a.x)*n.x +
+           (seg.b.y-tri.a.y)*n.y +
+           (seg.b.z-tri.a.z)*n.z)
+
+  out.x = seg.a.x + (proj1/(proj1-proj2))*(seg.b.x-seg.a.x)
+  out.y = seg.a.y + (proj1/(proj1-proj2))*(seg.b.y-seg.a.y)
+  out.z = seg.a.z + (proj1/(proj1-proj2))*(seg.b.z-seg.a.z)
 
   return out
 
@@ -968,27 +919,20 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     double[:,:] out = np.empty((N,3),dtype=float,order='c')
-    segment3d *seg_array = <segment3d *>malloc(N*sizeof(segment3d))
+    segment3d seg
     vector3d vec
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    for i in range(N):
-      seg_array[i].a.x = start_pnts[i,0]
-      seg_array[i].a.y = start_pnts[i,1]
-      seg_array[i].a.z = start_pnts[i,2]
-      seg_array[i].b.x = end_pnts[i,0]
-      seg_array[i].b.y = end_pnts[i,1]
-      seg_array[i].b.z = end_pnts[i,2]
-      vec = _cross_normals_3d(seg_array[i],vertices,simplices)
-      out[i,0] = vec.x
-      out[i,1] = vec.y
-      out[i,2] = vec.z
-
-  finally:
-    free(seg_array)
+  for i in range(N):
+    seg.a.x = start_pnts[i,0]
+    seg.a.y = start_pnts[i,1]
+    seg.a.z = start_pnts[i,2]
+    seg.b.x = end_pnts[i,0]
+    seg.b.y = end_pnts[i,1]
+    seg.b.z = end_pnts[i,2]
+    vec = _cross_normals_3d(seg,vertices,simplices)
+    out[i,0] = vec.x
+    out[i,1] = vec.y
+    out[i,2] = vec.z
 
   return np.asarray(out)
 
@@ -999,14 +943,13 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
 cdef vector3d _cross_normals_3d(segment3d seg,
                                 double[:,:] vertices,
                                 long[:,:] simplices) except *:         
-
   cdef:
-    double proj,n
+    double proj,mag
     int idx
     triangle3d tri
-    vector3d out
+    vector3d n
 
-  idx = _cross_which_3d(seg,vertices,simplices)
+  idx = _intersection_index_3d(seg,vertices,simplices)
   tri.a.x = vertices[simplices[idx,0],0]
   tri.a.y = vertices[simplices[idx,0],1]
   tri.a.z = vertices[simplices[idx,0],2]
@@ -1017,27 +960,24 @@ cdef vector3d _cross_normals_3d(segment3d seg,
   tri.c.y = vertices[simplices[idx,2],1]
   tri.c.z = vertices[simplices[idx,2],2]
 
-  out.x =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) -
-            (tri.b.z-tri.a.z)*(tri.c.y-tri.a.y))
-  out.y = -((tri.b.x-tri.a.x)*(tri.c.z-tri.a.z) -
-            (tri.b.z-tri.a.z)*(tri.c.x-tri.a.x))
-  out.z =  ((tri.b.x-tri.a.x)*(tri.c.y-tri.a.y) -
-            (tri.b.y-tri.a.y)*(tri.c.x-tri.a.x))
-  proj = ((seg.b.x-tri.a.x)*out.x +
-          (seg.b.y-tri.a.y)*out.y +
-          (seg.b.z-tri.a.z)*out.z)
+  n = triangle_normal_3d(tri)
 
-  if proj <= 0:
-    out.x *= -1
-    out.y *= -1
-    out.z *= -1
+  proj = ((seg.b.x-tri.a.x)*n.x +
+          (seg.b.y-tri.a.y)*n.y +
+          (seg.b.z-tri.a.z)*n.z)
 
-  n = sqrt(out.x**2 + out.y**2 + out.z**2)
-  out.x /= n
-  out.y /= n
-  out.z /= n
+  # ensures that normal points in the direction of the segment
+  if proj < 0:
+    n.x *= -1
+    n.y *= -1
+    n.z *= -1
 
-  return out
+  mag = sqrt(n.x**2 + n.y**2 + n.z**2)
+  n.x /= mag
+  n.y /= mag
+  n.z /= mag
+
+  return n
 
 
 @boundscheck(False)
@@ -1057,58 +997,24 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
     int count,i
     int N = pnt.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c') 
-    segment3d *seg_array = <segment3d *>malloc(N*sizeof(segment3d))
-    vector3d vec
+    segment3d seg
+    vector3d outside_pnt
 
-  if not seg_array:
-    raise MemoryError()
-
-  try:
-    vec = find_outside_3d(vertices)
-    with nogil:
-      # this can be parallelized with prange
-      for i in range(N):
-        seg_array[i].a.x = vec.x
-        seg_array[i].a.y = vec.y
-        seg_array[i].a.z = vec.z
-        seg_array[i].b.x = pnt[i,0]
-        seg_array[i].b.y = pnt[i,1]
-        seg_array[i].b.z = pnt[i,2]
-        count = _cross_count_3d(seg_array[i],vertices,simplices)
-        out[i] = count%2
-
-  finally:
-    free(seg_array)
+  outside_pnt = find_outside_3d(vertices)
+  for i in range(N):
+    seg.a.x = outside_pnt.x
+    seg.a.y = outside_pnt.y
+    seg.a.z = outside_pnt.z
+    seg.b.x = pnt[i,0]
+    seg.b.y = pnt[i,1]
+    seg.b.z = pnt[i,2]
+    count = _cross_count_3d(seg,vertices,simplices)
+    out[i] = count%2
 
   return np.asarray(out,dtype=bool)
 
 
-def normal(M):
-  '''
-  Description
-  -----------
-    returns the normal vector to the D-1 vectors in D dimensional
-    space
-                                     
-  Parameters
-  ----------                 
-    M: (D-1,D) array of vectors  
-                           
-  Note
-  ----
-    supports broadcasting
-
-  '''
-  N = M.shape[-1]
-  Msubs = [np.delete(M,i,-1) for i in range(N)]
-  out = np.linalg.det(Msubs)
-  out[1::2] *= -1
-  out = np.rollaxis(out,-1)
-  out /= np.linalg.norm(out,axis=-1)[...,None]
-  return out
-
-
-def complex_intersection(start_points,end_points,vertices,simplices):
+def intersection_point(start_points,end_points,vertices,simplices):
   '''
   Description
   -----------
@@ -1156,15 +1062,15 @@ def complex_intersection(start_points,end_points,vertices,simplices):
     out = vert[crossed_idx]
 
   if dim == 2:
-    out = cross_where_2d(start_points,end_points,vertices,simplices)
+    out = intersection_point_2d(start_points,end_points,vertices,simplices)
 
   if dim == 3:
-    out = cross_where_3d(start_points,end_points,vertices,simplices)
+    out = intersection_point_3d(start_points,end_points,vertices,simplices)
 
   return out
 
 
-def complex_normal(start_points,end_points,vertices,simplices):
+def intersection_normal(start_points,end_points,vertices,simplices):
   '''
   Description
   -----------
@@ -1221,13 +1127,12 @@ def complex_normal(start_points,end_points,vertices,simplices):
   return out
 
 
-def complex_group(start_points,end_points,vertices,simplices,group):
+def intersection_index(start_points,end_points,vertices,simplices):
   '''
   Description
   -----------
-    returns the group number of the simplex intersected by the line
-    segments, described by start_points and end_points. This function
-    works for 1, 2, and 3 spatial dimensions. 
+    returns the indices of the simplices intersected by the line
+    segments. This function works for 1, 2, and 3 spatial dimensions.
 
   Parameters
   ----------
@@ -1242,12 +1147,10 @@ def complex_group(start_points,end_points,vertices,simplices,group):
 
     simplices: (P,D) array of vertex indices for each simplex. P is
       the number of simplices
-    
-    group: (P,) array of integer group IDs for each simplex. 
 
   Returns
   -------
-    out: (N,) array of group IDs
+    out: (N,) array of simplex indices 
 
   Note
   ----
@@ -1259,7 +1162,6 @@ def complex_group(start_points,end_points,vertices,simplices,group):
   end_points = np.asarray(end_points,dtype=float)
   vertices = np.asarray(vertices,dtype=float)
   simplices = np.asarray(simplices,dtype=int)
-  group = np.asarray(group,dtype=int)
   assert start_points.shape[1] == end_points.shape[1]
   assert start_points.shape[1] == vertices.shape[1]
   assert start_points.shape[0] == end_points.shape[0]
@@ -1268,19 +1170,18 @@ def complex_group(start_points,end_points,vertices,simplices,group):
     out = np.ones(start_points.shape,dtype=float)
     vert = vertices[simplices[:,0]]
     crossed_bool = (start_points-vert.T)*(end_points-vert.T) <= 0.0
-    smp_ids = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+    out = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
 
   if dim == 2:
-    smp_ids = cross_which_2d(start_points,end_points,vertices,simplices)
+    out = intersection_index_2d(start_points,end_points,vertices,simplices)
 
   if dim == 3:
-    smp_ids= cross_which_3d(start_points,end_points,vertices,simplices)
+    out = intersection_index_3d(start_points,end_points,vertices,simplices)
 
-  out = np.array(group[smp_ids],copy=True)
   return out
 
 
-def complex_cross_count(start_points,end_points,vertices,simplices):
+def cross_count(start_points,end_points,vertices,simplices):
   '''
   Description
   -----------
@@ -1329,7 +1230,7 @@ def complex_cross_count(start_points,end_points,vertices,simplices):
   return out
 
 
-def complex_contains(points,vertices,simplices):
+def contains(points,vertices,simplices):
   '''
   Description
   -----------
@@ -1366,6 +1267,7 @@ def complex_contains(points,vertices,simplices):
     although rare, that this function will fail if the line segment
     intersects a simplex at an edge.
 
+    This function does not require any orientation for the simplices
   '''
   points = np.asarray(points)
   vertices = np.asarray(vertices)
@@ -1386,6 +1288,122 @@ def complex_contains(points,vertices,simplices):
     out = contains_3d(points,vertices,simplices)
 
   return out
+
+
+def simplex_normals(vert,smp):
+  '''                       
+  Description           
+  -----------                         
+    returns the normal vectors for each simplex. Orientation is 
+    determined by the right hand rule      
+                                                                                                                   
+  '''
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+
+  # spatial dimensions        
+  D = vert.shape[1]
+
+  # If one dimensional, then just return an array of ones    
+  if D == 1:
+    return np.ones(smp.shape,dtype=float)
+
+  # Create a N by D-1 by D matrix    
+  M = vert[smp[:,1:]] - vert[smp[:,[0]]]
+
+  Msubs = [np.delete(M,i,-1) for i in range(D)]
+  out = np.linalg.det(Msubs)
+  out[1::2] *= -1
+  out = np.rollaxis(out,-1)
+  out /= np.linalg.norm(out,axis=-1)[...,None]
+  return out
+
+
+def simplex_outward_normals(vert,smp):
+  ''' 
+  Description
+  -----------
+    returns the outward normal vectors for each simplex. The sign
+    of the returned vectors are only meaningful if the simplices 
+    enclose an area in 2D or a volume in 3D
+
+  '''
+  smp = oriented_simplices(vert,smp)
+  return simplex_normals(vert,smp)
+
+
+def simplex_upward_normals(vert,smp):
+  '''
+  Description
+  -----------
+    returns the normal vectors for each simplex whose sign for the
+    last spatial dimension is positive.
+
+  '''
+  out = simplex_normals(vert,smp)
+  out[out[:,-1]<0] *= -1
+  return out
+
+
+def oriented_simplices(vert,smp):
+  '''                                                                                                              
+  Description                       
+  -----------                   
+    Returns simplex indices that are ordered such that each simplex
+    normal vector, as defined by the right hand rule, points outward
+                                    
+  Note                                
+  ----                         
+    This function only works for 2 and 3 dimensional domains  
+  '''
+  vert = np.asarray(vert,dtype=float)
+  smp = np.array(smp,dtype=int,copy=True)
+
+  # length scale of the domain
+  scale = np.max(vert)-np.min(vert)
+  dx = 1e-10*scale
+
+  # find the normal for each simplex    
+  norms = simplex_normals(vert,smp)
+
+  # find the centroid for each simplex      
+  points = np.mean(vert[smp],axis=1)
+
+  # push points in the direction of the normals  
+  points += dx*norms
+
+  # find which simplices are oriented such that their normals point  
+  # inside                           
+  faces_inside = contains(points,vert,smp)
+
+  flip_smp = smp[faces_inside]
+  flip_smp[:,[0,1]] = flip_smp[:,[1,0]]
+
+  smp[faces_inside] = flip_smp
+  return smp
+
+
+def complex_volume(vert,smp,orient=True):
+  '''
+  Description
+  -----------
+    returns the volume of a polygon or polyhedra enclosed by
+    simplices
+
+  Note
+  ----
+    This function only works for 2 and 3 dimensional domains
+  '''
+  dim = smp.shape[1]
+  vert = np.array(vert,dtype=float,copy=True)
+  smp = np.asarray(smp,dtype=int)
+  if orient:
+    smp = oriented_simplices(vert,smp)
+  vert -= np.mean(vert,axis=0)
+  signed_volumes = (1.0/factorial(dim))*np.linalg.det(vert[smp])
+  volume = np.sum(signed_volumes)
+  return volume
+
 
 
 def contains_N_duplicates(iterable,N=1):
