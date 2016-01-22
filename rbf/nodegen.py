@@ -314,6 +314,11 @@ def volume(rho,vertices,simplices,fix_nodes=None,
   if np.isscalar(rho):
     N = int(np.round(rho))
     volume = rbf.geometry.complex_volume(vertices,simplices,orient=False)
+    if (volume < 0.0):
+      raise ValueError(
+        'simplicial complex found to have a negative volume. Check the '
+        'orientation of simplices and ensure closedness')
+   
     err = 0.0
     minval = N/volume
     maxval = N/volume

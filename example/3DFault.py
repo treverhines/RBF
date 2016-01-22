@@ -159,7 +159,12 @@ def rho(p):
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert,smp)
+
+mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
+                     nodes_f[:,2],scale_factor=0.005)
+modest.summary()
+mayavi.mlab.show()
 
 simplex_normals = rbf.geometry.simplex_upward_normals(vert_f,smp_f)
 

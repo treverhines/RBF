@@ -122,6 +122,10 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
   else:
     val = val[is_inside]
     volume = gm.complex_volume(vert,smp,orient=False)
+    if (volume < 0.0):
+      raise ValueError(
+        'simplicial complex found to have a negative volume. Check the '
+        'orientation of simplices and ensure closedness')
 
   if (volume > 0.0) & (len(val) < 2):
     raise ValueError(
