@@ -5,6 +5,7 @@ from rbf.integrate import density_normalizer
 import rbf.nodegen
 import matplotlib.pyplot as plt
 import logging
+import modest
 logging.basicConfig(level=logging.INFO)
 
 img = Image.open('Lenna.png')
@@ -32,5 +33,6 @@ is_interior = smpid == -1
 
 plt.plot(nodes[is_interior,0],nodes[is_interior,1],'k.',markersize=3)
 plt.plot(nodes[is_boundary,0],nodes[is_boundary,1],'b.',markersize=5)
+modest.summary()
 plt.show()
 

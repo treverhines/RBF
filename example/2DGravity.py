@@ -240,6 +240,6 @@ plt.quiver(nodes[idx_noghost[::2],0],nodes[idx_noghost[::2],1],
 logging.basicConfig(level=logging.INFO)
 summary()
 
-#plt.show()
+plt.show()
 
 

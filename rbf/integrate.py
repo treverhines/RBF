@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 from __future__ import division
 import numpy as np
-from rbf.halton import Halton
-from rbf.geometry import contains
-from rbf.geometry import is_valid
+import rbf.halton as hlt
+import rbf.geometry as gm
 import logging 
+import modest
 logger = logging.getLogger(__name__)
 
+@modest.funtime
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
-          upper_bounds=None,check_valid=False,rng=None):
+          upper_bounds=None,check_simplices=True,rng=None):
   '''
   Description
   -----------
@@ -25,10 +26,22 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     smp: simplices describing how the vertices are connected to form
       the domain boundary
 
-    samples (default=50**D): number of samples to use 
+    samples (default=20**D): number of samples to use 
 
-    check_valid (default=False): Whether to check if the simplices 
-      define a closed boundary 
+    check_simplices (default=False): Whether to check that the
+      simplices define a closed surface and oriented such that their
+      normals point outward
+
+    lower_bounds (default=None): the lower bounds for the integration
+      domain. This truncates the integration domain specified by the
+      vertices and simplices. If given then the integration domain is
+      considered to be a bounding box and function values outside the
+      simplicial complex are set to zero. When not specified, the
+      integration domain is the simplicial complex and any sampled
+      points which are outside of the domain are thrown out. 
+
+    upper_bounds (default=None): the upper bounds for the integration 
+      domain
 
     rng (default=Halton(D)): random number generator. Must take an 
       integer input, N, and return an (N,D) array of random points 
@@ -47,36 +60,45 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
     minimum: minimum function value within the domain
 
+
+  Note 
+  ---- 
+    When integrating constant or nearly constant functions over a
+    complicated domain, it is far more efficient to NOT specify any
+    lower or upper bounds. This is because, without bounds, the area
+    of the simplicial complex can be computed exactly. 
+
   '''
   vert = np.asarray(vert,dtype=float)
   smp = np.asarray(smp,dtype=int)
-  if check_valid:
-    assert is_valid(smp), (
-      'invalid simplices, see documentation for rbf.geometry.is_valid')
+  if check_simplices:
+    smp = gm.oriented_simplices(vert,smp)
 
-  dim = vert.shape[1]
-  
+  dim = smp.shape[1]
+
+  # whether lower bounds or upper bounds were given
+  bounded = False
   if lower_bounds is None:
-    lb = np.min(vert,0)
+    lower_bounds = np.min(vert,0)
   else:
-    lb = np.asarray(lower_bounds)
-    assert lb.shape[0] == dim
+    bounded = True
+    lower_bounds = np.asarray(lower_bounds)
 
   if upper_bounds is None:
-    ub = np.max(vert,0)
+    upper_bounds = np.max(vert,0)
   else:
-    ub = np.asarray(upper_bounds)
-    assert ub.shape[0] == dim
+    bounded = True
+    upper_bounds = np.asarray(upper_bounds)
 
   if rng is None:
-    rng = Halton(dim)
+    rng = hlt.Halton(dim)
 
   if samples is None:
     samples = 20**dim
 
-  pnts = rng(samples)*(ub-lb) + lb
+  pnts = rng(samples)*(upper_bounds-lower_bounds) + lower_bounds
   val = f(pnts)
-  is_inside = contains(pnts,vert,smp)
+  is_inside = gm.contains(pnts,vert,smp)
   # If there are any points within the domain then return
   # the max and min value found within the domain
   if np.any(is_inside):
@@ -86,12 +108,34 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     minval = np.inf
     maxval = -np.inf
 
-  # copy val because its contents are going to be changed
-  val = np.copy(val)
-  val[~is_inside] = 0.0
+  # if bounded is True then the integration domain is a box with
+  # area equal to the product of the bounds
+  if bounded:
+    # copy val because its contents are going to be changed
+    val = np.copy(val)
+    val[~is_inside] = 0.0
+    volume = np.prod(upper_bounds-lower_bounds)
 
-  soln = np.sum(val)*np.prod(ub-lb)/samples
-  err = np.prod(ub-lb)*np.std(val)/np.sqrt(samples)
+  # if bounded is False then the integration domain is bounded by
+  # the simplicial complex and its area is found from
+  # geometry.complex_volume
+  else:
+    val = val[is_inside]
+    volume = gm.complex_volume(vert,smp,orient=False)
+
+  if (volume > 0.0) & (len(val) < 2):
+    raise ValueError(
+      'number of values used to estimate the integral is less than 2. If no '
+      'lower or upper bounds were specified then ensure the simplicial '
+      'complex is closed and then increase the sample size')
+
+  if volume == 0.0:
+     soln = 0.0
+     err = 0.0 
+   
+  else:
+    soln = np.sum(val)*volume/len(val)
+    err = volume*np.std(val,ddof=1)/np.sqrt(len(val))
 
   return soln,err,minval,maxval
 
@@ -117,7 +161,7 @@ def _divide_bbox(lb,ub,depth=0):
 
 def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
            lower_bounds=None,upper_bounds=None,_depth=0,
-           rng=None,check_valid=False):
+           rng=None,check_simplices=True):
   '''
   Description
   -----------
@@ -144,11 +188,11 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
       tolerance is specified then a crude estimate of the integral is 
       made and then tol is set to 0.001 times that estimate.
  
-    samples (default=50**D): number of samples to use in each  
+    samples (default=20**D): number of samples to use in each  
       iteration
 
-    check_valid (default=False): Whether to check if the simplices 
-      define a closed boundary 
+    check_simplices (default=True): Whether to ensure that the
+      simplices have outwardly oriented normal vectors
 
     rng (default=Halton(D)): random number generator. Must take an 
       integer input, N, and return an (N,D) array of random points 
@@ -156,6 +200,18 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
     max_depth (default=50): maximum recursion depth allowed. If this
       limit is reached then a solution is still returned but it is not
       guaranteed to be more accurate than the specified tolerance 
+
+    lower_bounds (default=None): the lower bounds for the integration
+      domain. This truncates the integration domain specified by the
+      vertices and simplices. If given then the integration domain is
+      considered to be a bounding box and function values outside the
+      simplicial complex are set to zero. When not specified, the
+      integration domain for the first iteration is the simplicial
+      complex and any sampled points which are outside of the domain
+      are thrown out.
+
+    upper_bounds (default=None): the upper bounds for the integration 
+      domain
 
   Returns
   -------
@@ -175,102 +231,85 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   '''
   vert = np.asarray(vert,dtype=float)
   smp = np.asarray(smp,dtype=int)
-  dim = vert.shape[1]
-
-  if _depth == 0:
-    logger.debug('integrating function with domain defined by %s '
-                 'vertices and %s simplices' % (len(vert),len(smp)))
-
-    if check_valid:
-      assert is_valid(smp), (
-        'invalid simplices, see documentation for rbf.geometry.is_valid')
-
-  if lower_bounds is None:
-    lb = np.min(vert,0)
-  else:
-    lb = np.asarray(lower_bounds)
-    assert lb.shape[0] == dim
-
-  if upper_bounds is None:
-    ub = np.max(vert,0)
-  else:
-    ub = np.asarray(upper_bounds)
-    assert ub.shape[0] == dim
+  dim = smp.shape[1]
 
   if rng is None:
-    rng = Halton(dim)
+    rng = hlt.Halton(dim)
+
+  if check_simplices:
+    smp = gm.oriented_simplices(vert,smp)
+
+  # Make an estimate of the integral. If lower bounds and 
+  # upper bounds are None, then this may be a very accurate initial
+  # estimate since the domain area can be calculated exactly. 
+  out = mcint(f,vert,smp,samples=samples,
+              lower_bounds=lower_bounds,
+              upper_bounds=upper_bounds,
+              check_simplices=False,rng=rng)
+
+  soln = out[0]
+  err = out[1]
+  minval = out[2]
+  maxval = out[3]
 
   if tol is None:
-    # if no tolerance is specified then an rough initial estimate for
-    # the integral is made and then the tolerance is set to 1e-2 times
-    # that estimate. If the initial estimate is less than 1e-2 then
-    # the tolerance is set to 1e-4
-    init_est = mcint(f,vert,smp,samples=samples,
-                     lower_bounds=lower_bounds,
-                     upper_bounds=upper_bounds,
-                     check_valid=False,rng=rng)
-    init_integral = init_est[0]
-    if abs(init_integral) > 1e-2:
-      tol = abs(init_integral*1e-2)
+    # if no tolerance is specified then use the 1e-2 time the estimate
+    # of the integral. If the estimate is less than 1e-2 then the
+    # tolerance is set to 1e-4.
+    if abs(soln) > 1e-2:
+      tol = abs(soln)*1e-2
     else:
       tol = 1e-4
+    
+  # if the error from the estimate is below the tolerance or if the maximum
+  # recursion depth has been reached then return the solution
+  if (err < tol) | (_depth == max_depth):
+    return out
 
-  # The tolerance decreases by a factor of 1/sqrt(2) for each
-  # recursion depth. This ensures that combined uncertainties
-  # is less than the specified tolerance. 
-  tol = tol/np.sqrt(2)
-  soln = 0.0
-  var = 0.0
-  minval = np.inf
-  maxval = -np.inf
-  for lbi,ubi in _divide_bbox(lb,ub,depth=_depth):
-    out = mcint(f,vert,smp,samples=samples,
-                lower_bounds=lbi,upper_bounds=ubi,
-                check_valid=False,rng=rng)
-    solni,erri,mini,maxi = out
+  if lower_bounds is None:
+    lower_bounds = np.min(vert,0)
+  else:
+    lower_bounds = np.asarray(lower_bounds)
 
+  if upper_bounds is None:
+    upper_bounds = np.max(vert,0)
+  else:
+    upper_bounds = np.asarray(upper_bounds)
+
+  # if the error is above the tolerance then divide the domain
+  new_soln = 0
+  new_err = 0
+  for lbi,ubi in _divide_bbox(lower_bounds,upper_bounds,depth=_depth):
+    outi = rmcint(f,vert,smp,
+                  tol=tol/np.sqrt(2),
+                  samples=samples,
+                  lower_bounds=lbi,
+                  upper_bounds=ubi,
+                  _depth=_depth+1,
+                  max_depth=max_depth,
+                  rng=rng,
+                  check_simplices=False)
+    solni,erri,mini,maxi = outi
     if mini < minval:
       minval = mini
 
     if maxi > maxval:
-      maxval = maxi
+      maxval = maxi                
 
-    if _depth == max_depth:
-      print('WARNING: reached soft recursion depth limit of %s' % max_depth) 
-      logger.warning('reached soft recursion depth limit of %s' % max_depth)
-
-    if (erri > tol) & (_depth < max_depth):
-      out = rmcint(f,vert,smp,tol=tol,samples=samples,
-                   lower_bounds=lbi,upper_bounds=ubi,
-                   _depth=_depth+1,max_depth=max_depth,
-                   rng=rng)
-      new_solni,new_erri,mini,maxi = out
-
-      if mini < minval:
-        minval = mini
-
-      if maxi > maxval:
-        maxval = maxi                
-
-      # combine the previous solution with the new one  
-      # if the new solution has no error then do not include
-      # the previous estimate
-      if new_erri == 0.0:
-        solni = new_solni 
-        erri = new_erri
-      else: 
-        numer = solni/(erri**2) + new_solni/(new_erri**2)
-        denom = 1.0/(erri**2) + 1.0/(new_erri**2)
-        solni = numer/denom
-        erri = 1.0/np.sqrt(denom)
-
-    soln += solni
-    var += erri**2
-
-  err = np.sqrt(var)
-
-  if _depth == 0:
-    logger.debug('finished integration')
+    new_soln += solni
+    new_err = np.sqrt(new_err**2 + erri**2)
+      
+  # combine the previous solution with the new one  
+  # if the new solution has no error then do not include
+  # the previous estimate
+  if new_err == 0.0:
+    soln = new_soln
+    err = new_err
+  else: 
+    numer = soln/(err**2) + new_soln/(new_err**2)
+    denom = 1.0/(err**2) + 1.0/(new_err**2)
+    soln = numer/denom
+    err = 1.0/np.sqrt(denom)
 
   return soln,err,minval,maxval
 

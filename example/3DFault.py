@@ -4,6 +4,7 @@ import rbf.nodegen
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
+from rbf.geometry import complex_volume
 import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
@@ -112,7 +113,7 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-N = 2000
+N = 20000
 Ns = 50
 order = 3
 
@@ -133,7 +134,7 @@ smp = np.array([[0,1,4],
                 [0,2,6],
                 [0,4,6],
                 [4,5,7],
-                [4,6,7],
+                [4,7,6],
                 [2,3,7],
                 [2,6,7]])
 
@@ -152,14 +153,16 @@ smp_f =  np.array([[0,1,2],
 @density_normalizer(vert,smp,N)
 def rho(p):
   #out = np.zeros(p.shape[0])
-  #out += 1.0/(1.0 + 10*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
-  return 0.01 + np.sin(np.pi*p[:,0])
+  out = 0.00 + 0.5/(1.0 + 10000*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
+  return out
 
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
 nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+
 simplex_normals = rbf.geometry.simplex_upward_normals(vert_f,smp_f)
+
 norms_f = simplex_normals[smpid_f]
 group_f = np.array(is_edge_f,dtype=int)
 
@@ -167,6 +170,7 @@ nodes_d,smpid_d = rbf.nodegen.volume(rho,vert,smp,
                                      fix_nodes=nodes_f)
 
 simplex_normals = rbf.geometry.simplex_outward_normals(vert,smp)
+
 norms_d = simplex_normals[smpid_d]
 norms_d[smpid_d<0] = 0
 group_d = np.zeros(nodes_d.shape[0],dtype=int)
@@ -193,8 +197,10 @@ slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
 #slip[1,:] = 1.0
 
 mayavi.mlab.points3d(nodes_d[:,0],nodes_d[:,1],
-                     nodes_d[:,2],scale_factor=0.01)
+                     nodes_d[:,2],scale_factor=0.005)
+modest.summary()
 mayavi.mlab.show()
+quit()
 # domain nodes
 
 # split fault nodes into hanging wall and foot wall nodes

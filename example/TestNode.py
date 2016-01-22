@@ -17,15 +17,15 @@ def rho(p):
 vert_f = np.array([[0.5,0.25],[0.4,0.5],[0.5,0.75]])
 smp_f = np.array([[0,1],[1,2]])
 
-nodes_f,smpid_f = rbf.nodegen.surface(rho,vert_f,smp_f)
-
+nodes_f,smpid_f,is_boundary_f = rbf.nodegen.surface(rho,vert_f,smp_f)
 nodes,smpid = rbf.nodegen.volume(rho,vert,smp,fix_nodes=nodes_f)
-print(smpid)
-print(smpid_f)
+print(len(nodes))
+#print(smpid)
+#print(smpid_f)
 plt.plot(nodes[smpid<0,0],nodes[smpid<0,1],'k.')
 plt.plot(nodes[smpid>=0,0],nodes[smpid>=0,1],'ko')
-plt.plot(nodes_f[smpid_f<0,0],nodes_f[smpid_f<0,1],'b.')
-plt.plot(nodes_f[smpid_f>=0,0],nodes_f[smpid_f>=0,1],'bo')
+plt.plot(nodes_f[is_boundary_f,0],nodes_f[is_boundary_f,1],'bo')
+plt.plot(nodes_f[~is_boundary_f,0],nodes_f[~is_boundary_f,1],'b.')
 
 
 plt.show()

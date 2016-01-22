@@ -100,6 +100,7 @@ from libc.stdlib cimport malloc,free
 from itertools import combinations
 import logging
 from scipy.special import factorial
+import modest
 logger = logging.getLogger(__name__)
 
 # NOTE: fabs is not the same as abs in C!!! 
@@ -1014,6 +1015,7 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
   return np.asarray(out,dtype=bool)
 
 
+@modest.funtime
 def intersection_point(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1070,6 +1072,7 @@ def intersection_point(start_points,end_points,vertices,simplices):
   return out
 
 
+@modest.funtime
 def intersection_normal(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1127,6 +1130,7 @@ def intersection_normal(start_points,end_points,vertices,simplices):
   return out
 
 
+@modest.funtime
 def intersection_index(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1181,6 +1185,7 @@ def intersection_index(start_points,end_points,vertices,simplices):
   return out
 
 
+@modest.funtime
 def cross_count(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1230,6 +1235,7 @@ def cross_count(start_points,end_points,vertices,simplices):
   return out
 
 
+@modest.funtime
 def contains(points,vertices,simplices):
   '''
   Description
@@ -1268,6 +1274,7 @@ def contains(points,vertices,simplices):
     intersects a simplex at an edge.
 
     This function does not require any orientation for the simplices
+
   '''
   points = np.asarray(points)
   vertices = np.asarray(vertices)
@@ -1290,28 +1297,32 @@ def contains(points,vertices,simplices):
   return out
 
 
+@modest.funtime
 def simplex_normals(vert,smp):
   '''                       
   Description           
   -----------                         
     returns the normal vectors for each simplex. Orientation is 
-    determined by the right hand rule      
-                                                                                                                   
+    determined by the right hand rule 
+
+  Note
+  ----
+    This is only defined for 2 and 3 dimensional simplices
+
   '''
   vert = np.asarray(vert,dtype=float)
   smp = np.asarray(smp,dtype=int)
 
   # spatial dimensions        
-  D = vert.shape[1]
-
-  # If one dimensional, then just return an array of ones    
-  if D == 1:
-    return np.ones(smp.shape,dtype=float)
+  dim = vert.shape[1]
+  
+  if (dim != 2) & (dim != 3):
+    raise ValueError('simplices must be 2 or 3 dimensional')
 
   # Create a N by D-1 by D matrix    
   M = vert[smp[:,1:]] - vert[smp[:,[0]]]
 
-  Msubs = [np.delete(M,i,-1) for i in range(D)]
+  Msubs = [np.delete(M,i,-1) for i in range(dim)]
   out = np.linalg.det(Msubs)
   out[1::2] *= -1
   out = np.rollaxis(out,-1)
@@ -1319,6 +1330,7 @@ def simplex_normals(vert,smp):
   return out
 
 
+@modest.funtime
 def simplex_outward_normals(vert,smp):
   ''' 
   Description
@@ -1327,11 +1339,25 @@ def simplex_outward_normals(vert,smp):
     of the returned vectors are only meaningful if the simplices 
     enclose an area in 2D or a volume in 3D
 
+  Note
+  ----
+    This is only defined for 2 and 3 dimensional simplices
+
   '''
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  
+  # spatial dimensions        
+  dim = vert.shape[1]
+  
+  if (dim != 2) & (dim != 3):
+    raise ValueError('simplices must be 2 or 3 dimensional')
+
   smp = oriented_simplices(vert,smp)
   return simplex_normals(vert,smp)
 
 
+@modest.funtime
 def simplex_upward_normals(vert,smp):
   '''
   Description
@@ -1339,14 +1365,28 @@ def simplex_upward_normals(vert,smp):
     returns the normal vectors for each simplex whose sign for the
     last spatial dimension is positive.
 
+  Note
+  ----
+    This is only defined for 2 and 3 dimensional simplices
+
   '''
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  
+  # spatial dimensions        
+  dim = vert.shape[1]
+  
+  if (dim != 2) & (dim != 3):
+    raise ValueError('simplices must be 2 or 3 dimensional')
+
   out = simplex_normals(vert,smp)
   out[out[:,-1]<0] *= -1
   return out
 
 
+@modest.funtime
 def oriented_simplices(vert,smp):
-  '''                                                                                                              
+  '''
   Description                       
   -----------                   
     Returns simplex indices that are ordered such that each simplex
@@ -1354,11 +1394,19 @@ def oriented_simplices(vert,smp):
                                     
   Note                                
   ----                         
-    This function only works for 2 and 3 dimensional domains  
+    If one dimensional simplices are given, then the simplices are
+    returned unaltered.
+
   '''
   vert = np.asarray(vert,dtype=float)
   smp = np.array(smp,dtype=int,copy=True)
 
+  dim = vert.shape[1]
+
+  # if 1D then return smp
+  if dim == 1:
+    return np.copy(smp)
+  
   # length scale of the domain
   scale = np.max(vert)-np.min(vert)
   dx = 1e-10*scale
@@ -1383,29 +1431,47 @@ def oriented_simplices(vert,smp):
   return smp
 
 
+@modest.funtime
 def complex_volume(vert,smp,orient=True):
   '''
   Description
   -----------
-    returns the volume of a polygon or polyhedra enclosed by
-    simplices
+    returns the volume polyhedra, area of a polygon, or length of a
+    segment enclosed by the simplices
 
-  Note
-  ----
-    This function only works for 2 and 3 dimensional domains
+  Parameters
+  ----------
+    vert: vertices of the domain
+
+    smp: vertex indices making of each simplex 
+
+    orient (default=True): If true, the simplices are oriented such
+      that their normals from the right hand rule point outwar. The 
+      time for this operation increase quadratically with the number
+      of simplexes. This does nothing for 1D simplices
+
   '''
-  dim = smp.shape[1]
   vert = np.array(vert,dtype=float,copy=True)
   smp = np.asarray(smp,dtype=int)
+  dim = smp.shape[1]
   if orient:
     smp = oriented_simplices(vert,smp)
+
+  # If 1D vertices and simplices are given then sort the vertices
+  # and sum the length between alternating pairs of vertices
+  if dim == 1:
+    vert = np.sort(vert[smp].flatten())
+    vert[::2] *= -1
+    return abs(np.sum(vert))
+
+  # center the vertices for the purpose of numerical stability
   vert -= np.mean(vert,axis=0)
   signed_volumes = (1.0/factorial(dim))*np.linalg.det(vert[smp])
   volume = np.sum(signed_volumes)
   return volume
 
 
-
+@modest.funtime
 def contains_N_duplicates(iterable,N=1):
   '''            
   returns True if every element in iterable is repeated N times
@@ -1425,6 +1491,7 @@ def contains_N_duplicates(iterable,N=1):
   return True
 
 
+@modest.funtime
 def is_valid(smp):
   '''             
   Description
