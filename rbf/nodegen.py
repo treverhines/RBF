@@ -305,13 +305,14 @@ def volume(rho,vertices,simplices,fix_nodes=None,
   vertices = np.asarray(vertices,dtype=float) 
   simplices = np.asarray(simplices,dtype=int) 
 
-  if check_simplices:
-    simplices = gm.oriented_simplices(vertices,simplices)
 
   # if rho is a scalar rather than a density function then compute the
   # volume of the simplicial complex and create a rho function with
   # uniform density that integrates to the specified scalar
   if np.isscalar(rho):
+    if check_simplices:
+      simplices = gm.oriented_simplices(vertices,simplices)
+
     N = int(np.round(rho))
     volume = rbf.geometry.complex_volume(vertices,simplices,orient=False)
     if (volume < 0.0):
@@ -328,8 +329,7 @@ def volume(rho,vertices,simplices,fix_nodes=None,
   # if rho is a callable function then integrate it to find the total
   # number of nodes
   else:
-    N,err,minval,maxval = rbf.integrate.rmcint(rho,vertices,simplices,
-                                               check_simplices=False)
+    N,err,minval,maxval = rbf.integrate.rmcint(rho,vertices,simplices)
 
   assert minval >= 0.0, (
     'values in node density function must be positive')
@@ -493,7 +493,6 @@ def _nodes_on_simplex(rho,vert,fix_nodes=None,**kwargs):
   nodes_r,smpid = rbf.nodegen.volume(
                     rho_r,vert_r,smp_r,
                     fix_nodes=fix_r,
-                    check_simplices=True,
                     **kwargs)
   N = nodes_r.shape[0]
   a = np.ones((N,1))*const_r

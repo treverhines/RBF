@@ -9,12 +9,120 @@ logger = logging.getLogger(__name__)
 
 @modest.funtime
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
-          upper_bounds=None,check_simplices=True,rng=None):
+          upper_bounds=None,rng=None):
   '''
   Description
   -----------
     Monte Carlo integration algorithm over an arbitrary 1, 2, or 3  
-    dimensional domain
+    dimensional domain. This algorithm treats the integration domain
+    as a bounding box and converts all function values for points outside 
+    of the simplicial complex to zero. 
+
+  Parameters
+  ----------
+    f: Scalar value function being integrated.  This function should
+      take an (N,D) array as input and return an (N,) array
+
+    vert: vertices of integration domain boundary
+   
+    smp: simplices describing how the vertices are connected to form
+      the domain boundary
+
+    samples (default=20**D): number of samples to use 
+
+    lower_bounds (default=None): If given, then the lower bounds for the 
+      integration domain are truncated to these value. Used in rmcint
+
+    upper_bounds (default=None): If given, then the upper bounds for the 
+      integration domain are truncated to these value. Used in rmcint
+
+    rng (default=Halton(D)): random number generator. Must take an 
+      integer input, N, and return an (N,D) array of random points 
+
+  Returns
+  -------
+    answer,error,maximum,minimum
+
+    answer: integral over the domain
+
+    error: uncertainty of the solution. Note that this tends to be
+      overestimated when using a quasi-random number generator such as
+      a Halton sequence
+
+    maximum: maximum function value within the domain
+
+    minimum: minimum function value within the domain
+
+  Note 
+  ---- 
+    When integrating constant or nearly constant functions over a
+    complicated domain, it is far more efficient to use mcint2
+
+  '''
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+
+  dim = smp.shape[1]
+
+  if lower_bounds is None:
+    lower_bounds = np.min(vert,0)
+  else:
+    lower_bounds = np.asarray(lower_bounds)
+
+  if upper_bounds is None:
+    upper_bounds = np.max(vert,0)
+  else:
+    bounded = True
+    upper_bounds = np.asarray(upper_bounds)
+
+  if rng is None:
+    rng = hlt.Halton(dim)
+
+  if samples is None:
+    samples = 20**dim
+
+  if np.any(lower_bounds > upper_bounds):
+    raise ValueError(
+      'lowers bounds found to be larger than upper bounds')
+
+  if samples < 2:
+    raise ValueError(
+      'sample size must be at least 2')
+
+  pnts = rng(samples)*(upper_bounds-lower_bounds) + lower_bounds
+  val = f(pnts)
+  is_inside = gm.contains(pnts,vert,smp)
+  # If there are any points within the domain then return
+  # the max and min value found within the domain
+  if np.any(is_inside):
+    minval = np.min(val[is_inside])
+    maxval = np.max(val[is_inside])
+  else:
+    minval = np.inf
+    maxval = -np.inf
+
+  # copy val because its contents are going to be changed
+  val = np.copy(val)
+  val[~is_inside] = 0.0
+  volume = np.prod(upper_bounds-lower_bounds)
+
+  soln = np.sum(val)*volume/len(val)
+  err = volume*np.std(val,ddof=1)/np.sqrt(len(val))
+
+  return soln,err,minval,maxval
+
+
+@modest.funtime
+def mcint2(f,vert,smp,samples=None,
+           check_simplices=True,rng=None):
+  '''Description
+  -----------
+    Monte Carlo integration algorithm over an arbitrary 1, 2, or 3
+    dimensional domain. This algorithm uses the simplicial complex
+    itself as the integration domain. Doing so requires the ability to
+    compute the domain area/volume exactly, which can cause
+    significant overhead for very large simplicial complexes if the
+    simplices are not properly oriented.
 
   Parameters
   ----------
@@ -31,17 +139,6 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     check_simplices (default=False): Whether to check that the
       simplices define a closed surface and oriented such that their
       normals point outward
-
-    lower_bounds (default=None): the lower bounds for the integration
-      domain. This truncates the integration domain specified by the
-      vertices and simplices. If given then the integration domain is
-      considered to be a bounding box and function values outside the
-      simplicial complex are set to zero. When not specified, the
-      integration domain is the simplicial complex and any sampled
-      points which are outside of the domain are thrown out. 
-
-    upper_bounds (default=None): the upper bounds for the integration 
-      domain
 
     rng (default=Halton(D)): random number generator. Must take an 
       integer input, N, and return an (N,D) array of random points 
@@ -63,10 +160,12 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
   Note 
   ---- 
-    When integrating constant or nearly constant functions over a
-    complicated domain, it is far more efficient to NOT specify any
-    lower or upper bounds. This is because, without bounds, the area
-    of the simplicial complex can be computed exactly. 
+    Volume calculations require simplices to be oriented such that
+    their normal vectors, by the right-hand rule, point outside the
+    domain. If check_simplices is True, then the simplices are check
+    and reordered to ensure such an orientation. Checking the
+    simplices is an O(N^2) process and should be set to False if the 
+    simplices are known to be properly oriented.
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -76,19 +175,8 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
   dim = smp.shape[1]
 
-  # whether lower bounds or upper bounds were given
-  bounded = False
-  if lower_bounds is None:
-    lower_bounds = np.min(vert,0)
-  else:
-    bounded = True
-    lower_bounds = np.asarray(lower_bounds)
-
-  if upper_bounds is None:
-    upper_bounds = np.max(vert,0)
-  else:
-    bounded = True
-    upper_bounds = np.asarray(upper_bounds)
+  lower_bounds = np.min(vert,0)
+  upper_bounds = np.max(vert,0)
 
   if rng is None:
     rng = hlt.Halton(dim)
@@ -108,30 +196,18 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     minval = np.inf
     maxval = -np.inf
 
-  # if bounded is True then the integration domain is a box with
-  # area equal to the product of the bounds
-  if bounded:
-    # copy val because its contents are going to be changed
-    val = np.copy(val)
-    val[~is_inside] = 0.0
-    volume = np.prod(upper_bounds-lower_bounds)
-
-  # if bounded is False then the integration domain is bounded by
-  # the simplicial complex and its area is found from
-  # geometry.complex_volume
-  else:
-    val = val[is_inside]
-    volume = gm.complex_volume(vert,smp,orient=False)
-    if (volume < 0.0):
-      raise ValueError(
-        'simplicial complex found to have a negative volume. Check the '
-        'orientation of simplices and ensure closedness')
+  val = val[is_inside]
+  volume = gm.complex_volume(vert,smp,orient=False)
+  if (volume < 0.0):
+    raise ValueError(
+      'Simplicial complex found to have a negative volume. Check the '
+      'orientation of simplices and ensure closedness')
 
   if (volume > 0.0) & (len(val) < 2):
     raise ValueError(
-      'number of values used to estimate the integral is less than 2. If no '
-      'lower or upper bounds were specified then ensure the simplicial '
-      'complex is closed and then increase the sample size')
+      'Number of values used to estimate the integral is less than 2.'
+      'Ensure the simplicial complex is closed and then increase the '
+      'sample size')
 
   if volume == 0.0:
      soln = 0.0
@@ -142,6 +218,7 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
     err = volume*np.std(val,ddof=1)/np.sqrt(len(val))
 
   return soln,err,minval,maxval
+
 
 
 def _divide_bbox(lb,ub,depth=0):
@@ -165,7 +242,7 @@ def _divide_bbox(lb,ub,depth=0):
 
 def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
            lower_bounds=None,upper_bounds=None,_depth=0,
-           rng=None,check_simplices=True):
+           rng=None):
   '''
   Description
   -----------
@@ -240,16 +317,21 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   if rng is None:
     rng = hlt.Halton(dim)
 
-  if check_simplices:
-    smp = gm.oriented_simplices(vert,smp)
+  if lower_bounds is None:
+    lower_bounds = np.min(vert,0)
+  else:
+    lower_bounds = np.asarray(lower_bounds)
 
-  # Make an estimate of the integral. If lower bounds and 
-  # upper bounds are None, then this may be a very accurate initial
-  # estimate since the domain area can be calculated exactly. 
+  if upper_bounds is None:
+    upper_bounds = np.max(vert,0)
+  else:
+    upper_bounds = np.asarray(upper_bounds)
+
+  # Make an estimate of the integral
   out = mcint(f,vert,smp,samples=samples,
               lower_bounds=lower_bounds,
               upper_bounds=upper_bounds,
-              check_simplices=False,rng=rng)
+              rng=rng)
 
   soln = out[0]
   err = out[1]
@@ -270,16 +352,6 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
   if (err < tol) | (_depth == max_depth):
     return out
 
-  if lower_bounds is None:
-    lower_bounds = np.min(vert,0)
-  else:
-    lower_bounds = np.asarray(lower_bounds)
-
-  if upper_bounds is None:
-    upper_bounds = np.max(vert,0)
-  else:
-    upper_bounds = np.asarray(upper_bounds)
-
   # if the error is above the tolerance then divide the domain
   new_soln = 0
   new_err = 0
@@ -291,8 +363,7 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
                   upper_bounds=ubi,
                   _depth=_depth+1,
                   max_depth=max_depth,
-                  rng=rng,
-                  check_simplices=False)
+                  rng=rng)
     solni,erri,mini,maxi = outi
     if mini < minval:
       minval = mini
