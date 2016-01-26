@@ -1,193 +1,36 @@
 from __future__ import division
 import numpy as np
 import rbf.basis
+import rbf.poly
 import logging
 from itertools import combinations_with_replacement as cr
 from scipy.special import binom
 from functools import wraps
 
-cimport numpy as np
-from cython cimport boundscheck,wraparound,cdivision
-
 logger = logging.getLogger(__name__)
 
-def memoize(f):
+
+def apoly(nodes,order):
   '''
   Description
   -----------
-    decorator that stores the output of functions with hashable
-    arguments and returns that output when the function is called
-    again with the same arguments.
-
-  Note
-  ----
-    Cached output is not copied. If the function output is mutable
-    then any modifications to the output will result in modifications
-    to the cached output
-
-  '''
-  cache = {}
-  @wraps(f)
-  def fout(*args):
-    if args not in cache:
-      cache[args] = f(*args)
-    return cache[args]
-
-  return fout  
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
-  '''
-  Description
-  -----------
-    multivariate monomials
+    Returns the polynomial alternant matrix where each monomial is
+    evaluated at each node. The monomials have a coefficient of 1 and
+    consist of all those that would be in a polynomial with the given
+    order. The returned alternant matrix is the transpose of the
+    standard alternant matrix.
 
   Parameters
-  ----------
-    x: (N,D) float array of positions where the monomials will be evaluated
-
-    powers: (M,D) integer array of powers for each monomial
-
-    diff: (D,) integer array of derivatives for each variable 
-
-  Returns
-  -------
-    out: (M,N) float array of the differentiated monomials evaluated at x
-
-  '''
-  cdef:
-    long i,j,k,l
-    # number of spatial dimensions
-    long D = x.shape[1]
-    # number of monomials
-    long M = powers.shape[0] 
-    # number of positions where the monomials are evaluated
-    long N = x.shape[0]
-    double[:,:] out = np.empty((M,N),dtype=float)
-    long coeff,power
-
-  # loop over dimensions
-  for i in range(D):
-    # loop over monomials
-    for j in range(M):
-      # find the monomial coefficients after differentiation
-      coeff = 1
-      for k in range(diff[i]): 
-        coeff *= powers[j,i] - k
-
-      # if the monomial coefficient is zero then make sure the power  
-      # is also zero to prevent a zero division error
-      if coeff == 0:
-        power = 0
-      else:
-        power = powers[j,i] - diff[i]
-
-      # loop over evaluation points
-      for l in range(N):
-        if i == 0:
-          out[j,l] = coeff*x[l,i]**power              
-        else:
-          out[j,l] *= coeff*x[l,i]**power              
-
-  return np.asarray(out)
-  
-@memoize
-def monomial_powers(order,dim):
-  '''
-  Description
-  -----------
-    returns an array describing all possible monomial powers
-    in a polymonial with the given order and number of
-    dimensions. Calling this function with a negative order will
-    return an empty list (no terms in the polynomial)
-
-  Parameters
-  ----------
-    order: polynomial order
-
-    dim: polynomial dimension
-
-  Example
-  -------
-    This will return the powers of x and y for each monomial term in a
-    two dimensional polynomial with order 1 
-
-      In [1]: monomial_powers(1,2) 
-      Out[1]: array([[0,0],
-                     [1,0],
-                     [0,1]])
-  '''
-  out = []
-  for p in xrange(order+1):
-    if p == 0:
-      out.append((0,)*dim)    
-    else:
-      out.extend(sum(i) for i in cr(np.eye(dim,dtype=int),p))
-
-  return np.array(out)
-
-  
-@memoize
-def monomial_count(order,dim):
-  '''
-  Description
-  -----------
-    returns the number of monomial terms in a polynomial with the
-    given order and number of dimensions
-
-  Parameters
-  ----------
-    order: polynomial order
-
-    dim: polynomial dimension
-
-  '''
-  return int(binom(order+dim,dim))
-
-
-@memoize
-def maximum_order(stencil_size,dim):
-  '''
-  Description
-  -----------
-    returns the maximum polynomial order allowed for the given stencil
-    size and number of dimensions
-
-  Parameters
-  ----------
-    stencil_size: number of nodes in the stencil
-
-    dim: spatial dimensions of the stencil
-
-  '''
-  order = 0
-  while (monomial_count(order+1,dim) <= stencil_size):
-    order += 1
-
-  return order  
-
-
-def vpoly(nodes,order):
-  '''
-  Description
-  -----------
-    Returns the polynomial Vandermonde matrix, A[i,j], consisting of
-    monomial i evaluated at node j. The monomials have a coefficient
-    of 1 and powers determined from "monomial_powers"
-
-  Paramters
   ---------
     nodes: (N,D) numpy array of points where the monomials are
       evaluated
 
-    order: order of polynomial terms
+    order: polynomial order
 
   '''
   diff = np.zeros(nodes.shape[1],dtype=int)
-  powers = monomial_powers(order,nodes.shape[1])
-  out = mvmonos(nodes,powers,diff)
+  powers = rbf.poly.monomial_powers(order,nodes.shape[1])
+  out = rbf.poly.mvmonos(nodes,powers,diff).T
 
   return out
 
@@ -196,8 +39,8 @@ def dpoly(x,order,diff):
   '''
   Description
   -----------
-    Returns the data vector, d[i], consisting of the differentiated
-    monomial i evaluated at x. The undifferentiated monomials have a
+    Returns the data vector consisting of the each differentiated
+    monomial evaluated at x. The undifferentiated monomials have a
     coefficient of 1 and powers determined from "monomial_powers"
 
   Parameters
@@ -211,13 +54,13 @@ def dpoly(x,order,diff):
   '''
   x = x[None,:]
   diff = np.array(diff,dtype=int)
-  powers = monomial_powers(order,x.shape[1])
-  out = mvmonos(x,powers,diff)[:,0]
+  powers = rbf.poly.monomial_powers(order,x.shape[1])
+  out = rbf.poly.mvmonos(x,powers,diff)[0,:]
   
   return out
 
 
-def vrbf(nodes,centers,eps,order,basis):
+def arbf(nodes,centers,eps,order,basis):
   '''
   Description
   -----------
@@ -226,10 +69,8 @@ def vrbf(nodes,centers,eps,order,basis):
     A =   | Ar Ap.T |
           | Ap 0    |
 
-    where Ar[i,j] is the RBF Vandermonde matrix consisting of the RBF
-    with center i evaluated at nodes j.  Ap is the polynomial
-    Vandermonde matrix for the indicated order.
-   
+    where Ar is the transposed RBF alternant matrix. And Ap is the
+    transposed polynomial alternant matrix.
 
   Parameters
   ----------
@@ -241,14 +82,14 @@ def vrbf(nodes,centers,eps,order,basis):
    
     order: order of polynomial terms
 
-    basis: callable radial basis function     
+    basis: callable radial basis function
 
   '''
   # number of centers and dimensions
   Ns,Ndim = nodes.shape
 
   # number of monomial terms  
-  Np = monomial_count(order,Ndim)
+  Np = rbf.poly.monomial_count(order,Ndim)
 
   # create an array of repeated eps values
   # this is faster than using np.repeat
@@ -261,7 +102,7 @@ def vrbf(nodes,centers,eps,order,basis):
   A[:Ns,:Ns] = basis(nodes,centers,eps_array).T
 
   # Ap
-  Ap = vpoly(centers,order)  
+  Ap = apoly(centers,order)  
   A[Ns:,:Ns] = Ap
   A[:Ns,Ns:] = Ap.T
   return A
@@ -276,19 +117,18 @@ def drbf(x,centers,eps,order,diff,basis):
       d = |dr|
           |dp|
 
-    where dr[i] consists of a differentiated RBF with center i
-    evalauted at x. dp is the polynomial data.
+
+    where dr consists of the differentiated RBFs evalauted at x and dp
+    consists of the monomials evaluated at x
 
   '''
-  #centers = np.asarray(centers)
-  #x = np.asarray(x)
   x = x[None,:]
 
   # number of centers and dimensions
   Ns,Ndim = centers.shape
 
   # number of monomial terms
-  Np = monomial_count(order,Ndim)
+  Np = rbf.poly.monomial_count(order,Ndim)
 
   # create an array of repeated eps values
   # this is faster than using np.repeat
@@ -329,7 +169,8 @@ def is_operator(diff):
 def rbf_weight(x,nodes,diff,centers=None,
                basis=rbf.basis.phs5,order='max',
                eps=1.0):
-  '''Description
+  '''
+  Description
   -----------
     Finds the finite difference weights, w_i, such that 
 
@@ -385,6 +226,10 @@ def rbf_weight(x,nodes,diff,centers=None,
     thread.  Anaconda accelerate users can set the number of threads
     within a python script with the command mkl.set_num_threads(1)
 
+    This function shifts the coordinate system so that x is at the
+    origin.  This makes the added monomials equivalent to the terms in
+    a Taylor series expansion about x.
+
   '''
   x = np.array(x,dtype=float,copy=True)
   nodes = np.array(nodes,dtype=float,copy=True)
@@ -394,7 +239,7 @@ def rbf_weight(x,nodes,diff,centers=None,
   centers = np.array(centers,dtype=float,copy=True)
 
   if order == 'max':
-    order = maximum_order(*nodes.shape)
+    order = rbf.poly.maximum_order(*nodes.shape)
 
   # center about x
   centers -= x
@@ -402,13 +247,13 @@ def rbf_weight(x,nodes,diff,centers=None,
   x -= x
 
   # number of polynomial terms that will be used
-  Np = monomial_count(order,x.shape[0])
+  Np = rbf.poly.monomial_count(order,x.shape[0])
   assert Np <= nodes.shape[0], (
     'the number of monomials exceeds the number of RBFs for the '
     'stencil. Lower the polynomial order or ' 
     'increase the stencil size')
 
-  A = vrbf(nodes,centers,eps,order,basis)
+  A = arbf(nodes,centers,eps,order,basis)
   if is_operator(diff):
     d = np.zeros(nodes.shape[0] + Np)
     for coeff,diff_tuple in diff:
@@ -434,14 +279,14 @@ def poly_weight(x,nodes,diff):
   '''
   x = np.array(x,copy=True)
   nodes = np.array(nodes,copy=True)
-  order = rbf.weights.maximum_order(*nodes.shape)
-  Np = rbf.weights.monomial_count(order,nodes.shape[1])
+  order = rbf.poly.maximum_order(*nodes.shape)
+  Np = rbf.poly.monomial_count(order,nodes.shape[1])
   assert Np == nodes.shape[0], (
     'the number of nodes in a 2D stencil needs to be 1,3,6,10,15,21,... '
     'the number of nodes in a 3D stencil needs to be 1,4,10,20,35,56,... ')
   nodes -= x
   x -= x
-  A =  vpoly(nodes,order)
+  A =  apoly(nodes,order)
   d =  dpoly(x,order,diff) 
   w = np.linalg.solve(A,d)
   return w 

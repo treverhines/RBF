@@ -3,7 +3,7 @@ import numpy as np
 import rbf.nodegen
 from rbf.basis import phs5 as basis
 from rbf.integrate import density_normalizer
-from rbf.geometry import complex_contains
+from rbf.geometry import contains
 import modest
 from rbf.weights import rbf_weight
 import rbf.stencil

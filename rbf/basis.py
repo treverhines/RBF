@@ -47,9 +47,9 @@ class RBF(object):
 
     Parameters                                       
     ----------                                         
-      x: (N,D) array of locations to evaluate the RBF
+      x: (N,D) array of locations to evaluate the RBFs
                                                                           
-      centers: (M,D) array of centers for each RBF
+      centers: (M,D) array of centers for each RBFs
                                                                  
       eps: (default=None) (M,) array of shape parameters for each RBF.
         If not given then the shape parameter for each RBF is 1.0
@@ -64,7 +64,8 @@ class RBF(object):
 
     Returns
     -------
-      out: (N,M) array for each M RBF evaluated at the N points
+      out: N by M alternant matrix consisting of each RBF evaluated at x
+
 
     Note 
     ---- 
@@ -100,6 +101,9 @@ class RBF(object):
     if diff is None:
       diff = (0,)*x.shape[1]
 
+    # make sure diff is immutable
+    diff = tuple(diff)
+
     assert len(diff) == x.shape[1], (
       'length of derivative specification must be equal to the '
       'spatial dimensions of x and c')
@@ -128,119 +132,6 @@ class RBF(object):
  
     args = (tuple(x)+tuple(c)+(eps,))    
     return self.cache[diff](*args)
-
-
-# DEPRICATED
-class RBFInterpolant(object):
-  '''
-  A callable RBF interpolant
-  '''
-  def __init__(self,
-               x,
-               eps, 
-               value=None,
-               alpha=None,
-               rbf=None):
-    '''
-    Initiates the RBF interpolant
-
-    Parameters
-    ----------
-      x: ((N,) or (N,D) array) x coordinate of the interpolation
-        points which also make up the centers of the RBFs
-
-      eps: ((N,) array) shape parameters for each RBF  
- 
-      value: ((N,) or (N,R) array) Values at the x coordinates. If this 
-        is not provided then alpha must be given
-
-      alpha: ((N,) or (N,R) array) Coefficients for each RBFs. If this 
-       is not provided then value must be given  
-
-      rbf: type of rbf to use. either mq, ga, or iq
-
-    '''
-    x = np.asarray(x)
-    eps = np.asarray(eps)
-    if value is not None:
-      value = np.asarray(value)
-
-    if alpha is not None:
-      alpha = np.asarray(alpha)
-
-    if rbf is None:
-      rbf = mq
-
-    assert (value is not None) != (alpha is not None), (
-      'either val or alpha must be given')
-
-    x_shape = np.shape(x)
-    N = x_shape[0]
-    assert len(x_shape) <= 2
-    assert np.shape(eps) == (N,)
-
-    if len(x_shape) == 1:
-      x = x[:,None]
-
-    if alpha is not None:
-      alpha_shape = np.shape(alpha)
-      assert len(alpha_shape) <= 2
-      assert alpha_shape[0] == N
-      if len(alpha_shape) == 1:
-        alpha = alpha[:,None]
-
-      alpha_shape = np.shape(alpha)
-      R = alpha_shape[1]
-   
-    if value is not None:
-      value_shape = np.shape(value)
-      assert len(value_shape) <= 2
-      assert value_shape[0] == N
-      if len(value_shape) == 1:
-        value = value[:,None]
-
-      value_shape = np.shape(value)
-      R = value_shape[1]
-
-    if alpha is None:
-      alpha = np.zeros((N,R))
-      G = rbf(x,x,eps)
-      for r in range(R):
-        alpha[:,r] = np.linalg.solve(G,value[:,r])
-
-    self.x = x
-    self.eps = eps
-    self.alpha = alpha
-    self.R = R
-    self.rbf = rbf
-
-  def __call__(self,xitp,diff=None):
-    '''
-    Returns the interpolant evaluated at xitp
-
-    Parameters 
-    ---------- 
-      xitp: ((N,) or (N,D) array) points where the interpolant is to 
-        be evaluated
-
-      diff: ((D,) tuple, default=(0,)*dim) a tuple whos length is
-        equal to the number of spatial dimensions.  Each value in the
-        tuple must be an integer indicating the order of the
-        derivative in that spatial dimension.  For example, if the the
-        spatial dimensions of the problem are 3 then diff=(2,0,1)
-        would compute the second derivative in the first dimension and
-        the first derivative in the third dimension.
-
-    '''
-    out = np.zeros((len(xitp),self.R))
-    xitp = np.asarray(xitp)
-    for r in range(self.R):
-      out[:,r] = np.sum(self.rbf(xitp,
-                                 self.x,
-                                 self.eps,
-                                 diff=diff)*self.alpha[:,r],1)
-
-    return out 
 
 
 _FUNCTION_DOC = '''
