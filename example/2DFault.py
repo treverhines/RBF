@@ -4,26 +4,22 @@ import rbf.nodegen
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
 from rbf.formulation import evaluate_coeffs_and_diffs
 import numpy as np
 import rbf.bspline
-from myplot.cm import slip2
 import matplotlib.pyplot as plt
+import matplotlib.cm
 import scipy.sparse
 import scipy.sparse.linalg
 import logging
-from modest import summary
 import sympy as sp
 import multiprocessing as mp
 import mkl
 logging.basicConfig(level=logging.INFO)
 
-
-@modest.funtime
 def solver(G,d):
   if not scipy.sparse.isspmatrix_csc(G):
     G = scipy.sparse.csc_matrix(G)
@@ -214,7 +210,6 @@ plt.show()
 #  plt.show()
 
 N = len(nodes)
-modest.tic('forming G')
 
 def form_Gij(indices):
   di,mi = indices
@@ -328,7 +323,6 @@ G = scipy.sparse.vstack(G)
 data = np.concatenate(data)
 
 idx_noghost = ix['interior'] + ix['free'] + ix['fixed'] + ix['fault_hanging'] + ix['fault_foot']
-modest.toc('forming G')
 out = solver(G,data)
 out = np.reshape(out,(dim,N))
 out[:,ix['fault_foot']] = out[:,ix['fault_foot']] - slip
@@ -336,15 +330,12 @@ out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
 fig,ax = plt.subplots()
 cs = ax.tripcolor(nodes[idx_noghost,0],
                   nodes[idx_noghost,1],
-                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=slip2)
+                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=matplotlib.cm.cubehelix)
 plt.colorbar(cs)
 plt.quiver(nodes[idx_noghost[::1],0],nodes[idx_noghost[::1],1],
            out[0,idx_noghost[::1]],out[1,idx_noghost[::1]],color='k',scale=20.0)
 
-
-
 logging.basicConfig(level=logging.INFO)
-summary()
 
 plt.show()
 

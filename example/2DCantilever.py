@@ -4,24 +4,59 @@ import rbf.nodegen
 from rbf.basis import phs5 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
 from rbf.formulation import evaluate_coeffs_and_diffs
 import numpy as np
 import rbf.bspline
-from myplot.cm import slip2
 import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
 import logging
-from modest import summary
 import sympy as sp
+import matplotlib.cm
 logging.basicConfig(level=logging.INFO)
 
 
-@modest.funtime
+# end-user parameters
+######################################################################
+# number of nodes to use 
+N = 2000
+# number of nodes per stencil
+Ns = 20
+# order of the added polynomial terms
+order = 2
+
+# define the domain vertices
+vert = np.array([[0.0,0.0],
+                 [10.0,0.0],
+                 [10.0,5.0],
+                 [00.0,5.0]])
+
+# define the domain simplices
+smp = np.array([[0,1],[1,2],[2,3],[3,0]])
+
+# specify the boundary conditions for each simplex. 1 makes it fixed
+# at 0 and 2 makes it free
+bc = np.array([2,2,2,1])
+
+# lame parameters 
+lamb = 1.0
+mu = 1.0
+
+# grativational force
+grav = -1.0
+
+# node density function. rho takes a (N,2) array and returns the node
+# density at that point. the decorator is normalizes the function so
+# that it integrates to N
+@density_normalizer(vert,smp,N)
+def rho(p):
+  return 1.0 + 0.2*p[:,0]
+
+######################################################################
+
 def solver(G,d):
   if not scipy.sparse.isspmatrix_csc(G):
     G = scipy.sparse.csc_matrix(G)
@@ -33,17 +68,7 @@ def solver(G,d):
   G = G[:,perm]
   d = d[perm]
 
-  # form jacobi preconditioner
-  diag = np.array(G[range(G.shape[0]),range(G.shape[0])])[0]
-  if np.any(diag == 0.0):
-    raise ValueError(
-      'matrix cannot be sorted into a diagonal dominant matrix')
-
-  M = scipy.sparse.diags(1.0/diag,0)
-  out,status = scipy.sparse.linalg.lgmres(G,d,M=M,maxiter=1)
-  if status != 0:
-    print('lgmres exited with status %s, trying direct solve' % status)
-    out = scipy.sparse.linalg.spsolve(G,d)
+  out = scipy.sparse.linalg.spsolve(G,d)
 
   # return to original sorting
   d = d[rev_perm]
@@ -53,7 +78,7 @@ def solver(G,d):
   return out   
 
 
-# formulate the PDE
+# formulate the PDE using sympy
 x = sp.symbols('x0:2')
 n = sp.symbols('n0:2')
 u = (sp.Function('u0')(*x),
@@ -70,31 +95,17 @@ PDEs = [sum(stress[i,j].diff(x[j]) for j in range(dim)) for i in range(dim)]
 FreeBCs = [sum(stress[i,j]*n[j] for j in range(dim)) for i in range(dim)]
 FixBCs = [u[i] for i in range(dim)]
 
-def lamb(i):
-  if (nodes[i,1] > 0.05):
-    return 1.0#2.0
-  if (nodes[i,1] <= 0.05) & (nodes[i,1] >= -0.05):
-    return 1.0#2.0 - 1.8*(0.05 - nodes[i,1])/0.1
-  if (nodes[i,1] < -0.05):
-    return 1.0#0.2
-
-def lamb_diffy(i):
-  if (nodes[i,1] > 0.05):
-    return 0.0
-  if (nodes[i,1] <= 0.05) & (nodes[i,1] >= -0.05):
-    return 0.0#1.8/0.05
-  if (nodes[i,1] < -0.05):
-    return 0.0
-
-# norms is an array which is later defined
-sym2num = {L:1.0,
-           M:1.0,
+# define a mapping from symbolic expressions to numerical functions or
+# scalars. In this case, we are assuming the Lame parameters, L and M,
+# are homogeneous.
+sym2num = {L:lamb,
+           M:mu,
            sp.Integer(1):1.0,
            sp.Integer(2):2.0,
            L.diff(x[0]):0.0,
-           L.diff(x[1]):lamb_diffy,
+           L.diff(x[1]):0.0,
            M.diff(x[0]):0.0,
-           M.diff(x[1]):lamb_diffy,
+           M.diff(x[1]):0.0,
            n[0]:lambda i:norms[i,0],
            n[1]:lambda i:norms[i,1]}
 
@@ -102,52 +113,31 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-# The number of nodes needed will depend entirely on how sharply slip varies
-N = 2000
-Ns = 20
-order = 'max'
-
-# domain vertices
-surf_vert_x = np.linspace(-5,5,200)
-surf_vert_y = 0.0/(1 + 1.0*(surf_vert_x - 3.0)**2)
-#surf_vert_y = 2.0*np.sin(4*np.pi*surf_vert_x/10.0)
-
-surf_vert = np.array([surf_vert_x,surf_vert_y]).T
-surf_smp = np.array([np.arange(199),np.arange(1,200)]).T
-bot_vert = np.array([[-5.0,-2.0],
-                     [5.0,-2.0]])
-vert = np.vstack((bot_vert,surf_vert))
-smp = np.concatenate(([[0,1],[0,2],[1,201]],surf_smp+2))
-smp = np.array(smp,dtype=int)
-grp = 2*np.ones(len(smp))
-#grp[[0,1,2]] = 1
-grp[1] = 1
-# 1 = fixed
-# 2 = free
-
-# density function
-@density_normalizer(vert,smp,N)
-def rho(p):
-  out = 1.0/(1 + 0.1*np.linalg.norm(p - np.array([0.0,11.0]),axis=1)**2)
-  out += 1.0/(1 + 0.1*np.linalg.norm(p - np.array([2.0,10.0]),axis=1)**2)
-  out += 1.0/(1 + 0.1*np.linalg.norm(p - np.array([-2.0,10.0]),axis=1)**2)
-  return 1.0 + 0*out
-
 scale = np.max(vert) - np.min(vert)
 
 # domain nodes
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp)
+nodes,smpid = rbf.nodegen.volume(rho,vert,smp)
 
+# find normal vectors for each simplex
+smp_norms = rbf.geometry.simplex_normals(vert,smp)
 
-nodes,ix = rbf.nodegen.merge_nodes(interior=nodes_d[group_d==0],
-                                   fixed=nodes_d[group_d==1],
-                                   free=nodes_d[group_d==2],
-                                   free_ghost=nodes_d[group_d==2])
+# surface normal vectors for each node. vectors for interior nodes are zero
+norms = smp_norms[smpid]
+norms[smpid==-1] = 0
 
-norms,ix = rbf.nodegen.merge_nodes(interior=norms_d[group_d==0],
-                                   fixed=norms_d[group_d==1],
-                                   free=norms_d[group_d==2],
-                                   free_ghost=norms_d[group_d==2])
+# boundary condition for each node
+node_bc = bc[smpid]
+node_bc[smpid==-1] = 0
+
+nodes,ix = rbf.nodegen.merge_nodes(interior=nodes[node_bc==0],
+                                   fixed=nodes[node_bc==1],
+                                   free=nodes[node_bc==2],
+                                   free_ghost=nodes[node_bc==2])
+
+norms,ix = rbf.nodegen.merge_nodes(interior=norms[node_bc==0],
+                                   fixed=norms[node_bc==1],
+                                   free=norms[node_bc==2],
+                                   free_ghost=norms[node_bc==2])
 
 # find the nearest neighbors for the ghost nodes
 s,dx = rbf.stencil.nearest(nodes[ix['free_ghost']],nodes,3)
@@ -167,7 +157,6 @@ plt.show()
 s,dx = rbf.stencil.nearest(nodes,nodes,Ns)
 
 N = len(nodes)
-modest.tic('forming G')
 
 G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float32) for mi in range(dim)] for di in range(dim)]
 data = [np.zeros(N,dtype=np.float32) for i in range(dim)]
@@ -206,26 +195,26 @@ for di in range(dim):
 G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
 
-# add gravitational force
-data[1][ix['interior']] += 1.0#(nodes[ix['interior'],1] > 10.01).astype(np.float32)
-data[1][ix['free']] += 1.0#(nodes[ix['free'],1] > 10.01).astype(np.float32)
+# add gravitational force to indices where the PDE was enforced
+data[1][ix['interior']] -= grav
+data[1][ix['free']] -= grav
+
 data = np.concatenate(data)
 
 idx_noghost = ix['free'] + ix['fixed'] + ix['interior']
-modest.toc('forming G')
 out = solver(G,data)
+
+# Displacement solution
 out = np.reshape(out,(dim,N))
+
+# plot the results
 fig,ax = plt.subplots()
 cs = ax.tripcolor(nodes[idx_noghost,0],
                   nodes[idx_noghost,1],
-                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=slip2)
+                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=matplotlib.cm.cubehelix)
 plt.colorbar(cs)
 plt.quiver(nodes[idx_noghost[::1],0],nodes[idx_noghost[::1],1],
            out[0,idx_noghost[::1]],out[1,idx_noghost[::1]],color='k')
-
-
-logging.basicConfig(level=logging.INFO)
-summary()
 
 plt.show()
 

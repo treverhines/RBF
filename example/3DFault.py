@@ -5,27 +5,22 @@ from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
 from rbf.geometry import complex_volume
-import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
 from rbf.formulation import evaluate_coeffs_and_diffs
 import numpy as np
 import mayavi.mlab
-from myplot.cm import slip2
 import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
 import logging
-from modest import summary
 import random
 import sympy as sp
 import mkl
 mkl.set_num_threads(1)
 logging.basicConfig(level=logging.INFO)
 
-
-@modest.funtime
 def jacobi_preconditioned_solve(G,d):
   if not scipy.sparse.isspmatrix_csc(G):
     G = scipy.sparse.csc_matrix(G)
@@ -113,7 +108,7 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-N = 20000
+N = 2000
 Ns = 50
 order = 3
 
@@ -153,17 +148,16 @@ smp_f =  np.array([[0,1,2],
 @density_normalizer(vert,smp,N)
 def rho(p):
   #out = np.zeros(p.shape[0])
-  out = 0.00 + 0.5/(1.0 + 10000*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
+  out = 0.00 + 0.5/(1.0 + 1000*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
   return out
 
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert,smp)
+nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert_f,smp_f)
 
 mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
                      nodes_f[:,2],scale_factor=0.005)
-modest.summary()
 mayavi.mlab.show()
 
 simplex_normals = rbf.geometry.simplex_upward_normals(vert_f,smp_f)
@@ -203,9 +197,8 @@ slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
 
 mayavi.mlab.points3d(nodes_d[:,0],nodes_d[:,1],
                      nodes_d[:,2],scale_factor=0.005)
-modest.summary()
 mayavi.mlab.show()
-quit()
+
 # domain nodes
 
 # split fault nodes into hanging wall and foot wall nodes
@@ -261,7 +254,6 @@ N = len(nodes)
 
 G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float64) for mi in range(dim)] for di in range(dim)]
 data = [np.zeros(N) for mi in range(dim)]
-modest.tic('forming G')
 # This can be parallelized!!!!
 for di in range(dim):
   for mi in range(dim):
@@ -364,7 +356,6 @@ out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
 out = out.T
 
 idx = ix['fault_foot'] + ix['fault_hanging'] + ix['interior'] + ix['fixed'] + ix['free']
-modest.toc('forming G')
 
 import matplotlib.pyplot as plt
 plt.quiver(nodes[ix['free'],0],nodes[ix['free'],1],out[ix['free'],0],out[ix['free'],1])
@@ -378,7 +369,7 @@ mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.
 
 mayavi.mlab.show()
 logging.basicConfig(level=logging.INFO)
-summary()
+
 
 
 

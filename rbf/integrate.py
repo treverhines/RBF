@@ -4,10 +4,8 @@ import numpy as np
 import rbf.halton as hlt
 import rbf.geometry as gm
 import logging 
-import modest
 logger = logging.getLogger(__name__)
 
-@modest.funtime
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
           upper_bounds=None,rng=None):
   '''
@@ -111,8 +109,6 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
   return soln,err,minval,maxval
 
-
-@modest.funtime
 def mcint2(f,vert,smp,samples=None,
            check_simplices=True,rng=None):
   '''Description
@@ -218,7 +214,6 @@ def mcint2(f,vert,smp,samples=None,
     err = volume*np.std(val,ddof=1)/np.sqrt(len(val))
 
   return soln,err,minval,maxval
-
 
 
 def _divide_bbox(lb,ub,depth=0):

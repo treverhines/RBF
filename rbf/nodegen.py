@@ -6,11 +6,10 @@ import rbf.geometry as gm
 import rbf.integrate
 import rbf.stencil
 import logging
-import modest
 from itertools import combinations
 logger = logging.getLogger(__name__)
 
-@modest.funtime
+
 def verify_node_spacing(rho,nodes,tol=0.25):
   '''
   Description
@@ -67,7 +66,6 @@ def merge_nodes(**kwargs):
   return out_array,out_dict
 
 
-@modest.funtime
 def _repel_step(free_nodes,rho,
                 fix_nodes=None,
                 n=10,delta=0.1):
@@ -95,7 +93,6 @@ def _repel_step(free_nodes,rho,
   return free_nodes
 
 
-@modest.funtime
 def _repel_bounce(free_nodes,vertices,
                   simplices,rho,   
                   fix_nodes=None,
@@ -166,7 +163,6 @@ def _repel_bounce(free_nodes,vertices,
   return free_nodes
 
 
-@modest.funtime
 def _repel_stick(free_nodes,vertices,
                  simplices,rho,   
                  fix_nodes=None,
@@ -247,7 +243,6 @@ def _repel_stick(free_nodes,vertices,
   return free_nodes,node_group
 
 
-@modest.funtime
 def volume(rho,vertices,simplices,fix_nodes=None,
            itr=20,n=10,delta=0.1,check_simplices=True):
   '''
@@ -382,7 +377,6 @@ def volume(rho,vertices,simplices,fix_nodes=None,
   return nodes,smpid
 
 
-@modest.funtime
 def _simplex_rotation(vert):
   '''                                                                                      
   returns a matrix that rotates the simplex such that      
@@ -433,7 +427,6 @@ def _simplex_rotation(vert):
     return R
 
 
-@modest.funtime
 def _nodes_on_simplex(rho,vert,fix_nodes=None,**kwargs):
   '''                                                                                      
   This finds nodes on the given simplex which would be consistent 
@@ -502,7 +495,6 @@ def _nodes_on_simplex(rho,vert,fix_nodes=None,**kwargs):
   return nodes,smpid
 
 
-@modest.funtime
 def _find_free_edges(smp):
   '''                                                                                      
   finds the vertex indices making up all of the unconnected simplex edges 
@@ -533,7 +525,6 @@ def _find_free_edges(smp):
   return out
 
 
-@modest.funtime
 def _find_edges(smp):
   '''                                                                                      
   finds the vertex indices making up all of the simplex edges  
@@ -551,7 +542,6 @@ def _find_edges(smp):
   return out
 
 
-@modest.funtime
 def surface(rho,vert,smp,**kwargs):
   '''
   Description

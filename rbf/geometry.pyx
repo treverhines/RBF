@@ -98,10 +98,7 @@ from cython.parallel import prange
 from libc.stdlib cimport rand
 from libc.stdlib cimport malloc,free
 from itertools import combinations
-import logging
 from scipy.special import factorial
-import modest
-logger = logging.getLogger(__name__)
 
 # NOTE: fabs is not the same as abs in C!!! 
 cdef extern from "math.h":
@@ -1015,7 +1012,6 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
   return np.asarray(out,dtype=bool)
 
 
-@modest.funtime
 def intersection_point(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1072,7 +1068,6 @@ def intersection_point(start_points,end_points,vertices,simplices):
   return out
 
 
-@modest.funtime
 def intersection_normal(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1130,7 +1125,6 @@ def intersection_normal(start_points,end_points,vertices,simplices):
   return out
 
 
-@modest.funtime
 def intersection_index(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1185,7 +1179,6 @@ def intersection_index(start_points,end_points,vertices,simplices):
   return out
 
 
-@modest.funtime
 def cross_count(start_points,end_points,vertices,simplices):
   '''
   Description
@@ -1235,7 +1228,6 @@ def cross_count(start_points,end_points,vertices,simplices):
   return out
 
 
-@modest.funtime
 def contains(points,vertices,simplices):
   '''
   Description
@@ -1297,7 +1289,6 @@ def contains(points,vertices,simplices):
   return out
 
 
-@modest.funtime
 def simplex_normals(vert,smp):
   '''                       
   Description           
@@ -1330,7 +1321,6 @@ def simplex_normals(vert,smp):
   return out
 
 
-@modest.funtime
 def simplex_outward_normals(vert,smp):
   ''' 
   Description
@@ -1357,7 +1347,6 @@ def simplex_outward_normals(vert,smp):
   return simplex_normals(vert,smp)
 
 
-@modest.funtime
 def simplex_upward_normals(vert,smp):
   '''
   Description
@@ -1384,7 +1373,6 @@ def simplex_upward_normals(vert,smp):
   return out
 
 
-@modest.funtime
 def oriented_simplices(vert,smp):
   '''
   Description                       
@@ -1431,13 +1419,12 @@ def oriented_simplices(vert,smp):
   return smp
 
 
-@modest.funtime
 def complex_volume(vert,smp,orient=True):
   '''
   Description
   -----------
-    returns the volume polyhedra, area of a polygon, or length of a
-    segment enclosed by the simplices
+    returns the volume of a polyhedra, area of a polygon, or length of
+    a segment enclosed by the simplices
 
   Parameters
   ----------
@@ -1446,7 +1433,7 @@ def complex_volume(vert,smp,orient=True):
     smp: vertex indices making of each simplex 
 
     orient (default=True): If true, the simplices are oriented such
-      that their normals from the right hand rule point outwar. The 
+      that their normals from the right hand rule point outward. The 
       time for this operation increase quadratically with the number
       of simplexes. This does nothing for 1D simplices
 
@@ -1471,7 +1458,6 @@ def complex_volume(vert,smp,orient=True):
   return volume
 
 
-@modest.funtime
 def contains_N_duplicates(iterable,N=1):
   '''            
   returns True if every element in iterable is repeated N times
@@ -1491,7 +1477,6 @@ def contains_N_duplicates(iterable,N=1):
   return True
 
 
-@modest.funtime
 def is_valid(smp):
   '''             
   Description
@@ -1515,7 +1500,6 @@ def is_valid(smp):
     simplexes 
 
   '''
-  logger.debug('checking validity')
   smp = np.asarray(smp)
   smp = np.array([np.sort(i) for i in smp])
   dim = smp.shape[1]
@@ -1535,7 +1519,6 @@ def is_valid(smp):
       sub_smp.append(c_list)
 
   out = contains_N_duplicates(sub_smp,2)
-  logger.debug('finished checking validity')
   return out
 
 

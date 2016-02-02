@@ -4,14 +4,13 @@ import rbf.nodegen
 from rbf.basis import phs5 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-import modest
 from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
 from rbf.formulation import evaluate_coeffs_and_diffs
 import numpy as np
 import rbf.bspline
-from myplot.cm import slip2
+import matplotlib.cm
 import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
@@ -20,8 +19,6 @@ from modest import summary
 import sympy as sp
 logging.basicConfig(level=logging.INFO)
 
-
-@modest.funtime
 def solver(G,d):
   if not scipy.sparse.isspmatrix_csc(G):
     G = scipy.sparse.csc_matrix(G)
@@ -105,7 +102,7 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 # The number of nodes needed will depend entirely on how sharply slip varies
 N = 2000
 Ns = 20
-order = 'max'
+order = 2#'max'
 
 # domain vertices
 surf_vert_x = np.linspace(-5,5,200)
@@ -180,7 +177,6 @@ nodes[ix['free_ghost']] += dx*norms[ix['free_ghost']]
 s,dx = rbf.stencil.nearest(nodes,nodes,Ns)
 
 N = len(nodes)
-modest.tic('forming G')
 
 G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float32) for mi in range(dim)] for di in range(dim)]
 data = [np.zeros(N,dtype=np.float32) for i in range(dim)]
@@ -225,20 +221,17 @@ data[1][ix['free']] += (nodes[ix['free'],1] > 10.01).astype(np.float32)
 data = np.concatenate(data)
 
 idx_noghost = ix['free'] + ix['fixed'] + ix['interior']
-modest.toc('forming G')
 out = solver(G,data)
 out = np.reshape(out,(dim,N))
 fig,ax = plt.subplots()
 cs = ax.tripcolor(nodes[idx_noghost,0],
                   nodes[idx_noghost,1],
-                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=slip2)
+                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=matplotlib.cm.cubehelix)
 plt.colorbar(cs)
 plt.quiver(nodes[idx_noghost[::2],0],nodes[idx_noghost[::2],1],
            out[0,idx_noghost[::2]],out[1,idx_noghost[::2]],color='k',scale=10)
 
-
 logging.basicConfig(level=logging.INFO)
-summary()
 
 plt.show()
 
