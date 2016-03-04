@@ -92,7 +92,7 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 # The number of nodes needed depends on how sharp slip varies on the fault
-N = 2000
+N = 5000
 Ns = 50
 # It seems like using the maximum polynomial order is not helpful for
 # this problem. Stick with cubic order polynomials and RBFs 
@@ -116,8 +116,8 @@ smp_f =  np.array([[0,1]])
 # density function
 @density_normalizer(vert,smp,N)
 def rho(p):
-  out = 1.0/(1 + 50*np.linalg.norm(p-np.array([0.0,0.5]),axis=1)**2)
-  out += 1.0/(1 + 50*np.linalg.norm(p-np.array([0.0,-0.5]),axis=1)**2)
+  out = 1.0/(1 + 100*np.linalg.norm(p-np.array([0.0,0.5]),axis=1)**2)
+  out += 1.0/(1 + 100*np.linalg.norm(p-np.array([0.0,-0.5]),axis=1)**2)
   return out
 
 scale = np.max(vert) - np.min(vert)
@@ -337,6 +337,9 @@ plt.quiver(nodes[idx_noghost[::1],0],nodes[idx_noghost[::1],1],
 
 logging.basicConfig(level=logging.INFO)
 
+fig,ax = plt.subplots()
+ax.plot(nodes[ix['free'],0],out[1,ix['free']],'o')
+ax.plot(nodes[ix['free'],0],out[0,ix['free']],'o')
 plt.show()
 
 

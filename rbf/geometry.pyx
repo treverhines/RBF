@@ -145,32 +145,17 @@ cdef struct triangle3d:
   vector3d c
 
 
-cdef double min2(double a, double b) nogil:
-  if a <= b:
-    return a
-  else:
-    return b
-
-cdef double max2(double a, double b) nogil:
-  if a >= b:
-    return a
-  else:
-    return b
-
-cdef double min3(double a, double b, double c) nogil:
-  if (a <= b) & (a <= c):
-    return a
-
-  if (b <= a) & (b <= c):
-    return b
-
-  if (c <= a) & (c <= b):
-    return c
-
 @cdivision(True)
 cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:  
   '''
-  identifies whether a point in 1d space is within a segment
+  Description 
+  ----------- 
+    identifies whether a point in 1D space is within a 1D segment. For
+    the sake of consistency, this is done by projecting the point into
+    a barycentric coordinate system defined by the segment. The point
+    is then inside the segment if both of the barycentric coordinates
+    are positive
+
   '''
   cdef: 
     double l1,l2
@@ -186,8 +171,12 @@ cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:
 @cdivision(True)
 cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:  
   '''
-  identifies whether a point in 2d space is within a triangle by
-  converting the point to barycentric coordinates
+  Description 
+  ----------- 
+    identifies whether a point in 2D space is within a 2D
+    triangle. This is done by projecting the point into a barycentric
+    coordinate system defined by the triangle. The point is then inside
+    the segment if all three of the barycentric coordinates are positive
   '''
   cdef: 
     double det,l1,l2,l3
@@ -234,6 +223,13 @@ cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
 @wraparound(False)
 @cdivision(True)
 cdef vector2d find_outside_2d(double[:,:] v) nogil:
+  '''
+  Description
+  -----------
+    Finds a arbitrary point that is outside of a polygon defined by
+    the given vertices
+
+  '''
   cdef:
     unsigned int i
     vector2d out
@@ -256,6 +252,13 @@ cdef vector2d find_outside_2d(double[:,:] v) nogil:
 @wraparound(False)
 @cdivision(True)
 cdef vector3d find_outside_3d(double[:,:] v) nogil:
+  '''
+  Description
+  -----------
+    Finds a arbitrary point that is outside of a polyhedron defined by
+    the given vertices
+
+  '''
   cdef:
     unsigned int i
     vector3d out
@@ -624,16 +627,15 @@ cdef bint is_intersecting_3d(segment3d seg,
     returns True if the 3D segment intersects the 3D triangle. An
     intersection is detected if the segment and triangle are not
     coplanar and if any part of the segment touches the triangle at an
-    edge or in the interior. Intersections at corners are not detected
+    edge or in the interior.
 
   Note
   ----
     This function determines where the segment intersects the plane
     containing the triangle and then projects the intersection point
-    and triangle into 2D where a point in polygon test is
-    performed. Although rare, 2D point in polygon tests can fail if
-    the randomly determined outside point and the test point cross a
-    vertex of the polygon. 
+    and triangle into a 2D plane where the point is then tested if it
+    is within the triangle.
+
   '''
   cdef:
     vector3d pnt,n
