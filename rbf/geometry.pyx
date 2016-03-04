@@ -110,22 +110,34 @@ cdef extern from "math.h":
 cdef extern from "limits.h":
     int RAND_MAX
 
+cdef struct vector1d:
+  double x
+
 cdef struct vector2d:
   double x
   double y
-
-cdef struct segment2d:
-  vector2d a
-  vector2d b
 
 cdef struct vector3d:
   double x
   double y
   double z
 
+cdef struct segment1d:
+  vector1d a
+  vector1d b
+
+cdef struct segment2d:
+  vector2d a
+  vector2d b
+
 cdef struct segment3d:
   vector3d a
   vector3d b
+
+cdef struct triangle2d:
+  vector2d a
+  vector2d b
+  vector2d c
 
 cdef struct triangle3d:
   vector3d a
@@ -155,8 +167,46 @@ cdef double min3(double a, double b, double c) nogil:
   if (c <= a) & (c <= b):
     return c
 
+@cdivision(True)
+cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:  
+  '''
+  identifies whether a point in 1d space is within a segment
+  '''
+  cdef: 
+    double l1,l2
+  
+  # find barycentric coordinates  
+  l1 = (seg.a.x - vec.x)/(seg.a.x-seg.b.x)
+  l2 = (vec.x - seg.b.x)/(seg.a.x-seg.b.x)
+  if (l1>=0.0) & (l2>=0.0):
+    return True
+  else: 
+    return False
+
+@cdivision(True)
+cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:  
+  '''
+  identifies whether a point in 2d space is within a triangle by
+  converting the point to barycentric coordinates
+  '''
+  cdef: 
+    double det,l1,l2,l3
+
+  # find barycentric coordinates  
+  det =  (tri.b.y - tri.c.y)*(tri.a.x-tri.c.x) + (tri.c.x-tri.b.x)*(tri.a.y-tri.c.y)
+  l1 =  ((tri.b.y - tri.c.y)*(vec.x-tri.c.x) + (tri.c.x-tri.b.x)*(vec.y-tri.c.y))/det
+  l2 =  ((tri.c.y - tri.a.y)*(vec.x-tri.c.x) + (tri.a.x-tri.c.x)*(vec.y-tri.c.y))/det
+  l3 = 1 - l1 - l2
+  if (l1>=0.0) & (l2>=0.0) & (l3>=0.0):
+    return True
+  else:
+    return False
+
 
 cdef vector2d segment_normal_2d(segment2d seg) nogil:
+  '''
+  returns the vector normal to a 2d line segment
+  '''
   cdef:
     vector2d out
 
@@ -164,7 +214,11 @@ cdef vector2d segment_normal_2d(segment2d seg) nogil:
   out.y = -(seg.b.x-seg.a.x)
   return out
   
+
 cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
+  '''
+  returns the vector normal to a 3d triangle
+  '''
   cdef:
     vector3d out
 
@@ -241,6 +295,8 @@ cdef bint is_intersecting_2d(segment2d seg1,
     double proj1,proj2
     vector2d pnt
     vector2d n
+    vector1d pnt_proj
+    segment1d seg_proj
 
   # find the normal vector components for segment 2
   n = segment_normal_2d(seg2)
@@ -267,18 +323,16 @@ cdef bint is_intersecting_2d(segment2d seg1,
 
   # if the normal x component is larger then compare y values
   if fabs(n.x) >= fabs(n.y):
-    if ((pnt.y >= min2(seg2.a.y,seg2.b.y)) & 
-        (pnt.y <= max2(seg2.a.y,seg2.b.y))):
-      return True
-    else:
-      return False
+    pnt_proj.x = pnt.y    
+    seg_proj.a.x = seg2.a.y
+    seg_proj.b.x = seg2.b.y
+    return point_in_segment(pnt_proj,seg_proj)
 
   else:
-    if ((pnt.x >= min2(seg2.a.x,seg2.b.x)) & 
-        (pnt.x <= max2(seg2.a.x,seg2.b.x))):
-      return True
-    else:
-      return False
+    pnt_proj.x = pnt.x
+    seg_proj.a.x = seg2.a.x
+    seg_proj.b.x = seg2.b.x
+    return point_in_segment(pnt_proj,seg_proj)
 
 
 @boundscheck(False)
@@ -582,17 +636,10 @@ cdef bint is_intersecting_3d(segment3d seg,
     vertex of the polygon. 
   '''
   cdef:
-    vector3d pnt1,pnt2,n
-    segment2d seg1,seg2,seg3,seg4
-    double proj1,proj2,n1,n2,n3
-    unsigned int i,idx1,idx2
-    unsigned int count = 0
-
-  # find point which is definitively outside of the triangle when
-  # viewed from either the x, y, or z axis 
-  pnt2.x = min3(tri.a.x,tri.b.x,tri.c.x) - 1.23456789
-  pnt2.y = min3(tri.a.y,tri.b.y,tri.c.y) - 2.34567891
-  pnt2.z = min3(tri.a.z,tri.b.z,tri.c.z) - 3.45678912
+    vector3d pnt,n
+    vector2d pnt_proj
+    triangle2d tri_proj
+    double proj1,proj2
 
   # find triangle normal vector components
   n = triangle_normal_3d(tri)
@@ -614,86 +661,42 @@ cdef bint is_intersecting_3d(segment3d seg,
     return False
 
   # intersection point
-  pnt1.x = seg.a.x + (proj1/(proj1-proj2))*(seg.b.x-seg.a.x)
-  pnt1.y = seg.a.y + (proj1/(proj1-proj2))*(seg.b.y-seg.a.y)
-  pnt1.z = seg.a.z + (proj1/(proj1-proj2))*(seg.b.z-seg.a.z)
+  pnt.x = seg.a.x + (proj1/(proj1-proj2))*(seg.b.x-seg.a.x)
+  pnt.y = seg.a.y + (proj1/(proj1-proj2))*(seg.b.y-seg.a.y)
+  pnt.z = seg.a.z + (proj1/(proj1-proj2))*(seg.b.z-seg.a.z)
 
   if (fabs(n.x) >= fabs(n.y)) & (fabs(n.x) >= fabs(n.z)):
-    seg1.a.x = pnt1.y
-    seg1.a.y = pnt1.z
-    seg1.b.x = pnt2.y
-    seg1.b.y = pnt2.z
-
-    seg2.a.x = tri.a.y
-    seg2.a.y = tri.a.z
-    seg2.b.x = tri.b.y
-    seg2.b.y = tri.b.z
-
-    seg3.a.x = tri.b.y
-    seg3.a.y = tri.b.z
-    seg3.b.x = tri.c.y
-    seg3.b.y = tri.c.z
-
-    seg4.a.x = tri.c.y
-    seg4.a.y = tri.c.z
-    seg4.b.x = tri.a.y
-    seg4.b.y = tri.a.z
+    pnt_proj.x = pnt.y
+    pnt_proj.y = pnt.z
+    tri_proj.a.x = tri.a.y
+    tri_proj.a.y = tri.a.z
+    tri_proj.b.x = tri.b.y
+    tri_proj.b.y = tri.b.z
+    tri_proj.c.x = tri.c.y
+    tri_proj.c.y = tri.c.z
+    return point_in_triangle(pnt_proj,tri_proj)
 
   elif (fabs(n.y) >= fabs(n.x)) & (fabs(n.y) >= fabs(n.z)):
-    seg1.a.x = pnt1.x
-    seg1.a.y = pnt1.z
-    seg1.b.x = pnt2.x
-    seg1.b.y = pnt2.z
-
-    seg2.a.x = tri.a.x
-    seg2.a.y = tri.a.z
-    seg2.b.x = tri.b.x
-    seg2.b.y = tri.b.z
-
-    seg3.a.x = tri.b.x
-    seg3.a.y = tri.b.z
-    seg3.b.x = tri.c.x
-    seg3.b.y = tri.c.z
-
-    seg4.a.x = tri.c.x
-    seg4.a.y = tri.c.z
-    seg4.b.x = tri.a.x
-    seg4.b.y = tri.a.z
+    pnt_proj.x = pnt.x
+    pnt_proj.y = pnt.z
+    tri_proj.a.x = tri.a.x
+    tri_proj.a.y = tri.a.z
+    tri_proj.b.x = tri.b.x
+    tri_proj.b.y = tri.b.z
+    tri_proj.c.x = tri.c.x
+    tri_proj.c.y = tri.c.z
+    return point_in_triangle(pnt_proj,tri_proj)
 
   elif (fabs(n.z) >= fabs(n.x)) & (fabs(n.z) >= fabs(n.y)):
-    seg1.a.x = pnt1.x
-    seg1.a.y = pnt1.y
-    seg1.b.x = pnt2.x
-    seg1.b.y = pnt2.y
-
-    seg2.a.x = tri.a.x
-    seg2.a.y = tri.a.y
-    seg2.b.x = tri.b.x
-    seg2.b.y = tri.b.y
-
-    seg3.a.x = tri.b.x
-    seg3.a.y = tri.b.y
-    seg3.b.x = tri.c.x
-    seg3.b.y = tri.c.y
-
-    seg4.a.x = tri.c.x
-    seg4.a.y = tri.c.y
-    seg4.b.x = tri.a.x
-    seg4.b.y = tri.a.y
-
-
-  if is_intersecting_2d(seg1,seg2):
-    count += 1
-
-
-  if is_intersecting_2d(seg1,seg3):
-    count += 1
-
-
-  if is_intersecting_2d(seg1,seg4):
-    count += 1
-
-  return count%2 == 1
+    pnt_proj.x = pnt.x
+    pnt_proj.y = pnt.y
+    tri_proj.a.x = tri.a.x
+    tri_proj.a.y = tri.a.y
+    tri_proj.b.x = tri.b.x
+    tri_proj.b.y = tri.b.y
+    tri_proj.c.x = tri.c.x
+    tri_proj.c.y = tri.c.y
+    return point_in_triangle(pnt_proj,tri_proj)
 
 
 @boundscheck(False)

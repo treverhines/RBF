@@ -18,7 +18,7 @@ xitp = rbf.halton.halton(Nitp,2)
 val = f(x)
 valitp = f(xitp)
 
-A = RBFInterpolant(x,val,order=0,basis=rbf.basis.phs1,extrapolate=True)
+A = RBFInterpolant(x,val,order=0,basis=rbf.basis.phs1,extrapolate=False)
 pred = A(xitp)
 
 # true solution

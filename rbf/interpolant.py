@@ -6,6 +6,14 @@ import rbf.basis
 import rbf.poly
 import rbf.geometry
 
+def in_hull(p, hull):
+  '''
+  Tests if points in p are in the convex hull made up by hull
+  '''
+  hull = scipy.spatial.Delaunay(hull)
+  return hull.find_simplex(p)>=0
+
+
 class RBFInterpolant(object):
   '''
   A callable RBF interpolant
@@ -72,17 +80,13 @@ class RBFInterpolant(object):
     A[Ns:,:Ns] = Ap.T
     A[:Ns,Ns:] = Ap
 
-    coeff = solve(A,value)
-
-    # if extrapolation is not allowed then form a bounding convex hull
-    if not extrapolate:
-      if Ndim == 1:
-        self.simplices = np.array([np.argmin(x,axis=0),np.argmax(x,axis=0)])
-
-      else:
-        chull = scipy.spatial.ConvexHull(x)
-        self.vertices = np.array(chull.points,dtype=float)
-        self.simplices = np.array(chull.simplices,dtype=int)
+    try:
+      coeff = solve(A,value)
+    except np.linalg.LinAlgError:
+      print('Encountered singular matrix when finding the coefficients '
+            'for the RBF interpolant. Attempting to solve with Tikhonov '
+            'regularization')
+      coeff = solve(A+1e-10*np.eye(Ns+Np),value)      
 
     self.x = x
     self.coeff = coeff
@@ -134,10 +138,7 @@ class RBFInterpolant(object):
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
     if not self.extrapolate:
-      is_inside = rbf.geometry.contains(xitp,
-                                        self.vertices,
-                                        self.simplices)
-      out[~is_inside] = self.fill
+      out[~in_hull(xitp,self.x)] = self.fill
 
     return out
 
