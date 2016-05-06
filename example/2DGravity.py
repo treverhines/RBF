@@ -6,12 +6,15 @@ from rbf.integrate import density_normalizer
 from rbf.geometry import contains
 from rbf.weights import rbf_weight
 import rbf.stencil
+import myplot.cm
+from rbf.halton import Halton
 from rbf.formulation import coeffs_and_diffs
 from rbf.formulation import evaluate_coeffs_and_diffs
 import numpy as np
 import rbf.bspline
 import matplotlib.cm
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
 import scipy.sparse
 import scipy.sparse.linalg
 import logging
@@ -113,11 +116,16 @@ surf_vert = np.array([surf_vert_x,surf_vert_y+10]).T
 surf_smp = np.array([np.arange(199),np.arange(1,200)]).T
 bot_vert = np.array([[-5.0,-5.0],
                      [5.0,-5.0]])
+#### for plotting purposes onlys
+top_vert = np.array([[5.0,11.5],[-5.0,11.5]])
+####
 vert = np.vstack((bot_vert,surf_vert))
+anti_vert = np.vstack((top_vert,surf_vert))
 smp = np.concatenate(([[0,1],[0,2],[1,201]],surf_smp+2))
 smp = np.array(smp,dtype=int)
 grp = 2*np.ones(len(smp))
 grp[[0,1,2]] = 1
+
 # 1 = fixed
 # 2 = free
 
@@ -224,12 +232,54 @@ idx_noghost = ix['free'] + ix['fixed'] + ix['interior']
 out = solver(G,data)
 out = np.reshape(out,(dim,N))
 fig,ax = plt.subplots()
-cs = ax.tripcolor(nodes[idx_noghost,0],
-                  nodes[idx_noghost,1],
-                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=matplotlib.cm.cubehelix)
-plt.colorbar(cs)
-plt.quiver(nodes[idx_noghost[::2],0],nodes[idx_noghost[::2],1],
-           out[0,idx_noghost[::2]],out[1,idx_noghost[::2]],color='k',scale=10)
+
+inside_nodes = nodes[idx_noghost]
+H = Halton(2)
+outside_nodes = H(100000)-0.5
+outside_nodes[:,0] *= 10
+outside_nodes[:,1] += 10.5
+
+outside_nodes = outside_nodes[~contains(outside_nodes,vert,smp)]
+soln = out[:,idx_noghost]
+
+nodes = inside_nodes
+
+#cs = ax.tripcolor(nodes[idx_noghost,0],
+#                  nodes[idx_noghost,1],
+#                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=myplot.cm.viridis)
+cs = ax.tripcolor(nodes[:,0],
+                  nodes[:,1],
+                  np.linalg.norm(soln,axis=0),cmap=myplot.cm.viridis)
+#plt.colorbar(cs)
+plt.quiver(nodes[::1,0],nodes[::1,1],
+           soln[0,::1],soln[1,::1],color='k',scale=40)
+ax.axes.get_yaxis().set_visible(False)
+ax.axes.get_xaxis().set_visible(False)
+
+ax.set_xlim(-4,4)
+ax.set_ylim(3.5,11.5)
+
+for s in smp:
+  ax.plot(vert[s,0],vert[s,1],'k-',lw=2)
+
+poly = Polygon(anti_vert,closed=False,color='w')
+ax.add_artist(poly)
+
+fig2,ax2 = plt.subplots()
+
+plt.plot(nodes[:,0],nodes[:,1],'ko')
+#ax2.set_axis_off()
+ax2.set_xlim(-4,4)
+ax2.set_ylim(3.5,11.5)
+
+for s in smp:
+  ax2.plot(vert[s,0],vert[s,1],'k-',lw=2)
+
+poly = Polygon(anti_vert,closed=False,color='w')
+ax2.add_artist(poly)
+#ax2.set_frame_on(False)
+ax2.axes.get_yaxis().set_visible(False)
+ax2.axes.get_xaxis().set_visible(False)
 
 logging.basicConfig(level=logging.INFO)
 

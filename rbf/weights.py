@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def apoly(nodes,order):
-  '''
+  ''' 
   Description
   -----------
     Returns the polynomial alternant matrix where each monomial is
@@ -36,7 +36,7 @@ def apoly(nodes,order):
 
 
 def dpoly(x,order,diff):
-  '''
+  ''' 
   Description
   -----------
     Returns the data vector consisting of the each differentiated
@@ -61,7 +61,7 @@ def dpoly(x,order,diff):
 
 
 def arbf(nodes,centers,eps,order,basis):
-  '''
+  ''' 
   Description
   -----------
     returns the matrix:
@@ -109,7 +109,7 @@ def arbf(nodes,centers,eps,order,basis):
 
 
 def drbf(x,centers,eps,order,diff,basis): 
-  '''
+  ''' 
   Description
   -----------
     returns the vector:
@@ -147,7 +147,7 @@ def drbf(x,centers,eps,order,diff,basis):
 
 
 def is_operator(diff):
-  '''
+  ''' 
   Description
   -----------
     diff can either be a tuple describing the differentiation order in
@@ -169,7 +169,7 @@ def is_operator(diff):
 def rbf_weight(x,nodes,diff,centers=None,
                basis=rbf.basis.phs5,order='max',
                eps=1.0):
-  '''
+  ''' 
   Description
   -----------
     Finds the finite difference weights, w_i, such that 
@@ -268,7 +268,7 @@ def rbf_weight(x,nodes,diff,centers=None,
 
 
 def poly_weight(x,nodes,diff):
-  '''
+  ''' 
   finds the weights, w, such that
 
   f_i(c_j) = c_j**i

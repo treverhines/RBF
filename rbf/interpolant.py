@@ -7,7 +7,7 @@ import rbf.poly
 import rbf.geometry
 
 def in_hull(p, hull):
-  '''
+  ''' 
   Tests if points in p are in the convex hull made up by hull
   '''
   hull = scipy.spatial.Delaunay(hull)
@@ -15,7 +15,7 @@ def in_hull(p, hull):
 
 
 class RBFInterpolant(object):
-  '''
+  ''' 
   A callable RBF interpolant
   '''
   def __init__(self,
@@ -26,7 +26,7 @@ class RBFInterpolant(object):
                order=0,
                extrapolate=True,
                fill=np.nan):
-    '''
+    ''' 
     Initiates the RBF interpolant
 
     Parameters 
@@ -101,8 +101,7 @@ class RBFInterpolant(object):
 
 
   def __call__(self,xitp,diff=None):
-    '''
-    Returns the interpolant evaluated at xitp
+    '''Returns the interpolant evaluated at xitp
 
     Parameters 
     ---------- 
@@ -118,22 +117,27 @@ class RBFInterpolant(object):
         the first derivative in the third dimension.
 
     '''
+    max_chunk = 100000
+    n = 0
     xitp = np.asarray(xitp,dtype=float)
     Nitp = xitp.shape[0]
 
     if diff is None:
       diff = (0,)*self.Ndim
 
-    A = np.zeros((Nitp,self.Ns+self.Np))
-    A[:,:self.Ns] = self.basis(xitp,
-                               self.x,
-                               eps=self.eps,
-                               diff=diff)
-    A[:,self.Ns:] = rbf.poly.mvmonos(xitp,
-                                     self.powers,
-                                     np.array(diff,dtype=int))
-
-    out = np.einsum('ij,j...->i...',A,self.coeff)
+    out = np.zeros((len(xitp),)+self.coeff.shape[1:])
+    while n < len(xitp):
+      xitp_i = xitp[n:n+max_chunk]
+      A = np.zeros((len(xitp_i),self.Ns+self.Np))
+      A[:,:self.Ns] = self.basis(xitp_i,
+                                 self.x,
+                                 eps=self.eps,
+                                 diff=diff)
+      A[:,self.Ns:] = rbf.poly.mvmonos(xitp_i,
+                                       self.powers,
+                                       np.array(diff,dtype=int))
+      out[n:n+max_chunk] = np.einsum('ij,j...->i...',A,self.coeff)
+      n += max_chunk
 
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed

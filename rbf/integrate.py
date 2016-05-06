@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def mcint(f,vert,smp,samples=None,lower_bounds=None,
           upper_bounds=None,rng=None):
-  '''
+  ''' 
   Description
   -----------
     Monte Carlo integration algorithm over an arbitrary 1, 2, or 3  
@@ -111,7 +111,8 @@ def mcint(f,vert,smp,samples=None,lower_bounds=None,
 
 def mcint2(f,vert,smp,samples=None,
            check_simplices=True,rng=None):
-  '''Description
+  ''' 
+  Description
   -----------
     Monte Carlo integration algorithm over an arbitrary 1, 2, or 3
     dimensional domain. This algorithm uses the simplicial complex
@@ -158,7 +159,7 @@ def mcint2(f,vert,smp,samples=None,
   ---- 
     Volume calculations require simplices to be oriented such that
     their normal vectors, by the right-hand rule, point outside the
-    domain. If check_simplices is True, then the simplices are check
+    domain. If check_simplices is True, then the simplices are checked
     and reordered to ensure such an orientation. Checking the
     simplices is an O(N^2) process and should be set to False if the 
     simplices are known to be properly oriented.
@@ -193,7 +194,7 @@ def mcint2(f,vert,smp,samples=None,
     maxval = -np.inf
 
   val = val[is_inside]
-  volume = gm.complex_volume(vert,smp,orient=False)
+  volume = gm.enclosure(vert,smp,orient=False)
   if (volume < 0.0):
     raise ValueError(
       'Simplicial complex found to have a negative volume. Check the '
@@ -217,7 +218,7 @@ def mcint2(f,vert,smp,samples=None,
 
 
 def _divide_bbox(lb,ub,depth=0):
-  '''
+  ''' 
   divides the bounding box in half along an axis determined by the 
   recursion depth
   '''
@@ -238,7 +239,7 @@ def _divide_bbox(lb,ub,depth=0):
 def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
            lower_bounds=None,upper_bounds=None,_depth=0,
            rng=None):
-  '''
+  ''' 
   Description
   -----------
     Recursive Monte Carlo integration algorithm over an arbitrary 1,
@@ -385,7 +386,7 @@ def rmcint(f,vert,smp,tol=None,max_depth=50,samples=None,
 
 
 def _normalizer(fin,vert,smp,kind='integral',N=None,tol=None):
-  '''
+  ''' 
   normalize a scalar values fucntion in 1,2 or 3 dimensional space.
   The function should takes an (N,D) array of points as its only
   argument and return an (N,) array.  The kind of normalization is

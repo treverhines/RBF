@@ -4,7 +4,7 @@ import rbf.nodegen
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-from rbf.geometry import complex_volume
+#from rbf.geometry import enclosure
 from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
@@ -18,19 +18,24 @@ import logging
 import random
 import sympy as sp
 import mkl
-mkl.set_num_threads(1)
-logging.basicConfig(level=logging.INFO)
+import modest
 
+mkl.set_num_threads(1)
+logging.basicConfig(level=logging.DEBUG)
+
+def precond1(G):
+  out = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
+  return out
 def jacobi_preconditioned_solve(G,d):
-  if not scipy.sparse.isspmatrix_csc(G):
-    G = scipy.sparse.csc_matrix(G)
+  #if not scipy.sparse.isspmatrix_csc(G):
+  #  G = scipy.sparse.csc_matrix(G)
 
   # sort G and d using reverse cuthill mckee algorithm
-  perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)
-  rev_perm = np.argsort(perm)
-  G = G[perm,:]
-  G = G[:,perm]
-  d = d[perm]
+  #perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)
+  #rev_perm = np.argsort(perm)
+  #G = G[perm,:]
+  #G = G[:,perm]
+  #d = d[perm]
 
   # form jacobi preconditioner       
   #diag = np.array(G[range(G.shape[0]),range(G.shape[0])])[0]
@@ -40,16 +45,22 @@ def jacobi_preconditioned_solve(G,d):
 
   #M = scipy.sparse.diags(1.0/diag,0)
   #out,status = scipy.sparse.linalg.lgmres(G,d,M=M)
-  out = scipy.sparse.linalg.spsolve(G,d)
+  modest.tic('solving')
+  #G = G.astype(np.float64) 
+  #d= d.astype(np.float64)
+  M = scipy.sparse.linalg.spilu(G.tocsc(),drop_tol=1e-8)
+  pc = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
+  out = scipy.sparse.linalg.gmres(G,d,M=pc)
+  modest.toc('solving')
   #if status != 0:
   #  raise ValueError(
   #    'lgmres exited with status %s' % status)
 
   # return to original sorting
-  d = d[rev_perm]
-  out = out[rev_perm]
-  G = G[rev_perm,:]
-  G = G[:,rev_perm]
+  #d = d[rev_perm]
+  #out = out[rev_perm]
+  #G = G[rev_perm,:]
+  #G = G[:,rev_perm]
   return out
 
 # formulate the PDE
@@ -156,9 +167,9 @@ scale = np.max(vert) - np.min(vert)
 # fault nodes
 nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert_f,smp_f)
 
-mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
-                     nodes_f[:,2],scale_factor=0.005)
-mayavi.mlab.show()
+#mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
+#                     nodes_f[:,2],scale_factor=0.005)
+#mayavi.mlab.show()
 
 simplex_normals = rbf.geometry.simplex_upward_normals(vert_f,smp_f)
 
@@ -195,9 +206,9 @@ basis_no = rbf.bspline.basis_number(knots_z,2)
 slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
 #slip[1,:] = 1.0
 
-mayavi.mlab.points3d(nodes_d[:,0],nodes_d[:,1],
-                     nodes_d[:,2],scale_factor=0.005)
-mayavi.mlab.show()
+#mayavi.mlab.points3d(nodes_d[:,0],nodes_d[:,1],
+#                     nodes_d[:,2],scale_factor=0.005)
+#mayavi.mlab.show()
 
 # domain nodes
 
@@ -252,6 +263,7 @@ nodes[ix['fault_foot_ghost']] += dx_next_closest[ix['fault_foot_ghost']]*norms[i
 
 N = len(nodes)
 
+modest.tic('buildingG')
 G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float64) for mi in range(dim)] for di in range(dim)]
 data = [np.zeros(N) for mi in range(dim)]
 # This can be parallelized!!!!
@@ -348,6 +360,7 @@ G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
 data = np.concatenate(data)
 G = G.tocsc()
+modest.toc('buildingG')
 
 out = jacobi_preconditioned_solve(G,data)
 out = np.reshape(out,(dim,N))
@@ -361,13 +374,13 @@ import matplotlib.pyplot as plt
 plt.quiver(nodes[ix['free'],0],nodes[ix['free'],1],out[ix['free'],0],out[ix['free'],1])
 plt.show()
 
-mayavi.mlab.quiver3d(nodes[idx,0],nodes[idx,1],nodes[idx,2],out[idx,0],out[idx,1],out[idx,2],mode='arrow',color=(0,1,0))
+#mayavi.mlab.quiver3d(nodes[idx,0],nodes[idx,1],nodes[idx,2],out[idx,0],out[idx,1],out[idx,2],mode='arrow',color=(0,1,0))
 
 
-mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.2,color=(1,1,1))
-mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.2,color=(1,0,0))
+#mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.2,color=(1,1,1))
+#mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.2,color=(1,0,0))
 
-mayavi.mlab.show()
+#mayavi.mlab.show()
 logging.basicConfig(level=logging.INFO)
 
 

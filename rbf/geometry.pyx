@@ -1,6 +1,6 @@
 # distutils: extra_compile_args = -fopenmp
 # distutils: extra_link_args = -fopenmp
-'''
+''' 
 Description 
 ----------- 
   Defines functions for basic computational geometry in 1, 2, and 3
@@ -68,7 +68,7 @@ Description
   defined by 'start_points' and 'end_points', intersect a simplicial
   complex with the command
 
-  >> cross_count(start_points,end_points,vertices,simplices)
+  >> intersection_count(start_points,end_points,vertices,simplices)
 
   which returns an array of the number of simplexes intersections for
   each segment. If it is known that a collection of line segments
@@ -110,6 +110,9 @@ cdef extern from "math.h":
 cdef extern from "limits.h":
     int RAND_MAX
 
+## geometric data types
+#####################################################################
+
 cdef struct vector1d:
   double x
 
@@ -144,10 +147,12 @@ cdef struct triangle3d:
   vector3d b
   vector3d c
 
+## point in simplex functions
+#####################################################################
 
 @cdivision(True)
 cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:  
-  '''
+  ''' 
   Description 
   ----------- 
     identifies whether a point in 1D space is within a 1D segment. For
@@ -170,13 +175,15 @@ cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:
 
 @cdivision(True)
 cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:  
-  '''
+  ''' 
   Description 
   ----------- 
     identifies whether a point in 2D space is within a 2D
     triangle. This is done by projecting the point into a barycentric
-    coordinate system defined by the triangle. The point is then inside
-    the segment if all three of the barycentric coordinates are positive
+    coordinate system defined by the triangle. The point is then
+    inside the segment if all three of the barycentric coordinates are
+    positive
+
   '''
   cdef: 
     double det,l1,l2,l3
@@ -192,8 +199,11 @@ cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:
     return False
 
 
+## simplex normals functions
+#####################################################################
+
 cdef vector2d segment_normal_2d(segment2d seg) nogil:
-  '''
+  ''' 
   returns the vector normal to a 2d line segment
   '''
   cdef:
@@ -205,7 +215,7 @@ cdef vector2d segment_normal_2d(segment2d seg) nogil:
   
 
 cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
-  '''
+  ''' 
   returns the vector normal to a 3d triangle
   '''
   cdef:
@@ -219,11 +229,15 @@ cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
             (tri.b.y-tri.a.y)*(tri.c.x-tri.a.x))
   return out
 
+
+## find point outside simplicial complex
+#####################################################################
+
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
 cdef vector2d find_outside_2d(double[:,:] v) nogil:
-  '''
+  ''' 
   Description
   -----------
     Finds a arbitrary point that is outside of a polygon defined by
@@ -252,7 +266,7 @@ cdef vector2d find_outside_2d(double[:,:] v) nogil:
 @wraparound(False)
 @cdivision(True)
 cdef vector3d find_outside_3d(double[:,:] v) nogil:
-  '''
+  ''' 
   Description
   -----------
     Finds a arbitrary point that is outside of a polyhedron defined by
@@ -282,12 +296,13 @@ cdef vector3d find_outside_3d(double[:,:] v) nogil:
   return out
 
 
-@boundscheck(False)
-@wraparound(False)
+## 2D point in polygon functions
+#####################################################################
+
 @cdivision(True)
 cdef bint is_intersecting_2d(segment2d seg1,
                              segment2d seg2) nogil:
-  '''
+  ''' 
   Description
   -----------
     Identifies whether two 2D segments intersect. An intersection is
@@ -340,11 +355,11 @@ cdef bint is_intersecting_2d(segment2d seg1,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_count_2d(double[:,:] start_pnts,
-                               double[:,:] end_pnts,
-                               double[:,:] vertices,
-                               long[:,:] simplices):
-  '''
+cdef np.ndarray intersection_count_2d(double[:,:] start_pnts,
+                                      double[:,:] end_pnts,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices):
+  ''' 
   Description
   -----------
     returns an array containing the number of simplexes intersected
@@ -364,7 +379,7 @@ cdef np.ndarray cross_count_2d(double[:,:] start_pnts,
     seg.a.y = start_pnts[i,1]
     seg.b.x = end_pnts[i,0]
     seg.b.y = end_pnts[i,1]
-    out[i] = _cross_count_2d(seg,vertices,simplices)
+    out[i] = _intersection_count_2d(seg,vertices,simplices)
 
 
   return np.asarray(out,dtype=int)
@@ -372,9 +387,9 @@ cdef np.ndarray cross_count_2d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
-cdef int _cross_count_2d(segment2d seg1,
-                         double[:,:] vertices,
-                         long[:,:] simplices) nogil:
+cdef int _intersection_count_2d(segment2d seg1,
+                                double[:,:] vertices,
+                                long[:,:] simplices) nogil:
   cdef:
     unsigned int i
     unsigned int count = 0
@@ -397,7 +412,7 @@ cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
                                       double[:,:] end_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):
-  '''
+  ''' 
   Description
   -----------
     returns an array identifying which simplex is intersected by
@@ -451,7 +466,7 @@ cdef np.ndarray intersection_point_2d(double[:,:] start_pnts,
                                       double[:,:] end_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):         
-  '''
+  ''' 
   Description
   -----------
     returns an array of intersection points between line segments,
@@ -519,13 +534,13 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
                                  double[:,:] end_pnts,
                                  double[:,:] vertices,
                                  long[:,:] simplices):         
-  '''
+  ''' 
   Description
   -----------
     returns an array of normal vectors to the simplices intersected by
     the line segments described in terms of start_pnts and end_pnts
 
-p  Note
+  Note
   ----
     if there is not intersection then a ValueError is returned
 
@@ -590,7 +605,7 @@ cdef vector2d _cross_normals_2d(segment2d seg1,
 cdef np.ndarray contains_2d(double[:,:] pnt,
                             double[:,:] vertices,
                             long[:,:] simplices):
-  '''
+  ''' 
   Description
   -----------
     returns a boolean array identifying which points are contained in
@@ -610,18 +625,21 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
     seg.a.y = outside_pnt.y
     seg.b.x = pnt[i,0]
     seg.b.y = pnt[i,1]
-    count = _cross_count_2d(seg,vertices,simplices)
+    count = _intersection_count_2d(seg,vertices,simplices)
     out[i] = count%2
 
   return np.asarray(out,dtype=bool)
 
+
+## 3D point in polygon functions
+#####################################################################
 
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
 cdef bint is_intersecting_3d(segment3d seg,
                              triangle3d tri) nogil:
-  '''
+  ''' 
   Description
   ----------- 
     returns True if the 3D segment intersects the 3D triangle. An
@@ -703,11 +721,11 @@ cdef bint is_intersecting_3d(segment3d seg,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_count_3d(double[:,:] start_pnts,
-                               double[:,:] end_pnts,                         
-                               double[:,:] vertices,
-                               long[:,:] simplices):
-  '''
+cdef np.ndarray intersection_count_3d(double[:,:] start_pnts,
+                                      double[:,:] end_pnts,                         
+                                      double[:,:] vertices,
+                                      long[:,:] simplices):
+  ''' 
   Description
   -----------
     returns an array of the number of intersections between each line
@@ -727,16 +745,16 @@ cdef np.ndarray cross_count_3d(double[:,:] start_pnts,
     seg.b.x = end_pnts[i,0]
     seg.b.y = end_pnts[i,1]
     seg.b.z = end_pnts[i,2]
-    out[i] = _cross_count_3d(seg,vertices,simplices)
+    out[i] = _intersection_count_3d(seg,vertices,simplices)
 
   return np.asarray(out)  
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef int _cross_count_3d(segment3d seg,
-                         double[:,:] vertices,
-                         long[:,:] simplices) nogil:
+cdef int _intersection_count_3d(segment3d seg,
+                                double[:,:] vertices,
+                                long[:,:] simplices) nogil:
   cdef:
     unsigned int i
     unsigned int count = 0
@@ -764,7 +782,7 @@ cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
                                       double[:,:] end_pnts,                         
                                       double[:,:] vertices,
                                       long[:,:] simplices):
-  '''
+  ''' 
   Description
   -----------
     returns an array identifying which simplex is intersected by
@@ -774,7 +792,7 @@ cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
   ----
     if there is no intersection then a ValueError is returned.
 
-  '''  
+  '''
 
   cdef:
     int i
@@ -827,7 +845,7 @@ cdef np.ndarray intersection_point_3d(double[:,:] start_pnts,
                                       double[:,:] end_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):         
-  '''
+  ''' 
   Description
   -----------
     returns the intersection points between the line segments,
@@ -906,7 +924,7 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
                                  double[:,:] end_pnts,
                                  double[:,:] vertices,
                                  long[:,:] simplices):
-  '''
+  ''' 
   Description
   -----------
     returns the normal vectors to the simplices intersected start_pnts
@@ -988,7 +1006,7 @@ cdef vector3d _cross_normals_3d(segment3d seg,
 cdef np.ndarray contains_3d(double[:,:] pnt,
                             double[:,:] vertices,
                             long[:,:] simplices):
-  '''
+  ''' 
   Description
   -----------
     returns a boolean array identifying whether the points are
@@ -1011,14 +1029,16 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
     seg.b.x = pnt[i,0]
     seg.b.y = pnt[i,1]
     seg.b.z = pnt[i,2]
-    count = _cross_count_3d(seg,vertices,simplices)
+    count = _intersection_count_3d(seg,vertices,simplices)
     out[i] = count%2
 
   return np.asarray(out,dtype=bool)
 
+## end-user functions
+#####################################################################
 
 def intersection_point(start_points,end_points,vertices,simplices):
-  '''
+  ''' 
   Description
   -----------
     returns the intersection points between the line segments,
@@ -1074,7 +1094,7 @@ def intersection_point(start_points,end_points,vertices,simplices):
 
 
 def intersection_normal(start_points,end_points,vertices,simplices):
-  '''
+  ''' 
   Description
   -----------
     returns the normal vectors to the simplexes intersected by the
@@ -1131,7 +1151,7 @@ def intersection_normal(start_points,end_points,vertices,simplices):
 
 
 def intersection_index(start_points,end_points,vertices,simplices):
-  '''
+  ''' 
   Description
   -----------
     returns the indices of the simplices intersected by the line
@@ -1184,8 +1204,8 @@ def intersection_index(start_points,end_points,vertices,simplices):
   return out
 
 
-def cross_count(start_points,end_points,vertices,simplices):
-  '''
+def intersection_count(start_points,end_points,vertices,simplices):
+  ''' 
   Description
   -----------
     returns the number of simplexes crossed by the line segments
@@ -1225,16 +1245,16 @@ def cross_count(start_points,end_points,vertices,simplices):
     out = np.sum(crossed_bool,axis=1)
 
   if dim == 2:
-    out = cross_count_2d(start_points,end_points,vertices,simplices)
+    out = intersection_count_2d(start_points,end_points,vertices,simplices)
 
   if dim == 3:
-    out = cross_count_3d(start_points,end_points,vertices,simplices)
+    out = intersection_count_3d(start_points,end_points,vertices,simplices)
 
   return out
 
 
 def contains(points,vertices,simplices):
-  '''
+  ''' 
   Description
   -----------
     returns a boolean array identifying whether the points are
@@ -1295,7 +1315,7 @@ def contains(points,vertices,simplices):
 
 
 def simplex_normals(vert,smp):
-  '''                       
+  ''' 
   Description           
   -----------                         
     returns the normal vectors for each simplex. Orientation is 
@@ -1353,7 +1373,7 @@ def simplex_outward_normals(vert,smp):
 
 
 def simplex_upward_normals(vert,smp):
-  '''
+  ''' 
   Description
   -----------
     returns the normal vectors for each simplex whose sign for the
@@ -1379,7 +1399,7 @@ def simplex_upward_normals(vert,smp):
 
 
 def oriented_simplices(vert,smp):
-  '''
+  ''' 
   Description                       
   -----------                   
     Returns simplex indices that are ordered such that each simplex
@@ -1424,8 +1444,8 @@ def oriented_simplices(vert,smp):
   return smp
 
 
-def complex_volume(vert,smp,orient=True):
-  '''
+def enclosure(vert,smp,orient=True):
+  ''' 
   Description
   -----------
     returns the volume of a polyhedra, area of a polygon, or length of
@@ -1435,7 +1455,7 @@ def complex_volume(vert,smp,orient=True):
   ----------
     vert: vertices of the domain
 
-    smp: vertex indices making of each simplex 
+    smp: vertex indices making up each simplex 
 
     orient (default=True): If true, the simplices are oriented such
       that their normals from the right hand rule point outward. The 
@@ -1525,8 +1545,5 @@ def is_valid(smp):
 
   out = contains_N_duplicates(sub_smp,2)
   return out
-
-
-
 
 

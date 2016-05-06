@@ -6,8 +6,7 @@ from cython cimport boundscheck,wraparound,cdivision
 @cdivision(True)
 @boundscheck(False)
 cpdef np.ndarray primes(long N):
-  '''
-  computes the first N prime numbers
+  '''computes the first N prime numbers
   '''
   cdef:
     bint flag # lowered when a test number is not prime
@@ -39,8 +38,7 @@ cdef double halton_n(long n,
                      long base,
                      long start,
                      long skip) nogil:
-  '''
-  computes element n of a 1d halton sequence
+  '''computes element n of a 1d halton sequence
   '''
   cdef:
     double out = 0
@@ -61,8 +59,7 @@ cpdef np.ndarray halton(long N,
                         long start=0,
                         long skip=1,
                         long prime_index=0):   
-  '''
-  computes a halton sequence of length N and dimensions D
+  '''computes a halton sequence of length N and dimensions D
 
   Parameters
   ----------
@@ -89,14 +86,12 @@ cpdef np.ndarray halton(long N,
 
 
 class Halton(object):
-  '''
-  A class which produces a Halton sequence when called and remembers
-  the state of the sequence so that repeated calls produce the next
-  items in the sequence.
+  '''A class which produces a Halton sequence when called and
+  remembers the state of the sequence so that repeated calls produce
+  the next items in the sequence.
   '''
   def __init__(self,D=1,start=0,skip=1,prime_index=0):
-    '''                         
-    Parameters             
+    '''Parameters             
     ----------         
       D (default=1): dimensions of the Halton sequence    
       start (default=0): Index to start at in the Halton sequence 
@@ -109,8 +104,7 @@ class Halton(object):
     self.prime_index = prime_index
 
   def __call__(self,N):
-    '''              
-    Parameters         
+    '''Parameters         
     ----------               
       N: Number of elements of the Halton sequence to return  
                         

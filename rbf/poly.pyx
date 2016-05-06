@@ -12,7 +12,7 @@ from cython cimport boundscheck,wraparound,cdivision
 logger = logging.getLogger(__name__)
 
 def memoize(f):
-  '''
+  ''' 
   Description
   -----------
     decorator that stores the output of functions with hashable
@@ -39,7 +39,7 @@ def memoize(f):
 @boundscheck(False)
 @wraparound(False)
 cpdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
-  '''
+  ''' 
   Description
   -----------
     multivariate monomials
@@ -101,7 +101,7 @@ cpdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
   
 @memoize
 def monomial_powers(order,dim):
-  '''
+  ''' 
   Description
   -----------
     returns an array describing all possible monomial powers
@@ -142,7 +142,7 @@ def monomial_powers(order,dim):
   
 @memoize
 def monomial_count(order,dim):
-  '''
+  ''' 
   Description
   -----------
     returns the number of monomial terms in a polynomial with the
@@ -163,7 +163,7 @@ def monomial_count(order,dim):
 
 @memoize
 def maximum_order(stencil_size,dim):
-  '''
+  ''' 
   Description
   -----------
     returns the maximum polynomial order allowed for the given stencil

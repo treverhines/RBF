@@ -54,8 +54,7 @@ cpdef np.ndarray bsp1d(double[:] x,
                        int index,
                        int order,
                        int diff=0):
-  '''
-  returns a 1D B-spline evaluated at x
+  '''returns a 1D B-spline evaluated at x
   '''
   cdef:
     int N = x.shape[0]
@@ -89,8 +88,7 @@ cdef double bsp1d_k(double x,
                     int p,
                     int diff,
                     double tol) nogil:
-  '''
-  Returns a bspline evaluated at x
+  '''returns a bspline evaluated at x
 
   Parameters
   ----------
@@ -101,7 +99,7 @@ cdef double bsp1d_k(double x,
     diff: derivative order
     tol: tolerance used to determine whether two knots are identical.
     
-  '''          
+  '''
   cdef:
     double out = 0.0
 
@@ -137,8 +135,7 @@ cdef double bsp1d_k(double x,
   return out
 
 def bspnd(x,k,n,p,diff=None):
-  '''                                            
-  returns an N-D B-spline which is the tensor product of 1-D B-splines   
+  '''returns an N-D B-spline which is the tensor product of 1-D B-splines   
   The arguments for this function should all be length N sequences and       
   each element will be passed to bspline_1d             
                                                     

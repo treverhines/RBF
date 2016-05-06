@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import rbf.nodegen
+import modest
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
@@ -18,6 +19,7 @@ import logging
 import sympy as sp
 import multiprocessing as mp
 import mkl
+import myplot.cm
 logging.basicConfig(level=logging.INFO)
 
 def solver(G,d):
@@ -32,7 +34,9 @@ def solver(G,d):
   d = d[perm]
 
   # it is not clear whether sorting the matrix helps much
-  out = scipy.sparse.linalg.spsolve(G,d)
+  modest.tic('solving')
+  out = scipy.sparse.linalg.spsolve(G,d,use_umfpack=False)
+  print(modest.toc('solving'))
 
   # return to original sorting
   d = d[rev_perm]
@@ -92,7 +96,7 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 # The number of nodes needed depends on how sharp slip varies on the fault
-N = 5000
+N = 2000
 Ns = 50
 # It seems like using the maximum polynomial order is not helpful for
 # this problem. Stick with cubic order polynomials and RBFs 
@@ -109,15 +113,15 @@ smp = np.array([[0,1],[1,2],[2,3],[3,0]])
 grp = np.array([1,1,2,1])
 
 # fault vertices
-vert_f = np.array([[0.0,-0.5],
-                   [-0.0,0.5]])
+vert_f = np.array([[0.5,-0.25],
+                   [-0.5,0.75]])
 smp_f =  np.array([[0,1]])
 
 # density function
 @density_normalizer(vert,smp,N)
 def rho(p):
-  out = 1.0/(1 + 100*np.linalg.norm(p-np.array([0.0,0.5]),axis=1)**2)
-  out += 1.0/(1 + 100*np.linalg.norm(p-np.array([0.0,-0.5]),axis=1)**2)
+  out = 1.0/(1 + 20*np.linalg.norm(p-np.array([-0.5,0.75]),axis=1)**2)
+  out += 1.0/(1 + 20*np.linalg.norm(p-np.array([0.5,-0.25]),axis=1)**2)
   return out
 
 scale = np.max(vert) - np.min(vert)
@@ -134,20 +138,21 @@ nodes_f = nodes_f[is_inside]
 norms_f = norms_f[is_inside]
 group_f = group_f[is_inside]
 
-plt.plot(nodes_f[:,0],nodes_f[:,1],'o')
-plt.quiver(nodes_f[:,0],nodes_f[:,1],norms_f[:,0],norms_f[:,1])
-plt.xlim((-1,1))
-plt.ylim((-1,1))
-plt.show()
+#plt.plot(nodes_f[:,0],nodes_f[:,1],'o')
+#plt.quiver(nodes_f[:,0],nodes_f[:,1],norms_f[:,0],norms_f[:,1])
+#plt.xlim((-1,1))
+#plt.ylim((-1,1))
+#plt.show()
 # define slip
 slip = np.zeros((dim,len(nodes_f[group_f==0])))
-knots = np.linspace(-0.5,0.5,6)
+knots = np.linspace(-0.25,0.75,8)
 basis_no = rbf.bspline.basis_number(knots,2)
 slip[1,:] = np.sum(rbf.bspline.bsp1d(nodes_f[group_f==0,1],knots,i,2) for i in range(basis_no))
+slip[0,:] = -np.sum(rbf.bspline.bsp1d(nodes_f[group_f==0,1],knots,i,2) for i in range(basis_no))
 
-plt.plot(nodes_f[group_f==0,1],slip[1,:],'ro')
-plt.plot(nodes_f[group_f==0,1],slip[0,:],'bo')
-plt.show()
+#plt.plot(nodes_f[group_f==0,1],slip[1,:],'ro')
+#plt.plot(nodes_f[group_f==0,1],slip[0,:],'bo')
+#plt.show()
 
 # domain nodes
 nodes_d,smpid_d = rbf.nodegen.volume(rho,vert,smp,fix_nodes=nodes_f)
@@ -200,8 +205,8 @@ nodes[ix['fault_hanging_ghost']] -= dx_next_closest[ix['fault_hanging_ghost']]*n
 nodes[ix['fault_foot_ghost']] += dx_next_closest[ix['fault_foot_ghost']]*norms[ix['fault_foot_ghost']]
 
 
-plt.plot(nodes[:,0],nodes[:,1],'ko')
-plt.show()
+#plt.plot(nodes[:,0],nodes[:,1],'ko')
+#plt.show()
 # view nodes
 #for i in ix['fault_foot']:
 #  plt.plot(nodes[:,0],nodes[:,1],'ko')
@@ -330,16 +335,31 @@ out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
 fig,ax = plt.subplots()
 cs = ax.tripcolor(nodes[idx_noghost,0],
                   nodes[idx_noghost,1],
-                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=matplotlib.cm.cubehelix)
-plt.colorbar(cs)
+                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=myplot.cm.viridis)
+#plt.colorbar(cs)
 plt.quiver(nodes[idx_noghost[::1],0],nodes[idx_noghost[::1],1],
-           out[0,idx_noghost[::1]],out[1,idx_noghost[::1]],color='k',scale=20.0)
+           out[0,idx_noghost[::1]],out[1,idx_noghost[::1]],color='k',scale=40.0)
 
+ax.set_xlim(-0.7,0.7)
+ax.set_ylim(-0.5,1.2)
+ax.plot([-1.0,1.0],[1.0,1.0],'k-',lw=2)
+ax.get_yaxis().set_visible(False)
+ax.get_xaxis().set_visible(False)
 logging.basicConfig(level=logging.INFO)
 
-fig,ax = plt.subplots()
-ax.plot(nodes[ix['free'],0],out[1,ix['free']],'o')
-ax.plot(nodes[ix['free'],0],out[0,ix['free']],'o')
+fig2,ax2 = plt.subplots()
+ax2.set_xlim(-0.7,0.7)
+ax2.set_ylim(-0.5,1.2)
+ax2.plot([-1.0,1.0],[1.0,1.0],'k-',lw=2)
+ax2.plot([-0.5,0.5],[0.75,-0.25],'r-',lw=2)
+ax2.plot(nodes[idx_noghost,0],nodes[idx_noghost,1],'ko')
+
+ax2.get_yaxis().set_visible(False)
+ax2.get_xaxis().set_visible(False)
+
+#fig,ax = plt.subplots()
+#ax.plot(nodes[ix['free'],0],out[1,ix['free']],'o')
+#ax.plot(nodes[ix['free'],0],out[0,ix['free']],'o')
 plt.show()
 
 

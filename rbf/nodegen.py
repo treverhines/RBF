@@ -6,12 +6,50 @@ import rbf.geometry as gm
 import rbf.integrate
 import rbf.stencil
 import logging
+import scipy.sparse
+import modest
 from itertools import combinations
 logger = logging.getLogger(__name__)
 
+@modest.funtime
+def adjacency_argsort(nodes,n=10):
+  ''' 
+  Description
+  -----------
+    Sorts nodes so that adjacent nodes are close together. This is done
+    primarily through use of a KD Tree and the Reverse Cuthill-McKee 
+    algorithm
 
-def verify_node_spacing(rho,nodes,tol=0.25):
+  Parameters
+  ----------
+    nodes: (N,D) array of nodes
+
+    n: number of adjacencies to identify for each node. The           
+       permutation array will place adjacent nodes close to eachother
+       in memory.  This should be about equal to the stencil size for 
+       RBF-FD method.
+
+  Returns
+  -------
+    permutation: (N,) array of sorting indices
   '''
+  nodes = np.asarray(nodes,dtype=float)
+
+  # find the indices of the nearest N nodes for each node
+  idx,dist = rbf.stencil.nearest(nodes,nodes,n)
+
+  # efficiently form adjacency matrix
+  col = idx.flatten()
+  row = np.repeat(np.arange(nodes.shape[0]),n)
+  data = np.ones(nodes.shape[0]*n,dtype=bool)
+  M = scipy.sparse.csr_matrix((data,(row,col)),dtype=bool)
+  permutation = scipy.sparse.csgraph.reverse_cuthill_mckee(M)
+
+  return permutation
+
+@modest.funtime
+def verify_node_spacing(rho,nodes,tol=0.25):
+  ''' 
   Description
   -----------
     Returns indices of nodes which are consistent with the node
@@ -69,6 +107,9 @@ def merge_nodes(**kwargs):
 def _repel_step(free_nodes,rho,
                 fix_nodes=None,
                 n=10,delta=0.1):
+  ''' 
+  returns the new position of the free nodes after a repulsion step
+  '''
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
   # if n is 0 or 1 then the nodes remain stationary
   if n <= 1:
@@ -79,16 +120,33 @@ def _repel_step(free_nodes,rho,
 
   fix_nodes = np.asarray(fix_nodes,dtype=float)
 
+  # form collection of all nodes
   nodes = np.vstack((free_nodes,fix_nodes))
+
+  # find index and distance to nearest nodes
   i,d = rbf.stencil.nearest(free_nodes,nodes,n)
+
+  # dont consider a node to be one of its own nearest neighbors
   i = i[:,1:]
   d = d[:,1:]
+
+  # compute the force proportionality constant between each node
+  # based on their charges
   c = 1.0/(rho(nodes)[i,None]*rho(free_nodes)[:,None,None])
+
+  # sum up all the forces on each node
   direction = np.sum(c*(free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3,1)
+
+  # normalize the forces to one
   direction /= np.linalg.norm(direction,axis=1)[:,None]
   # in the case of a zero vector replace nans with zeros
   direction = np.nan_to_num(direction)  
+
+  # move in the direction of the force by an amount proportional to 
+  # the distance to the nearest neighbor
   step = delta*d[:,0,None]*direction
+
+  # new node positions
   free_nodes += step
   return free_nodes
 
@@ -98,7 +156,7 @@ def _repel_bounce(free_nodes,vertices,
                   fix_nodes=None,
                   itr=20,n=10,delta=0.1,
                   max_bounces=3):
-  '''
+  ''' 
   nodes are repelled by eachother and bounce off boundaries
   '''
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
@@ -168,7 +226,7 @@ def _repel_stick(free_nodes,vertices,
                  fix_nodes=None,
                  itr=20,n=10,delta=0.1,
                  max_bounces=3):
-  '''
+  ''' 
   nodes are repelled by eachother and then become fixed when they hit 
   a boundary
   '''
@@ -242,10 +300,11 @@ def _repel_stick(free_nodes,vertices,
 
   return free_nodes,node_group
 
-
+@modest.funtime
 def volume(rho,vertices,simplices,fix_nodes=None,
-           itr=20,n=10,delta=0.1,check_simplices=True):
-  '''
+           itr=20,n=10,delta=0.1,check_simplices=True,
+           sort_nodes=True):
+  ''' 
   Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  At each iteration 
   the nearest neighbors to each node are found and then a repulsion
@@ -286,6 +345,17 @@ def volume(rho,vertices,simplices,fix_nodes=None,
       iteration.  The step size is equal to delta times the distance to
       the nearest neighbor
 
+    check_simplices (default=True): Identifies whether the simplices 
+      should be sorted so that their normal vectors point outward. 
+      This only matters if 'rho' is a scalar, in which case the 
+      volume/area of the domain must be calculated. Calculating the 
+      volume/area requires properly oriented simplices
+
+    sort_nodes (default=True): If True, nodes that are close in space
+      will also be close in memory. This is done with the Reverse 
+      Cuthill-McKee algorithm
+
+
   Returns
   -------
     nodes: (N,D) array of nodes 
@@ -294,7 +364,7 @@ def volume(rho,vertices,simplices,fix_nodes=None,
       If a node is not on a simplex (i.e. it is an interior node) then
       the simplex index is -1.
 
-  ''' 
+  '''
   max_sample_size = 1000000
 
   vertices = np.asarray(vertices,dtype=float) 
@@ -309,17 +379,17 @@ def volume(rho,vertices,simplices,fix_nodes=None,
       simplices = gm.oriented_simplices(vertices,simplices)
 
     N = int(np.round(rho))
-    volume = rbf.geometry.complex_volume(vertices,simplices,orient=False)
-    if (volume < 0.0):
+    vol = rbf.geometry.enclosure(vertices,simplices,orient=False)
+    if (vol < 0.0):
       raise ValueError(
         'simplicial complex found to have a negative volume. Check the '
         'orientation of simplices and ensure closedness')
    
     err = 0.0
-    minval = N/volume
-    maxval = N/volume
+    minval = N/vol
+    maxval = N/vol
     def rho(p):
-      return np.repeat(N/volume,p.shape[0])
+      return np.repeat(N/vol,p.shape[0])
 
   # if rho is a callable function then integrate it to find the total
   # number of nodes
@@ -329,19 +399,38 @@ def volume(rho,vertices,simplices,fix_nodes=None,
   assert minval >= 0.0, (
     'values in node density function must be positive')
   
+  # total number of nodes 
   N = int(np.round(N))
 
+  # node density function normalized to 1
   def rho_normalized(p):
     return rho(p)/maxval
 
+  # form bounding box for the domain so that a RNG can produce values
+  # that mostly lie within the domain
   lb = np.min(vertices,0)
   ub = np.max(vertices,0)
+
   ndim = lb.shape[0]
+  # form Halton number generator
   H = rbf.halton.Halton(ndim+1)
+
+  # initiate array of nodes
   nodes = np.zeros((0,ndim))
+
+  # node counter
   cnt = 0
+
+  # I use a rejection algorithm to get an initial sampling of nodes 
+  # that resemble to density specified by rho. The acceptance keeps
+  # track of the ratio of accepted nodes to tested nodes
   acceptance = 1.0
+
   while nodes.shape[0] < N:
+    # to keep most of this loop in cython and c code, the rejection
+    # algorithm is done in chunks.  The number of samples in each 
+    # chunk is a rough estimate of the number of samples needed in
+    # order to get the desired number of accepted nodes.
     if acceptance == 0.0:
       sample_size = max_sample_size    
     else:
@@ -350,19 +439,33 @@ def volume(rho,vertices,simplices,fix_nodes=None,
         sample_size = max_sample_size
 
     cnt += sample_size
+    # form test points
     seqNd = H(sample_size)
+
+    # In order for a test point to be accepted, rho evaluated at that 
+    # test point needs to be larger than a random number with uniform 
+    # distribution between 0 and 1. Here I form those random numbers
     seq1d = seqNd[:,-1]
+
+    # scale range of test points to encompass the domain  
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
+
+    # reject test points based on random value
     new_nodes = new_nodes[rho_normalized(new_nodes) > seq1d]
 
+    # reject test points that are outside of the domain
     new_nodes = new_nodes[gm.contains(new_nodes,vertices,simplices)]
+
+    # append to collection of accepted nodes
     nodes = np.vstack((nodes,new_nodes))
+
     logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
 
   nodes = nodes[:N]
-  logger.info('repelling nodes with boundary bouncing') 
 
+  # use a minimum energy algorithm to spread out the nodes
+  logger.info('repelling nodes with boundary bouncing') 
   nodes = _repel_bounce(nodes,vertices,simplices,rho_normalized,
                         fix_nodes=fix_nodes,itr=itr,n=n,delta=delta)
 
@@ -370,9 +473,16 @@ def volume(rho,vertices,simplices,fix_nodes=None,
   nodes,smpid = _repel_stick(nodes,vertices,simplices,rho_normalized,
                              fix_nodes=fix_nodes,itr=itr,n=n,delta=delta)
 
+  # make sure nodes are sufficienty far away
   idx = verify_node_spacing(rho,nodes)
   nodes = nodes[idx]
   smpid = smpid[idx]
+
+  # sort so that nodes that are close in space are also close in memory
+  if sort_nodes:
+    idx = adjacency_argsort(nodes,n=n)
+    nodes = nodes[idx]
+    smpid = smpid[idx] 
   
   return nodes,smpid
 
@@ -543,7 +653,7 @@ def _find_edges(smp):
 
 
 def surface(rho,vert,smp,**kwargs):
-  '''
+  ''' 
   Description
   -----------
     returns nodes in N-D space which lie on a hypersurface
