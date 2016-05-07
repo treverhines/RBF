@@ -19,6 +19,9 @@ import random
 import sympy as sp
 import mkl
 import modest
+import petsc4py
+petsc4py.init()
+from petsc4py import PETSc
 
 mkl.set_num_threads(1)
 logging.basicConfig(level=logging.DEBUG)
@@ -26,7 +29,40 @@ logging.basicConfig(level=logging.DEBUG)
 def precond1(G):
   out = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
   return out
+
 def jacobi_preconditioned_solve(G,d):
+  G = G.tocsr()
+  G = G.astype(np.float64)
+  d = d.astype(np.float64)
+  A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data)) # instantiate a matrix
+  d = PETSc.Vec().createWithArray(d)
+  soln = np.zeros(G.shape[1])
+  soln = PETSc.Vec().createWithArray(soln)
+  #plt.plot(d)
+  #plt.show()
+  ksp = PETSc.KSP()
+  ksp.create()
+  ksp.rtol = 1e-10
+  ksp.atol = 1e-10
+  ksp.max_it = 1000
+  ksp.setType('gmres')
+  ksp.getPC().setType('asm')
+  ksp.setOperators(A)
+  ksp.solve(d,soln)
+  print(ksp.getIterationNumber())
+  print(ksp.getConvergedReason())
+  out = np.copy(soln.getArray())
+  return out
+
+#G = scipy.sparse.rand(100,100,0.5)
+#m = np.linspace(0,1,100)
+#d = G.dot(m)
+#G = G.tocsr()
+#print(scipy.sparse.linalg.spsolve(G,d))
+#print(jacobi_preconditioned_solve(G,d))
+#quit()
+
+def _jacobi_preconditioned_solve(G,d):
   #if not scipy.sparse.isspmatrix_csc(G):
   #  G = scipy.sparse.csc_matrix(G)
 
@@ -48,9 +84,9 @@ def jacobi_preconditioned_solve(G,d):
   modest.tic('solving')
   #G = G.astype(np.float64) 
   #d= d.astype(np.float64)
-  M = scipy.sparse.linalg.spilu(G.tocsc(),drop_tol=1e-8)
-  pc = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
-  out = scipy.sparse.linalg.gmres(G,d,M=pc)
+  #M = scipy.sparse.linalg.spilu(G.tocsc(),drop_tol=1e-8)
+  #pc = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
+  out = scipy.sparse.linalg.spsolve(G,d)
   modest.toc('solving')
   #if status != 0:
   #  raise ValueError(
@@ -119,7 +155,7 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-N = 2000
+N = 1000
 Ns = 50
 order = 3
 
