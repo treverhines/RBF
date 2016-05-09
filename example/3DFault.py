@@ -20,7 +20,8 @@ import sympy as sp
 import mkl
 import modest
 import petsc4py
-petsc4py.init()
+import sys
+petsc4py.init(sys.argv)
 from petsc4py import PETSc
 
 mkl.set_num_threads(1)
@@ -31,27 +32,51 @@ def precond1(G):
   return out
 
 def jacobi_preconditioned_solve(G,d):
+  N = G.shape[0]
+  #G += 10.1*scipy.sparse.eye(N)
   G = G.tocsr()
+  #perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)
+  #rev_perm = np.argsort(perm)
+  #G = G[perm,:]
+  #G = G[:,perm]
+  #d = d[perm]
+  #G /= 10000.0
+  #d /= 10000.0
+  #Gar = G.toarray()
+  #Gar = np.abs(Gar) + 1e-10
+  #plt.imshow(np.log10(Gar))
+  #plt.show()
   G = G.astype(np.float64)
   d = d.astype(np.float64)
   A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data)) # instantiate a matrix
   d = PETSc.Vec().createWithArray(d)
-  soln = np.zeros(G.shape[1])
+  #soln = scipy.sparse.linalg.spsolve(G,d)
+  soln = np.zeros(G.shape[1]) + 0.0
   soln = PETSc.Vec().createWithArray(soln)
+  
   #plt.plot(d)
   #plt.show()
   ksp = PETSc.KSP()
   ksp.create()
-  ksp.rtol = 1e-10
-  ksp.atol = 1e-10
-  ksp.max_it = 1000
+  ksp.rtol = 1e-20
+  ksp.atol = 1e-20
+  ksp.max_it = 10000
   ksp.setType('gmres')
-  ksp.getPC().setType('asm')
+  #ksp.setRestart(100)
+  ksp.setInitialGuessNonzero(True)
+  #ksp.setInitialGuessKnoll(True)
   ksp.setOperators(A)
+  ksp.setFromOptions()
+  pc = ksp.getPC()
+  pc.setType('none')
+  pc.setUp()
   ksp.solve(d,soln)
+  ksp.view()
   print(ksp.getIterationNumber())
+  print(ksp.getResidualNorm())
   print(ksp.getConvergedReason())
   out = np.copy(soln.getArray())
+  #out = out[rev_perm]
   return out
 
 #G = scipy.sparse.rand(100,100,0.5)
@@ -67,11 +92,6 @@ def _jacobi_preconditioned_solve(G,d):
   #  G = scipy.sparse.csc_matrix(G)
 
   # sort G and d using reverse cuthill mckee algorithm
-  #perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)
-  #rev_perm = np.argsort(perm)
-  #G = G[perm,:]
-  #G = G[:,perm]
-  #d = d[perm]
 
   # form jacobi preconditioner       
   #diag = np.array(G[range(G.shape[0]),range(G.shape[0])])[0]
@@ -155,9 +175,9 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-N = 1000
-Ns = 50
-order = 3
+N = 5000
+Ns = 20
+order = 1
 
 vert = np.array([[0.0,0.0,0.0],
                  [0.0,0.0,1.0],

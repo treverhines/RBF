@@ -21,8 +21,46 @@ import logging
 from modest import summary
 import sympy as sp
 logging.basicConfig(level=logging.INFO)
+import sys
+import petsc4py 
+petsc4py.init(sys.argv)
+from petsc4py import PETSc
 
 def solver(G,d):
+  N = G.shape[0]
+  #G += 10.1*scipy.sparse.eye(N)
+  G = G.tocsr()
+  print(np.linalg.cond(G.toarray()))
+  quit()
+  G = G.astype(np.float64)
+  d = d.astype(np.float64)
+  A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data))
+  d = PETSc.Vec().createWithArray(d)
+  #soln = scipy.sparse.linalg.spsolve(G,d)
+  soln = np.zeros(G.shape[1]) + 0.0
+  soln = PETSc.Vec().createWithArray(soln)
+
+  #plt.plot(d)
+  #plt.show()
+  ksp = PETSc.KSP()
+  ksp.create()
+  ksp.rtol = 1e-10
+  ksp.atol = 1e-10
+  ksp.max_it = 10000
+  ksp.setType('gmres')
+  #ksp.setRestart(100)
+  ksp.setInitialGuessNonzero(True)
+  #ksp.setInitialGuessKnoll(True)
+  ksp.setOperators(A)
+  ksp.setFromOptions()
+  pc = ksp.getPC()
+  #pc.setType('none')
+  pc.setUp()
+  ksp.solve(d,soln)
+  ksp.view()
+  return soln.getArray()
+
+def _solver(G,d):
   if not scipy.sparse.isspmatrix_csc(G):
     G = scipy.sparse.csc_matrix(G)
 
@@ -104,8 +142,8 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 # The number of nodes needed will depend entirely on how sharply slip varies
 N = 2000
-Ns = 20
-order = 2#'max'
+Ns = 50
+order = 4#'max'
 
 # domain vertices
 surf_vert_x = np.linspace(-5,5,200)
@@ -249,7 +287,7 @@ nodes = inside_nodes
 #                  np.linalg.norm(out[:,idx_noghost],axis=0),cmap=myplot.cm.viridis)
 cs = ax.tripcolor(nodes[:,0],
                   nodes[:,1],
-                  np.linalg.norm(soln,axis=0),cmap=myplot.cm.viridis)
+                  np.linalg.norm(soln,axis=0),cmap=myplot.cm.slip2)
 #plt.colorbar(cs)
 plt.quiver(nodes[::1,0],nodes[::1,1],
            soln[0,::1],soln[1,::1],color='k',scale=40)
