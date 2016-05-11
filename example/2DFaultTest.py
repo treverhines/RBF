@@ -26,7 +26,12 @@ import petsc4py
 petsc4py.init(sys.argv)
 from petsc4py import PETSc
 
+
 def solver(G,d,init_guess=None):
+  # TO VIEW THE RESIDUALS FOR EACH ITERATION CALL THIS SCRIPT WITH
+  #
+  #  python 2DFaultTest.py -ksp_monitor_true_residual
+  #
   N = G.shape[0]
   #G += 10.1*scipy.sparse.eye(N)
   G = G.tocsr()
@@ -49,6 +54,7 @@ def solver(G,d,init_guess=None):
   #plt.show()
   ksp = PETSc.KSP()
   ksp.create()
+  #ksp.monitor_true_residual = True
   ksp.rtol = 1e-10
   ksp.atol = 1e-5
   ksp.max_it = 10000

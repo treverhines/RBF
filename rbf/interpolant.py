@@ -1,17 +1,25 @@
 #!/usr/bin/env python
 import numpy as np
-from scipy.linalg import solve
+from scipy.linalg import lstsq
 import scipy.spatial
 import rbf.basis
 import rbf.poly
 import rbf.geometry
+import modest
 
 def in_hull(p, hull):
   ''' 
   Tests if points in p are in the convex hull made up by hull
   '''
-  hull = scipy.spatial.Delaunay(hull)
-  return hull.find_simplex(p)>=0
+  dim = p.shape[1]
+  if dim >= 2:
+    hull = scipy.spatial.Delaunay(hull)
+    return hull.find_simplex(p)>=0
+  else:
+    # one dimensional points
+    min = np.min(hull)
+    max = np.max(hull)
+    return (p >= min) & (p <= max)
 
 
 class RBFInterpolant(object):
@@ -22,10 +30,11 @@ class RBFInterpolant(object):
                x,
                value, 
                eps=None, 
-               basis=rbf.basis.phs2,
+               basis=rbf.basis.phs3,
                order=0,
                extrapolate=True,
-               fill=np.nan):
+               fill=np.nan,
+               damping=0.0):
     ''' 
     Initiates the RBF interpolant
 
@@ -37,17 +46,22 @@ class RBFInterpolant(object):
       value: (N,...) function values at the interpolation points. This
         may have any shape as long as the first axis has length N.
 
-      eps: (N,) array shape parameters for each RBF
+      eps: (N,) array of shape parameters for each RBF. this has no 
+        effect for the default basis function, which is scale 
+        invariant. 
 
-      rbf: (default:phs2) type of rbf to use
+      basis: (default:phs3) type of basis function to use
 
       order: (default:0) order of added polynomial terms
  
       extrapolate: (default:True) whether to allows points to be
-        extrapolated outside of a convex hull formed by x
+        extrapolated outside of a convex hull formed by x. 
 
       fill: (default:np.nan) if extrapolate is False then points
         outside of the convex hull will be assigned this value
+
+      damping: (default:0.0) damping coefficient. This is used if the 
+        interpolation problem is ill-posed or if the data is noisy
 
     '''
     x = np.asarray(x)
@@ -58,11 +72,16 @@ class RBFInterpolant(object):
     # number of monomial terms                                          
     Np = rbf.poly.monomial_count(order,Ndim)
 
+    # number of regularization lines
+    Nr = Np + Ns
+
     value = np.asarray(value)
 
+    
     # extend value to include a zero for each added polynomial term
-    added_zeros = np.repeat(np.zeros((1,)+value.shape[1:]),Np,axis=0)
-
+    # and for each regularization constraint
+    added_zeros = np.repeat(np.zeros((1,)+value.shape[1:]),Np+Nr,axis=0)
+  
     value = np.concatenate((value,added_zeros))
 
     if eps is None:
@@ -70,23 +89,34 @@ class RBFInterpolant(object):
 
     eps = np.asarray(eps)
 
+    # make system matrix
     A = np.zeros((Ns+Np,Ns+Np))
-
     A[:Ns,:Ns] = basis(x,x,eps)
-
     powers = rbf.poly.monomial_powers(order,Ndim)
     diff = np.zeros(Ns,dtype=int)
     Ap = rbf.poly.mvmonos(x,powers,diff)
     A[Ns:,:Ns] = Ap.T
     A[:Ns,Ns:] = Ap
 
-    try:
-      coeff = solve(A,value)
-    except np.linalg.LinAlgError:
-      print('Encountered singular matrix when finding the coefficients '
-            'for the RBF interpolant. Attempting to solve with Tikhonov '
-            'regularization')
-      coeff = solve(A+1e-10*np.eye(Ns+Np),value)      
+    # make regularization matrix
+    L = np.zeros((Ns+Np,Ns+Np))
+    L[:Ns,:Ns] = sum(basis(x,x,eps,diff=i.astype(int)) for i in modest.Perturb(np.zeros(Ndim),2))
+    powers = rbf.poly.monomial_powers(order,Ndim)
+    Lp = sum(rbf.poly.mvmonos(x,powers,diff=i.astype(int)) for i in modest.Perturb(np.zeros(Ndim),2))
+    L[Ns:,:Ns] = Ap.T
+    L[:Ns,Ns:] = Ap
+
+    A = np.vstack((A,damping*L))
+ 
+    #try:
+    print(A.shape)
+    print(value.shape)
+    coeff = lstsq(A,value)[0]
+    #except np.linalg.LinAlgError:
+    #  print('Encountered singular matrix when finding the coefficients '
+    #        'for the RBF interpolant. Attempting to solve with Tikhonov '
+    #        'regularization')
+    #  coeff = solve(A+1e-10*np.eye(Ns+Np),value)      
 
     self.x = x
     self.coeff = coeff
