@@ -36,9 +36,7 @@ def memoize(f):
   return fout  
 
 
-@boundscheck(False)
-@wraparound(False)
-cpdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
+def mvmonos(x,powers,diff=None):
   ''' 
   Description
   -----------
@@ -46,22 +44,35 @@ cpdef np.ndarray mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
 
   Parameters
   ----------
-    x: (N,D) float array of positions where the monomials will be
+    x: (N,D) array of positions where the monomials will be
       evaluated
 
-    powers: (M,D) integer array of powers for each monomial
+    powers: (M,D) array of powers for each monomial
 
-    diff: (D,) integer array of derivatives for each variable 
+    diff (default=(0,)*N): (D,) array of derivatives for each variable
 
   Returns
   -------
     out: (N,M) Alternant matrix where x is evaluated for each monomial
       term
 
-  Note
-  ----
-    This is a Cython function and all the input must be numpy arrays
+  '''
+  # make sure that the input is all correct before sending it to a 
+  # cython function
+  x = np.array(x,dtype=float)
+  powers = np.array(powers,dtype=int)
+  if diff is None:
+    diff = np.zeros(x.shape[1],dtype=int)
+  else:
+    diff = np.array(diff,dtype=int)
+  return _mvmonos(x,powers,diff)
 
+
+@boundscheck(False)
+@wraparound(False)
+cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
+  ''' 
+  cython evaluation of mvmonos
   '''
   cdef:
     long i,j,k,l
