@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import scipy.optimize
-import scipy.linalg
+from scipy.linalg import inv
 import scipy.spatial
 import rbf.basis
 import rbf.poly
@@ -15,6 +15,40 @@ def product_trace(A,B):
   general cross validation
   '''
   return np.sum(A*B.T)
+
+
+def predictive_error(log_alpha,A,L,data):
+  ''' 
+  solves 
+
+    A*m = data
+    alpha*L*m = 0
+
+  for m, where A is the system matrix and L is the regularization 
+  matrix.  Then this function returns the predictive error of the 
+  solution using generalized cross validation
+  '''
+  # map alpha to an entirely positive domain
+  alpha = 10**log_alpha
+
+  # compute generalized inverse
+  try: 
+    A_ginv = inv(A.T.dot(A) + alpha**2*L.T.dot(L)).dot(A.T)
+  except np.linalg.linalg.LinAlgError:
+    return np.inf
+
+  # estimate m
+  m = A_ginv.dot(data)
+
+  # compute misfit
+  predicted = A.dot(m)
+  residual = predicted - data
+  misfit = residual.dot(residual)
+
+  # compute predictive error
+  numerator = len(data)*misfit
+  denominator = (len(data) - product_trace(A,A_ginv))**2
+  return numerator/denominator
 
 
 def laplacian_diff_op(dim):
@@ -76,7 +110,8 @@ def regularization_matrix(x,eps=None,basis=rbf.basis.phs3,order=0,diff=None):
 
   # have the regularization minimize the size of the RBF coefficients 
   A = np.zeros((N+P,N+P))  
-  A[:N,:N] = np.eye(N)
+  # have the first N rows and columns be an identity matrix
+  A[range(N),range(N)] = 1.0
 
   #A[:,:N] = basis(x,x,eps=eps,diff=diff)
   #A[:,N:] = rbf.poly.mvmonos(x,powers,diff=diff)
@@ -100,6 +135,7 @@ def interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0)
   A[:,N:] = rbf.poly.mvmonos(xitp,powers,diff=diff)
   return A
 
+
 def find_coeff(A,L,value,damping):
   ''' 
   Parameters
@@ -111,37 +147,32 @@ def find_coeff(A,L,value,damping):
   '''
   # number of data points
   N = value.shape[0]
+
   # number of added polynomials
   P = A.shape[0] - N
-
-  # number of model parameters  
-  M = P + N
 
   # extend values to have a consistent size
   value = np.concatenate((value,np.zeros(P)))
 
-  # Make Gramian matrices
-  ATA = A.T.dot(A) 
-  LTL = L.T.dot(L)
-
   if damping == 'gcv':
     # define function to be minimized
-    def predictive_error(d):
-      # map d to a entirely positive domain
-      d = np.exp(d)
-      A_ginv = scipy.linalg.inv(ATA + d**2*LTL).dot(A.T)
-      coeff = A_ginv.dot(value)
-      predicted = A.dot(coeff)
-      residual = predicted - value
-      misfit = residual.dot(residual)
-      numerator = M*misfit
-      denominator = (M - product_trace(A,A_ginv))**2
-      return numerator/denominator
+    damping = scipy.optimize.minimize_scalar(predictive_error,args=(A,L,value)).x
+    #damping = scipy.optimize.fmin(predictive_error,0.0,args=(A,L,value))
+    damping = 10**damping
+    print('optimal damping parameter from GCV: %s' % damping)
+    # plot the soluton and make sure its a minimum
+    damping_logmin = np.log10(damping) - 3
+    damping_logmax = np.log10(damping) + 3
+    damping_logrange = np.linspace(damping_logmin,damping_logmax,100)
+    err = [predictive_error(d,A,L,value) for d in damping_logrange]
+    current_ax = plt.gca() 
+    fig,ax = plt.subplots()
+    ax.set_title('GCV curve')
+    ax.loglog(10**damping_logrange,err)
+    ax.vlines(damping,ax.get_ylim()[0],ax.get_ylim()[1])
+    plt.sca(current_ax)
 
-    damping = scipy.optimize.fmin(predictive_error,0.0)
-    damping = np.exp(damping)
-
-  A_ginv = scipy.linalg.inv(ATA + damping**2*LTL).dot(A.T)
+  A_ginv = inv(A.T.dot(A) + damping**2*L.T.dot(L)).dot(A.T)
   coeff = A_ginv.dot(value)
   return coeff   
 
@@ -219,18 +250,21 @@ class RBFInterpolant(object):
         outside of the convex hull will be assigned this value
 
     '''
-    x = np.asarray(x)
+    # copy data
+    x = np.array(x,copy=True)
+    value = np.array(value,copy=True)
+
     # number of observation points
     N = x.shape[0]
     if eps is None:
       eps = np.ones(N)
     else:
-      eps = np.asarray(eps)
+      eps = np.array(eps,copy=True)
 
     if weight is None:
       weight = np.ones(N)
     else:
-      weight = np.asarray(weight)
+      weight = np.array(weight,copy=True)
 
     # form matrix for the LHS
     A = coefficient_matrix(x,eps=eps,basis=basis,order=order)
