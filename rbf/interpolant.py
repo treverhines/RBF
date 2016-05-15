@@ -70,11 +70,16 @@ def regularization_matrix(x,eps=None,basis=rbf.basis.phs3,order=0,diff=None):
   N,D = x.shape
   # powers for the additional polynomials
   powers = rbf.poly.monomial_powers(order,D)
+
   # number of polynomial terms
   P = powers.shape[0]
-  A = np.zeros((N,N+P)) 
-  A[:,:N] = basis(x,x,eps=eps,diff=diff)
-  A[:,N:] = rbf.poly.mvmonos(x,powers,diff=diff)
+
+  # have the regularization minimize the size of the RBF coefficients 
+  A = np.zeros((N+P,N+P))  
+  A[:N,:N] = np.eye(N)
+
+  #A[:,:N] = basis(x,x,eps=eps,diff=diff)
+  #A[:,N:] = rbf.poly.mvmonos(x,powers,diff=diff)
   return A  
 
 
@@ -117,13 +122,13 @@ def find_coeff(A,L,value,damping):
 
   # Make Gramian matrices
   ATA = A.T.dot(A) 
-  print(np.linalg.cond(ATA))
   LTL = L.T.dot(L)
 
   if damping == 'gcv':
     # define function to be minimized
     def predictive_error(d):
-      d = 10**d
+      # map d to a entirely positive domain
+      d = np.exp(d)
       A_ginv = scipy.linalg.inv(ATA + d**2*LTL).dot(A.T)
       coeff = A_ginv.dot(value)
       predicted = A.dot(coeff)
@@ -133,9 +138,8 @@ def find_coeff(A,L,value,damping):
       denominator = (M - product_trace(A,A_ginv))**2
       return numerator/denominator
 
-    #damping = scipy.optimize.minimize_scalar(predictive_error).x
     damping = scipy.optimize.fmin(predictive_error,0.0)
-    damping = 10**damping
+    damping = np.exp(damping)
 
   A_ginv = scipy.linalg.inv(ATA + damping**2*LTL).dot(A.T)
   coeff = A_ginv.dot(value)
@@ -182,7 +186,7 @@ class RBFInterpolant(object):
                value, 
                weight=None,
                eps=None, 
-               basis=rbf.basis.phs3,
+               basis=rbf.basis.phs1,
                order=0,  
                extrapolate=True,
                fill=np.nan,
@@ -204,7 +208,9 @@ class RBFInterpolant(object):
         this has no effect for the default basis function, which is 
         scale invariant. 
 
-      basis (default=phs3): type of basis function to use
+      basis (default=phs1): type of basis function to use. phs1 creates 
+        a piecewise linear interpolant. Higher order RBFs are smoother
+        but are not as well conditioned
  
       extrapolate (default=True): whether to allows points to be
         extrapolated outside of a convex hull formed by x. 
