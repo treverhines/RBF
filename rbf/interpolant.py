@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
+from numpy.linalg import pinv
 import scipy.optimize
-from scipy.linalg import inv
 import scipy.spatial
 import rbf.basis
 import rbf.poly
@@ -16,8 +16,8 @@ def product_trace(A,B):
   '''
   return np.sum(A*B.T)
 
-
-def predictive_error(log_alpha,A,L,data):
+@modest.funtime
+def predictive_error(log_alpha,A,L,data,rcond=1e-12):
   ''' 
   solves 
 
@@ -33,8 +33,16 @@ def predictive_error(log_alpha,A,L,data):
 
   # compute generalized inverse
   try: 
-    A_ginv = inv(A.T.dot(A) + alpha**2*L.T.dot(L)).dot(A.T)
+    # compute the inverse with the pseudo inverse, which is more 
+    # stable because singular values are removed
+    ATA = A.T.dot(A)
+    LTL = alpha**2*L.T.dot(L)
+    A_ginv = pinv(ATA + LTL,rcond=rcond).dot(A.T)
+    #A_ginv = np.linalg.inv(ATA + LTL).dot(A.T)
   except np.linalg.linalg.LinAlgError:
+    # if the generalized inverse cant be computed then the predictive
+    # error is infinite
+    print('WARNING: failed to compute generalized inverse')
     return np.inf
 
   # estimate m
@@ -49,25 +57,6 @@ def predictive_error(log_alpha,A,L,data):
   numerator = len(data)*misfit
   denominator = (len(data) - product_trace(A,A_ginv))**2
   return numerator/denominator
-
-
-def laplacian_diff_op(dim):
-  ''' 
-  returns the coefficients and derivatives for each term in a 
-  Laplacian differential operator for the given number of dimensions.
-  For example, calling this function with dim=2 will return
-
-    array([[1.0,(2,0)],
-           [1.0,(0,2)]], dtype=object),
-
-  which is represents the differential operator
-
-    1.0*d^2/dx_1^2 + 1.0*d^2/dx_2^2
-
-  '''
-  I = np.eye(dim,dtype=int)
-  out = [[1.0,tuple(2*i)] for i in I]
-  return np.array(out,dtype=object)
 
 
 def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
@@ -99,22 +88,15 @@ def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   return A  
 
 
-def regularization_matrix(x,eps=None,basis=rbf.basis.phs3,order=0,diff=None):
-  # number of observation points and spatial dimensions
+def regularization_matrix(x,order=0):
+  # number of rbfs, dimensions, and polynomial terms
   N,D = x.shape
-  # powers for the additional polynomials
-  powers = rbf.poly.monomial_powers(order,D)
+  P = rbf.poly.monomial_count(order,D)
 
-  # number of polynomial terms
-  P = powers.shape[0]
-
-  # have the regularization minimize the size of the RBF coefficients 
   A = np.zeros((N+P,N+P))  
-  # have the first N rows and columns be an identity matrix
+  # have the regularization minimize the size of the RBF coefficients by
+  # setting the first N rows and columns to be an identity matrix
   A[range(N),range(N)] = 1.0
-
-  #A[:,:N] = basis(x,x,eps=eps,diff=diff)
-  #A[:,N:] = rbf.poly.mvmonos(x,powers,diff=diff)
   return A  
 
 
@@ -135,7 +117,7 @@ def interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0)
   A[:,N:] = rbf.poly.mvmonos(xitp,powers,diff=diff)
   return A
 
-
+@modest.funtime
 def find_coeff(A,L,value,damping):
   ''' 
   Parameters
@@ -145,6 +127,10 @@ def find_coeff(A,L,value,damping):
     value: (N,...) observations
     damping: scalar damping parameter
   '''
+  # minimum tolerance for singular values when computing generalized 
+  # inverse matrices
+  rcond = 1e-12
+
   # number of data points
   N = value.shape[0]
 
@@ -156,7 +142,7 @@ def find_coeff(A,L,value,damping):
 
   if damping == 'gcv':
     # define function to be minimized
-    damping = scipy.optimize.minimize_scalar(predictive_error,args=(A,L,value)).x
+    damping = scipy.optimize.minimize_scalar(predictive_error,args=(A,L,value,rcond)).x
     #damping = scipy.optimize.fmin(predictive_error,0.0,args=(A,L,value))
     damping = 10**damping
     print('optimal damping parameter from GCV: %s' % damping)
@@ -172,7 +158,9 @@ def find_coeff(A,L,value,damping):
     ax.vlines(damping,ax.get_ylim()[0],ax.get_ylim()[1])
     plt.sca(current_ax)
 
-  A_ginv = inv(A.T.dot(A) + damping**2*L.T.dot(L)).dot(A.T)
+  ATA = A.T.dot(A)
+  LTL = damping**2*L.T.dot(L)
+  A_ginv = pinv(ATA + LTL,rcond=rcond).dot(A.T)
   coeff = A_ginv.dot(value)
   return coeff   
 
@@ -274,9 +262,7 @@ class RBFInterpolant(object):
     value *= weight
 
     # form regularization matrix
-    laplacian = laplacian_diff_op(x.shape[1])
-    L = np.sum(c*regularization_matrix(x,eps=eps,basis=basis,diff=d,order=order)
-               for c,d in laplacian)
+    L = regularization_matrix(x,order=order)
 
     coeff = find_coeff(A,L,value,penalty)
 
