@@ -7,56 +7,8 @@ import rbf.basis
 import rbf.poly
 import rbf.geometry
 import modest
+import modest.gcv
 import matplotlib.pyplot as plt
-
-def product_trace(A,B):
-  ''' 
-  efficiently returns the trace of a matrix product. this is used for 
-  general cross validation
-  '''
-  return np.sum(A*B.T)
-
-@modest.funtime
-def predictive_error(log_alpha,A,L,data,rcond=1e-12):
-  ''' 
-  solves 
-
-    A*m = data
-    alpha*L*m = 0
-
-  for m, where A is the system matrix and L is the regularization 
-  matrix.  Then this function returns the predictive error of the 
-  solution using generalized cross validation
-  '''
-  # map alpha to an entirely positive domain
-  alpha = 10**log_alpha
-
-  # compute generalized inverse
-  try: 
-    # compute the inverse with the pseudo inverse, which is more 
-    # stable because singular values are removed
-    ATA = A.T.dot(A)
-    LTL = alpha**2*L.T.dot(L)
-    A_ginv = pinv(ATA + LTL,rcond=rcond).dot(A.T)
-    #A_ginv = np.linalg.inv(ATA + LTL).dot(A.T)
-  except np.linalg.linalg.LinAlgError:
-    # if the generalized inverse cant be computed then the predictive
-    # error is infinite
-    print('WARNING: failed to compute generalized inverse')
-    return np.inf
-
-  # estimate m
-  m = A_ginv.dot(data)
-
-  # compute misfit
-  predicted = A.dot(m)
-  residual = predicted - data
-  misfit = residual.dot(residual)
-
-  # compute predictive error
-  numerator = len(data)*misfit
-  denominator = (len(data) - product_trace(A,A_ginv))**2
-  return numerator/denominator
 
 
 def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
@@ -118,7 +70,7 @@ def interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0)
   return A
 
 @modest.funtime
-def find_coeff(A,L,value,damping):
+def find_coeff(A,L,value,damping,**kwargs):
   ''' 
   Parameters
   ----------
@@ -127,9 +79,8 @@ def find_coeff(A,L,value,damping):
     value: (N,...) observations
     damping: scalar damping parameter
   '''
-  # minimum tolerance for singular values when computing generalized 
-  # inverse matrices
-  rcond = 1e-12
+  # number of model parameters
+  M = A.shape[1]
 
   # number of data points
   N = value.shape[0]
@@ -137,31 +88,24 @@ def find_coeff(A,L,value,damping):
   # number of added polynomials
   P = A.shape[0] - N
 
+  # number of regularization constraints
+  K = L.shape[0]
+
   # extend values to have a consistent size
   value = np.concatenate((value,np.zeros(P)))
 
   if damping == 'gcv':
-    # define function to be minimized
-    damping = scipy.optimize.minimize_scalar(predictive_error,args=(A,L,value,rcond)).x
-    #damping = scipy.optimize.fmin(predictive_error,0.0,args=(A,L,value))
-    damping = 10**damping
+    damping = modest.gcv.optimal_damping(A,L,value,gcv=True,**kwargs)
     print('optimal damping parameter from GCV: %s' % damping)
-    # plot the soluton and make sure its a minimum
-    damping_logmin = np.log10(damping) - 3
-    damping_logmax = np.log10(damping) + 3
-    damping_logrange = np.linspace(damping_logmin,damping_logmax,100)
-    err = [predictive_error(d,A,L,value) for d in damping_logrange]
-    current_ax = plt.gca() 
-    fig,ax = plt.subplots()
-    ax.set_title('GCV curve')
-    ax.loglog(10**damping_logrange,err)
-    ax.vlines(damping,ax.get_ylim()[0],ax.get_ylim()[1])
-    plt.sca(current_ax)
 
-  ATA = A.T.dot(A)
-  LTL = damping**2*L.T.dot(L)
-  A_ginv = pinv(ATA + LTL,rcond=rcond).dot(A.T)
-  coeff = A_ginv.dot(value)
+  if damping == 'cv':
+    damping = modest.gcv.optimal_damping(A,L,value,gcv=False,**kwargs)
+    print('optimal damping parameter from CV: %s' % damping)
+
+  
+  A_ext = np.vstack((A,damping*L))
+  value_ext = np.concatenate((value,np.zeros(K)))
+  coeff = np.linalg.lstsq(A_ext,value_ext)[0] 
   return coeff   
 
 
@@ -209,7 +153,7 @@ class RBFInterpolant(object):
                order=0,  
                extrapolate=True,
                fill=np.nan,
-               penalty=0.0):
+               penalty=0.0,**kwargs):
     ''' 
     Initiates the RBF interpolant
 
@@ -236,6 +180,11 @@ class RBFInterpolant(object):
 
       fill (default=np.nan): if extrapolate is False then points
         outside of the convex hull will be assigned this value
+ 
+      penalty (default=0.0): the smoothing parameter. This can be 
+        chosen with cross validation or generalized cross validation 
+        by specifying 'cv' or 'gcv' respectively. In such case, 
+        additonal key word arguments get passed to those routines
 
     '''
     # copy data
@@ -264,7 +213,7 @@ class RBFInterpolant(object):
     # form regularization matrix
     L = regularization_matrix(x,order=order)
 
-    coeff = find_coeff(A,L,value,penalty)
+    coeff = find_coeff(A,L,value,penalty,**kwargs)
 
     self.x = x
     self.coeff = coeff
