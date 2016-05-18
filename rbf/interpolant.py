@@ -11,6 +11,28 @@ import modest.gcv
 import matplotlib.pyplot as plt
 
 
+class DomainNormalizer:
+  ''' 
+  normalizes values so that the observation points have zero mean and 
+  standard deviation of one
+  '''
+  def __init__(self,x):
+    # shift so that the domain is centered on zero
+    shift = np.mean(x,axis=0)
+    # scale so that the average squared distance to the center is one
+    r = np.linalg.norm(x-shift,axis=1)                      
+    scale = np.sqrt(np.mean(r**2))
+    self.shift = shift
+    self.scale = scale
+
+  def __call__(self,xnew,inverse=False):
+    xnew = np.asarray(xnew)
+    if not inverse:
+      return (xnew-self.shift)/self.scale
+    else:
+      return xnew*self.scale + self.shift
+
+
 def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   ''' 
   returns the matrix that maps the coefficients to the function values 
@@ -149,8 +171,8 @@ class RBFInterpolant(object):
                value, 
                weight=None,
                eps=None, 
-               basis=rbf.basis.phs1,
-               order=0,  
+               basis=rbf.basis.phs3,
+               order=1,  
                extrapolate=True,
                fill=np.nan,
                penalty=0.0,**kwargs):
@@ -186,9 +208,16 @@ class RBFInterpolant(object):
         by specifying 'cv' or 'gcv' respectively. In such case, 
         additonal key word arguments get passed to those routines
 
+    Note
+    ----
+      values for x are rescaled so that they have zero mean and 
+      standard deviation of one. Shape parameters remain unscaled
     '''
-    # copy data
-    x = np.array(x,copy=True)
+    # copy and scale the observation points
+    norm = DomainNormalizer(x)
+    x = norm(x)
+
+    # copy the values
     value = np.array(value,copy=True)
 
     # number of observation points
@@ -196,12 +225,12 @@ class RBFInterpolant(object):
     if eps is None:
       eps = np.ones(N)
     else:
-      eps = np.array(eps,copy=True)
+      eps = np.asarray(eps)
 
     if weight is None:
       weight = np.ones(N)
     else:
-      weight = np.array(weight,copy=True)
+      weight = np.asarray(weight)
 
     # form matrix for the LHS
     A = coefficient_matrix(x,eps=eps,basis=basis,order=order)
@@ -215,6 +244,7 @@ class RBFInterpolant(object):
 
     coeff = find_coeff(A,L,value,penalty,**kwargs)
 
+    self.norm = norm
     self.x = x
     self.coeff = coeff
     self.basis = basis
@@ -242,7 +272,8 @@ class RBFInterpolant(object):
     '''
     max_chunk = 100000
     n = 0
-    xitp = np.asarray(xitp,dtype=float)
+    xitp = self.norm(xitp)
+    
     Nitp = xitp.shape[0]
     # allocate output array
     out = np.zeros(Nitp)
