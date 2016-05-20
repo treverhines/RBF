@@ -234,20 +234,21 @@ def predictive_error(L,data,damping,fold=10,dsolve=True,use_petsc=HAS_PETSC,**kw
   # make sure folds is smaller than the number of data points
   fold = min(fold,N)
   res = np.zeros(N)
+
+  # G = (I + damping**2*LtL)
+  # the LtL step is done here fore efficiency
+  G = damping**2*L.T.dot(L)
+  I = scipy.sparse.eye(N)
+  d = np.copy(data)
   for rmidx in chunkify(range(N),fold):
     # data can effectively be removed by setting the appropriate 
     # elements of I and data to zero
 
-    # make lhs
-    Idiag = np.ones(N)
-    Idiag[rmidx] = 0.0
-    I = scipy.sparse.diags(Idiag,0)
-    G = I + damping**2*L.T.dot(L)
-    G = G.tocsr()       
-
+    # set lhs
+    I.data[0][rmidx] = 0.0 # make elements 'rmidx' of the main diag zero
+    G += I # form (I + damping**2*LtL)
     # set rhs
-    d = np.copy(data)
-    d[rmidx] = 0.0
+    d[rmidx] = 0.0 
 
     # smoothed data
     if dsolve:
@@ -258,6 +259,12 @@ def predictive_error(L,data,damping,fold=10,dsolve=True,use_petsc=HAS_PETSC,**kw
         soln = petsc_solve(G,d,**kwargs) 
       else:
         soln = scipy_solve(G,d,**kwargs)
+
+    # reset lhs
+    G -= I 
+    I.data[0][rmidx] = 1.0
+    # reset rhs
+    d[rmidx] = data[rmidx]
 
     res[rmidx] = soln[rmidx] - data[rmidx]
 
@@ -292,10 +299,12 @@ def smoothed_data(L,data,damping,dsolve=True,use_petsc=HAS_PETSC,**kwargs):
   -------
     soln: vector of smoothed data
   '''
+  if not scipy.sparse.isspmatrix_csr(L):
+    raise TypeError('smoothing matrix must be CSR sparse')
+
   N = data.shape[0]
   I = scipy.sparse.eye(N)
   G = I + damping**2*L.T.dot(L)
-  G = G.tocsr()
 
   if dsolve:
     soln = scipy.sparse.linalg.spsolve(G,data,**kwargs)
