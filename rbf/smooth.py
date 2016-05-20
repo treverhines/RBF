@@ -13,6 +13,7 @@ import rbf.weights
 import scipy.sparse
 import sys
 import logging
+import matplotlib.pyplot as plt
 logger = logging.getLogger(__name__)
 
 try:
@@ -65,7 +66,7 @@ CONVERGENCE_REASON = {
   0:'KSP_CONVERGED_ITERATING'}
 
 
-def petsc_solve(G,d,solver='lgmres',pc='jacobi',rtol=1e-6,atol=1e-6,max_it=10000):
+def petsc_solve(G,d,solver='lgmres',pc='jacobi',rtol=1e-6,atol=1e-6,maxiter=10000):
   ''' 
   Description
   -----------
@@ -92,7 +93,7 @@ def petsc_solve(G,d,solver='lgmres',pc='jacobi',rtol=1e-6,atol=1e-6,max_it=10000
  
     atol: absolute tolerance for iterative solvers
   
-    max_it: maximum number of iterations
+    maxiter: maximum number of iterations
 
   '''
   # instantiate LHS
@@ -111,7 +112,7 @@ def petsc_solve(G,d,solver='lgmres',pc='jacobi',rtol=1e-6,atol=1e-6,max_it=10000
   ksp.setType(solver)
   ksp.getPC().setType(pc)
   ksp.setOperators(A)
-  ksp.setTolerances(rtol=rtol,atol=atol,max_it=max_it)
+  ksp.setTolerances(rtol=rtol,atol=atol,max_it=maxiter)
 
   # solve and get information
   ksp.solve(d,soln)
@@ -125,6 +126,24 @@ def petsc_solve(G,d,solver='lgmres',pc='jacobi',rtol=1e-6,atol=1e-6,max_it=10000
     print('WARNING: KSP solver diverged due to %s' % conv_reason)
    
   return soln.getArray()
+
+
+def scipy_solve(G,data,**kwargs):
+  ''' 
+  calls LGMRES and prints necessary info
+  '''
+  soln,info = scipy.sparse.linalg.lgmres(G,data,**kwargs)
+  if info < 0:
+    logger.warning('LGMRES exited with value %s' % info)
+
+  elif info == 0:
+    logger.info('LGMRES finished successfully')
+
+  elif info > 0:
+    logger.warning('LGMRES did not converge after %s iterations' % info)
+    print('WARNING: LGMRES did not converge after %s iterations' % info)
+
+  return soln
 
 
 def chunkify(list,N):
@@ -203,7 +222,7 @@ def smoothing_matrix(x,connectivity=1,stencil_size=None,
   return L  
 
 
-def predictive_error(L,data,damping,fold=10):
+def predictive_error(L,data,damping,fold=10,dsolve=True,use_petsc=HAS_PETSC,**kwargs):
   ''' 
   returns predictive error for cross validation
   '''
@@ -224,19 +243,28 @@ def predictive_error(L,data,damping,fold=10):
     Idiag[rmidx] = 0.0
     I = scipy.sparse.diags(Idiag,0)
     G = I + damping**2*L.T.dot(L)
-       
+    G = G.tocsr()       
+
     # set rhs
     d = np.copy(data)
     d[rmidx] = 0.0
 
     # smoothed data
-    m = scipy.sparse.linalg.spsolve(G,d)
-    res[rmidx] = m[rmidx] - data[rmidx]
+    if dsolve:
+      soln = scipy.sparse.linalg.spsolve(G,d,**kwargs)
+
+    else:  
+      if HAS_PETSC & use_petsc:
+        soln = petsc_solve(G,d,**kwargs) 
+      else:
+        soln = scipy_solve(G,d,**kwargs)
+
+    res[rmidx] = soln[rmidx] - data[rmidx]
 
   return res.dot(res)/N
 
 
-def smoothed_data(L,data,damping,direct=True,**kwargs):
+def smoothed_data(L,data,damping,dsolve=True,use_petsc=HAS_PETSC,**kwargs):
   ''' 
   Description
   -----------
@@ -255,7 +283,10 @@ def smoothed_data(L,data,damping,direct=True,**kwargs):
 
     damping: penalty parameter
 
-    direct (default=True): whether to use a direct solver
+    dsolve (default=True): whether to use a direct solver
+  
+    use_petsc (default=True): controls whether to use PETSc for 
+      iterative solvers. this has no effect if dsolve is True
 
   Returns
   -------
@@ -264,25 +295,50 @@ def smoothed_data(L,data,damping,direct=True,**kwargs):
   N = data.shape[0]
   I = scipy.sparse.eye(N)
   G = I + damping**2*L.T.dot(L)
+  G = G.tocsr()
 
-  if direct:
+  if dsolve:
     soln = scipy.sparse.linalg.spsolve(G,data,**kwargs)
 
   else:  
-    if HAS_PETSC:
+    if HAS_PETSC & use_petsc:
       soln = petsc_solve(G,data,**kwargs) 
     else:
-      soln,info = scipy.sparse.linalg.lgmres(G,data,**kwargs)
-      if info < 0:
-        raise ValueError('lgmres exited with value %s' % info)
-
-      if info == 0:
-        return soln  
-
-      if info > 0:
-        print('WARNING: LGMRES did not converge after %s iterations' % info)
-        return soln
+      soln = scipy_solve(G,data,**kwargs)
   
   return soln
+
+
+def optimal_damping(L,data,plot=False,fold=10,log_bounds=None,itr=100,**kwargs):
+  ''' 
+  returns the optimal penalty parameter for regularized least squares 
+  using generalized cross validation
   
+  Parameters
+  ----------
+    L: (K,M) smoothing matrix
+    data: (N,) data vector
+    plot: whether to plot the predictive error curve
+
+  '''
+  if log_bounds is None:
+    log_bounds = (-6.0,6.0)
+
+  alpha_range = 10**np.linspace(log_bounds[0],log_bounds[1],itr)
+  # predictive error for all tested damping parameters
+  err = np.array([predictive_error(L,data,a,fold=fold,**kwargs)
+                  for a in alpha_range])
+  optimal_alpha = alpha_range[np.argmin(err)]
+  optimal_err = np.min(err)
+  if plot:
+    fig,ax = plt.subplots()
+    ax.set_title('%s-fold cross validation curve' % fold)
+    ax.set_ylabel('predictive error')
+    ax.set_xlabel('penalty parameter')
+    ax.loglog(alpha_range,err,'k-')
+    ax.loglog(optimal_alpha,optimal_err,'ko',markersize=10)
+    ax.grid()
+
+  return optimal_alpha
+ 
 
