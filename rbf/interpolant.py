@@ -116,12 +116,11 @@ def find_coeff(A,L,value,damping,**kwargs):
   # extend values to have a consistent size
   value = np.concatenate((value,np.zeros(P)))
 
-  if damping == 'gcv':
-    damping = modest.gcv.optimal_damping(A,L,value,gcv=True,**kwargs)
-    print('optimal damping parameter from GCV: %s' % damping)
-
+  #if damping == 'gcv':
+  #  damping = modest.gcv.optimal_damping(A,L,value,=True,**kwargs)
+  #  print('optimal damping parameter from GCV: %s' % damping)
   if damping == 'cv':
-    damping = modest.gcv.optimal_damping(A,L,value,gcv=False,**kwargs)
+    damping = modest.gcv.optimal_damping(A,L,value,**kwargs)
     print('optimal damping parameter from CV: %s' % damping)
 
   

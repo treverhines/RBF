@@ -7,6 +7,10 @@ import networkx
 import logging
 logger = logging.getLogger(__name__)
 
+class StencilError(Exception):
+  pass
+
+
 def stencil_to_edges(stencil):
   ''' 
   returns an array of edges defined by the stencil
@@ -103,11 +107,13 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
     excluding_bool = np.zeros(population.shape[0],dtype=bool)
     excluding_bool[excluding] = True
 
-  assert N <= population.shape[0], (
-    'cannot find %s nearest neighbors with %s points' % (N,population.shape[0]))
+  if N > population.shape[0]: 
+    raise StencilError(
+      'cannot find %s nearest neighbors with %s points' % (N,population.shape[0]))
 
-  assert N >= 0, (
-    'must specify a non-negative number of nearest neighbors')
+  if N < 0:
+    raise StencilError(
+      'must specify a non-negative number of nearest neighbors')
  
   # querying the KDTree returns a segmentation fault if N is zero and 
   # so this needs to be handles seperately 
@@ -149,18 +155,32 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
       dist_i = dist_i[np.argsort(dist_i)[:N]]
       dist[i] = dist_i
       if (query_size == population.shape[0]) & (np.any(np.isinf(dist_i))):
-        print('WARNING: could not find %s nearest neighbors for point '
-              '%s without crossing a boundary' % (N,population[i]))
-        break
+        raise StencilError('cannot find %s nearest neighbors for point '
+                           '%s without crossing a boundary' % (N,population[i]))
 
   return neighbors,dist
 
 
-def stencil(nodes,N=None,C=None,vert=None,smp=None):
+def stencils(nodes,C=1,N=None,vert=None,smp=None):
   ''' 
   returns a stencil of nearest neighbors for each node. The number of 
   nodes in each stencil can be explicitly specified with N or the 
-  N can be chosen such that connectivity is at least C.
+  N can be chosen such that the connectivity is at least C.
+
+  Parameters
+  ----------
+    nodes: (N,D) array of nodes
+
+    C (default=1): desired connectivity of the resulting stencils. The 
+      stencil size is then chosen so that the connectivity is at least 
+      this large
+    
+    N (default=None): stencil size. Overrides C if specified
+
+    vert (default=None): vertices of the boundary that edges cannot 
+      cross
+
+    smp (default=None): connectivity of the vertices
 
   Note
   ----
@@ -168,23 +188,25 @@ def stencil(nodes,N=None,C=None,vert=None,smp=None):
     is greater than about 100. Specify N when dealing with a large
     number of nodes  
   '''
-  if (N is not None) & (C is not None):
-    raise ValueError('N and C cannot simultaneously be input arguments')
-  
+  #if N is not 
+  #if (N is not None) & (C is not None):
+  #  raise StencilError('N and C cannot simultaneously be input arguments')
   if N is not None:
     s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
     return s
 
-  if C is not None:
+  elif C is not None:
     N = 2
     s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
     while connectivity(s) < C:
       N += 1
       if N > nodes.shape[0]:
-        print('WARNING: cannot create a stencil with the desired '
-              'connectivity')
-        break 
+        raise StencilError('cannot create a stencil with the desired '
+                           'connectivity')
       s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
 
     return s
+
+  else:
+    raise StencilError('stencil size or connectivity must be specified')
 

@@ -10,7 +10,7 @@ class FormulationError(Exception):
 
 
 def unique(x):
-  '''
+  ''' 
   returns unique values of x
   '''
   out = []
@@ -22,7 +22,7 @@ def unique(x):
 
 
 def indices(x,val):
-  '''
+  ''' 
   return indices of x which equal val
   '''
   out = []
@@ -34,7 +34,7 @@ def indices(x,val):
  
 
 def derivative_order(expr):
-  '''
+  ''' 
   checks to see if expr is a Derivative, if it is then returns the 
   base expression and the variables its derivatives are with respect
   to.  If expr is is Not a Derivative then returns (expr,())
@@ -46,7 +46,7 @@ def derivative_order(expr):
 
 
 def symbolic_coeffs_and_diffs(expr,u):
-  '''
+  ''' 
   returns the coefficients for each term containing u or a derivative 
   of u. Also returns the variables that derivatives of u are with 
   respect to
@@ -86,7 +86,7 @@ def symbolic_coeffs_and_diffs(expr,u):
   
 
 def rmap(val,mappings):
-  '''
+  ''' 
   recursively map the values in val using the mapping dictionary
   '''
   if not hasattr(val,'__iter__'):
@@ -108,7 +108,7 @@ def rmap(val,mappings):
 
 
 def reformat_diff(diff,ivars):
-  '''
+  ''' 
   converts diff from a collection of differentiation directions to
   the count for each differentiation direction
   '''
@@ -125,7 +125,7 @@ def reformat_diff(diff,ivars):
 
 
 def function_product(*args):
-  '''
+  ''' 
   takes scalar valued functions and makes a function which returns a
   product of the input functions.  The resulting function passes the
   same positional and key word arguments to each input function
@@ -143,7 +143,7 @@ def function_product(*args):
 
 
 def function_sum(*args):
-  '''
+  ''' 
   takes a scalar valued functions of one variable and returns 
   a function which returns a sum of the input functions.    
   '''

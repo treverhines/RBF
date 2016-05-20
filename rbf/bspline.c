@@ -3163,7 +3163,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
     }
   }
 
-  /* "rbf/bspline.pyx":60
+  /* "rbf/bspline.pyx":61
  *   '''
  *   cdef:
  *     int N = x.shape[0]             # <<<<<<<<<<<<<<
@@ -3172,7 +3172,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
  */
   __pyx_v_N = (__pyx_v_x.shape[0]);
 
-  /* "rbf/bspline.pyx":61
+  /* "rbf/bspline.pyx":62
  *   cdef:
  *     int N = x.shape[0]
  *     int M = knots.shape[0]             # <<<<<<<<<<<<<<
@@ -3181,7 +3181,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
  */
   __pyx_v_M = (__pyx_v_knots.shape[0]);
 
-  /* "rbf/bspline.pyx":63
+  /* "rbf/bspline.pyx":64
  *     int M = knots.shape[0]
  *     int i
  *     double tol = (knots[M-1] - knots[0])*1e-10             # <<<<<<<<<<<<<<
@@ -3192,19 +3192,19 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
   __pyx_t_2 = 0;
   __pyx_v_tol = (((*((double *) ( /* dim=0 */ (__pyx_v_knots.data + __pyx_t_1 * __pyx_v_knots.strides[0]) ))) - (*((double *) ( /* dim=0 */ (__pyx_v_knots.data + __pyx_t_2 * __pyx_v_knots.strides[0]) )))) * 1e-10);
 
-  /* "rbf/bspline.pyx":64
+  /* "rbf/bspline.pyx":65
  *     int i
  *     double tol = (knots[M-1] - knots[0])*1e-10
  *     double[:] out = np.empty(N)             # <<<<<<<<<<<<<<
  * 
  *   assert diff <= order,(
  */
-  __pyx_t_4 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_empty); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_empty); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyInt_From_int(__pyx_v_N); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_From_int(__pyx_v_N); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_6 = NULL;
   if (CYTHON_COMPILING_IN_CPYTHON && unlikely(PyMethod_Check(__pyx_t_5))) {
@@ -3217,29 +3217,29 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
     }
   }
   if (!__pyx_t_6) {
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_GOTREF(__pyx_t_3);
   } else {
-    __pyx_t_7 = PyTuple_New(1+1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_7 = PyTuple_New(1+1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 65, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_GIVEREF(__pyx_t_6); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_6); __pyx_t_6 = NULL;
     __Pyx_GIVEREF(__pyx_t_4);
     PyTuple_SET_ITEM(__pyx_t_7, 0+1, __pyx_t_4);
     __pyx_t_4 = 0;
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_7, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_7, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 65, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_t_3);
-  if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 64, __pyx_L1_error)
+  if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_out = __pyx_t_8;
   __pyx_t_8.memview = NULL;
   __pyx_t_8.data = NULL;
 
-  /* "rbf/bspline.pyx":66
+  /* "rbf/bspline.pyx":67
  *     double[:] out = np.empty(N)
  * 
  *   assert diff <= order,(             # <<<<<<<<<<<<<<
@@ -3250,12 +3250,12 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
   if (unlikely(!Py_OptimizeFlag)) {
     if (unlikely(!((__pyx_v_diff <= __pyx_v_order) != 0))) {
       PyErr_SetObject(PyExc_AssertionError, __pyx_kp_s_derivative_order_must_be_less_th);
-      __PYX_ERR(0, 66, __pyx_L1_error)
+      __PYX_ERR(0, 67, __pyx_L1_error)
     }
   }
   #endif
 
-  /* "rbf/bspline.pyx":69
+  /* "rbf/bspline.pyx":70
  *     'derivative order must be less than or equal to the spline order')
  * 
  *   assert M >= (index+order+2),(             # <<<<<<<<<<<<<<
@@ -3266,12 +3266,12 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
   if (unlikely(!Py_OptimizeFlag)) {
     if (unlikely(!((__pyx_v_M >= ((__pyx_v_index + __pyx_v_order) + 2)) != 0))) {
       PyErr_SetObject(PyExc_AssertionError, __pyx_kp_s_there_are_not_enough_knots_for_t);
-      __PYX_ERR(0, 69, __pyx_L1_error)
+      __PYX_ERR(0, 70, __pyx_L1_error)
     }
   }
   #endif
 
-  /* "rbf/bspline.pyx":72
+  /* "rbf/bspline.pyx":73
  *     'there are not enough knots for the given spline order and index')
  * 
  *   assert is_sorted(knots),(             # <<<<<<<<<<<<<<
@@ -3282,12 +3282,12 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
   if (unlikely(!Py_OptimizeFlag)) {
     if (unlikely(!(__pyx_f_3rbf_7bspline_is_sorted(__pyx_v_knots, 0) != 0))) {
       PyErr_SetObject(PyExc_AssertionError, __pyx_kp_s_knots_must_be_in_ascending_order);
-      __PYX_ERR(0, 72, __pyx_L1_error)
+      __PYX_ERR(0, 73, __pyx_L1_error)
     }
   }
   #endif
 
-  /* "rbf/bspline.pyx":75
+  /* "rbf/bspline.pyx":76
  *     'knots must be in ascending order')
  * 
  *   with nogil:             # <<<<<<<<<<<<<<
@@ -3301,7 +3301,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
       #endif
       /*try:*/ {
 
-        /* "rbf/bspline.pyx":77
+        /* "rbf/bspline.pyx":78
  *   with nogil:
  *     # can be parallelized with prange
  *     for i in range(N):             # <<<<<<<<<<<<<<
@@ -3312,7 +3312,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
         for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
           __pyx_v_i = __pyx_t_10;
 
-          /* "rbf/bspline.pyx":78
+          /* "rbf/bspline.pyx":79
  *     # can be parallelized with prange
  *     for i in range(N):
  *       out[i] = bsp1d_k(x[i],knots,index,order,diff,tol)             # <<<<<<<<<<<<<<
@@ -3325,7 +3325,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
         }
       }
 
-      /* "rbf/bspline.pyx":75
+      /* "rbf/bspline.pyx":76
  *     'knots must be in ascending order')
  * 
  *   with nogil:             # <<<<<<<<<<<<<<
@@ -3343,7 +3343,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
       }
   }
 
-  /* "rbf/bspline.pyx":80
+  /* "rbf/bspline.pyx":81
  *       out[i] = bsp1d_k(x[i],knots,index,order,diff,tol)
  * 
  *   return np.asarray(out)             # <<<<<<<<<<<<<<
@@ -3351,12 +3351,12 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
  * 
  */
   __Pyx_XDECREF(((PyObject *)__pyx_r));
-  __pyx_t_5 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_asarray); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_asarray); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __pyx_memoryview_fromslice(__pyx_v_out, 1, (PyObject *(*)(char *)) __pyx_memview_get_double, (int (*)(char *, PyObject *)) __pyx_memview_set_double, 0);; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_5 = __pyx_memoryview_fromslice(__pyx_v_out, 1, (PyObject *(*)(char *)) __pyx_memview_get_double, (int (*)(char *, PyObject *)) __pyx_memview_set_double, 0);; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = NULL;
   if (CYTHON_COMPILING_IN_CPYTHON && unlikely(PyMethod_Check(__pyx_t_7))) {
@@ -3369,22 +3369,22 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
     }
   }
   if (!__pyx_t_4) {
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_3);
   } else {
-    __pyx_t_6 = PyTuple_New(1+1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_6 = PyTuple_New(1+1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 81, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_4); PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_4); __pyx_t_4 = NULL;
     __Pyx_GIVEREF(__pyx_t_5);
     PyTuple_SET_ITEM(__pyx_t_6, 0+1, __pyx_t_5);
     __pyx_t_5 = 0;
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_6, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 80, __pyx_L1_error)
+  if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 81, __pyx_L1_error)
   __pyx_r = ((PyArrayObject *)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
@@ -3416,7 +3416,7 @@ static PyArrayObject *__pyx_f_3rbf_7bspline_bsp1d(__Pyx_memviewslice __pyx_v_x, 
 
 /* Python wrapper */
 static PyObject *__pyx_pw_3rbf_7bspline_9bsp1d(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_7bspline_8bsp1d[] = "returns a 1D B-spline evaluated at x\n  ";
+static char __pyx_doc_3rbf_7bspline_8bsp1d[] = " \n  returns a 1D B-spline evaluated at x\n  ";
 static PyObject *__pyx_pw_3rbf_7bspline_9bsp1d(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   __Pyx_memviewslice __pyx_v_x = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_v_knots = { 0, 0, { 0 }, { 0 }, { 0 } };
@@ -3536,7 +3536,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_8bsp1d(CYTHON_UNUSED PyObject *__pyx_sel
   return __pyx_r;
 }
 
-/* "rbf/bspline.pyx":85
+/* "rbf/bspline.pyx":86
  * @wraparound(False)
  * @boundscheck(False)
  * cdef double bsp1d_k(double x,             # <<<<<<<<<<<<<<
@@ -3575,7 +3575,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
   Py_ssize_t __pyx_t_26;
   Py_ssize_t __pyx_t_27;
 
-  /* "rbf/bspline.pyx":104
+  /* "rbf/bspline.pyx":106
  *   '''
  *   cdef:
  *     double out = 0.0             # <<<<<<<<<<<<<<
@@ -3584,7 +3584,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
   __pyx_v_out = 0.0;
 
-  /* "rbf/bspline.pyx":106
+  /* "rbf/bspline.pyx":108
  *     double out = 0.0
  * 
  *   if diff > 0:             # <<<<<<<<<<<<<<
@@ -3594,7 +3594,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
   __pyx_t_1 = ((__pyx_v_diff > 0) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/bspline.pyx":108
+    /* "rbf/bspline.pyx":110
  *   if diff > 0:
  *     # check knot spacing to prevent zero division
  *     if (k[n+p] - k[n]) > tol:             # <<<<<<<<<<<<<<
@@ -3606,7 +3606,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     __pyx_t_1 = ((((*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_2 * __pyx_v_k.strides[0]) ))) - (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_3 * __pyx_v_k.strides[0]) )))) > __pyx_v_tol) != 0);
     if (__pyx_t_1) {
 
-      /* "rbf/bspline.pyx":109
+      /* "rbf/bspline.pyx":111
  *     # check knot spacing to prevent zero division
  *     if (k[n+p] - k[n]) > tol:
  *       out = p/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,diff-1,tol)             # <<<<<<<<<<<<<<
@@ -3624,11 +3624,11 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
         #ifdef WITH_THREAD
         PyGILState_Release(__pyx_gilstate_save);
         #endif
-        __PYX_ERR(0, 109, __pyx_L1_error)
+        __PYX_ERR(0, 111, __pyx_L1_error)
       }
       __pyx_v_out = ((((double)__pyx_v_p) / __pyx_t_6) * __pyx_f_3rbf_7bspline_bsp1d_k(__pyx_v_x, __pyx_v_k, __pyx_v_n, (__pyx_v_p - 1), (__pyx_v_diff - 1), __pyx_v_tol));
 
-      /* "rbf/bspline.pyx":108
+      /* "rbf/bspline.pyx":110
  *   if diff > 0:
  *     # check knot spacing to prevent zero division
  *     if (k[n+p] - k[n]) > tol:             # <<<<<<<<<<<<<<
@@ -3637,7 +3637,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
     }
 
-    /* "rbf/bspline.pyx":111
+    /* "rbf/bspline.pyx":113
  *       out = p/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,diff-1,tol)
  * 
  *     if (k[n+p+1] - k[n+1]) > tol:             # <<<<<<<<<<<<<<
@@ -3649,7 +3649,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     __pyx_t_1 = ((((*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_7 * __pyx_v_k.strides[0]) ))) - (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_8 * __pyx_v_k.strides[0]) )))) > __pyx_v_tol) != 0);
     if (__pyx_t_1) {
 
-      /* "rbf/bspline.pyx":112
+      /* "rbf/bspline.pyx":114
  * 
  *     if (k[n+p+1] - k[n+1]) > tol:
  *       out -= p/(k[n+p+1] - k[n+1])*bsp1d_k(x,k,n+1,p-1,diff-1,tol)             # <<<<<<<<<<<<<<
@@ -3667,11 +3667,11 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
         #ifdef WITH_THREAD
         PyGILState_Release(__pyx_gilstate_save);
         #endif
-        __PYX_ERR(0, 112, __pyx_L1_error)
+        __PYX_ERR(0, 114, __pyx_L1_error)
       }
       __pyx_v_out = (__pyx_v_out - ((((double)__pyx_v_p) / __pyx_t_6) * __pyx_f_3rbf_7bspline_bsp1d_k(__pyx_v_x, __pyx_v_k, (__pyx_v_n + 1), (__pyx_v_p - 1), (__pyx_v_diff - 1), __pyx_v_tol)));
 
-      /* "rbf/bspline.pyx":111
+      /* "rbf/bspline.pyx":113
  *       out = p/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,diff-1,tol)
  * 
  *     if (k[n+p+1] - k[n+1]) > tol:             # <<<<<<<<<<<<<<
@@ -3680,7 +3680,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
     }
 
-    /* "rbf/bspline.pyx":106
+    /* "rbf/bspline.pyx":108
  *     double out = 0.0
  * 
  *   if diff > 0:             # <<<<<<<<<<<<<<
@@ -3690,7 +3690,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     goto __pyx_L3;
   }
 
-  /* "rbf/bspline.pyx":114
+  /* "rbf/bspline.pyx":116
  *       out -= p/(k[n+p+1] - k[n+1])*bsp1d_k(x,k,n+1,p-1,diff-1,tol)
  * 
  *   elif p == 0:             # <<<<<<<<<<<<<<
@@ -3700,7 +3700,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
   __pyx_t_1 = ((__pyx_v_p == 0) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/bspline.pyx":119
+    /* "rbf/bspline.pyx":121
  *     # two knots. Otherwise return 1 on the left-closed interval
  *     # between the two knots
  *     if k[n+1] == k[k.shape[0]-1]:             # <<<<<<<<<<<<<<
@@ -3712,7 +3712,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     __pyx_t_1 = (((*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_11 * __pyx_v_k.strides[0]) ))) == (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_12 * __pyx_v_k.strides[0]) )))) != 0);
     if (__pyx_t_1) {
 
-      /* "rbf/bspline.pyx":120
+      /* "rbf/bspline.pyx":122
  *     # between the two knots
  *     if k[n+1] == k[k.shape[0]-1]:
  *       if ((x >= k[n]) & (x <= k[n+1])):             # <<<<<<<<<<<<<<
@@ -3724,7 +3724,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
       __pyx_t_1 = (((__pyx_v_x >= (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_13 * __pyx_v_k.strides[0]) )))) & (__pyx_v_x <= (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_14 * __pyx_v_k.strides[0]) ))))) != 0);
       if (__pyx_t_1) {
 
-        /* "rbf/bspline.pyx":121
+        /* "rbf/bspline.pyx":123
  *     if k[n+1] == k[k.shape[0]-1]:
  *       if ((x >= k[n]) & (x <= k[n+1])):
  *         out = 1.0             # <<<<<<<<<<<<<<
@@ -3733,7 +3733,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
         __pyx_v_out = 1.0;
 
-        /* "rbf/bspline.pyx":120
+        /* "rbf/bspline.pyx":122
  *     # between the two knots
  *     if k[n+1] == k[k.shape[0]-1]:
  *       if ((x >= k[n]) & (x <= k[n+1])):             # <<<<<<<<<<<<<<
@@ -3742,7 +3742,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
       }
 
-      /* "rbf/bspline.pyx":119
+      /* "rbf/bspline.pyx":121
  *     # two knots. Otherwise return 1 on the left-closed interval
  *     # between the two knots
  *     if k[n+1] == k[k.shape[0]-1]:             # <<<<<<<<<<<<<<
@@ -3752,7 +3752,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
       goto __pyx_L6;
     }
 
-    /* "rbf/bspline.pyx":124
+    /* "rbf/bspline.pyx":126
  * 
  *     else:
  *       if ((x >= k[n]) & (x < k[n+1])):             # <<<<<<<<<<<<<<
@@ -3765,7 +3765,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
       __pyx_t_1 = (((__pyx_v_x >= (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_15 * __pyx_v_k.strides[0]) )))) & (__pyx_v_x < (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_16 * __pyx_v_k.strides[0]) ))))) != 0);
       if (__pyx_t_1) {
 
-        /* "rbf/bspline.pyx":125
+        /* "rbf/bspline.pyx":127
  *     else:
  *       if ((x >= k[n]) & (x < k[n+1])):
  *         out = 1.0             # <<<<<<<<<<<<<<
@@ -3774,7 +3774,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
         __pyx_v_out = 1.0;
 
-        /* "rbf/bspline.pyx":124
+        /* "rbf/bspline.pyx":126
  * 
  *     else:
  *       if ((x >= k[n]) & (x < k[n+1])):             # <<<<<<<<<<<<<<
@@ -3785,7 +3785,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     }
     __pyx_L6:;
 
-    /* "rbf/bspline.pyx":114
+    /* "rbf/bspline.pyx":116
  *       out -= p/(k[n+p+1] - k[n+1])*bsp1d_k(x,k,n+1,p-1,diff-1,tol)
  * 
  *   elif p == 0:             # <<<<<<<<<<<<<<
@@ -3795,7 +3795,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     goto __pyx_L3;
   }
 
-  /* "rbf/bspline.pyx":129
+  /* "rbf/bspline.pyx":131
  *   # if the derivative is zero and order is not zero
  *   else:
  *     if (k[n+p] - k[n]) > tol:             # <<<<<<<<<<<<<<
@@ -3808,7 +3808,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     __pyx_t_1 = ((((*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_17 * __pyx_v_k.strides[0]) ))) - (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_18 * __pyx_v_k.strides[0]) )))) > __pyx_v_tol) != 0);
     if (__pyx_t_1) {
 
-      /* "rbf/bspline.pyx":130
+      /* "rbf/bspline.pyx":132
  *   else:
  *     if (k[n+p] - k[n]) > tol:
  *       out = (x - k[n])/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,0,tol)             # <<<<<<<<<<<<<<
@@ -3828,11 +3828,11 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
         #ifdef WITH_THREAD
         PyGILState_Release(__pyx_gilstate_save);
         #endif
-        __PYX_ERR(0, 130, __pyx_L1_error)
+        __PYX_ERR(0, 132, __pyx_L1_error)
       }
       __pyx_v_out = ((__pyx_t_6 / __pyx_t_22) * __pyx_f_3rbf_7bspline_bsp1d_k(__pyx_v_x, __pyx_v_k, __pyx_v_n, (__pyx_v_p - 1), 0, __pyx_v_tol));
 
-      /* "rbf/bspline.pyx":129
+      /* "rbf/bspline.pyx":131
  *   # if the derivative is zero and order is not zero
  *   else:
  *     if (k[n+p] - k[n]) > tol:             # <<<<<<<<<<<<<<
@@ -3841,7 +3841,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
  */
     }
 
-    /* "rbf/bspline.pyx":132
+    /* "rbf/bspline.pyx":134
  *       out = (x - k[n])/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,0,tol)
  * 
  *     if (k[n+p+1] - k[n+1]) > tol:             # <<<<<<<<<<<<<<
@@ -3853,7 +3853,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
     __pyx_t_1 = ((((*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_23 * __pyx_v_k.strides[0]) ))) - (*((double *) ( /* dim=0 */ (__pyx_v_k.data + __pyx_t_24 * __pyx_v_k.strides[0]) )))) > __pyx_v_tol) != 0);
     if (__pyx_t_1) {
 
-      /* "rbf/bspline.pyx":133
+      /* "rbf/bspline.pyx":135
  * 
  *     if (k[n+p+1] - k[n+1]) > tol:
  *       out -= (x - k[n+p+1])/(k[n+p+1] - k[n+1])*bsp1d_k(x,k,n+1,p-1,0,tol)             # <<<<<<<<<<<<<<
@@ -3873,11 +3873,11 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
         #ifdef WITH_THREAD
         PyGILState_Release(__pyx_gilstate_save);
         #endif
-        __PYX_ERR(0, 133, __pyx_L1_error)
+        __PYX_ERR(0, 135, __pyx_L1_error)
       }
       __pyx_v_out = (__pyx_v_out - ((__pyx_t_22 / __pyx_t_6) * __pyx_f_3rbf_7bspline_bsp1d_k(__pyx_v_x, __pyx_v_k, (__pyx_v_n + 1), (__pyx_v_p - 1), 0, __pyx_v_tol)));
 
-      /* "rbf/bspline.pyx":132
+      /* "rbf/bspline.pyx":134
  *       out = (x - k[n])/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,0,tol)
  * 
  *     if (k[n+p+1] - k[n+1]) > tol:             # <<<<<<<<<<<<<<
@@ -3888,7 +3888,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
   }
   __pyx_L3:;
 
-  /* "rbf/bspline.pyx":135
+  /* "rbf/bspline.pyx":137
  *       out -= (x - k[n+p+1])/(k[n+p+1] - k[n+1])*bsp1d_k(x,k,n+1,p-1,0,tol)
  * 
  *   return out             # <<<<<<<<<<<<<<
@@ -3898,7 +3898,7 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "rbf/bspline.pyx":85
+  /* "rbf/bspline.pyx":86
  * @wraparound(False)
  * @boundscheck(False)
  * cdef double bsp1d_k(double x,             # <<<<<<<<<<<<<<
@@ -3914,17 +3914,17 @@ static double __pyx_f_3rbf_7bspline_bsp1d_k(double __pyx_v_x, __Pyx_memviewslice
   return __pyx_r;
 }
 
-/* "rbf/bspline.pyx":137
+/* "rbf/bspline.pyx":139
  *   return out
  * 
  * def bspnd(x,k,n,p,diff=None):             # <<<<<<<<<<<<<<
- *   '''returns an N-D B-spline which is the tensor product of 1-D B-splines
- *   The arguments for this function should all be length N sequences and
+ *   '''
+ *   returns an N-D B-spline which is the tensor product of 1-D B-splines
  */
 
 /* Python wrapper */
 static PyObject *__pyx_pw_3rbf_7bspline_11bspnd(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_7bspline_10bspnd[] = "returns an N-D B-spline which is the tensor product of 1-D B-splines   \n  The arguments for this function should all be length N sequences and       \n  each element will be passed to bspline_1d             \n                                                    \n  Parameters                                       \n  ----------                                  \n                                              \n    x: points where the b spline will be evaluated          \n                                   \n    k: knots for each dimension\n                                                       \n    n: B-spline index                 \n                                                                                   \n    p: order of the B-spline (0 is a step function)                \n                                                        \n  ";
+static char __pyx_doc_3rbf_7bspline_10bspnd[] = " \n  returns an N-D B-spline which is the tensor product of 1-D B-splines   \n  The arguments for this function should all be length N sequences and       \n  each element will be passed to bspline_1d             \n                                                    \n  Parameters                                       \n  ----------                                  \n                                              \n    x: points where the b spline will be evaluated          \n                                   \n    k: knots for each dimension\n                                                       \n    n: B-spline index                 \n                                                                                   \n    p: order of the B-spline (0 is a step function)                \n                                                        \n  ";
 static PyMethodDef __pyx_mdef_3rbf_7bspline_11bspnd = {"bspnd", (PyCFunction)__pyx_pw_3rbf_7bspline_11bspnd, METH_VARARGS|METH_KEYWORDS, __pyx_doc_3rbf_7bspline_10bspnd};
 static PyObject *__pyx_pw_3rbf_7bspline_11bspnd(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_x = 0;
@@ -3959,17 +3959,17 @@ static PyObject *__pyx_pw_3rbf_7bspline_11bspnd(PyObject *__pyx_self, PyObject *
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_k)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, 1); __PYX_ERR(0, 137, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, 1); __PYX_ERR(0, 139, __pyx_L3_error)
         }
         case  2:
         if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_n)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, 2); __PYX_ERR(0, 137, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, 2); __PYX_ERR(0, 139, __pyx_L3_error)
         }
         case  3:
         if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_p)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, 3); __PYX_ERR(0, 137, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, 3); __PYX_ERR(0, 139, __pyx_L3_error)
         }
         case  4:
         if (kw_args > 0) {
@@ -3978,7 +3978,7 @@ static PyObject *__pyx_pw_3rbf_7bspline_11bspnd(PyObject *__pyx_self, PyObject *
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "bspnd") < 0)) __PYX_ERR(0, 137, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "bspnd") < 0)) __PYX_ERR(0, 139, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -3999,7 +3999,7 @@ static PyObject *__pyx_pw_3rbf_7bspline_11bspnd(PyObject *__pyx_self, PyObject *
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 137, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("bspnd", 0, 4, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 139, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("rbf.bspline.bspnd", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -4052,16 +4052,16 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
   __Pyx_INCREF(__pyx_v_x);
   __Pyx_INCREF(__pyx_v_diff);
 
-  /* "rbf/bspline.pyx":154
+  /* "rbf/bspline.pyx":157
  * 
  *   '''
  *   x = np.transpose(x)             # <<<<<<<<<<<<<<
  * 
  *   d = len(n)
  */
-  __pyx_t_2 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_transpose); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_transpose); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -4075,16 +4075,16 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
     }
   }
   if (!__pyx_t_2) {
-    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   } else {
-    __pyx_t_4 = PyTuple_New(1+1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(1+1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 157, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_GIVEREF(__pyx_t_2); PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2); __pyx_t_2 = NULL;
     __Pyx_INCREF(__pyx_v_x);
     __Pyx_GIVEREF(__pyx_v_x);
     PyTuple_SET_ITEM(__pyx_t_4, 0+1, __pyx_v_x);
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_4, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_4, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
@@ -4092,20 +4092,20 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
   __Pyx_DECREF_SET(__pyx_v_x, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "rbf/bspline.pyx":156
+  /* "rbf/bspline.pyx":159
  *   x = np.transpose(x)
  * 
  *   d = len(n)             # <<<<<<<<<<<<<<
  *   if diff is None:
  *     diff = (0,)*d
  */
-  __pyx_t_5 = PyObject_Length(__pyx_v_n); if (unlikely(__pyx_t_5 == -1)) __PYX_ERR(0, 156, __pyx_L1_error)
-  __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_t_5 = PyObject_Length(__pyx_v_n); if (unlikely(__pyx_t_5 == -1)) __PYX_ERR(0, 159, __pyx_L1_error)
+  __pyx_t_1 = PyInt_FromSsize_t(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_d = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "rbf/bspline.pyx":157
+  /* "rbf/bspline.pyx":160
  * 
  *   d = len(n)
  *   if diff is None:             # <<<<<<<<<<<<<<
@@ -4116,19 +4116,19 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
   __pyx_t_7 = (__pyx_t_6 != 0);
   if (__pyx_t_7) {
 
-    /* "rbf/bspline.pyx":158
+    /* "rbf/bspline.pyx":161
  *   d = len(n)
  *   if diff is None:
  *     diff = (0,)*d             # <<<<<<<<<<<<<<
  *   assert ((len(x) == len(k)) &
  *           (len(x) == len(n)) &
  */
-    __pyx_t_1 = PyNumber_Multiply(__pyx_tuple_, __pyx_v_d); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 158, __pyx_L1_error)
+    __pyx_t_1 = PyNumber_Multiply(__pyx_tuple_, __pyx_v_d); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_diff, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "rbf/bspline.pyx":157
+    /* "rbf/bspline.pyx":160
  * 
  *   d = len(n)
  *   if diff is None:             # <<<<<<<<<<<<<<
@@ -4137,7 +4137,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
  */
   }
 
-  /* "rbf/bspline.pyx":159
+  /* "rbf/bspline.pyx":162
  *   if diff is None:
  *     diff = (0,)*d
  *   assert ((len(x) == len(k)) &             # <<<<<<<<<<<<<<
@@ -4146,40 +4146,40 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(!Py_OptimizeFlag)) {
-    __pyx_t_5 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_5 == -1)) __PYX_ERR(0, 159, __pyx_L1_error)
-    __pyx_t_8 = PyObject_Length(__pyx_v_k); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_5 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_5 == -1)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_8 = PyObject_Length(__pyx_v_k); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 162, __pyx_L1_error)
 
-    /* "rbf/bspline.pyx":160
+    /* "rbf/bspline.pyx":163
  *     diff = (0,)*d
  *   assert ((len(x) == len(k)) &
  *           (len(x) == len(n)) &             # <<<<<<<<<<<<<<
  *           (len(x) == len(p)) &
  *           (len(x) == len(diff)))
  */
-    __pyx_t_9 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 160, __pyx_L1_error)
-    __pyx_t_10 = PyObject_Length(__pyx_v_n); if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 160, __pyx_L1_error)
+    __pyx_t_9 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 163, __pyx_L1_error)
+    __pyx_t_10 = PyObject_Length(__pyx_v_n); if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 163, __pyx_L1_error)
 
-    /* "rbf/bspline.pyx":161
+    /* "rbf/bspline.pyx":164
  *   assert ((len(x) == len(k)) &
  *           (len(x) == len(n)) &
  *           (len(x) == len(p)) &             # <<<<<<<<<<<<<<
  *           (len(x) == len(diff)))
  * 
  */
-    __pyx_t_11 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_11 == -1)) __PYX_ERR(0, 161, __pyx_L1_error)
-    __pyx_t_12 = PyObject_Length(__pyx_v_p); if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 161, __pyx_L1_error)
+    __pyx_t_11 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_11 == -1)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_12 = PyObject_Length(__pyx_v_p); if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 164, __pyx_L1_error)
 
-    /* "rbf/bspline.pyx":162
+    /* "rbf/bspline.pyx":165
  *           (len(x) == len(n)) &
  *           (len(x) == len(p)) &
  *           (len(x) == len(diff)))             # <<<<<<<<<<<<<<
  * 
  *   val = [bsp1d(a,b,c,d,e) for a,b,c,d,e in zip(x,k,n,p,diff)]
  */
-    __pyx_t_13 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 162, __pyx_L1_error)
-    __pyx_t_14 = PyObject_Length(__pyx_v_diff); if (unlikely(__pyx_t_14 == -1)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_13 = PyObject_Length(__pyx_v_x); if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_14 = PyObject_Length(__pyx_v_diff); if (unlikely(__pyx_t_14 == -1)) __PYX_ERR(0, 165, __pyx_L1_error)
 
-    /* "rbf/bspline.pyx":161
+    /* "rbf/bspline.pyx":164
  *   assert ((len(x) == len(k)) &
  *           (len(x) == len(n)) &
  *           (len(x) == len(p)) &             # <<<<<<<<<<<<<<
@@ -4188,21 +4188,21 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
  */
     if (unlikely(!(((((__pyx_t_5 == __pyx_t_8) & (__pyx_t_9 == __pyx_t_10)) & (__pyx_t_11 == __pyx_t_12)) & (__pyx_t_13 == __pyx_t_14)) != 0))) {
       PyErr_SetNone(PyExc_AssertionError);
-      __PYX_ERR(0, 159, __pyx_L1_error)
+      __PYX_ERR(0, 162, __pyx_L1_error)
     }
   }
   #endif
 
-  /* "rbf/bspline.pyx":164
+  /* "rbf/bspline.pyx":167
  *           (len(x) == len(diff)))
  * 
  *   val = [bsp1d(a,b,c,d,e) for a,b,c,d,e in zip(x,k,n,p,diff)]             # <<<<<<<<<<<<<<
  *   return np.prod(val,0)
  * 
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyTuple_New(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_v_x);
   __Pyx_GIVEREF(__pyx_v_x);
@@ -4219,16 +4219,16 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
   __Pyx_INCREF(__pyx_v_diff);
   __Pyx_GIVEREF(__pyx_v_diff);
   PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_v_diff);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_builtin_zip, __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_builtin_zip, __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (likely(PyList_CheckExact(__pyx_t_4)) || PyTuple_CheckExact(__pyx_t_4)) {
     __pyx_t_3 = __pyx_t_4; __Pyx_INCREF(__pyx_t_3); __pyx_t_14 = 0;
     __pyx_t_15 = NULL;
   } else {
-    __pyx_t_14 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_14 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_15 = Py_TYPE(__pyx_t_3)->tp_iternext; if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_15 = Py_TYPE(__pyx_t_3)->tp_iternext; if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 167, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   for (;;) {
@@ -4236,17 +4236,17 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
       if (likely(PyList_CheckExact(__pyx_t_3))) {
         if (__pyx_t_14 >= PyList_GET_SIZE(__pyx_t_3)) break;
         #if CYTHON_COMPILING_IN_CPYTHON
-        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_14); __Pyx_INCREF(__pyx_t_4); __pyx_t_14++; if (unlikely(0 < 0)) __PYX_ERR(0, 164, __pyx_L1_error)
+        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_3, __pyx_t_14); __Pyx_INCREF(__pyx_t_4); __pyx_t_14++; if (unlikely(0 < 0)) __PYX_ERR(0, 167, __pyx_L1_error)
         #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_3, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+        __pyx_t_4 = PySequence_ITEM(__pyx_t_3, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
       } else {
         if (__pyx_t_14 >= PyTuple_GET_SIZE(__pyx_t_3)) break;
         #if CYTHON_COMPILING_IN_CPYTHON
-        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_14); __Pyx_INCREF(__pyx_t_4); __pyx_t_14++; if (unlikely(0 < 0)) __PYX_ERR(0, 164, __pyx_L1_error)
+        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_14); __Pyx_INCREF(__pyx_t_4); __pyx_t_14++; if (unlikely(0 < 0)) __PYX_ERR(0, 167, __pyx_L1_error)
         #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_3, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+        __pyx_t_4 = PySequence_ITEM(__pyx_t_3, __pyx_t_14); __pyx_t_14++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
       }
@@ -4256,7 +4256,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(exc_type == PyExc_StopIteration || PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 164, __pyx_L1_error)
+          else __PYX_ERR(0, 167, __pyx_L1_error)
         }
         break;
       }
@@ -4272,7 +4272,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
       if (unlikely(size != 5)) {
         if (size > 5) __Pyx_RaiseTooManyValuesError(5);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 164, __pyx_L1_error)
+        __PYX_ERR(0, 167, __pyx_L1_error)
       }
       #if CYTHON_COMPILING_IN_CPYTHON
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -4298,7 +4298,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
         Py_ssize_t i;
         PyObject** temps[5] = {&__pyx_t_2,&__pyx_t_16,&__pyx_t_17,&__pyx_t_18,&__pyx_t_19};
         for (i=0; i < 5; i++) {
-          PyObject* item = PySequence_ITEM(sequence, i); if (unlikely(!item)) __PYX_ERR(0, 164, __pyx_L1_error)
+          PyObject* item = PySequence_ITEM(sequence, i); if (unlikely(!item)) __PYX_ERR(0, 167, __pyx_L1_error)
           __Pyx_GOTREF(item);
           *(temps[i]) = item;
         }
@@ -4308,7 +4308,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
     } else {
       Py_ssize_t index = -1;
       PyObject** temps[5] = {&__pyx_t_2,&__pyx_t_16,&__pyx_t_17,&__pyx_t_18,&__pyx_t_19};
-      __pyx_t_20 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 164, __pyx_L1_error)
+      __pyx_t_20 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 167, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_20);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_21 = Py_TYPE(__pyx_t_20)->tp_iternext;
@@ -4317,7 +4317,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
         __Pyx_GOTREF(item);
         *(temps[index]) = item;
       }
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_21(__pyx_t_20), 5) < 0) __PYX_ERR(0, 164, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_21(__pyx_t_20), 5) < 0) __PYX_ERR(0, 167, __pyx_L1_error)
       __pyx_t_21 = NULL;
       __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
       goto __pyx_L7_unpacking_done;
@@ -4325,7 +4325,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
       __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
       __pyx_t_21 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 164, __pyx_L1_error)
+      __PYX_ERR(0, 167, __pyx_L1_error)
       __pyx_L7_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_a, __pyx_t_2);
@@ -4339,26 +4339,26 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
     __Pyx_XDECREF_SET(__pyx_v_e, __pyx_t_19);
     __pyx_t_19 = 0;
     __pyx_t_22 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_v_a);
-    if (unlikely(!__pyx_t_22.memview)) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (unlikely(!__pyx_t_22.memview)) __PYX_ERR(0, 167, __pyx_L1_error)
     __pyx_t_23 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_v_b);
-    if (unlikely(!__pyx_t_23.memview)) __PYX_ERR(0, 164, __pyx_L1_error)
-    __pyx_t_24 = __Pyx_PyInt_As_int(__pyx_v_c); if (unlikely((__pyx_t_24 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 164, __pyx_L1_error)
-    __pyx_t_25 = __Pyx_PyInt_As_int(__pyx_v_d); if (unlikely((__pyx_t_25 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 164, __pyx_L1_error)
-    __pyx_t_26 = __Pyx_PyInt_As_int(__pyx_v_e); if (unlikely((__pyx_t_26 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (unlikely(!__pyx_t_23.memview)) __PYX_ERR(0, 167, __pyx_L1_error)
+    __pyx_t_24 = __Pyx_PyInt_As_int(__pyx_v_c); if (unlikely((__pyx_t_24 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 167, __pyx_L1_error)
+    __pyx_t_25 = __Pyx_PyInt_As_int(__pyx_v_d); if (unlikely((__pyx_t_25 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 167, __pyx_L1_error)
+    __pyx_t_26 = __Pyx_PyInt_As_int(__pyx_v_e); if (unlikely((__pyx_t_26 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 167, __pyx_L1_error)
     __pyx_t_27.__pyx_n = 1;
     __pyx_t_27.diff = __pyx_t_26;
-    __pyx_t_4 = ((PyObject *)__pyx_f_3rbf_7bspline_bsp1d(__pyx_t_22, __pyx_t_23, __pyx_t_24, __pyx_t_25, 0, &__pyx_t_27)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_4 = ((PyObject *)__pyx_f_3rbf_7bspline_bsp1d(__pyx_t_22, __pyx_t_23, __pyx_t_24, __pyx_t_25, 0, &__pyx_t_27)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __PYX_XDEC_MEMVIEW(&__pyx_t_22, 1);
     __PYX_XDEC_MEMVIEW(&__pyx_t_23, 1);
-    if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 167, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_val = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "rbf/bspline.pyx":165
+  /* "rbf/bspline.pyx":168
  * 
  *   val = [bsp1d(a,b,c,d,e) for a,b,c,d,e in zip(x,k,n,p,diff)]
  *   return np.prod(val,0)             # <<<<<<<<<<<<<<
@@ -4366,9 +4366,9 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_prod); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_prod); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -4383,7 +4383,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
       __pyx_t_14 = 1;
     }
   }
-  __pyx_t_19 = PyTuple_New(2+__pyx_t_14); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_19 = PyTuple_New(2+__pyx_t_14); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_19);
   if (__pyx_t_3) {
     __Pyx_GIVEREF(__pyx_t_3); PyTuple_SET_ITEM(__pyx_t_19, 0, __pyx_t_3); __pyx_t_3 = NULL;
@@ -4394,7 +4394,7 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
   __Pyx_INCREF(__pyx_int_0);
   __Pyx_GIVEREF(__pyx_int_0);
   PyTuple_SET_ITEM(__pyx_t_19, 1+__pyx_t_14, __pyx_int_0);
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_19, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_19, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -4402,12 +4402,12 @@ static PyObject *__pyx_pf_3rbf_7bspline_10bspnd(CYTHON_UNUSED PyObject *__pyx_se
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "rbf/bspline.pyx":137
+  /* "rbf/bspline.pyx":139
  *   return out
  * 
  * def bspnd(x,k,n,p,diff=None):             # <<<<<<<<<<<<<<
- *   '''returns an N-D B-spline which is the tensor product of 1-D B-splines
- *   The arguments for this function should all be length N sequences and
+ *   '''
+ *   returns an N-D B-spline which is the tensor product of 1-D B-splines
  */
 
   /* function exit code */
@@ -18935,7 +18935,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 };
 static int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 11, __pyx_L1_error)
-  __pyx_builtin_zip = __Pyx_GetBuiltinName(__pyx_n_s_zip); if (!__pyx_builtin_zip) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_builtin_zip = __Pyx_GetBuiltinName(__pyx_n_s_zip); if (!__pyx_builtin_zip) __PYX_ERR(0, 167, __pyx_L1_error)
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(1, 218, __pyx_L1_error)
   __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_n_s_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(1, 799, __pyx_L1_error)
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(2, 146, __pyx_L1_error)
@@ -18953,14 +18953,14 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "rbf/bspline.pyx":158
+  /* "rbf/bspline.pyx":161
  *   d = len(n)
  *   if diff is None:
  *     diff = (0,)*d             # <<<<<<<<<<<<<<
  *   assert ((len(x) == len(k)) &
  *           (len(x) == len(n)) &
  */
-  __pyx_tuple_ = PyTuple_New(1); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_tuple_ = PyTuple_New(1); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple_);
   __Pyx_INCREF(__pyx_int_0);
   __Pyx_GIVEREF(__pyx_int_0);
@@ -19215,17 +19215,17 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__25);
   __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(2, 0, 2, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__25, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_cmld_data5_hinest_Projects_RBF, __pyx_n_s_basis_number, 46, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 46, __pyx_L1_error)
 
-  /* "rbf/bspline.pyx":137
+  /* "rbf/bspline.pyx":139
  *   return out
  * 
  * def bspnd(x,k,n,p,diff=None):             # <<<<<<<<<<<<<<
- *   '''returns an N-D B-spline which is the tensor product of 1-D B-splines
- *   The arguments for this function should all be length N sequences and
+ *   '''
+ *   returns an N-D B-spline which is the tensor product of 1-D B-splines
  */
-  __pyx_tuple__27 = PyTuple_Pack(11, __pyx_n_s_x, __pyx_n_s_k, __pyx_n_s_n, __pyx_n_s_p, __pyx_n_s_diff, __pyx_n_s_d, __pyx_n_s_val, __pyx_n_s_a, __pyx_n_s_b, __pyx_n_s_c, __pyx_n_s_e); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_tuple__27 = PyTuple_Pack(11, __pyx_n_s_x, __pyx_n_s_k, __pyx_n_s_n, __pyx_n_s_p, __pyx_n_s_diff, __pyx_n_s_d, __pyx_n_s_val, __pyx_n_s_a, __pyx_n_s_b, __pyx_n_s_c, __pyx_n_s_e); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__27);
   __Pyx_GIVEREF(__pyx_tuple__27);
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(5, 0, 11, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_cmld_data5_hinest_Projects_RBF, __pyx_n_s_bspnd, 137, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(5, 0, 11, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_cmld_data5_hinest_Projects_RBF, __pyx_n_s_bspnd, 139, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 139, __pyx_L1_error)
 
   /* "View.MemoryView":282
  *         return self.name
@@ -19485,16 +19485,16 @@ PyMODINIT_FUNC PyInit_bspline(void)
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_basis_number, __pyx_t_1) < 0) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/bspline.pyx":137
+  /* "rbf/bspline.pyx":139
  *   return out
  * 
  * def bspnd(x,k,n,p,diff=None):             # <<<<<<<<<<<<<<
- *   '''returns an N-D B-spline which is the tensor product of 1-D B-splines
- *   The arguments for this function should all be length N sequences and
+ *   '''
+ *   returns an N-D B-spline which is the tensor product of 1-D B-splines
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_3rbf_7bspline_11bspnd, NULL, __pyx_n_s_rbf_bspline); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_3rbf_7bspline_11bspnd, NULL, __pyx_n_s_rbf_bspline); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_bspnd, __pyx_t_1) < 0) __PYX_ERR(0, 137, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_bspnd, __pyx_t_1) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "rbf/bspline.pyx":1

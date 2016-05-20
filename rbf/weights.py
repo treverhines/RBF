@@ -258,7 +258,7 @@ def rbf_weight(x,nodes,diff,centers=None,
     d = np.zeros(nodes.shape[0] + Np)
     for coeff,diff_tuple in diff:
       d += coeff*drbf(x,centers,eps,order,diff_tuple,basis)
-
+  
   else:
     d = drbf(x,centers,eps,order,diff,basis)
 
