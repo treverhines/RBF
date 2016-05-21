@@ -154,7 +154,7 @@ def laplacian_diff_op(dim):
    return [(1.0,tuple(i)) for i in 2*np.eye(dim,dtype=int)]
 
 
-def smoothing_matrix(x,connectivity=1,stencil_size=None,
+def smoothing_matrix(x,connectivity=None,stencil_size=None,
                      diff=None,basis=rbf.basis.phs3,order=1,
                      vert=None,smp=None):
   ''' 
@@ -166,11 +166,11 @@ def smoothing_matrix(x,connectivity=1,stencil_size=None,
   ----------
     x: (N,D) array of observation points
 
-    connectivity (default=1): used to determine the stencil size
-      unless stencil size is explicitly given as an argument
+    connectivity (default=None): used to determine the stencil size.
+      If specified, this overrides any argument for stencil_size
 
-    stencil size (default=None): number of nodes in each finite 
-      difference stencil. Overrides connectivity if specified
+    stencil_size (default=10): number of nodes in each finite 
+      difference stencil. 
 
     diff (default=None): smoothing differential operator. If not 
       specified then the D-dimensional Laplacian is used
@@ -215,14 +215,80 @@ def smoothing_matrix(x,connectivity=1,stencil_size=None,
     data[i,:] = rbf.weights.rbf_weight(x[i],x[si],diff=diff,
                                        basis=basis,order=order)
   rows = np.repeat(range(N),Ns)
-  cols = s.flatten()
-  data = data.flatten()
+  cols = s.ravel()
+  data = data.ravel()
   L = scipy.sparse.csr_matrix((data,(rows,cols)))
 
   return L  
 
 
-def predictive_error(L,data,damping,fold=10,dsolve=True,use_petsc=HAS_PETSC,**kwargs):
+def grid_smoothing_matrices(Lx,Ly):
+  ''' 
+  Description
+  -----------
+    Consider the array u with shape (Nx,Ny).  Lx is a (Nx,Nx) 
+    smoothing matrix which acts along the rows of u. Ly is a (Ny,Ny) 
+    smoothing matrix which acts along the columns of u. This function 
+    returns a matrix, Lxy, which imposes both the smoothing 
+    constraints in Lx and Ly on a flattened u.
+
+  Parameters
+  ----------
+    Lx: (Rx,Cx) sparse matrix
+    Ly: (Ry,Cy) sparse matrix
+
+  Returns
+  -------
+    Lxy: (Rx*Cy+Ry*Cx,Cx*Cy) CSR sparse matrix. The top half imposes the 
+      Lx constraints and the bottom half imposes the Ly constraints
+      
+  '''
+  Rx,Cx = Lx.shape
+  Ry,Cy = Ly.shape
+
+  # this format allows me to extract the rows, columns, and values of 
+  # each entry
+  Lx = Lx.tocoo()
+  Ly = Ly.tocoo()  
+  rx,cx,vx = Lx.row,Lx.col,Lx.data
+  ry,cy,vy = Ly.row,Ly.col,Ly.data
+
+  # create row and column indices for the expanded matrix
+  rx *= Cy
+  rx = np.repeat(rx[:,None],Cy,axis=1)
+  rx += np.arange(Cy)
+  rx = rx.ravel()
+
+  cx *= Cy
+  cx = np.repeat(cx[:,None],Cy,axis=1)
+  cx += np.arange(Cy)
+  cx = cx.ravel()
+
+  vx = np.repeat(vx[:,None],Cy,axis=1)
+  vx = vx.ravel()
+
+  Lxy1 = scipy.sparse.csr_matrix((vx,(rx,cx)),(Rx*Cy,Cx*Cy))
+
+  ry = np.repeat(ry[:,None],Cx,axis=1)
+  ry += np.arange(Cx)*Ry
+  ry = ry.ravel()
+
+  cy = np.repeat(cy[:,None],Cx,axis=1)
+  cy += np.arange(Cx)*Cy
+  cy = cy.ravel()
+
+  vy = np.repeat(vy[:,None],Cx,axis=1)
+  vy = vy.ravel()
+
+  Lxy2 = scipy.sparse.csr_matrix((vy,(ry,cy)),(Ry*Cx,Cx*Cy))
+
+  Lxy = scipy.sparse.vstack((Lxy1,Lxy2))
+
+  return Lxy
+  
+
+def predictive_error(L,data,damping,sigma=None,fold=10,dsolve=True,
+                     use_petsc=HAS_PETSC,**kwargs):
   ''' 
   returns predictive error for cross validation
   '''
@@ -235,9 +301,15 @@ def predictive_error(L,data,damping,fold=10,dsolve=True,use_petsc=HAS_PETSC,**kw
   fold = min(fold,N)
   res = np.zeros(N)
 
+  # build covariance matrix
+  if sigma is None:
+    Cd = scipy.sparse.eye(N)
+  else:
+    Cd = scipy.sparse.diags(np.asarray(sigma)**2,0)
+
   # G = (I + damping**2*LtL)
   # the LtL step is done here fore efficiency
-  G = damping**2*L.T.dot(L)
+  G = damping**2*Cd.dot(L.T.dot(L))
   I = scipy.sparse.eye(N)
   d = np.copy(data)
   for rmidx in chunkify(range(N),fold):
@@ -271,7 +343,8 @@ def predictive_error(L,data,damping,fold=10,dsolve=True,use_petsc=HAS_PETSC,**kw
   return res.dot(res)/N
 
 
-def smoothed_data(L,data,damping,dsolve=True,use_petsc=HAS_PETSC,**kwargs):
+def smooth_data(L,data,damping,sigma=None,dsolve=True,
+                use_petsc=HAS_PETSC,**kwargs):
   ''' 
   Description
   -----------
@@ -303,8 +376,16 @@ def smoothed_data(L,data,damping,dsolve=True,use_petsc=HAS_PETSC,**kwargs):
     raise TypeError('smoothing matrix must be CSR sparse')
 
   N = data.shape[0]
+
+  # build covariance matrix
+  if sigma is None:
+    Cd = scipy.sparse.eye(N)
+  else:
+    Cd = scipy.sparse.diags(np.asarray(sigma)**2,0)
+
+
   I = scipy.sparse.eye(N)
-  G = I + damping**2*L.T.dot(L)
+  G = I + damping**2*Cd.dot(L.T.dot(L))
 
   if dsolve:
     soln = scipy.sparse.linalg.spsolve(G,data,**kwargs)
@@ -349,5 +430,5 @@ def optimal_damping(L,data,plot=False,fold=10,log_bounds=None,itr=100,**kwargs):
     ax.grid()
 
   return optimal_alpha
- 
+
 

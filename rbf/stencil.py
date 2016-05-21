@@ -161,7 +161,7 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
   return neighbors,dist
 
 
-def stencils(nodes,C=1,N=None,vert=None,smp=None):
+def stencils(nodes,C=None,N=None,vert=None,smp=None):
   ''' 
   returns a stencil of nearest neighbors for each node. The number of 
   nodes in each stencil can be explicitly specified with N or the 
@@ -171,11 +171,12 @@ def stencils(nodes,C=1,N=None,vert=None,smp=None):
   ----------
     nodes: (N,D) array of nodes
 
-    C (default=1): desired connectivity of the resulting stencils. The 
+    C (default=None): desired connectivity of the resulting stencils. The 
       stencil size is then chosen so that the connectivity is at least 
-      this large
+      this large. Overrides N if specified
     
-    N (default=None): stencil size. Overrides C if specified
+    N (default=None): stencil size. Defaults to 10 or the number of 
+      nodes, whichever is smaller
 
     vert (default=None): vertices of the boundary that edges cannot 
       cross
@@ -188,14 +189,9 @@ def stencils(nodes,C=1,N=None,vert=None,smp=None):
     is greater than about 100. Specify N when dealing with a large
     number of nodes  
   '''
-  #if N is not 
-  #if (N is not None) & (C is not None):
-  #  raise StencilError('N and C cannot simultaneously be input arguments')
-  if N is not None:
-    s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-    return s
+  nodes = np.asarray(nodes)
 
-  elif C is not None:
+  if C is not None:
     N = 2
     s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
     while connectivity(s) < C:
@@ -208,5 +204,8 @@ def stencils(nodes,C=1,N=None,vert=None,smp=None):
     return s
 
   else:
-    raise StencilError('stencil size or connectivity must be specified')
+    if N is None:
+      N = min(nodes.shape[0],10)
 
+    s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
+    return s

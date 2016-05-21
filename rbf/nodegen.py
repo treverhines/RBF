@@ -34,6 +34,7 @@ def adjacency_argsort(nodes,n=10):
     permutation: (N,) array of sorting indices
   '''
   nodes = np.asarray(nodes,dtype=float)
+  n = min(n,nodes.shape[0])
 
   # find the indices of the nearest N nodes for each node
   idx,dist = rbf.stencil.nearest(nodes,nodes,n)
