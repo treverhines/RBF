@@ -2,7 +2,7 @@
 from __future__ import division
 import numpy as np
 import scipy.spatial
-from rbf.geometry import intersection_count
+import rbf.geometry 
 import networkx
 import logging
 logger = logging.getLogger(__name__)
@@ -11,33 +11,38 @@ class StencilError(Exception):
   pass
 
 
-def stencil_to_edges(stencil):
+def stencils_to_edges(stencils):
   ''' 
-  returns an array of edges defined by the stencil
+  returns an array of edges defined by the stencils
   '''
-  N,S = stencil.shape
+  N,S = stencils.shape
   node1 = np.arange(N)[:,None].repeat(S,axis=1)
-  node2 = np.array(stencil,copy=True)
+  node2 = np.array(stencils,copy=True)
   edges = zip(node1.flatten(),node2.flatten())
+  edges = np.array(edges,dtype=int)
   return edges
 
 
-def is_connected(stencil):
+def is_connected(stencils):
   ''' 
-  returns True if stencil forms a connected graph (i.e. connectivity
+  returns True if stencils forms a connected graph (i.e. connectivity
   greater than 0)
   '''
-  edges = stencil_to_edges(stencil)
+  edges = stencils_to_edges(stencils)
+  # edges needs to be a list of tuples
+  edges = [tuple(e) for e in edges] 
   graph = networkx.Graph(edges)
   return networkx.is_connected(graph)
 
 
-def connectivity(stencil):
+def connectivity(stencils):
   ''' 
   returns the minimum number of edges that must be removed in order to 
-  break the connectivity of the graph defined by the stencil
+  break the connectivity of the graph defined by the stencils
   '''
-  edges = stencil_to_edges(stencil)
+  edges = stencils_to_edges(stencils)
+  # edges needs to be a list of tuples
+  edges = [tuple(e) for e in edges] 
   graph = networkx.Graph(edges)
   return networkx.node_connectivity(graph)
 
@@ -62,9 +67,10 @@ def distance(test,pnts,vert=None,smp=None):
   test = np.repeat(test[None,:],pnts.shape[0],axis=0)
   dist = np.sqrt(np.sum((pnts-test)**2,1))
   cc = np.zeros(pnts.shape[0],dtype=int)
-  cc[dist!=0.0] = intersection_count(test[dist!=0.0],
-                                     pnts[dist!=0.0],
-                                     vert,smp)
+  cc[dist!=0.0] = rbf.geometry.intersection_count(
+                    test[dist!=0.0],
+                    pnts[dist!=0.0],
+                    vert,smp)
   dist[cc>0] = np.inf
   return dist
 
@@ -94,6 +100,11 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
     excluding (default=None): indices of points in the population 
       which cannot be identified as a nearest neighbor
 
+  Note
+  ----
+    If a query point lies on the boundary then this function will
+    fail because the query point will be infinitely far from every 
+    other point
   '''
   query = np.asarray(query,dtype=float)
   population = np.asarray(population,dtype=float)
@@ -161,7 +172,7 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
   return neighbors,dist
 
 
-def stencils(nodes,C=None,N=None,vert=None,smp=None):
+def stencil_network(nodes,C=None,N=None,vert=None,smp=None):
   ''' 
   returns a stencil of nearest neighbors for each node. The number of 
   nodes in each stencil can be explicitly specified with N or the 
@@ -189,7 +200,7 @@ def stencils(nodes,C=None,N=None,vert=None,smp=None):
     is greater than about 100. Specify N when dealing with a large
     number of nodes  
   '''
-  nodes = np.asarray(nodes)
+  nodes = np.asarray(nodes,dtype=float)
 
   if C is not None:
     N = 2

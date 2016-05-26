@@ -22,6 +22,11 @@ class DomainNormalizer:
     # scale so that the average squared distance to the center is one
     r = np.linalg.norm(x-shift,axis=1)                      
     scale = np.sqrt(np.mean(r**2))
+    # make scale 1.0 if it is 0.0, which happens when there is only 
+    # one data point
+    if scale == 0.0:
+      scale = 1.0
+
     self.shift = shift
     self.scale = scale
 
@@ -116,14 +121,9 @@ def find_coeff(A,L,value,damping,**kwargs):
   # extend values to have a consistent size
   value = np.concatenate((value,np.zeros(P)))
 
-  #if damping == 'gcv':
-  #  damping = modest.gcv.optimal_damping(A,L,value,=True,**kwargs)
-  #  print('optimal damping parameter from GCV: %s' % damping)
   if damping == 'cv':
-    damping = modest.gcv.optimal_damping(A,L,value,**kwargs)
-    print('optimal damping parameter from CV: %s' % damping)
+    damping = modest.cv.optimal_damping_parameter(A,L,value,**kwargs)
 
-  
   A_ext = np.vstack((A,damping*L))
   value_ext = np.concatenate((value,np.zeros(K)))
   coeff = np.linalg.lstsq(A_ext,value_ext)[0] 

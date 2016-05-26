@@ -211,7 +211,7 @@ def rbf_weight(x,nodes,diff,centers=None,
   Parameters
   ----------
     x: 
-    nodes:
+    nodes: 
     diff:
     centers:
     basis:

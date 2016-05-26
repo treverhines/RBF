@@ -91,7 +91,8 @@ class Halton(object):
   the next items in the sequence.
   '''
   def __init__(self,D=1,start=0,skip=1,prime_index=0):
-    '''Parameters             
+    ''' 
+    Parameters             
     ----------         
       D (default=1): dimensions of the Halton sequence    
       start (default=0): Index to start at in the Halton sequence 
