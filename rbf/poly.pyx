@@ -59,12 +59,12 @@ def mvmonos(x,powers,diff=None):
   '''
   # make sure that the input is all correct before sending it to a 
   # cython function
-  x = np.array(x,dtype=float)
-  powers = np.array(powers,dtype=int)
+  x = np.asarray(x,dtype=float)
+  powers = np.asarray(powers,dtype=int)
   if diff is None:
     diff = np.zeros(x.shape[1],dtype=int)
   else:
-    diff = np.array(diff,dtype=int)
+    diff = np.asarray(diff,dtype=int)
   return _mvmonos(x,powers,diff)
 
 

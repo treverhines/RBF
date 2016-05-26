@@ -4,12 +4,12 @@ import rbf.nodegen
 from rbf.basis import phs5 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-from rbf.weights import rbf_weight
+from rbf.fd import diff_weights
 import rbf.stencil
 import myplot.cm
 from rbf.halton import Halton
 from rbf.formulation import coeffs_and_diffs
-from rbf.formulation import evaluate_coeffs_and_diffs
+from rbf.formulation import evaluate_coeffs
 import numpy as np
 import rbf.bspline
 import matplotlib.cm
@@ -22,6 +22,7 @@ from modest import summary
 import sympy as sp
 logging.basicConfig(level=logging.INFO)
 import sys
+import modest
 import petsc4py 
 petsc4py.init(sys.argv)
 from petsc4py import PETSc
@@ -30,8 +31,6 @@ def solver(G,d):
   N = G.shape[0]
   #G += 10.1*scipy.sparse.eye(N)
   G = G.tocsr()
-  print(np.linalg.cond(G.toarray()))
-  quit()
   G = G.astype(np.float64)
   d = d.astype(np.float64)
   A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data))
@@ -226,37 +225,49 @@ N = len(nodes)
 
 G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float32) for mi in range(dim)] for di in range(dim)]
 data = [np.zeros(N,dtype=np.float32) for i in range(dim)]
+
+modest.tic('building')
 # This can be parallelized!!!!
 for di in range(dim):
   for mi in range(dim):
     # apply the PDE to interior nodes and free nodes
     for i in ix['interior']+ix['free']:
-      w = rbf_weight(nodes[i],
-                     nodes[s[i]],
-                     evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
-                     order=order,
-                     basis=basis)
+      coeffs,diffs = DiffOps[di][mi]
+      coeffs_eval = evaluate_coeffs(coeffs,i)
+      w = diff_weights(nodes[i],
+                       nodes[s[i]],
+                       diffs=diffs,  
+                       coeffs=coeffs_eval,  
+                       order=order,
+                       basis=basis)
       G[di][mi][i,s[i]] = w
 
     for i in ix['fixed']:
-      w = rbf_weight(nodes[i],
-                     nodes[s[i]],
-                     evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
-                     order=order,
-                     basis=basis)
+      coeffs,diffs = FixBCOps[di][mi]
+      coeffs_eval = evaluate_coeffs(coeffs,i)
+      w = diff_weights(nodes[i],
+                       nodes[s[i]],
+                       diffs=diffs,  
+                       coeffs=coeffs_eval,  
+                       order=order,
+                       basis=basis)
       G[di][mi][i,s[i]] = w
 
     # use the ghost node rows to enforce the free boundary conditions
     # at the boundary nodes
     for itr,i in enumerate(ix['free_ghost']):
       j = ix['free'][itr]
-      w = rbf_weight(nodes[j],
-                     nodes[s[j]],
-                     evaluate_coeffs_and_diffs(FreeBCOps[di][mi],j),
-                     order=order,
-                     basis=basis)
+      coeffs,diffs = FreeBCOps[di][mi]
+      coeffs_eval = evaluate_coeffs(coeffs,j)
+      w = diff_weights(nodes[j],
+                       nodes[s[j]],
+                       diffs=diffs,  
+                       coeffs=coeffs_eval,  
+                       order=order,
+                       basis=basis)
       G[di][mi][i,s[j]] = w
     
+print(modest.toc('building'))
 
 G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
