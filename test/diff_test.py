@@ -6,8 +6,8 @@ import rbf.basis
 import rbf.halton
 
 N = 100
-C = 1
-order = 'max'
+Ns = 10
+order = 2
 basis = rbf.basis.phs3
 
 x = np.linspace(-2.0,2.0,N)[:,None]
@@ -17,7 +17,7 @@ x = x[idx]
 u = np.sin(x)
 udiff_true = -np.sin(x)
 
-L = rbf.fd.diff_matrix(x,(2,),C=C,order=order,basis=basis)
+L = rbf.fd.diff_matrix(x,(2,),N=Ns,order=order,basis=basis)
 udiff = L.dot(u)
 
 fig,ax = plt.subplots()

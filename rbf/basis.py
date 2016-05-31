@@ -27,7 +27,7 @@ _EPS = sympy.symbols('EPS')
 
 class RBF(object):
   def __init__(self,expr):    
-    '''
+    ''' 
     Parameters
     ----------
       expr: Symbolic expression of the RBF with respect to _R and _EPS
@@ -41,7 +41,7 @@ class RBF(object):
     self.cache = {}
 
   def __call__(self,x,c,eps=None,diff=None):
-    '''
+    ''' 
     evaluates M radial basis functions (RBFs) with arbitary dimension
     at N points.
 

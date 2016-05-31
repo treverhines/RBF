@@ -324,24 +324,6 @@ def grid_diff_matrices(Lx,Ly):
   return Lxy1,Lxy2
 
 
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def poly_weight(x,nodes,diff):
   ''' 
   DONT USE THIS FUNCTION
