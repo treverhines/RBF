@@ -112,6 +112,7 @@ class RBF(object):
     x = x[:,None,:]
     c = c[None,:,:]
 
+    # this does the same thing as np.rollaxis(x,-1) but is much faster
     x = np.einsum('ijk->kij',x)
     c = np.einsum('ijk->kij',c)
 
@@ -134,7 +135,7 @@ class RBF(object):
     return self.cache[diff](*args)
 
 
-_FUNCTION_DOC = '''
+_FUNCTION_DOC = ''' 
   evaluates M radial basis functions (RBFs) with arbitary dimension at N points.
 
   Parameters                                       
@@ -165,7 +166,7 @@ _FUNCTION_DOC = '''
 '''
 
 def replace_nan(x):
-  '''
+  ''' 
   this is orders of magnitude faster than np.nan_to_num
   '''
   x[np.isnan(x)] = 0.0

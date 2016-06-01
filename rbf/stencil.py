@@ -108,7 +108,7 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
   '''
   query = np.asarray(query,dtype=float)
   population = np.asarray(population,dtype=float)
-
+  
   if excluding is None:
     # dont exclude any points
     excluding_bool = np.zeros(population.shape[0],dtype=bool)
@@ -117,6 +117,14 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
     # exclude indicated points
     excluding_bool = np.zeros(population.shape[0],dtype=bool)
     excluding_bool[excluding] = True
+
+  if len(query.shape) != 2:
+    raise StencilError(
+      'query points must be a 2-D array')
+
+  if len(population.shape) != 2:
+    raise StencilError(
+      'population points must be a 2-D array')
 
   if N > population.shape[0]: 
     raise StencilError(
@@ -167,7 +175,7 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
       dist[i] = dist_i
       if (query_size == population.shape[0]) & (np.any(np.isinf(dist_i))):
         raise StencilError('cannot find %s nearest neighbors for point '
-                           '%s without crossing a boundary' % (N,population[i]))
+                           '%s without crossing a boundary' % (N,query[i]))
 
   return neighbors,dist
 
