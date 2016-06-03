@@ -1074,9 +1074,15 @@ def intersection_point(start_points,end_points,vertices,simplices):
   end_points = np.asarray(end_points)
   vertices = np.asarray(vertices)
   simplices = np.asarray(simplices)
-  assert start_points.shape[1] == end_points.shape[1]
-  assert start_points.shape[1] == vertices.shape[1]
-  assert start_points.shape[0] == end_points.shape[0]
+  if not (start_points.shape[1] == end_points.shape[1]):
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[1] == vertices.shape[1]):
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[0] == end_points.shape[0]):
+    raise ValueError('start points and end points must have the same length')
+
   dim = start_points.shape[1]
   if dim == 1:
     vert = vertices[simplices[:,0]]
@@ -1129,9 +1135,15 @@ def intersection_normal(start_points,end_points,vertices,simplices):
   end_points = np.asarray(end_points)
   vertices = np.asarray(vertices)
   simplices = np.asarray(simplices)
-  assert start_points.shape[1] == end_points.shape[1]
-  assert start_points.shape[1] == vertices.shape[1]
-  assert start_points.shape[0] == end_points.shape[0]
+  if not (start_points.shape[1] == end_points.shape[1]):
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[1] == vertices.shape[1]): 
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[0] == end_points.shape[0]):
+    raise ValueError('start points and end points must have the same length')
+
   dim = start_points.shape[1]
   if dim == 1:
     out = np.ones(start_points.shape,dtype=float)
@@ -1185,9 +1197,15 @@ def intersection_index(start_points,end_points,vertices,simplices):
   end_points = np.asarray(end_points,dtype=float)
   vertices = np.asarray(vertices,dtype=float)
   simplices = np.asarray(simplices,dtype=int)
-  assert start_points.shape[1] == end_points.shape[1]
-  assert start_points.shape[1] == vertices.shape[1]
-  assert start_points.shape[0] == end_points.shape[0]
+  if not (start_points.shape[1] == end_points.shape[1]): 
+    raise ValueError('inconsistent spatial dimesions')
+
+  if not (start_points.shape[1] == vertices.shape[1]): 
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[0] == end_points.shape[0]): 
+    raise ValueError('start points and end points must have the same length')
+
   dim = start_points.shape[1]
   if dim == 1:
     out = np.ones(start_points.shape,dtype=float)
@@ -1235,9 +1253,15 @@ def intersection_count(start_points,end_points,vertices,simplices):
   end_points = np.asarray(end_points,dtype=float)
   vertices = np.asarray(vertices,dtype=float)
   simplices = np.asarray(simplices,dtype=int)
-  assert start_points.shape[1] == end_points.shape[1]
-  assert start_points.shape[1] == vertices.shape[1]
-  assert start_points.shape[0] == end_points.shape[0]
+  if not (start_points.shape[1] == end_points.shape[1]): 
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[1] == vertices.shape[1]): 
+    raise ValueError('inconsistent spatial dimensions')
+
+  if not (start_points.shape[0] == end_points.shape[0]):
+    raise ValueError('start points and end points must have the same length')
+
   dim = start_points.shape[1]
   if dim == 1:
     vert = vertices[simplices[:,0]]
@@ -1297,7 +1321,9 @@ def contains(points,vertices,simplices):
   vertices = np.asarray(vertices)
   simplices = np.asarray(simplices)
   dim = points.shape[1]
-  assert points.shape[1] == vertices.shape[1]
+  if not (points.shape[1] == vertices.shape[1]):
+    raise ValueError('inconsistent spatial dimensions')
+
   if dim == 1:
     vert = vertices[simplices[:,0]]
     end_points = np.ones(np.shape(points))*np.min(vertices) - 1.0
