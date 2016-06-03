@@ -229,7 +229,13 @@ def diff_weights(x,nodes,diff=None,
   else:
     raise ValueError('must specify either diff or diffs')
 
-  weights = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
+  try:
+    weights = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
+  except np.linalg.LinAlgError:
+     raise np.linalg.LinAlgError(
+       'cannot compute RBF-FD weight for point %s. Make sure that the '
+       'stencil meets the conditions for non-singularity. This error '
+       'may also be due to numerically flat basis functions' % x)
 
   return weights 
 
@@ -242,6 +248,7 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
   differentiation matrix
 
   '''
+  x = np.asarray(x)
   sn = rbf.stencil.stencil_network(x,C=C,N=N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
@@ -254,7 +261,8 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
   rows = np.repeat(range(data.shape[0]),data.shape[1])
   cols = sn.ravel()
   data = data.ravel()
-  L = scipy.sparse.csr_matrix((data,(rows,cols)))
+  size = x.shape[0],x.shape[0]
+  L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
 
   return L
 
