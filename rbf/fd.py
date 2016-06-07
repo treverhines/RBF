@@ -137,7 +137,7 @@ def _drbf(x,centers,eps,order,diff,basis):
 
 def diff_weights(x,nodes,diff=None,
                  diffs=None,coeffs=None,centers=None,
-                 basis=rbf.basis.phs3,order=1,
+                 basis=rbf.basis.phs3,order=None,
                  eps=1.0,diff_args=None):
   ''' 
   computes the weights used for a finite difference approximation at x
@@ -201,7 +201,10 @@ def diff_weights(x,nodes,diff=None,
   if order == 'max':
     order = rbf.poly.maximum_order(*nodes.shape)
 
-
+  if order is None:
+    max_order = rbf.poly.maximum_order(*nodes.shape)
+    order = min(1,max_order)
+    
   # number of polynomial terms that will be used
   Np = rbf.poly.monomial_count(order,x.shape[0])
   if Np > nodes.shape[0]:
@@ -336,30 +339,63 @@ def grid_diff_matrices(Lx,Ly):
 
   return Lxy1,Lxy2
 
-
-def poly_weight(x,nodes,diff):
+                 
+def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   ''' 
-  DONT USE THIS FUNCTION
-
-  finds the weights, w, such that
-
-  f_i(c_j) = c_j**i
-
-  | f_0(c_0) ... f_0(c_N) |     | L[f_0(y)]y=x  |
-  |    :             :    | w = |     :         |
-  | f_N(c_0) ... f_N(c_N) |     | L[f_N(y)]y=x  |
+  returns the traditional 1-D finite difference weights derived 
+  from polynomial expansion. The input must have one spatial dimension
+  
+  Parameters
+  ----------
+    x: (1,) array
+    nodes: (N,1) array
+    diff: (1,) array 
+    diffs: list of (1,) arrays
+    coeffs: list of coefficients for each element in diffs
+        
   '''
-  x = np.array(x,copy=True)
-  nodes = np.array(nodes,copy=True)
+  x = np.asarray(x)
+  nodes = np.asarray(nodes)
+
+  if len(x.shape) != 1:
+    raise ValueError('x must be a 1-D array')
+
+  if len(nodes.shape) != 2:
+    raise ValueError('nodes must be a 2-D array')
+    
+  if x.shape[0] != 1:
+    raise ValueError('x must have one spatial dimension')
+
+  if nodes.shape[1] != 1:
+    raise ValueError('nodes must have one spatial dimension')
+    
   order = rbf.poly.maximum_order(*nodes.shape)
-  Np = rbf.poly.monomial_count(order,nodes.shape[1])
-  assert Np == nodes.shape[0], (
-    'the number of nodes in a 2D stencil needs to be 1,3,6,10,15,21,... '
-    'the number of nodes in a 3D stencil needs to be 1,4,10,20,35,56,... ')
-  nodes -= x
-  x -= x
-  A =  _apoly(nodes,order)
-  d =  _dpoly(x,order,diff) 
-  w = np.linalg.solve(A,d)
-  return w 
+
+  # left hand side
+  lhs = _apoly(nodes,order)
+  if diffs is not None:
+    if len(diffs) != len(coeffs):
+      raise ValueError(
+        'length of coeffs must equal the length of diffs when diffs '
+        'is specified')
+
+    rhs = np.zeros(nodes.shape[0])
+    for c,d in zip(coeffs,diffs):
+      rhs += c*_dpoly(x,order,d)
+  
+  elif diff is not None:
+    rhs = _dpoly(x,order,diff)
+
+  else:
+    raise ValueError('must specify either diff or diffs')
+
+  try:
+    weights = np.linalg.solve(lhs,rhs)
+
+  except np.linalg.LinAlgError:
+     raise np.linalg.LinAlgError(
+       'cannot compute poly-FD weight for point %s. Make sure that '
+       'the stencil meets the conditions for non-singularity. ' % x)
+
+  return weights 
 

@@ -331,7 +331,7 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
     stencil[sorted_idx,:] = stencil_i
 
   # for the sake of consistency, sort each stencil in order of 
-  # distance from center node
+  # distance from center node. Note that this takes up the most time
   for i in range(P):
     nodes_i = nodes[stencil[i]]
     dist_i = np.abs(nodes_i - nodes[i])
