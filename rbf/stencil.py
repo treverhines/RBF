@@ -180,7 +180,7 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
   return neighbors,dist
 
 
-def stencil_network(nodes,C=None,N=None,vert=None,smp=None):
+def stencil_network(nodes,N=None,C=None,vert=None,smp=None):
   ''' 
   returns a stencil of nearest neighbors for each node. The number of 
   nodes in each stencil can be explicitly specified with N or the 
@@ -228,3 +228,114 @@ def stencil_network(nodes,C=None,N=None,vert=None,smp=None):
 
     s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
     return s
+    
+    
+def _slice_list(lst,cuts):
+  ''' 
+  segments lst by cuts 
+  '''
+  lst = np.asarray(lst)
+  cuts = np.asarray(cuts)
+  cuts = np.sort(cuts)
+
+  lbs = np.concatenate(([-np.inf],cuts))
+  ubs = np.concatenate((cuts,[np.inf]))
+  intervals = zip(lbs,ubs)
+  out = []
+  for lb,ub in intervals:
+    idx_in_segment = np.nonzero((lst >= lb) & (lst < ub))[0]
+    if len(idx_in_segment) > 0:
+      out += [idx_in_segment]
+
+  return out
+
+
+def _stencil_network_1d(P,N):
+  ''' 
+  returns stencils for sequential 1d nodes
+  '''
+  P = int(P)
+  N = int(N)
+  if P < N:
+    raise StencilError('cannot form a size %s stencil with %s nodes' % (N,P))
+
+  if N == 0:
+    return np.zeros((P,N),dtype=int)
+
+  # number of repeated stencils for the right side
+  right = N//2
+  # number of repeated stencils for the left side
+  left = N - right - 1
+  center = P - N + 1
+
+  stencils_c = np.arange(center,dtype=int)[:,None].repeat(N,axis=1)
+  stencils_c += np.arange(N,dtype=int)
+  stencils_r = stencils_c[[-1],:].repeat(right,axis=0)
+  stencils_l = stencils_c[[0],:].repeat(left,axis=0)
+  stencils = np.vstack((stencils_l,stencils_c,stencils_r))
+  return stencils
+
+
+def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
+  ''' 
+  returns a stencil network for 1d nodes where each stencil is 
+  determined by adjacency and not distance.  For each node, its 
+  stencil is comprised of the N//2 nodes to its right and the (N - 
+  N//2 - 1) nodes to its left. This ensures better connectivity than 
+  what rbf.stencil.stencil_network provides
+  
+  Parameters
+  ----------
+    nodes: (N,1) array of nodes
+
+    N: stencil size
+
+    vert: vertices of boundaries
+
+    smp: simplices of boundaries  
+
+  '''
+  nodes = np.asarray(nodes)
+
+  if N is None:
+    N = min(nodes.shape[0],10)
+
+  if C is not None:
+    raise NotImplementedError('specifying connectivity is not yet supported')
+  
+  if len(nodes.shape) != 2:
+    raise ValueError('nodes must be 2-D array')
+
+  if nodes.shape[1] != 1:
+    raise ValueError('nodes must only have one spatial dimension')
+
+  nodes = nodes[:,0]
+  P = len(nodes)
+  
+  if vert is None:
+    vert = np.zeros((0,1),dtype=float)
+  if smp is None:
+    smp = np.zeros((0,1),dtype=int)
+
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  cuts = vert[smp[:,0],0]
+
+  segments = _slice_list(nodes,cuts)
+  stencil = np.zeros((P,N),dtype=int)
+  for idx in segments:
+    count = len(idx)
+    stencil_i = _stencil_network_1d(count,N)
+    sorted_idx = idx[np.argsort(nodes[idx])]
+    stencil_i = sorted_idx[stencil_i]
+    stencil[sorted_idx,:] = stencil_i
+
+  # for the sake of consistency, sort each stencil in order of 
+  # distance from center node
+  for i in range(P):
+    nodes_i = nodes[stencil[i]]
+    dist_i = np.abs(nodes_i - nodes[i])
+    sorted_idx = np.argsort(dist_i)
+    stencil[i,:] = stencil[i,sorted_idx]
+
+  return stencil                      

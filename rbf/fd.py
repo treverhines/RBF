@@ -245,11 +245,14 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
                 C=None,N=None,vert=None,smp=None):
   ''' 
   convenience function for creating a stencil network and then making 
-  differentiation matrix
-
+  differentiation matrix. If x is 1-D then stencil_network_1d is used
+  
   '''
   x = np.asarray(x)
-  sn = rbf.stencil.stencil_network(x,C=C,N=N,vert=vert,smp=smp)
+  if x.shape[1] == 1:  
+    sn = rbf.stencil.stencil_network_1d(x,C=C,N=N,vert=vert,smp=smp)
+  else:
+    sn = rbf.stencil.stencil_network(x,C=C,N=N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
@@ -269,6 +272,8 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
     
 def grid_diff_matrices(Lx,Ly):
   ''' 
+  DEPRICATED!!!
+  
   Consider the array u with shape (Nx,Ny).  Lx is a (Nx,Nx) 
   differentiation matrix which acts along the rows of u. Ly is a 
   (Ny,Ny) differentiation matrix which acts along the columns of u. 
