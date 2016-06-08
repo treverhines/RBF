@@ -298,7 +298,7 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
   nodes = np.asarray(nodes)
 
   if N is None:
-    N = min(nodes.shape[0],10)
+    N = min(nodes.shape[0],3)
 
   if C is not None:
     raise NotImplementedError('specifying connectivity is not yet supported')
@@ -332,10 +332,10 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
 
   # for the sake of consistency, sort each stencil in order of 
   # distance from center node. Note that this takes up the most time
-  for i in range(P):
-    nodes_i = nodes[stencil[i]]
-    dist_i = np.abs(nodes_i - nodes[i])
-    sorted_idx = np.argsort(dist_i)
-    stencil[i,:] = stencil[i,sorted_idx]
+  #for i in range(P):
+  #  nodes_i = nodes[stencil[i]]
+  #  dist_i = np.abs(nodes_i - nodes[i])
+  #  sorted_idx = np.argsort(dist_i)
+  #  stencil[i,:] = stencil[i,sorted_idx]
 
   return stencil                      

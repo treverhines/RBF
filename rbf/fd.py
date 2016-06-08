@@ -140,42 +140,49 @@ def diff_weights(x,nodes,diff=None,
                  basis=rbf.basis.phs3,order=None,
                  eps=1.0,diff_args=None):
   ''' 
-  computes the weights used for a finite difference approximation at x
-
-  The weights are computed using the RBF-FD method described in "A 
-  Primer on Radial Basis Functions with Applications to the 
-  Geosciences" by Bengt Fornberg and Natasha Flyer.  
+  computes the weights used for a finite difference approximation at x.
+  The weights are computed using the RBF-FD method described in [1].
 
   Parameters
   ----------
-    x: (D,) position where the derivative is being approximated
+    x : (D,) array
+      position where the derivative is being approximated
 
-    nodes: (N,D) nodes adjacent to x
+    nodes : (N,D) array
+      nodes adjacent to x
 
-    diff: (D,) tuple of derivative orders for each spatial dimension. 
+    diff :(D,) int array, may specify diffs and coeffs instead
+      derivative orders for each spatial dimension. 
 
-    centers: (N,D) centers of each radial basis function. If not 
-      specified, then the nodes will be used as centers. This is often 
-      used when trying out exotic ways of imposing boundary conditions.
+    centers : (N,D) array, optional
+      centers of each radial basis function. If not specified, then 
+      the nodes will be used as centers. This is often used when 
+      trying out exotic ways of imposing boundary conditions.
    
-    basis: radial basis function to use. Select from those available 
+    basis : rbf.basis.RBF, optional
+      radial basis function to use. Select from those available 
       in rbf.basis
  
-    order: order of added polynomial terms.  can be 'max' to use the 
+    order : int, optional
+      order of added polynomial terms.  can be 'max' to use the 
       largest number of polynomials without creating a singular 
       matrix.  This may lead to lead to instabilities in derivative 
-      approximations. 1 is generally a safe value   
+      approximations. 1 is generally a safe value
 
-    eps: shape parameter. This only makes a difference when using 
-      RBFs that are not scale invariant, which you should not do. Any 
-      of the odd PHS basis function are unaffected by the shape parameter. 
-      However, if the problem is particularly poorly scaled then eps 
-      may be a good way to scale the problem to something sensible.
+    eps : float, optional
+      shape parameter. This only makes a difference when using RBFs 
+      that are not scale invariant, which you should not do. Any of 
+      the odd PHS basis function are unaffected by the shape 
+      parameter. However, if the problem is particularly poorly scaled 
+      then eps may be a good way to scale the problem to something 
+      sensible.
     
-    diffs: list of derivative tuples. if specified then it overrides 
+    diffs: (K,D) int array, optional
+      derivative terms. if specified then it overrides 
       diff and coeffs must also be specified
 
-    coeffs: list of coefficients for each derivative in diffs. does 
+    coeffs: (K,) array, optional 
+      list of coefficients for each derivative in diffs. does 
       nothing if diffs is not specified
 
   Note
@@ -190,6 +197,11 @@ def diff_weights(x,nodes,diff=None,
     This can be somewhat remedied by shifting the coordinate system so 
     that x is zero
 
+  References
+  ----------
+    [1] B. Fornberg and N. Flyer. A Primer on Radial Basis 
+        Functions with Applications to the Geosciences. SIAM, 2015.
+    
   '''
   x = np.asarray(x,dtype=float)
   nodes = np.asarray(nodes,dtype=float)
@@ -243,22 +255,118 @@ def diff_weights(x,nodes,diff=None,
   return weights 
 
 
-def diff_matrix(x,diff=None,diffs=None,coeffs=None,
-                basis=rbf.basis.phs3,order=1,
-                C=None,N=None,vert=None,smp=None):
+def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   ''' 
-  convenience function for creating a stencil network and then making 
-  differentiation matrix. If x is 1-D then stencil_network_1d is used
+  returns the traditional 1-D finite difference weights derived 
+  from polynomial expansion. The input must have one spatial dimension
   
+  Parameters
+  ----------
+    x : (1,) array
+
+    nodes : (N,1) array
+
+    diff : (1,) int array 
+
+    diffs : (N,1) int array
+
+    coeffs : (N,) array
+        
   '''
   x = np.asarray(x)
-  if x.shape[1] == 1:  
-    sn = rbf.stencil.stencil_network_1d(x,C=C,N=N,vert=vert,smp=smp)
+  nodes = np.asarray(nodes)
+
+  if len(x.shape) != 1:
+    raise ValueError('x must be a 1-D array')
+
+  if len(nodes.shape) != 2:
+    raise ValueError('nodes must be a 2-D array')
+    
+  if x.shape[0] != 1:
+    raise ValueError('x must have one spatial dimension to compute a poly-FD weight')
+
+  if nodes.shape[1] != 1:
+    raise ValueError('nodes must have one spatial dimension to compute a poly-FD weight')
+    
+  order = rbf.poly.maximum_order(*nodes.shape)
+
+  # left hand side
+  lhs = _apoly(nodes,order)
+  if diffs is not None:
+    if len(diffs) != len(coeffs):
+      raise ValueError(
+        'length of coeffs must equal the length of diffs when diffs '
+        'is specified')
+
+    rhs = np.zeros(nodes.shape[0])
+    for c,d in zip(coeffs,diffs):
+      rhs += c*_dpoly(x,order,d)
+  
+  elif diff is not None:
+    rhs = _dpoly(x,order,diff)
+
   else:
-    sn = rbf.stencil.stencil_network(x,C=C,N=N,vert=vert,smp=smp)
+    raise ValueError('must specify either diff or diffs')
+
+  try:
+    weights = np.linalg.solve(lhs,rhs)
+
+  except np.linalg.LinAlgError:
+     raise np.linalg.LinAlgError(
+       'cannot compute poly-FD weight for point %s. Make sure that '
+       'the stencil meets the conditions for non-singularity. ' % x)
+
+  return weights 
+
+
+def _default_stencil_size(x,diff=None,diffs=None):
+  max_size = x.shape[0]
+  dim = x.shape[1]
+  if diff is not None:
+    max_order = sum(diff)
+
+  elif diffs is not None:
+    max_order = max(sum(d) for d in diffs)
+
+  else:
+    raise ValueError('diff or diffs must be specified')
+    
+  if dim == 1:
+    N = min(max_size,max_order**dim + 1)    
+
+  else:
+    N = min(max_size,10)  
+    
+  return N
+
+    
+def diff_matrix(x,diff=None,diffs=None,coeffs=None,
+                basis=rbf.basis.phs3,order=None,
+                N=None,vert=None,smp=None):
+  ''' 
+  convenience function for creating a stencil network and then making 
+  a differentiation matrix using RBF-FD weights.   
+  
+  If x is 1-D then stencil_network_1d is used. stencil_network_1d is 
+  faster and it provides better connectivity than stencil_network
+  
+  If x is 1-D and order is the maximum order allowed for the stencil 
+  size then the weights are computed using the traditional FD method 
+  instead of the RBF-FD method. Both methods produce identical results 
+  but the traditional method is faster
+  
+  ''' 
+  x = np.asarray(x)
+  
+  if N is None:
+    N = _default_stencil_size(x,diff=diff,diffs=diffs)
+    
+  sn = rbf.stencil.stencil_network(x,N=N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
+
+  # determine whether to use the polynomial weight function
   for i,si in enumerate(sn):
     data[i,:] = diff_weights(x[i],x[si],diff=diff,
                              diffs=diffs,coeffs=coeffs,
@@ -272,7 +380,37 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
 
   return L
 
+def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
+                     N=None,vert=None,smp=None):
+  ''' 
+
+  convenience function for creating a stencil network and then making 
+  a differentiation matrix using the traditional FD weights.  The 
+  stencil is determined by adjacency rather than nearest neighbors, 
+  which results in better network connectivity
+
+  '''
+  x = np.asarray(x) 
+
+  if N is None:
+    N = _default_stencil_size(x,diff=diff,diffs=diffs)
     
+  sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)
+
+  # values that will be put into the sparse matrix
+  data = np.zeros(sn.shape,dtype=float)
+  for i,si in enumerate(sn):
+    data[i,:] = poly_diff_weights(x[i],x[si],diff=diff,
+                                  diffs=diffs,coeffs=coeffs)
+    
+  rows = np.repeat(range(data.shape[0]),data.shape[1])
+  cols = sn.ravel()
+  data = data.ravel()
+  size = x.shape[0],x.shape[0]
+  L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
+
+  return L
+
 def grid_diff_matrices(Lx,Ly):
   ''' 
   DEPRICATED!!!
@@ -340,62 +478,4 @@ def grid_diff_matrices(Lx,Ly):
   return Lxy1,Lxy2
 
                  
-def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
-  ''' 
-  returns the traditional 1-D finite difference weights derived 
-  from polynomial expansion. The input must have one spatial dimension
-  
-  Parameters
-  ----------
-    x: (1,) array
-    nodes: (N,1) array
-    diff: (1,) array 
-    diffs: list of (1,) arrays
-    coeffs: list of coefficients for each element in diffs
-        
-  '''
-  x = np.asarray(x)
-  nodes = np.asarray(nodes)
-
-  if len(x.shape) != 1:
-    raise ValueError('x must be a 1-D array')
-
-  if len(nodes.shape) != 2:
-    raise ValueError('nodes must be a 2-D array')
-    
-  if x.shape[0] != 1:
-    raise ValueError('x must have one spatial dimension')
-
-  if nodes.shape[1] != 1:
-    raise ValueError('nodes must have one spatial dimension')
-    
-  order = rbf.poly.maximum_order(*nodes.shape)
-
-  # left hand side
-  lhs = _apoly(nodes,order)
-  if diffs is not None:
-    if len(diffs) != len(coeffs):
-      raise ValueError(
-        'length of coeffs must equal the length of diffs when diffs '
-        'is specified')
-
-    rhs = np.zeros(nodes.shape[0])
-    for c,d in zip(coeffs,diffs):
-      rhs += c*_dpoly(x,order,d)
-  
-  elif diff is not None:
-    rhs = _dpoly(x,order,diff)
-
-  else:
-    raise ValueError('must specify either diff or diffs')
-
-  try:
-    weights = np.linalg.solve(lhs,rhs)
-
-  except np.linalg.LinAlgError:
-     raise np.linalg.LinAlgError(
-       'cannot compute poly-FD weight for point %s. Make sure that '
-       'the stencil meets the conditions for non-singularity. ' % x)
-
-  return weights 
 
