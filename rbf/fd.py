@@ -335,7 +335,7 @@ def _default_stencil_size(x,diff=None,diffs=None):
     N = min(max_size,max_order**dim + 1)    
 
   else:
-    N = min(max_size,10)  
+    N = min(max_size,8)  
     
   return N
 
