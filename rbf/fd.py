@@ -214,8 +214,7 @@ def diff_weights(x,nodes,diff=None,
     order = rbf.poly.maximum_order(*nodes.shape)
 
   if order is None:
-    max_order = rbf.poly.maximum_order(*nodes.shape)
-    order = min(1,max_order)
+    order = _default_poly_order(nodes.shape[0],nodes.shape[1])
     
   # number of polynomial terms that will be used
   Np = rbf.poly.monomial_count(order,x.shape[0])
@@ -319,9 +318,8 @@ def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   return weights 
 
 
-def _default_stencil_size(x,diff=None,diffs=None):
-  max_size = x.shape[0]
-  dim = x.shape[1]
+def _default_stencil_size(nodes,dim,diff=None,diffs=None):
+  max_size = nodes
   if diff is not None:
     max_order = sum(diff)
 
@@ -331,15 +329,27 @@ def _default_stencil_size(x,diff=None,diffs=None):
   else:
     raise ValueError('diff or diffs must be specified')
     
-  if dim == 1:
-    N = min(max_size,max_order**dim + 1)    
+  if max_order == 0:
+    N = min(max_size,1)
+    
+  elif dim == 1:
+    N = min(max_size,max_order + 1)    
 
   else:
     N = min(max_size,8)  
     
   return N
 
+def _default_poly_order(stencil_size,dim):
+  max_order = rbf.poly.maximum_order(stencil_size,dim)
+  if dim == 1:
+    order = max_order
+  else:
+    order = min(1,max_order)  
+
+  return order
     
+
 def diff_matrix(x,diff=None,diffs=None,coeffs=None,
                 basis=rbf.basis.phs3,order=None,
                 N=None,vert=None,smp=None):
@@ -350,16 +360,14 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
   If x is 1-D then stencil_network_1d is used. stencil_network_1d is 
   faster and it provides better connectivity than stencil_network
   
-  If x is 1-D and order is the maximum order allowed for the stencil 
-  size then the weights are computed using the traditional FD method 
-  instead of the RBF-FD method. Both methods produce identical results 
-  but the traditional method is faster
-  
   ''' 
   x = np.asarray(x)
   
   if N is None:
-    N = _default_stencil_size(x,diff=diff,diffs=diffs)
+    N = _default_stencil_size(x.shape[0],x.shape[1],diff=diff,diffs=diffs)
+    
+  if order is None:
+    order = _default_poly_order(N,x.shape[1])
     
   sn = rbf.stencil.stencil_network(x,N=N,vert=vert,smp=smp)
 
@@ -393,7 +401,7 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
   x = np.asarray(x) 
 
   if N is None:
-    N = _default_stencil_size(x,diff=diff,diffs=diffs)
+    N = _default_stencil_size(x.shape[0],x.shape[1],diff=diff,diffs=diffs)
     
   sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)
 
