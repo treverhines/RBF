@@ -10,34 +10,6 @@ import modest
 import modest.gcv
 import matplotlib.pyplot as plt
 
-
-class DomainNormalizer:
-  ''' 
-  normalizes values so that the observation points have zero mean and 
-  standard deviation of one
-  '''
-  def __init__(self,x):
-    # shift so that the domain is centered on zero
-    shift = np.mean(x,axis=0)
-    # scale so that the average squared distance to the center is one
-    r = np.linalg.norm(x-shift,axis=1)                      
-    scale = np.sqrt(np.mean(r**2))
-    # make scale 1.0 if it is 0.0, which happens when there is only 
-    # one data point
-    if scale == 0.0:
-      scale = 1.0
-
-    self.shift = shift
-    self.scale = scale
-
-  def __call__(self,xnew,inverse=False):
-    xnew = np.asarray(xnew)
-    if not inverse:
-      return (xnew-self.shift)/self.scale
-    else:
-      return xnew*self.scale + self.shift
-
-
 def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   ''' 
   returns the matrix that maps the coefficients to the function values 
@@ -45,10 +17,13 @@ def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   
   Parameters
   ----------
-    x: (N,D) array of observation points
-    diff: (D,) tuple of derivatives 
-    basis (default=phs3): radial basis function 
-    order (default=0): additional polynomial order
+    x : (N,D) array 
+
+    diff : (D,) tuple 
+
+    basis : RBF instance
+    
+    order : int
   '''
   # number of observation points and spatial dimensions
   N,D = x.shape
@@ -65,7 +40,6 @@ def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   A[N:,:N] = Ap.T
   A[:N,N:] = Ap
   return A  
-
 
 def regularization_matrix(x,order=0):
   # number of rbfs, dimensions, and polynomial terms
@@ -212,15 +186,17 @@ class RBFInterpolant(object):
       values for x are rescaled so that they have zero mean and 
       standard deviation of one. Shape parameters remain unscaled
     '''
-    # copy and scale the observation points
-    norm = DomainNormalizer(x)
-    x = norm(x)
+    x = np.asarray(x) 
 
     # copy the values
     value = np.array(value,copy=True)
 
     # number of observation points
-    N = x.shape[0]
+    N,D = x.shape
+
+    # number of polynomial terms
+    P = rbf.poly.monomial_count(order,D)
+    
     if eps is None:
       eps = np.ones(N)
     else:
@@ -239,11 +215,11 @@ class RBFInterpolant(object):
     value *= weight
 
     # form regularization matrix
-    L = regularization_matrix(x,order=order)
+    L = np.zeros((N+P,N+P))  
+    L[range(N),range(N)] = 1.0
 
     coeff = find_coeff(A,L,value,penalty,**kwargs)
 
-    self.norm = norm
     self.x = x
     self.coeff = coeff
     self.basis = basis
@@ -271,7 +247,8 @@ class RBFInterpolant(object):
     '''
     max_chunk = 100000
     n = 0
-    xitp = self.norm(xitp)
+    xitp = np.asarray(xitp) 
+    #xitp = self.norm(xitp)
     
     Nitp = xitp.shape[0]
     # allocate output array
