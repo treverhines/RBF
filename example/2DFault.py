@@ -5,11 +5,10 @@ import modest
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-from rbf.weights import rbf_weight
+from rbf.fd import diff_weights
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
-from rbf.formulation import evaluate_coeffs_and_diffs
-import numpy as np
+from rbf.formulation import evaluate_coeffs
 import rbf.bspline
 import matplotlib.pyplot as plt
 import matplotlib.cm
@@ -25,68 +24,12 @@ import sys
 import petsc4py
 petsc4py.init(sys.argv)
 from petsc4py import PETSc
+import modest.petsc
 
 def solver(G,d):
-  N = G.shape[0]
-  #G += 10.1*scipy.sparse.eye(N)
+  #return modest.petsc.petsc_solve(G,d,ksp='preonly',pc='lu')
   G = G.tocsr()
-  #print(np.linalg.cond(G.toarray()))
-  G = G.astype(np.float64)
-  d = d.astype(np.float64)
-  A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data)) # instantiate a matrix
-  d = PETSc.Vec().createWithArray(d)
-  #soln = scipy.sparse.linalg.spsolve(G,d)
-  soln = np.zeros(G.shape[1]) + 0.0
-  soln = PETSc.Vec().createWithArray(soln)
-
-  #plt.plot(d)
-  #plt.show()
-  ksp = PETSc.KSP()
-  ksp.create()
-  ksp.rtol = 1e-10
-  ksp.atol = 1e-5
-  ksp.max_it = 100000
-  ksp.setType('lgmres')
-  #ksp.setRestart(100)
-  #ksp.setInitialGuessNonzero(True)
-  #ksp.setInitialGuessKnoll(True)
-  ksp.setOperators(A)
-  ksp.setFromOptions()
-  pc = ksp.getPC()
-  pc.setType('none')
-  pc.setUp()
-  ksp.solve(d,soln)
-  ksp.view()
-  print(ksp.getIterationNumber())
-  print(ksp.getResidualNorm())
-  print(ksp.getConvergedReason())
-  out = np.copy(soln.getArray())
-  #out = out[rev_perm]
-  return out
-
-def _solver(G,d):
-  if not scipy.sparse.isspmatrix_csc(G):
-    G = scipy.sparse.csc_matrix(G)
-
-  # sort G and d using reverse cuthill mckee algorithm
-  perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)  
-  rev_perm = np.argsort(perm)
-  G = G[perm,:]
-  G = G[:,perm]
-  d = d[perm]
-
-  # it is not clear whether sorting the matrix helps much
-  modest.tic('solving')
-  out = scipy.sparse.linalg.spsolve(G,d,use_umfpack=False)
-  print(modest.toc('solving'))
-
-  # return to original sorting
-  d = d[rev_perm]
-  out = out[rev_perm]
-  G = G[rev_perm,:]
-  G = G[:,rev_perm]
-  return out   
-
+  return scipy.sparse.linalg.spsolve(G,d)
 
 # formulate the PDE
 x = sp.symbols('x0:2')
@@ -139,10 +82,10 @@ FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(d
 
 # The number of nodes needed depends on how sharp slip varies on the fault
 N = 2000
-Ns = 50
+Ns = 10
 # It seems like using the maximum polynomial order is not helpful for
 # this problem. Stick with cubic order polynomials and RBFs 
-order = 4
+order = 1
 
 # domain vertices
 vert = np.array([[-1.0,-1.0],
@@ -162,8 +105,8 @@ smp_f =  np.array([[0,1]])
 # density function
 @density_normalizer(vert,smp,N)
 def rho(p):
-  out = 1.0/(1 + 2*np.linalg.norm(p-np.array([-0.5,0.75]),axis=1)**2)
-  out += 1.0/(1 + 2*np.linalg.norm(p-np.array([0.5,-0.25]),axis=1)**2)
+  out = 1.0/(1 + 10*np.linalg.norm(p-np.array([-0.5,0.75]),axis=1)**2)
+  out += 1.0/(1 + 10*np.linalg.norm(p-np.array([0.5,-0.25]),axis=1)**2)
   return out
 
 scale = np.max(vert) - np.min(vert)
@@ -261,27 +204,36 @@ def form_Gij(indices):
   di,mi = indices
   G = scipy.sparse.lil_matrix((N,N),dtype=np.float64)
   for i in ix['interior']:
-    w = rbf_weight(nodes[i],
+    coeffs,diffs = DiffOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,i)
+    w = diff_weights(nodes[i],
                    nodes[s[i]],
-                   evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
+                   diffs=diffs,
+                   coeffs=coeffs_eval,
                    order=order,
                    basis=basis)
 
     G[i,s[i]] = w
 
   for i in ix['free']:
-    w = rbf_weight(nodes[i],
+    coeffs,diffs = FreeBCOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,i)
+    w = diff_weights(nodes[i],
                    nodes[s[i]],
-                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
+                   diffs=diffs,
+                   coeffs=coeffs_eval,
                    order=order,
                    basis=basis)
 
     G[i,s[i]] = w
 
   for i in ix['fixed']:
-    w = rbf_weight(nodes[i],
+    coeffs,diffs = FixBCOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,i)
+    w = diff_weights(nodes[i],
                    nodes[s[i]],
-                   evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
+                   diffs=diffs,
+                   coeffs=coeffs_eval,
                    order=order,
                    basis=basis)
 
@@ -290,9 +242,12 @@ def form_Gij(indices):
   # treat fault nodes as free nodes and the later reorganize the G
   # matrix so that the fault nodes are forces to be equal
   for i in ix['fault_hanging']+ix['fault_foot']:
-    w = rbf_weight(nodes[i],
+    coeffs,diffs = FreeBCOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,i)
+    w = diff_weights(nodes[i],
                    nodes[s[i]],
-                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
+                   coeffs=coeffs_eval,
+                   diffs=diffs,
                    order=order,
                    basis=basis)
 
@@ -302,9 +257,12 @@ def form_Gij(indices):
   # at the boundary nodes
   for itr,i in enumerate(ix['free_ghost']):
     j = ix['free'][itr]
-    w = rbf_weight(nodes[j],
+    coeffs,diffs = DiffOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,j)
+    w = diff_weights(nodes[j],
                    nodes[s[j]],
-                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                   coeffs=coeffs_eval,
+                   diffs=diffs,
                    order=order,
                    basis=basis)
 
@@ -312,9 +270,12 @@ def form_Gij(indices):
 
   for itr,i in enumerate(ix['fault_hanging_ghost']):
     j = ix['fault_hanging'][itr]
-    w = rbf_weight(nodes[j],
+    coeffs,diffs = DiffOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,j)
+    w = diff_weights(nodes[j],
                    nodes[s[j]],
-                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                   diffs=diffs,
+                   coeffs=coeffs_eval,
                    order=order,
                    basis=basis)
 
@@ -322,9 +283,12 @@ def form_Gij(indices):
 
   for itr,i in enumerate(ix['fault_foot_ghost']):
     j = ix['fault_foot'][itr]
-    w = rbf_weight(nodes[j],
+    coeffs,diffs = DiffOps[di][mi]
+    coeffs_eval = evaluate_coeffs(coeffs,j)
+    w = diff_weights(nodes[j],
                    nodes[s[j]],
-                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
+                   diffs=diffs,
+                   coeffs=coeffs_eval,
                    order=order,
                    basis=basis)
 
@@ -338,7 +302,7 @@ mkl.set_num_threads(1)
 # initiate pool
 P = mp.Pool()
 # form stiffness matrix in parallel
-G_flat = P.map(form_Gij,[(di,mi) for di in range(dim) for mi in range(dim)])
+G_flat = map(form_Gij,[(di,mi) for di in range(dim) for mi in range(dim)])
 # reset so that the main process threads use the maximum number of threads
 mkl.set_num_threads(mkl.get_max_threads())
 
