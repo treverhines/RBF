@@ -10,15 +10,17 @@ import matplotlib.cm
 def f(x):
   return np.sin(5*x[:,0]) + np.cos(8*x[:,1])
 
-N = 20
+N = 200
 Nitp = 5000
 x = rbf.halton.halton(N,2)
 xitp = rbf.halton.halton(Nitp,2)
 
 val = f(x)
+val += np.random.normal(0.0,0.5,val.shape)
+
 valitp = f(xitp)
 
-A = RBFInterpolant(x,val,order=0,basis=rbf.basis.phs1,extrapolate=False)
+A = RBFInterpolant(x,val,order=1,basis=rbf.basis.phs1,extrapolate=True,penalty=100.0)
 pred = A(xitp)
 
 # true solution
