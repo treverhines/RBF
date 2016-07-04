@@ -5,7 +5,6 @@ import logging
 from itertools import combinations_with_replacement as cr
 from scipy.special import binom
 from functools import wraps
-
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
 
@@ -13,11 +12,9 @@ logger = logging.getLogger(__name__)
 
 def memoize(f):
   ''' 
-  Description
-  -----------
-    decorator that stores the output of functions with hashable
-    arguments and returns that output when the function is called
-    again with the same arguments.
+  decorator that stores the output of functions with hashable 
+  arguments and returns that output when the function is called again 
+  with the same arguments.
 
   Note
   ----
@@ -36,41 +33,70 @@ def memoize(f):
   return fout  
 
 
-def mvmonos(x,powers,diff=None):
+def mvmonos(x,powers,diff=None,check_input=True):
   ''' 
-  Description
-  -----------
-    multivariate monomials
+  Multivariate monomials
 
   Parameters
   ----------
-    x: (N,D) array of positions where the monomials will be
-      evaluated
+    x : (N,D) float array 
+      positions where the monomials will be evaluated
 
-    powers: (M,D) array of powers for each monomial
+    powers : (M,D) int array 
+      powers for each spatial variable in the each monomial term
 
-    diff (default=(0,)*N): (D,) array of derivatives for each variable
+    diff : (D,) int tuple, optional
+      derivative order for each variable
 
+    check_input : bool, optional
+      identifies whether to check the input arguments. This may 
+      improve speed but may also cause insidious errors. If False then 
+      diff must be provided
+      
   Returns
   -------
     out: (N,M) Alternant matrix where x is evaluated for each monomial
-      term
 
+ 
+  Example
+  -------
+    # compute f1(x) = 1, f2(x) = x, f3(x) = x**2 at positions 1.0, 
+    # 2.0, and 3.0
+    >>> pos = np.array([[1.0],[2.0],[3.0]])
+    >>> pows = np.array([[1],[2],[3]])
+    >>> mvmonos(pos,pows)
+
+    array([[ 1.,  1.,  1.],
+           [ 1.,  2.,  4.],
+           [ 1.,  3.,  9.]])
+           
+    # compute f1(x,y) = 1, f2(x,y) = x, f3(x,y) = y at positions 
+    # [1.0,2.0], [2.0,3.0], and [3.0,4.0]
+    >>> pos = np.array([[1.0,2.0],[2.0,3.0],[3.0,4.0]])
+    >>> pows = np.array([[0,0],[1,0],[0,1]])
+    >>> mvmonos(pos,pows)
+
+    array([[ 1.,  1.,  2.],
+           [ 1.,  2.,  3.],
+           [ 1.,  3.,  4.]])
+                  
   '''
   # make sure that the input is all correct before sending it to a 
   # cython function
-  x = np.asarray(x,dtype=float)
-  powers = np.asarray(powers,dtype=int)
-  if diff is None:
-    diff = np.zeros(x.shape[1],dtype=int)
-  else:
-    diff = np.asarray(diff,dtype=int)
+  if check_input:
+    x = np.asarray(x,dtype=float)
+    powers = np.asarray(powers,dtype=int)
+    if diff is None:
+      diff = (0,)*x.shape[1]
+    else:
+      diff = tuple(diff)
+
   return _mvmonos(x,powers,diff)
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
+cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,tuple diff):
   ''' 
   cython evaluation of mvmonos
   '''
@@ -113,31 +139,33 @@ cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
 @memoize
 def monomial_powers(order,dim):
   ''' 
-  Description
-  -----------
-    returns an array describing all possible monomial powers
-    in a polymonial with the given order and number of
-    dimensions. Calling this function with -1 for the order will
-    return an empty list (no terms in the polynomial)
+  returns an array describing all possible monomial powers in a 
+  polymonial with the given order and number of dimensions. Calling 
+  this function with -1 for the order will return an empty list (no 
+  terms in the polynomial)
 
   Parameters
   ----------
-    order: polynomial order
+    order : int
+      polynomial order
 
-    dim: polynomial dimension
+    dim : int
+      polynomial dimension
 
   Example
   -------
-    This will return the powers of x and y for each monomial term in a
-    two dimensional polynomial with order 1 
-
-      In [1]: monomial_powers(1,2) 
-      Out[1]: array([[0,0],
-                     [1,0],
-                     [0,1]])
+    # This will return the powers of x and y for each monomial term in a
+    # two dimensional polynomial with order 1 
+    >>> monomial_powers(1,2) 
+    >>> array([[0,0],
+               [1,0],
+               [0,1]])
   '''
-  assert dim >= 1, 'number of dimensions must be 1 or greater'
-  assert order >= -1, 'polynomial order number must be -1 or greater'
+  if not (dim >= 1):
+    raise ValueError('number of dimensions must be 1 or greater')
+    
+  if not (order >= -1):
+    raise ValueError('polynomial order number must be -1 or greater')
 
   out = np.zeros((0,dim),dtype=int)
   for p in xrange(order+1):
@@ -154,20 +182,23 @@ def monomial_powers(order,dim):
 @memoize
 def monomial_count(order,dim):
   ''' 
-  Description
-  -----------
-    returns the number of monomial terms in a polynomial with the
-    given order and number of dimensions
+  returns the number of monomial terms in a polynomial with the given 
+  order and number of dimensions
 
   Parameters
   ----------
-    order: polynomial order
+    order : int
+      polynomial order
 
-    dim: polynomial dimension
+    dim : int
+      polynomial dimension
 
   '''
-  assert dim >= 1, 'number of dimensions must be 1 or greater'
-  assert order >= -1, 'polynomial order number must be -1 or greater'
+  if not (dim >= 1):
+    raise ValueError('number of dimensions must be 1 or greater')
+    
+  if not (order >= -1):
+    raise ValueError('polynomial order number must be -1 or greater')
 
   return int(binom(order+dim,dim))
 
@@ -175,20 +206,23 @@ def monomial_count(order,dim):
 @memoize
 def maximum_order(stencil_size,dim):
   ''' 
-  Description
-  -----------
-    returns the maximum polynomial order allowed for the given stencil
-    size and number of dimensions
+  returns the maximum polynomial order allowed for the given stencil 
+  size and number of dimensions
 
   Parameters
   ----------
-    stencil_size: number of nodes in the stencil
+    stencil_size : int
+      number of nodes in the stencil
 
-    dim: spatial dimensions of the stencil
+    dim : int
+      spatial dimensions
 
   '''
-  assert stencil_size >= 0, 'stencil size must be 0 or greater'
-  assert dim >= 1, 'number of dimensions must be 1 or greater'
+  if not (stencil_size >= 0):
+    raise ValueError('stencil size must be 0 or greater')
+    
+  if not (dim >= 1):
+    raise ValueError('number of dimensions must be 1 or greater')
 
   order = -1
   while (monomial_count(order+1,dim) <= stencil_size):

@@ -148,7 +148,7 @@ class RBF(object):
       eps : (M,) array, optional
         shape parameters for each RBF. Defaults to 1.0
                                                                            
-      diff : (D,) int array, optional
+      diff : (D,) int tuple, optional
         a tuple whos length is equal to the number of spatial 
         dimensions.  Each value in the tuple must be an integer 
         indicating the order of the derivative in that spatial 
@@ -264,7 +264,7 @@ _FUNCTION_DOC = '''
     eps : (M,) array, optional
       shape parameters for each RBF. Defaults to 1.0
                                                                            
-    diff : (D,) int array, optional
+    diff : (D,) int tuple, optional
       a tuple whos length is equal to the number of spatial 
       dimensions.  Each value in the tuple must be an integer 
       indicating the order of the derivative in that spatial 

@@ -8,52 +8,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def _apoly(nodes,order):
-  ''' 
-  Returns the polynomial alternant matrix where each monomial is
-  evaluated at each node. The monomials have a coefficient of 1 and
-  consist of all those that would be in a polynomial with the given
-  order. The returned alternant matrix is the transpose of the
-  standard alternant matrix.
 
-  Parameters
-  ---------
-    nodes: (N,D) numpy array of points where the monomials are
-      evaluated
-
-    order: polynomial order
-
-  '''
-  diff = np.zeros(nodes.shape[1],dtype=int)
-  powers = rbf.poly.monomial_powers(order,nodes.shape[1])
-  out = rbf.poly.mvmonos(nodes,powers,diff).T
-
-  return out
-
-
-def _dpoly(x,order,diff):
-  ''' 
-  Returns the data vector consisting of the each differentiated
-  monomial evaluated at x. The undifferentiated monomials have a
-  coefficient of 1 and powers determined from "monomial_powers"
-
-  Parameters
-  ----------
-    x: (D,) numpy array where the monomials are evaluated
-
-    order: order of polynomial terms
-
-    diff: (D,) derivative for each spatial dimension
-
-  '''
-  x = x[None,:]
-  powers = rbf.poly.monomial_powers(order,x.shape[1])
-  out = rbf.poly.mvmonos(x,powers,diff)[0,:]
-  
-  return out
-
-
-def _arbf(nodes,centers,eps,order,basis):
+def _arbf(nodes,centers,eps,powers,basis):
   ''' 
   Returns the matrix:
 
@@ -65,41 +21,39 @@ def _arbf(nodes,centers,eps,order,basis):
 
   Parameters
   ----------
-    nodes: (N,D) numpy array of collocation points
+    nodes : (N,D) float array 
+      collocation points
 
-    centers: (N,D) numpy array of RBF centers
+    centers: (N,D) float array
+      RBF centers
 
-    eps: RBF shape parameter (constant for all RBFs)
+    eps : (N,) float array
+      RBF shape parameter
    
-    order: order of polynomial terms
+    powers : (M,D) int array
+      order of polynomial terms
 
-    basis: callable radial basis function
+    basis : rbf.basis.RBF instance
 
   '''
   # number of centers and dimensions
   Ns,Ndim = nodes.shape
 
   # number of monomial terms  
-  Np = rbf.poly.monomial_count(order,Ndim)
+  Np = len(powers)
 
-  # create an array of repeated eps values
-  # this is faster than using np.repeat
-  eps_array = np.empty(Ns)
-  eps_array[:] = eps
-
+  # deriviative orders
+  diff = (0,)*Ndim
+  
   A = np.zeros((Ns+Np,Ns+Np))
-
-  # Ar
-  A[:Ns,:Ns] = basis(nodes,centers,eps_array).T
-
-  # Ap
-  Ap = _apoly(centers,order)  
+  A[:Ns,:Ns] = basis(nodes,centers,eps=eps,diff=diff,check_input=False).T
+  Ap = rbf.poly.mvmonos(nodes,powers,diff=diff,check_input=False).T
   A[Ns:,:Ns] = Ap
   A[:Ns,Ns:] = Ap.T
   return A
 
 
-def _drbf(x,centers,eps,order,diff,basis): 
+def _drbf(x,centers,eps,powers,diff,basis): 
   ''' 
   returns the vector:
 
@@ -110,6 +64,24 @@ def _drbf(x,centers,eps,order,diff,basis):
   where dr consists of the differentiated RBFs evalauted at x and dp
   consists of the monomials evaluated at x
 
+  Parameters
+  ----------
+    x : (D,) float array 
+      collocation points
+
+    centers: (N,D) float array
+      RBF centers
+
+    eps : (N,) float array
+      RBF shape parameter
+   
+    powers : (M,D) int array
+      order of polynomial terms
+
+    diff : (D,) int tuple
+      derivative orders
+      
+    basis : rbf.basis.RBF instance
   '''
   x = x[None,:]
 
@@ -117,20 +89,11 @@ def _drbf(x,centers,eps,order,diff,basis):
   Ns,Ndim = centers.shape
 
   # number of monomial terms
-  Np = rbf.poly.monomial_count(order,Ndim)
-
-  # create an array of repeated eps values
-  # this is faster than using np.repeat
-  eps_array = np.empty(Ns)
-  eps_array[:] = eps
+  Np = len(powers)
 
   d = np.empty(Ns+Np)
-
-  # dr
-  d[:Ns] = basis(x,centers,eps_array,diff=diff)[0,:]
-
-  # dp
-  d[Ns:] = _dpoly(x[0,:],order,diff)
+  d[:Ns] = basis(x,centers,eps,diff=diff,check_input=False)[0,:]
+  d[Ns:] = rbf.poly.mvmonos(x,powers,diff=diff,check_input=False)[0,:]
 
   return d
 
@@ -138,7 +101,7 @@ def _drbf(x,centers,eps,order,diff,basis):
 def diff_weights(x,nodes,diff=None,
                  diffs=None,coeffs=None,centers=None,
                  basis=rbf.basis.phs3,order=None,
-                 eps=1.0,diff_args=None):
+                 eps=1.0):
   ''' 
   computes the weights used for a finite difference approximation at x.
   The weights are computed using the RBF-FD method described in [1].
@@ -151,7 +114,7 @@ def diff_weights(x,nodes,diff=None,
     nodes : (N,D) array
       nodes adjacent to x
 
-    diff :(D,) int array, may specify diffs and coeffs instead
+    diff :(D,) int tuple, may specify diffs and coeffs instead
       derivative orders for each spatial dimension. 
 
     centers : (N,D) array, optional
@@ -177,13 +140,13 @@ def diff_weights(x,nodes,diff=None,
       then eps may be a good way to scale the problem to something 
       sensible.
     
-    diffs: (K,D) int array, optional
-      derivative terms. if specified then it overrides 
-      diff and coeffs must also be specified
+    diffs : (K,) list of (D,) int tuples, optional
+      derivative terms. if specified then it overwrites diff and coeffs 
+      must also be specified
 
-    coeffs: (K,) array, optional 
-      list of coefficients for each derivative in diffs. does 
-      nothing if diffs is not specified
+    coeffs : (K,) array, optional 
+      list of coefficients for each derivative in diffs. does nothing 
+      if diffs is not specified
 
   Note
   ----
@@ -205,43 +168,48 @@ def diff_weights(x,nodes,diff=None,
   '''
   x = np.asarray(x,dtype=float)
   nodes = np.asarray(nodes,dtype=float)
+
   if centers is None:
     centers = nodes
-
-  centers = np.asarray(centers,dtype=float)
+  else:
+    centers = np.asarray(centers,dtype=float)
 
   if order == 'max':
     order = rbf.poly.maximum_order(*nodes.shape)
 
-  if order is None:
+  elif order is None:
     order = _default_poly_order(nodes.shape[0],nodes.shape[1])
     
-  # number of polynomial terms that will be used
-  Np = rbf.poly.monomial_count(order,x.shape[0])
-  if Np > nodes.shape[0]:
+  if diffs is not None:
+    diffs = [tuple(d) for d in diffs]
+    if len(coeffs) != len(diffs):
+      raise ValueError('length of coeffs must equal length of diffs')
+
+  elif diff is not None:
+    diffs = [tuple(diff)]
+    coeffs = [1.0]
+    
+  else:
+    raise ValueError('must specify either diff or diffs')
+    
+  powers = rbf.poly.monomial_powers(order,nodes.shape[1])
+  if powers.shape[0] > nodes.shape[0]:
     raise ValueError(
       'the number of monomials exceeds the number of RBFs for the '
       'stencil. Lower the polynomial order or ' 
       'increase the stencil size')
-
-  # left hand side
-  lhs = _arbf(nodes,centers,eps,order,basis)
-  # if diff is a DiffExpression instance
-  if diffs is not None:
-    if len(diffs) != len(coeffs):
-      raise ValueError(
-        'length of coeffs must equal the length of diffs when diffs '
-        'is specified')
-
-    rhs = np.zeros(nodes.shape[0] + Np)
-    for c,d in zip(coeffs,diffs):
-      rhs += c*_drbf(x,centers,eps,order,d,basis)
+    
+  # expand eps from scalar to array
+  arr = np.empty(centers.shape[0])
+  arr[:] = eps
+  eps = arr
   
-  elif diff is not None:
-    rhs = _drbf(x,centers,eps,order,diff,basis)
-
-  else:
-    raise ValueError('must specify either diff or diffs')
+  # left hand side
+  lhs = _arbf(nodes,centers,eps,powers,basis)
+  # if diff is a DiffExpression instance
+  rhs = np.zeros(centers.shape[0] + powers.shape[0])
+  for c,d in zip(coeffs,diffs):
+    rhs += c*_drbf(x,centers,eps,powers,d,basis)
 
   try:
     weights = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
@@ -287,26 +255,25 @@ def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   if nodes.shape[1] != 1:
     raise ValueError('nodes must have one spatial dimension to compute a poly-FD weight')
     
-  order = rbf.poly.maximum_order(*nodes.shape)
-
-  # left hand side
-  lhs = _apoly(nodes,order)
   if diffs is not None:
-    if len(diffs) != len(coeffs):
-      raise ValueError(
-        'length of coeffs must equal the length of diffs when diffs '
-        'is specified')
+    diffs = [tuple(d) for d in diffs]
+    if len(coeffs) != len(diffs):
+      raise ValueError('length of coeffs must equal length of diffs')
 
-    rhs = np.zeros(nodes.shape[0])
-    for c,d in zip(coeffs,diffs):
-      rhs += c*_dpoly(x,order,d)
-  
   elif diff is not None:
-    rhs = _dpoly(x,order,diff)
-
+    diffs = [tuple(diff)]
+    coeffs = [1.0]
+    
   else:
     raise ValueError('must specify either diff or diffs')
 
+  order = rbf.poly.maximum_order(*nodes.shape)
+  powers = rbf.poly.monomial_powers(order,1)
+  lhs = rbf.poly.mvmonos(nodes,powers,diff=(0,),check_input=False).T
+  rhs = np.zeros(nodes.shape[0])
+  for c,d in zip(coeffs,diffs):
+    rhs += c*rbf.poly.mvmonos(x[None,:],powers,diff=d,check_input=False)[0,:]
+  
   try:
     weights = np.linalg.solve(lhs,rhs)
 
