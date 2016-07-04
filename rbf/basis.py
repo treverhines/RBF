@@ -17,7 +17,39 @@ import copy
 # define global symbolic variables
 _R = sympy.symbols('R')
 _EPS = sympy.symbols('EPS')
-_SYM_TO_NUM = ['cython']
+_SYM_TO_NUM = 'cython'
+
+
+def _check_lambdified_output(fin):
+  ''' 
+  when lambdifying a sympy expression, the output is a scalar if the 
+  expression is independent of R. This function checks the output of a 
+  lambdified function and if the output is a scalar then it expands 
+  the output to the proper output size. The proper output size is 
+  (N,M) where N is the number of collocation points and M is the 
+  number of basis functions
+  '''
+  def fout(*args,**kwargs):
+    out = fin(*args,**kwargs)
+    x = args[0]
+    eps = args[-1]
+    if np.isscalar(out):
+      arr = np.empty((x.shape[0],eps.shape[0]))
+      arr[...] = out
+      out = arr
+
+    return out
+
+  return fout  
+
+
+def _replace_nan(x):
+  ''' 
+  this is orders of magnitude faster than np.nan_to_num
+  '''
+  x[np.isnan(x)] = 0.0
+  return x
+
 
 def get_R():
   ''' 
@@ -25,12 +57,14 @@ def get_R():
   '''
   return copy.deepcopy(_R)
 
+
 def get_EPS():
   ''' 
   returns the symbolic variable EPS that can be used in RBF 
   expressions
   '''
   return copy.deepcopy(_EPS)
+
 
 def set_sym_to_num(package):
   ''' 
@@ -48,14 +82,15 @@ def set_sym_to_num(package):
       second overhead to compile the cython code
       
   '''
+  global _SYM_TO_NUM 
   if package in ['cython','numpy']:
-    _SYM_TO_NUM[0] = package
+    _SYM_TO_NUM = package
   else:
     raise ValueError('package must either be "cython" or "numpy" ')  
   
+
 class RBF(object):
   ''' 
-
   Stores a symbolic expression of an RBF and evaluates the expression 
   numerically when called. The symbolic expression must be a function 
   of the global variable R, where R is the radial distance to the RBF 
@@ -81,11 +116,11 @@ class RBF(object):
     Parameters
     ----------
       expr : sympy expression
-        symbolic expression of the RBF with respect. This must contain 
-        the symbolic variable R, which can be obtained by calling 
-        get_R. It may optionally contain the shape parameter EPS, 
-        which can be obtained by calling get_EPS. If EPS is not in the 
-        symbolic expression that R is substituted with EPS*R
+        symbolic expression of the RBF. This must contain the symbolic 
+        variable R, which can be obtained by calling get_R. It may 
+        optionally contain the shape parameter EPS, which can be 
+        obtained by calling get_EPS. If EPS is not in the symbolic 
+        expression then R is substituted with EPS*R
 
     '''
     if not expr.has(_R):
@@ -98,7 +133,7 @@ class RBF(object):
     self.expr = expr
     self.cache = {}
 
-  def __call__(self,x,c,eps=None,diff=None):
+  def __call__(self,x,c,eps=None,diff=None,check_input=True):
     ''' 
     evaluates M radial basis functions (RBFs) at N points.
 
@@ -109,7 +144,6 @@ class RBF(object):
                                                                           
       c : (M,D) array 
         centers for each RBF
-        
                                                                  
       eps : (M,) array, optional
         shape parameters for each RBF. Defaults to 1.0
@@ -124,12 +158,17 @@ class RBF(object):
         the third dimension. In other words, it would compute the 
         d^3u/dx^2*dz, where x and z are the first and third 
         spatial dimension and u is the RBF
+        
+      check_input : bool, optional
+        indicate whether or not to check the size and data type for 
+        the input arguments. If False then this function can speed up 
+        significantly but errors will be less comprehensible. Also, 
+        eps and diff must be provided if this is False
 
     Returns
     -------
       out : (N,M) array
         alternant matrix consisting of each RBF evaluated at x
-
 
     Note 
     ---- 
@@ -140,38 +179,44 @@ class RBF(object):
       than once in the Python session.
 
     '''
-    # Ensure that arguments have proper dimensions
-    x = np.asarray(x)
-    c = np.asarray(c)
-    if eps is None:
-      eps = np.ones(c.shape[0])   
-    else:  
-      eps = np.asarray(eps)
+    # if check is True then run the following code to ensure proper 
+    # types and sizes
+    if check_input:    
+      x = np.asarray(x,dtype=float)
+      c = np.asarray(c,dtype=float)
+      if eps is None:
+        eps = np.ones(c.shape[0])   
+      else:  
+        eps = np.asarray(eps,dtype=float)
 
-    if diff is None:
-      diff = (0,)*x.shape[1]
-    else:
-      # make sure diff is immutable
-      diff = tuple(diff)
+      if diff is None:
+        diff = (0,)*x.shape[1]
+      else:
+        # make sure diff is immutable
+        diff = tuple(diff)
 
-    # make sure the input arguments have the proper dimensions
-    if not ((x.ndim == 2) & (c.ndim == 2)):
-      raise ValueError(
-        'x and c must be two-dimensional arrays')
+      # make sure the input arguments have the proper dimensions
+      if not ((x.ndim == 2) & (c.ndim == 2)):
+        raise ValueError(
+          'x and c must be two-dimensional arrays')
 
-    if not (x.shape[1] == c.shape[1]):
-      raise ValueError(
-        'x and c must have the same number of spatial dimensions')
+      if not (x.shape[1] == c.shape[1]):
+        raise ValueError(
+          'x and c must have the same number of spatial dimensions')
 
-    if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
-      raise ValueError(
-        'eps must be a one-dimensional array with length equal to '
-        'the number of rows in c')
+      if x.shape[1] == 0:
+        raise ValueError(
+          'spatial dimensions of x and c must be at least one')
+
+      if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
+        raise ValueError(
+          'eps must be a one-dimensional array with length equal to '
+          'the number of rows in c')
     
-    if not (len(diff) == x.shape[1]):
-      raise ValueError(
-        'diff must have the same length as the number of spatial '
-        'dimensions  in x and c')
+      if not (len(diff) == x.shape[1]):
+        raise ValueError(
+          'diff must have the same length as the number of spatial '
+          'dimensions  in x and c')
 
     # expand to allow for broadcasting
     x = x[:,None,:]
@@ -193,119 +238,118 @@ class RBF(object):
           continue
         expr = expr.diff(*(x_sym[direction],)*order)
 
-      if _SYM_TO_NUM[0] == 'numpy':
-        self.cache[diff] = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
+      if _SYM_TO_NUM == 'numpy':
+        func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
+        func = _check_lambdified_output(func)
+        self.cache[diff] = func
 
-      elif _SYM_TO_NUM[0] == 'cython':        
-        self.cache[diff] = ufuncify(x_sym+c_sym+(_EPS,),expr)
+      elif _SYM_TO_NUM == 'cython':        
+        func = ufuncify(x_sym+c_sym+(_EPS,),expr)
+        self.cache[diff] = func
  
     args = (tuple(x)+tuple(c)+(eps,))    
     return self.cache[diff](*args)
-
-
+    
 _FUNCTION_DOC = ''' 
-evaluates M radial basis functions (RBFs) at N points.
+  evaluates M radial basis functions (RBFs) at N points.
 
-Parameters                                       
-----------                                         
-  x : (N,D) array 
-    evaluate the RBFs at these positions 
+  Parameters                                       
+  ----------                                         
+    x : (N,D) array 
+      evaluate the RBFs at these positions 
                                                                        
-  c : (M,D) array 
-    centers for each RBF
+    c : (M,D) array 
+      centers for each RBF
         
-  eps : (M,) array, optional
-    shape parameters for each RBF. Defaults to 1.0
+    eps : (M,) array, optional
+      shape parameters for each RBF. Defaults to 1.0
                                                                            
-  diff : (D,) int array, optional
-    a tuple whos length is equal to the number of spatial 
-    dimensions.  Each value in the tuple must be an integer 
-    indicating the order of the derivative in that spatial 
-    dimension.  For example, if the the spatial dimensions of the 
-    problem are 3 then diff=(2,0,1) would compute the second 
-    derivative in the first dimension then the first derivative in 
-    the third dimension. In other words, it would compute the 
-    d^3u/dx^2*dz, where x and z are the first and third 
-    spatial dimension and u is the RBF
+    diff : (D,) int array, optional
+      a tuple whos length is equal to the number of spatial 
+      dimensions.  Each value in the tuple must be an integer 
+      indicating the order of the derivative in that spatial 
+      dimension.  For example, if the the spatial dimensions of the 
+      problem are 3 then diff=(2,0,1) would compute the second 
+      derivative in the first dimension then the first derivative in 
+      the third dimension. In other words, it would compute the 
+      d^3u/dx^2*dz, where x and z are the first and third 
+      spatial dimension and u is the RBF
 
-Returns
--------
-  out : (N,M) array
-    alternant matrix consisting of each RBF evaluated at x
+  Returns
+  -------
+    out : (N,M) array
+      alternant matrix consisting of each RBF evaluated at x
 
-
-Note 
----- 
-  the derivatives are computed symbolically in Sympy and then
-  lambdified to evaluate the expression with the provided values.
-  The lambdified functions are cached in the scope of the radial
-  module and will be recalled if a value for diff is used more
-  than once in the Python session.
+  Note 
+  ---- 
+    the derivatives are computed symbolically in Sympy and then
+    lambdified to evaluate the expression with the provided values.
+    The lambdified functions are cached in the scope of the radial
+    module and will be recalled if a value for diff is used more
+    than once in the Python session.
 '''
 
-def replace_nan(x):
-  ''' 
-  this is orders of magnitude faster than np.nan_to_num
-  '''
-  x[np.isnan(x)] = 0.0
-  return x
 
 _PHS8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
 def phs8(*args,**kwargs):
-  '''                             
-  eighth order polyharmonic spline:
-    phi(r) = (eps*r)^8*log(eps*r)
+  ''' 
+  eighth-order polyharmonic spline:
+
+    (EPS*R)^8*log(EPS*R)
   
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS8(*args,**kwargs))
+    return _replace_nan(_PHS8(*args,**kwargs))
 
 phs8.__doc__ += _FUNCTION_DOC
 
 
 _PHS7 = RBF((_EPS*_R)**7)
 def phs7(*args,**kwargs):
-  '''                             
-  seventh order polyharmonic spline:
-    phi(r) = (eps*r)^7
+  ''' 
+  seventh-order polyharmonic spline:
+
+    (EPS*R)^7
 
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS7(*args,**kwargs))
+    return _replace_nan(_PHS7(*args,**kwargs))
 
 phs7.__doc__ += _FUNCTION_DOC
 
 
 _PHS6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
+
 def phs6(*args,**kwargs):
-  '''                             
-  sixth order polyharmonic spline:
-    phi(r) = (eps*r)^6*log(eps*r)
+  ''' 
+  sixth-order polyharmonic spline:
+
+    (EPS*R)^6*log(EPS*R)
   
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS6(*args,**kwargs))
+    return _replace_nan(_PHS6(*args,**kwargs))
 
 phs6.__doc__ += _FUNCTION_DOC
 
@@ -313,109 +357,121 @@ phs6.__doc__ += _FUNCTION_DOC
 _PHS5 = RBF((_EPS*_R)**5)
 def phs5(*args,**kwargs):
   '''                             
-  fifth order polyharmonic spline:
-    phi(r) = (eps*r)^5
+  fifth-order polyharmonic spline:
+
+    (EPS*R)^5
 
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS5(*args,**kwargs))
+    return _replace_nan(_PHS5(*args,**kwargs))
 
 phs5.__doc__ += _FUNCTION_DOC
 
 
 _PHS4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
 def phs4(*args,**kwargs):
-  '''                             
-  fourth order polyharmonic spline:
-    phi(r) = (eps*r)^4*log(eps*r)
+  ''' 
+  fourth-order polyharmonic spline:
+
+    (EPS*R)^4*log(EPS*R)
   
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS4(*args,**kwargs))
+    return _replace_nan(_PHS4(*args,**kwargs))
 
 phs4.__doc__ += _FUNCTION_DOC
 
 
 _PHS3 = RBF((_EPS*_R)**3)
 def phs3(*args,**kwargs):
-  '''                             
-  third order polyharmonic spline:
-    phi(r) = (eps*r)^3
+  ''' 
+  third-order polyharmonic spline:
+
+    (EPS*R)^3
 
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS3(*args,**kwargs))
+    return _replace_nan(_PHS3(*args,**kwargs))
 
 phs3.__doc__ += _FUNCTION_DOC
 
 
 _PHS2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
 def phs2(*args,**kwargs):
-  '''                             
-  second order polyharmonic spline:
-    phi(r) = (eps*r)^2*log(eps*r)
+  ''' 
+  second-order polyharmonic spline:
+
+    (EPS*R)^2*log(EPS*R)
   
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS2(*args,**kwargs))
+    return _replace_nan(_PHS2(*args,**kwargs))
 
 phs2.__doc__ += _FUNCTION_DOC
 
 
 _PHS1 = RBF(_EPS*_R)
 def phs1(*args,**kwargs):
-  '''                             
-  first order polyharmonic spline:
-    phi(r) = eps*r
+  ''' 
+  first-order polyharmonic spline:
+
+    EPS*R
 
   NOTE 
   ----
     This RBF usually does not include a shape parameter. It is 
     included here for the sake of consistency with the other RBF's
-  '''                                                             
+
+  '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
   with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    return replace_nan(_PHS1(*args,**kwargs))
+    return _replace_nan(_PHS1(*args,**kwargs))
 
 phs1.__doc__ += _FUNCTION_DOC
 
 
 _IMQ = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
 def imq(*args,**kwargs):
-  '''                             
+  ''' 
   inverse multiquadratic:
-    phi(r) = 1/sqrt(1 + (eps*r)^2)
-  '''                                                             
+
+    1/sqrt(1 + (EPS*R)^2)
+
+  '''
   return _IMQ(*args,**kwargs)
 
 imq.__doc__ += _FUNCTION_DOC
@@ -425,7 +481,9 @@ _IQ = RBF(1/(1+(_EPS*_R)**2))
 def iq(*args,**kwargs):
   '''                             
   inverse quadratic:
-    phi(r) = 1/(1 + (eps*r)^2)
+
+    1/(1 + (EPS*R)^2)
+
   '''                                                             
   return _IQ(*args,**kwargs)
 
@@ -436,7 +494,9 @@ _GA = RBF(sympy.exp(-(_EPS*_R)**2))
 def ga(*args,**kwargs):
   '''                        
   Gaussian:
-    phi(r) = e^(-(eps*r)^2)
+
+    exp(-(EPS*R)^2)
+
   '''
   return _GA(*args,**kwargs)
 
@@ -447,7 +507,9 @@ _MQ = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
 def mq(*args,**kwargs):
   '''                     
   multiquadratic:
-    phi(r) = sqrt(1 + (eps*r)^2)
+
+    sqrt(1 + (EPS*R)^2)
+
   '''
   return _MQ(*args,**kwargs)
 
