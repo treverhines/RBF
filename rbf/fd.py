@@ -11,40 +11,15 @@ logger = logging.getLogger(__name__)
 
 def _arbf(nodes,centers,eps,powers,basis):
   ''' 
-  Returns the matrix:
-
-  A =   | Ar Ap.T |
-        | Ap 0    |
-
-  where Ar is the transposed RBF alternant matrix. And Ap is the
-  transposed polynomial alternant matrix.
-
-  Parameters
-  ----------
-    nodes : (N,D) float array 
-      collocation points
-
-    centers: (N,D) float array
-      RBF centers
-
-    eps : (N,) float array
-      RBF shape parameter
-   
-    powers : (M,D) int array
-      order of polynomial terms
-
-    basis : rbf.basis.RBF instance
-
+  Returns the transposed RBF alternant matrix will added polynomial 
+  terms and constraints
   '''
   # number of centers and dimensions
   Ns,Ndim = nodes.shape
-
   # number of monomial terms  
   Np = len(powers)
-
   # deriviative orders
   diff = (0,)*Ndim
-  
   A = np.zeros((Ns+Np,Ns+Np))
   A[:Ns,:Ns] = basis(nodes,centers,eps=eps,diff=diff,check_input=False).T
   Ap = rbf.poly.mvmonos(nodes,powers,diff=diff,check_input=False).T
@@ -55,46 +30,16 @@ def _arbf(nodes,centers,eps,powers,basis):
 
 def _drbf(x,centers,eps,powers,diff,basis): 
   ''' 
-  returns the vector:
-
-    d = |dr|
-        |dp|
-
-
-  where dr consists of the differentiated RBFs evalauted at x and dp
-  consists of the monomials evaluated at x
-
-  Parameters
-  ----------
-    x : (D,) float array 
-      collocation points
-
-    centers: (N,D) float array
-      RBF centers
-
-    eps : (N,) float array
-      RBF shape parameter
-   
-    powers : (M,D) int array
-      order of polynomial terms
-
-    diff : (D,) int tuple
-      derivative orders
-      
-    basis : rbf.basis.RBF instance
+  Returns the differentiated RBF and polynomial terms evaluated at x
   '''
   x = x[None,:]
-
   # number of centers and dimensions
   Ns,Ndim = centers.shape
-
   # number of monomial terms
   Np = len(powers)
-
   d = np.empty(Ns+Np)
   d[:Ns] = basis(x,centers,eps,diff=diff,check_input=False)[0,:]
   d[Ns:] = rbf.poly.mvmonos(x,powers,diff=diff,check_input=False)[0,:]
-
   return d
 
 
