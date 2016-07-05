@@ -133,7 +133,7 @@ class RBF(object):
     self.expr = expr
     self.cache = {}
 
-  def __call__(self,x,c,eps=None,diff=None,check_input=True):
+  def __call__(self,x,c,eps=None,diff=None):
     ''' 
     evaluates M radial basis functions (RBFs) at N points.
 
@@ -148,7 +148,7 @@ class RBF(object):
       eps : (M,) array, optional
         shape parameters for each RBF. Defaults to 1.0
                                                                            
-      diff : (D,) int tuple, optional
+      diff : (D,) int array, optional
         a tuple whos length is equal to the number of spatial 
         dimensions.  Each value in the tuple must be an integer 
         indicating the order of the derivative in that spatial 
@@ -159,12 +159,6 @@ class RBF(object):
         d^3u/dx^2*dz, where x and z are the first and third 
         spatial dimension and u is the RBF
         
-      check_input : bool, optional
-        indicate whether or not to check the size and data type for 
-        the input arguments. If False then this function can speed up 
-        significantly but errors will be less comprehensible. Also, 
-        eps and diff must be provided if this is False
-
     Returns
     -------
       out : (N,M) array
@@ -179,44 +173,41 @@ class RBF(object):
       than once in the Python session.
 
     '''
-    # if check is True then run the following code to ensure proper 
-    # types and sizes
-    if check_input:    
-      x = np.asarray(x,dtype=float)
-      c = np.asarray(c,dtype=float)
-      if eps is None:
-        eps = np.ones(c.shape[0])   
-      else:  
-        eps = np.asarray(eps,dtype=float)
+    x = np.asarray(x,dtype=float)
+    c = np.asarray(c,dtype=float)
+    if eps is None:
+      eps = np.ones(c.shape[0])   
+    else:  
+      eps = np.asarray(eps,dtype=float)
 
-      if diff is None:
-        diff = (0,)*x.shape[1]
-      else:
-        # make sure diff is immutable
-        diff = tuple(diff)
+    if diff is None:
+      diff = (0,)*x.shape[1]
+    else:
+      # make sure diff is immutable
+      diff = tuple(diff)
 
-      # make sure the input arguments have the proper dimensions
-      if not ((x.ndim == 2) & (c.ndim == 2)):
-        raise ValueError(
-          'x and c must be two-dimensional arrays')
+    # make sure the input arguments have the proper dimensions
+    if not ((x.ndim == 2) & (c.ndim == 2)):
+      raise ValueError(
+        'x and c must be two-dimensional arrays')
 
-      if not (x.shape[1] == c.shape[1]):
-        raise ValueError(
-          'x and c must have the same number of spatial dimensions')
+    if not (x.shape[1] == c.shape[1]):
+      raise ValueError(
+        'x and c must have the same number of spatial dimensions')
 
-      if x.shape[1] == 0:
-        raise ValueError(
-          'spatial dimensions of x and c must be at least one')
+    if x.shape[1] == 0:
+      raise ValueError(
+        'spatial dimensions of x and c must be at least one')
 
-      if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
-        raise ValueError(
-          'eps must be a one-dimensional array with length equal to '
-          'the number of rows in c')
+    if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
+      raise ValueError(
+        'eps must be a one-dimensional array with length equal to '
+        'the number of rows in c')
     
-      if not (len(diff) == x.shape[1]):
-        raise ValueError(
-          'diff must have the same length as the number of spatial '
-          'dimensions  in x and c')
+    if not (len(diff) == x.shape[1]):
+      raise ValueError(
+        'diff must have the same length as the number of spatial '
+        'dimensions  in x and c')
 
     # expand to allow for broadcasting
     x = x[:,None,:]
@@ -264,7 +255,7 @@ _FUNCTION_DOC = '''
     eps : (M,) array, optional
       shape parameters for each RBF. Defaults to 1.0
                                                                            
-    diff : (D,) int tuple, optional
+    diff : (D,) int array, optional
       a tuple whos length is equal to the number of spatial 
       dimensions.  Each value in the tuple must be an integer 
       indicating the order of the derivative in that spatial 

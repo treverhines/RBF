@@ -6,7 +6,8 @@ from cython cimport boundscheck,wraparound,cdivision
 @cdivision(True)
 @boundscheck(False)
 cpdef np.ndarray primes(long N):
-  '''computes the first N prime numbers
+  ''' 
+  computes the first N prime numbers
   '''
   cdef:
     bint flag # lowered when a test number is not prime
@@ -38,7 +39,8 @@ cdef double halton_n(long n,
                      long base,
                      long start,
                      long skip) nogil:
-  '''computes element n of a 1d halton sequence
+  ''' 
+  computes element n of a 1d halton sequence
   '''
   cdef:
     double out = 0
@@ -59,18 +61,31 @@ cpdef np.ndarray halton(long N,
                         long start=0,
                         long skip=1,
                         long prime_index=0):   
-  '''computes a halton sequence of length N and dimensions D
+  ''' 
+  computes a halton sequence of length N and dimensions D
 
   Parameters
   ----------
-    N: length of the halton sequence
-    D (default=1): dimensions
-    start: 
-    skip:
+    N : int  
+      length of the halton sequence
 
+    D : int, optional
+      dimensions. defaults to 1
+
+    start : int, optional
+      starting index in the halton sequence. defaults to 0
+      
+    skip: int, optional
+      increment by this amount. defaults to 1
+      
+    prime_index : int, optional
+      index of the starting prime number, defaults to 0 (i.e. 2 is the 
+      starting prime number)
+      
   Returns
   -------
-    out: N by D array
+    out : (N,D) array
+
   '''
   cdef:
     long i,j
@@ -86,18 +101,28 @@ cpdef np.ndarray halton(long N,
 
 
 class Halton(object):
-  '''A class which produces a Halton sequence when called and
-  remembers the state of the sequence so that repeated calls produce
-  the next items in the sequence.
+  ''' 
+  Produces a Halton sequence when called and remembers the state of 
+  the sequence so that repeated calls produce the next items in the 
+  sequence
   '''
   def __init__(self,D=1,start=0,skip=1,prime_index=0):
     ''' 
     Parameters             
     ----------         
-      D (default=1): dimensions of the Halton sequence    
-      start (default=0): Index to start at in the Halton sequence 
-      skip (default=1): Indices to skip between successive    
-        output values                            
+      D : int, optional
+        dimensions, defaults to 1    
+
+      start : int, optional
+        starting index in the Halton sequence, defaults to 0 
+        
+      skip : int, optional
+        increment by this amount, defaults to 1
+
+      prime_index : int, optional
+        index of the starting prime number, defaults to 0 (i.e. 2 is the 
+        starting prime number)
+        
     '''
     self.count = start
     self.skip = skip
@@ -105,13 +130,15 @@ class Halton(object):
     self.prime_index = prime_index
 
   def __call__(self,N):
-    '''Parameters         
+    ''' 
+    Parameters         
     ----------               
-      N: Number of elements of the Halton sequence to return  
+      N : int
+       number of elements of the Halton sequence to return  
                         
     Returns       
     -------        
-      (N,dim) array of elements from the Halton sequence       
+      out : (N,D) array
     '''
     out = halton(N,self.dim,self.count,self.skip,self.prime_index)
     self.count += N*self.skip

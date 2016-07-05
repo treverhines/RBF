@@ -133,19 +133,5 @@ class Test(unittest.TestCase):
     out2 = f2(x,c,diff=(2,))
     check = np.all(np.isclose(out1,out2))
     self.assertTrue(check)
-    
-  def test_check_input(self):  
-    # check_input = True
-    x = np.random.random((5,2))
-    c = np.random.random((3,2))
-    out1 = rbf.basis.phs3(x,c,check_input=True)
-    
-    eps = np.ones(3)
-    diff = (0,0)
-    out2 = rbf.basis.phs3(x,c,eps=eps,diff=diff,check_input=False)
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
-    
-    
 
 unittest.main()

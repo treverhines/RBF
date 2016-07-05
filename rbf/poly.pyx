@@ -33,7 +33,7 @@ def memoize(f):
   return fout  
 
 
-def mvmonos(x,powers,diff=None,check_input=True):
+def mvmonos(x,powers,diff=None):
   ''' 
   Multivariate monomials
 
@@ -45,14 +45,9 @@ def mvmonos(x,powers,diff=None,check_input=True):
     powers : (M,D) int array 
       powers for each spatial variable in the each monomial term
 
-    diff : (D,) int tuple, optional
+    diff : (D,) int array, optional
       derivative order for each variable
 
-    check_input : bool, optional
-      identifies whether to check the input arguments. This may 
-      improve speed but may also cause insidious errors. If False then 
-      diff must be provided
-      
   Returns
   -------
     out: (N,M) Alternant matrix where x is evaluated for each monomial
@@ -81,15 +76,12 @@ def mvmonos(x,powers,diff=None,check_input=True):
            [ 1.,  3.,  4.]])
                   
   '''
-  # make sure that the input is all correct before sending it to a 
-  # cython function
-  if check_input:
-    x = np.asarray(x,dtype=float)
-    powers = np.asarray(powers,dtype=int)
-    if diff is None:
-      diff = (0,)*x.shape[1]
-    else:
-      diff = tuple(diff)
+  x = np.asarray(x,dtype=float)
+  powers = np.asarray(powers,dtype=int)
+  if diff is None:
+    diff = (0,)*x.shape[1]
+  else:
+    diff = tuple(diff)
 
   return _mvmonos(x,powers,diff)
 
