@@ -120,7 +120,8 @@ class Test(unittest.TestCase):
     out = rbf.geometry.contains(pnts,vert,smp)
     self.assertTrue(np.all(out == soln))
     
-  def test_pi(self):
+  def test_pi1(self):
+    # calculate pi through monte carlo simulations
     N = 1000
     P = 100000
     t = np.linspace(0.0,2*np.pi,N)
@@ -132,6 +133,18 @@ class Test(unittest.TestCase):
     pnts = 2*(rbf.halton.halton(P,2) - 0.5)
     is_inside = rbf.geometry.contains(pnts,vert,smp)
     pi_est = 4*sum(is_inside)/P
+    self.assertTrue(np.isclose(pi_est,np.pi,atol=1e-2))    
+
+  def test_pi2(self):
+    # calculate the area of a circle with the enclosure function
+    N = 1000
+    P = 100000
+    t = np.linspace(0.0,2*np.pi,N)
+    x = np.sin(t)
+    y = np.cos(t)
+    vert = np.array([x,y]).T
+    smp = np.array([np.arange(N),np.roll(np.arange(N),-1)]).T
+    pi_est = rbf.geometry.enclosure(vert,smp)
     self.assertTrue(np.isclose(pi_est,np.pi,atol=1e-2))    
 
 unittest.main()    
