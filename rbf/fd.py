@@ -162,7 +162,7 @@ def diff_weights(x,nodes,diff=None,
 
   References
   ----------
-    [1] B. Fornberg and N. Flyer. A Primer on Radial Basis 
+    [1] Fornberg, B. and N. Flyer. A Primer on Radial Basis 
         Functions with Applications to the Geosciences. SIAM, 2015.
     
   '''

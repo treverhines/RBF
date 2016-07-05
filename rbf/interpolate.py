@@ -7,20 +7,10 @@ import rbf.basis
 import rbf.poly
 import rbf.geometry
 
-def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
+def _coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   ''' 
   returns the matrix that maps the coefficients to the function values 
-  at the observation points. 
-  
-  Parameters
-  ----------
-    x : (N,D) array 
-
-    diff : (D,) tuple 
-
-    basis : RBF instance
-    
-    order : int
+  at the observation points
   '''
   # number of observation points and spatial dimensions
   N,D = x.shape
@@ -39,7 +29,11 @@ def coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   return A  
 
 
-def interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0):
+def _interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0):
+  ''' 
+  returns the matrix that maps the coefficients to the function values 
+  at the interpolation points
+  '''
   # number of interpolation points and spatial dimensions
   I,D = xitp.shape
 
@@ -57,7 +51,7 @@ def interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0)
   return A
 
 
-def in_hull(p, hull):
+def _in_hull(p, hull):
   ''' 
   Tests if points in p are in the convex hull made up by hull
   '''
@@ -74,23 +68,33 @@ def in_hull(p, hull):
 
 class RBFInterpolant(object):
   ''' 
-  Regularized Radial Basis Function Interpolant
+  Regularized radial basis function interpolant
+  
+  This function has numerous features that are lacking in 
+  scipy.interpolate.rbf. They include:
+  
+    * variable weights on the data (when creating a smoothed interpolant)
 
-  Description
-  -----------
-
-    returns an interpolant consisting of a linear combination of 
-    radial basis functions and a polynomial with the specified order.
+    * more choices of basis functions (you can also easily make your own)
     
-    We use A to denote the RBF alternant matrix with the additional 
-    polynomial constraints. m is a vector consisting of the unknown 
-    coefficients.  The coefficients are chosen to minimize
+    * analytical differentiation of the interpolant 
+    
+    * added polynomial terms for improved accuracy
+    
+    * prevent extrapolation by masking data that is outside of the 
+      convex hull defined by the data points
 
-      ||W(Am - d)||_2^2 + ||p*Lm||_2^2
+  Notes
+  -----
+    Regularization is imposed using the ridge regression method 
+    described in chapter 19.4 of [1].
 
-    where L is a regularization matrix which approximates the 
-    Laplacian of the interpolant, p is the penalty parameter, and W is 
-    a weight matrix consisting of the data uncertainty.
+  
+  References
+  ----------
+    [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, 
+      World Scientific Publishing Co, 2007.
+    
   '''
   def __init__(self,
                x,
@@ -159,7 +163,7 @@ class RBFInterpolant(object):
     P = rbf.poly.monomial_count(order,D)
 
     # form matrix for the LHS
-    A = coefficient_matrix(x,eps=eps,basis=basis,order=order)
+    A = _coefficient_matrix(x,eps=eps,basis=basis,order=order)
 
     # scale RHS and LHS by weight
     A[:N,:] *= weight[:,None]
@@ -188,7 +192,8 @@ class RBFInterpolant(object):
     self.fill = fill
 
   def __call__(self,xitp,diff=None,max_chunk=100000):
-    '''Returns the interpolant evaluated at xitp
+    ''' 
+    Returns the interpolant evaluated at xitp
 
     Parameters 
     ---------- 
@@ -214,16 +219,16 @@ class RBFInterpolant(object):
     while n < Nitp:
       # xitp indices for this chunk
       idx = range(n,min(n+max_chunk,Nitp))
-      A = interpolation_matrix(xitp[idx],self.x,
-                               diff=diff,eps=self.eps,
-                               basis=self.basis,order=self.order)
+      A = _interpolation_matrix(xitp[idx],self.x,
+                                diff=diff,eps=self.eps,
+                                basis=self.basis,order=self.order)
       out[idx] = np.einsum('ij,j...->i...',A,self.coeff)
       n += max_chunk
 
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
     if not self.extrapolate:
-      out[~in_hull(xitp,self.x)] = self.fill
+      out[~_in_hull(xitp,self.x)] = self.fill
 
     return out
 
