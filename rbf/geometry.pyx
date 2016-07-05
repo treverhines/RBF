@@ -83,12 +83,12 @@ Description
   there are multiple intersections for a single segment then only the 
   first detected intersection will be returned.
 
-  Note
-  ----
-    There are numerous other packages which can perform the same tasks
-    as this module.  For example geos (http://trac.osgeo.org/geos/)
-    and gts (http://gts.sourceforge.net/).  However, the python
-    bindings for these packages are too slow for RBF purposes.
+Note
+----
+  There are numerous other packages which can perform the same tasks 
+  as this module.  For example geos (http://trac.osgeo.org/geos/) and 
+  gts (http://gts.sourceforge.net/).  However, the python bindings for 
+  these packages are too slow for RBF purposes.
 
 '''
 import numpy as np
@@ -149,18 +149,14 @@ cdef struct triangle3d:
 
 ## point in simplex functions
 #####################################################################
-
 @cdivision(True)
 cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:  
   ''' 
-  Description 
-  ----------- 
-    identifies whether a point in 1D space is within a 1D segment. For
-    the sake of consistency, this is done by projecting the point into
-    a barycentric coordinate system defined by the segment. The point
-    is then inside the segment if both of the barycentric coordinates
-    are positive
-
+  Identifies whether a point in 1D space is within a 1D segment. For 
+  the sake of consistency, this is done by projecting the point into a 
+  barycentric coordinate system defined by the segment. The point is 
+  then inside the segment if both of the barycentric coordinates are 
+  positive
   '''
   cdef: 
     double l1,l2
@@ -176,14 +172,10 @@ cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:
 @cdivision(True)
 cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:  
   ''' 
-  Description 
-  ----------- 
-    identifies whether a point in 2D space is within a 2D
-    triangle. This is done by projecting the point into a barycentric
-    coordinate system defined by the triangle. The point is then
-    inside the segment if all three of the barycentric coordinates are
-    positive
-
+  Identifies whether a point in 2D space is within a 2D triangle. This 
+  is done by projecting the point into a barycentric coordinate system 
+  defined by the triangle. The point is then inside the segment if all 
+  three of the barycentric coordinates are positive
   '''
   cdef: 
     double det,l1,l2,l3
@@ -201,10 +193,9 @@ cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:
 
 ## simplex normals functions
 #####################################################################
-
 cdef vector2d segment_normal_2d(segment2d seg) nogil:
   ''' 
-  returns the vector normal to a 2d line segment
+  Returns the vector normal to a 2d line segment
   '''
   cdef:
     vector2d out
@@ -216,7 +207,7 @@ cdef vector2d segment_normal_2d(segment2d seg) nogil:
 
 cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
   ''' 
-  returns the vector normal to a 3d triangle
+  Returns the vector normal to a 3d triangle
   '''
   cdef:
     vector3d out
@@ -232,17 +223,13 @@ cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
 
 ## find point outside simplicial complex
 #####################################################################
-
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
 cdef vector2d find_outside_2d(double[:,:] v) nogil:
   ''' 
-  Description
-  -----------
-    Finds a arbitrary point that is outside of a polygon defined by
-    the given vertices
-
+  Finds a arbitrary point that is outside of a polygon defined by
+  the given vertices
   '''
   cdef:
     unsigned int i
@@ -262,16 +249,14 @@ cdef vector2d find_outside_2d(double[:,:] v) nogil:
 
   return out
 
+
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
 cdef vector3d find_outside_3d(double[:,:] v) nogil:
   ''' 
-  Description
-  -----------
-    Finds a arbitrary point that is outside of a polyhedron defined by
-    the given vertices
-
+  Finds a arbitrary point that is outside of a polyhedron defined by
+  the given vertices
   '''
   cdef:
     unsigned int i
@@ -298,16 +283,13 @@ cdef vector3d find_outside_3d(double[:,:] v) nogil:
 
 ## 2D point in polygon functions
 #####################################################################
-
 @cdivision(True)
 cdef bint is_intersecting_2d(segment2d seg1,
                              segment2d seg2) nogil:
   ''' 
-  Description
-  -----------
-    Identifies whether two 2D segments intersect. An intersection is
-    detected if both segments are not colinear and if any part of the
-    two segments touch
+  Identifies whether two 2D segments intersect. An intersection is
+  detected if both segments are not colinear and if any part of the
+  two segments touch
   '''
   cdef:
     double proj1,proj2
@@ -360,11 +342,8 @@ cdef np.ndarray intersection_count_2d(double[:,:] start_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns an array containing the number of simplexes intersected
-    between start_pnts and end_pnts.
-
+  Returns an array containing the number of simplices intersected 
+  between start_pnts and end_pnts
   '''
   cdef:
     int i
@@ -413,10 +392,8 @@ cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns an array identifying which simplex is intersected by
-    start_pnts and end_pnts. 
+  Returns an array identifying which simplex is intersected by
+  start_pnts and end_pnts
 
   Note
   ----
@@ -467,15 +444,12 @@ cdef np.ndarray intersection_point_2d(double[:,:] start_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):         
   ''' 
-  Description
-  -----------
-    returns an array of intersection points between line segments,
-    defined in terms of start_pnts and end_pnts, and simplices. 
+  Returns an array of intersection points between the line segments, 
+  defined in terms of start_pnts and end_pnts, and the simplices.
 
   Note
   ----
     if there is no intersection then a ValueError is returned.
-
   '''
   cdef:
     int i
@@ -535,10 +509,8 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
                                  double[:,:] vertices,
                                  long[:,:] simplices):         
   ''' 
-  Description
-  -----------
-    returns an array of normal vectors to the simplices intersected by
-    the line segments described in terms of start_pnts and end_pnts
+  Returns an array of normal vectors to the simplices intersected by
+  the line segments 
 
   Note
   ----
@@ -606,11 +578,8 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
                             double[:,:] vertices,
                             long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns a boolean array identifying which points are contained in
-    the closed simplicial complex described by vertices and simplices
-
+  Returns a boolean array identifying which points are contained in 
+  the closed simplicial complex described by vertices and simplices
   '''
   cdef:
     int count,i
@@ -633,19 +602,16 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
 
 ## 3D point in polygon functions
 #####################################################################
-
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
 cdef bint is_intersecting_3d(segment3d seg,
                              triangle3d tri) nogil:
   ''' 
-  Description
-  ----------- 
-    returns True if the 3D segment intersects the 3D triangle. An
-    intersection is detected if the segment and triangle are not
-    coplanar and if any part of the segment touches the triangle at an
-    edge or in the interior.
+  Returns True if the 3D segment intersects the 3D triangle. An 
+  intersection is detected if the segment and triangle are not 
+  coplanar and if any part of the segment touches the triangle at an 
+  edge or in the interior.
 
   Note
   ----
@@ -726,11 +692,8 @@ cdef np.ndarray intersection_count_3d(double[:,:] start_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns an array of the number of intersections between each line
-    segment, described by start_pnts and end_pnts, and the simplices
-
+  Returns an array of the number of intersections between each line
+  segment, described by start_pnts and end_pnts, and the simplices
   '''
   cdef:
     int i
@@ -783,10 +746,8 @@ cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns an array identifying which simplex is intersected by
-    start_pnts and end_pnts. 
+  Returns an array identifying which simplex is intersected by
+  start_pnts and end_pnts. 
 
   Note
   ----
@@ -846,10 +807,8 @@ cdef np.ndarray intersection_point_3d(double[:,:] start_pnts,
                                       double[:,:] vertices,
                                       long[:,:] simplices):         
   ''' 
-  Description
-  -----------
-    returns the intersection points between the line segments,
-    described by start_pnts and end_pnts, and the simplices
+  Returns the intersection points between the line segments,
+  described by start_pnts and end_pnts, and the simplices
 
   Note
   ----
@@ -925,10 +884,8 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
                                  double[:,:] vertices,
                                  long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns the normal vectors to the simplices intersected start_pnts
-    and end_pnts
+  Returns the normal vectors to the simplices intersected by 
+  start_pnts and end_pnts
 
   Note
   ----
@@ -1007,12 +964,9 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
                             double[:,:] vertices,
                             long[:,:] simplices):
   ''' 
-  Description
-  -----------
-    returns a boolean array identifying whether the points are
-    contained within the closed simplicial complex described by
-    vertices and simplices
-
+  Returns a boolean array identifying whether the points are contained 
+  within the closed simplicial complex described by vertices and 
+  simplices
   '''
   cdef:
     int count,i
@@ -1036,33 +990,35 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
 
 ## end-user functions
 #####################################################################
-
 def intersection_point(start_points,end_points,vertices,simplices):
   ''' 
-  Description
-  -----------
-    returns the intersection points between the line segments,
-    described by start_points and end_points, and the simplicial
-    complex, described by vertices and simplices. This function works
-    for 1, 2, and 3 spatial dimensions.
+  Returns the intersection points between the line segments, described 
+  by start_points and end_points, and the simplicial complex, 
+  described by vertices and simplices. This function works for 1, 2, 
+  and 3 spatial dimensions.
 
   Parameters
   ----------
-    start_points: (N,D) array of vertices describing one end of each
-      line segment. N is the number of line segments
+    start_points : (N,D) array
+      Vertices describing one end of the line segments. N is the 
+      number of line segments
 
-    end_points: (N,D) array of vertices describing the other end of
-      each line segment. N is the number of line segments.
+    end_points : (N,D) array 
+      Vertices describing the other end of the line segments. N is the 
+      number of line segments
 
-    vertices: (M,D) array of vertices within the simplicial complex. M
-      is the number of vertices
+    vertices : (M,D) array 
+      Vertices within the simplicial complex. M is the number of 
+      vertices
 
-    simplices: (P,D) array of vertex indices for each simplex. P is
-      the number of simplices
+    simplices : (P,D) array
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out: (N,D) array of intersection points    
+    out : (N,D) array
+      intersection points    
 
   Note
   ----
@@ -1101,29 +1057,33 @@ def intersection_point(start_points,end_points,vertices,simplices):
 
 def intersection_normal(start_points,end_points,vertices,simplices):
   ''' 
-  Description
-  -----------
-    returns the normal vectors to the simplexes intersected by the
-    line segments, described by start_points and end_points. This
-    function works for 1, 2, and 3 spatial dimensions.
+  Returns the normal vectors to the simplices intersected by the line 
+  segments, described by start_points and end_points. This function 
+  works for 1, 2, and 3 spatial dimensions. The normal vector is in 
+  the direction that points towards end_points
 
   Parameters
   ----------
-    start_points: (N,D) array of vertices describing one end of each
-      line segment. N is the number of line segments
+    start_points : (N,D) array
+      Vertices describing one end of the line segments. N is the 
+      number of line segments
 
-    end_points: (N,D) array of vertices describing the other end of
-      each line segment. N is the number of line segments.
+    end_points : (N,D) array 
+      Vertices describing the other end of the line segments. N is the 
+      number of line segments
 
-    vertices: (M,D) array of vertices within the simplicial complex. M
-      is the number of vertices
+    vertices : (M,D) array 
+      Vertices within the simplicial complex. M is the number of 
+      vertices
 
-    simplices: (P,D) array of vertex indices for each simplex. P is
-      the number of simplices
+    simplices : (P,D) array
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out: (N,D) array of normal vectors
+    out : (N,D) array
+      normal vectors
 
   Note
   ----
@@ -1164,28 +1124,31 @@ def intersection_normal(start_points,end_points,vertices,simplices):
 
 def intersection_index(start_points,end_points,vertices,simplices):
   ''' 
-  Description
-  -----------
-    returns the indices of the simplices intersected by the line
-    segments. This function works for 1, 2, and 3 spatial dimensions.
+  Returns the indices of the simplices intersected by the line
+  segments. This function works for 1, 2, and 3 spatial dimensions.
 
   Parameters
   ----------
-    start_points: (N,D) array of vertices describing one end of each
-      line segment. N is the number of line segments
+    start_points : (N,D) array
+      Vertices describing one end of the line segments. N is the 
+      number of line segments
 
-    end_points: (N,D) array of vertices describing the other end of
-      each line segment. N is the number of line segments.
+    end_points : (N,D) array 
+      Vertices describing the other end of the line segments. N is the 
+      number of line segments
 
-    vertices: (M,D) array of vertices within the simplicial complex. M
-      is the number of vertices
+    vertices : (M,D) array 
+      Vertices within the simplicial complex. M is the number of 
+      vertices
 
-    simplices: (P,D) array of vertex indices for each simplex. P is
-      the number of simplices
+    simplices : (P,D) array
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out: (N,) array of simplex indices 
+    out : (N,) int array
+      simplex indices 
 
   Note
   ----
@@ -1224,29 +1187,32 @@ def intersection_index(start_points,end_points,vertices,simplices):
 
 def intersection_count(start_points,end_points,vertices,simplices):
   ''' 
-  Description
-  -----------
-    returns the number of simplexes crossed by the line segments
-    described by start_points and end_points. This function works for
-    1, 2, and 3 spatial dimensions.
+  Returns the number of simplices crossed by the line segments 
+  described by start_points and end_points. This function works for 1, 
+  2, and 3 spatial dimensions.
 
   Parameters
   ----------
-    start_points: (N,D) array of vertices describing one end of each
-      line segment. N is the number of line segments
+    start_points : (N,D) array
+      Vertices describing one end of the line segments. N is the 
+      number of line segments
 
-    end_points: (N,D) array of vertices describing the other end of
-      each line segment. N is the number of line segments.
+    end_points : (N,D) array 
+      Vertices describing the other end of the line segments. N is the 
+      number of line segments
 
-    vertices: (M,D) array of vertices within the simplicial complex. M
-      is the number of vertices
+    vertices : (M,D) array 
+      Vertices within the simplicial complex. M is the number of 
+      vertices
 
-    simplices: (P,D) array of vertex indices for each simplex. P is
-      the number of simplices
+    simplices : (P,D) array
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out: (N,) array of intersection counts
+    out : (N,) int array
+      intersection counts
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1279,34 +1245,31 @@ def intersection_count(start_points,end_points,vertices,simplices):
 
 def contains(points,vertices,simplices):
   ''' 
-  Description
-  -----------
-    returns a boolean array identifying whether the points are
-    contained within a closed simplicial complex described by vertices
-    and simplices.  This function works for 1, 2, and 3 spatial
-    dimensions.
+  Returns a boolean array identifying whether the points are contained 
+  within a closed simplicial complex described by vertices and 
+  simplices. This function works for 1, 2, and 3 spatial dimensions.
 
   Parameters
   ----------
-    points: (N,D) array of points
+    points : (N,D) array
+      Test points
 
-    vertices: (M,D) array of vertices within the simplicial complex. M
-      is the number of vertices
+    vertices : (M,D) array
+      Vertices within the simplicial complex
 
-    simplices: (P,D) array of vertex indices for each simplex. P is
-      the number of simplices
+    simplices : (P,D) int array 
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out: (N,) boolean array identifying whether each point is in the
-      simplicial complex
+    out : (N,) bool array 
+      indicates which test points are in the simplicial complex
 
   Note
   ----
     This function does not ensure that the simplicial complex is
-    closed.  If it is not then bogus results will be returned.  The
-    closedness can be checked using the is_valid function.  
-
+    closed.  If it is not then bogus results will be returned. 
     
     This function determines whether a point is contained within the
     simplicial complex by finding the number of intersections between
@@ -1314,7 +1277,8 @@ def contains(points,vertices,simplices):
     although rare, that this function will fail if the line segment
     intersects a simplex at an edge.
 
-    This function does not require any orientation for the simplices
+    This function does not require any particular orientation for the 
+    simplices
 
   '''
   points = np.asarray(points)
@@ -1326,7 +1290,8 @@ def contains(points,vertices,simplices):
 
   if dim == 1:
     vert = vertices[simplices[:,0]]
-    end_points = np.ones(np.shape(points))*np.min(vertices) - 1.0
+    outside_point = np.min(vert,axis=0) - 1.0
+    end_points = outside_point[:,None].repeat(points.shape[0],axis=0)
     crossed_bool = (points-vert.T)*(end_points-vert.T) <= 0.0
     crossed_count = np.sum(crossed_bool,axis=1)
     out = np.array(crossed_count%2,dtype=bool)
@@ -1342,14 +1307,26 @@ def contains(points,vertices,simplices):
 
 def simplex_normals(vert,smp):
   ''' 
-  Description           
-  -----------                         
-    returns the normal vectors for each simplex. Orientation is 
-    determined by the right hand rule 
+  Returns the normal vectors for each simplex. Orientation is 
+  determined by the right hand rule
 
+  Parameters
+  ----------
+    vertices : (M,D) array
+      Vertices within the simplicial complex
+
+    simplices : (P,D) int array 
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+    out : (P,D) array
+      normals vectors
+      
   Note
   ----
-    This is only defined for 2 and 3 dimensional simplices
+    This is only defined for two and three dimensional simplices
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -1359,7 +1336,7 @@ def simplex_normals(vert,smp):
   dim = vert.shape[1]
   
   if (dim != 2) & (dim != 3):
-    raise ValueError('simplices must be 2 or 3 dimensional')
+    raise ValueError('simplices must have two or three spatial dimensions')
 
   # Create a N by D-1 by D matrix    
   M = vert[smp[:,1:]] - vert[smp[:,[0]]]
@@ -1374,15 +1351,27 @@ def simplex_normals(vert,smp):
 
 def simplex_outward_normals(vert,smp):
   ''' 
-  Description
-  -----------
-    returns the outward normal vectors for each simplex. The sign
-    of the returned vectors are only meaningful if the simplices 
-    enclose an area in 2D or a volume in 3D
+  Returns the outward normal vectors for each simplex. The sign of the 
+  returned vectors are only meaningful if the simplices enclose an 
+  area in two-dimensional space or a volume in three-dimensional space
 
+  Parameters
+  ----------
+    vertices : (M,D) array
+      Vertices within the simplicial complex
+
+    simplices : (P,D) int array 
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+    out : (P,D) array
+      normals vectors
+      
   Note
   ----
-    This is only defined for 2 and 3 dimensional simplices
+    This is only defined for two and three dimensional simplices
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -1392,7 +1381,7 @@ def simplex_outward_normals(vert,smp):
   dim = vert.shape[1]
   
   if (dim != 2) & (dim != 3):
-    raise ValueError('simplices must be 2 or 3 dimensional')
+    raise ValueError('simplices must have two or three spatial dimensions')
 
   smp = oriented_simplices(vert,smp)
   return simplex_normals(vert,smp)
@@ -1400,14 +1389,26 @@ def simplex_outward_normals(vert,smp):
 
 def simplex_upward_normals(vert,smp):
   ''' 
-  Description
-  -----------
-    returns the normal vectors for each simplex whose sign for the
-    last spatial dimension is positive.
+  Returns the normal vectors for each simplex whose sign for the last 
+  spatial dimension is positive.
 
+  Parameters
+  ----------
+    vertices : (M,D) array
+      Vertices within the simplicial complex
+
+    simplices : (P,D) int array 
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+    out : (P,D) array
+      normals vectors
+      
   Note
   ----
-    This is only defined for 2 and 3 dimensional simplices
+    This is only defined for two and three dimensional simplices
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -1417,7 +1418,7 @@ def simplex_upward_normals(vert,smp):
   dim = vert.shape[1]
   
   if (dim != 2) & (dim != 3):
-    raise ValueError('simplices must be 2 or 3 dimensional')
+    raise ValueError('simplices must have two or three spatial dimensions')
 
   out = simplex_normals(vert,smp)
   out[out[:,-1]<0] *= -1
@@ -1426,16 +1427,30 @@ def simplex_upward_normals(vert,smp):
 
 def oriented_simplices(vert,smp):
   ''' 
-  Description                       
-  -----------                   
-    Returns simplex indices that are ordered such that each simplex
-    normal vector, as defined by the right hand rule, points outward
+  Returns simplex indices that are ordered such that each simplex 
+  normal vector, as defined by the right hand rule, points outward
                                     
+  Parameters
+  ----------
+    vertices : (M,D) array
+      Vertices within the simplicial complex
+
+    simplices : (P,D) int array 
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+    out : (P,D) int array
+      oriented simplices
+
   Note                                
   ----                         
     If one dimensional simplices are given, then the simplices are
     returned unaltered.
 
+    This function does not ensure that the simplicial complex is
+    closed.  If it is not then bogus results will be returned. 
   '''
   vert = np.asarray(vert,dtype=float)
   smp = np.array(smp,dtype=int,copy=True)
@@ -1472,22 +1487,33 @@ def oriented_simplices(vert,smp):
 
 def enclosure(vert,smp,orient=True):
   ''' 
-  Description
-  -----------
-    returns the volume of a polyhedra, area of a polygon, or length of
-    a segment enclosed by the simplices
+  Returns the volume of a polyhedra, area of a polygon, or length of
+  a segment enclosed by the simplices
 
   Parameters
   ----------
-    vert: vertices of the domain
+    vertices : (M,D) array
+      Vertices within the simplicial complex
 
-    smp: vertex indices making up each simplex 
+    simplices : (P,D) int array 
+      Connectivity of the vertices. Each row contains the vertex 
+      indices which form one simplex of the simplicial complex
 
-    orient (default=True): If true, the simplices are oriented such
-      that their normals from the right hand rule point outward. The 
-      time for this operation increase quadratically with the number
-      of simplexes. This does nothing for 1D simplices
+    orient : bool, optional
+      If true, the simplices are reordered with oriented_simplices. 
+      The time for this function increase quadratically with the 
+      number of simplices. Set to false if you are confident that the 
+      simplices are properly oriented. This does nothing for 
+      one-dimensional simplices
 
+  Returns
+  -------
+    out : float
+     
+  Note
+  ----
+    This function does not ensure that the simplicial complex is
+    closed.  If it is not then bogus results will be returned. 
   '''
   vert = np.array(vert,dtype=float,copy=True)
   smp = np.asarray(smp,dtype=int)
@@ -1507,69 +1533,5 @@ def enclosure(vert,smp,orient=True):
   signed_volumes = (1.0/factorial(dim))*np.linalg.det(vert[smp])
   volume = np.sum(signed_volumes)
   return volume
-
-
-def contains_N_duplicates(iterable,N=1):
-  '''            
-  returns True if every element in iterable is repeated N times
-  '''
-  for s in iterable:
-    count = 0
-    for t in iterable:
-      # s == t can either return a boolean, or a boolean array in the
-      # event of s and t being numpy arrays.  np.all returns the 
-      # appropriate value in either case
-      if np.all(s == t):
-        count += 1
-
-    if count != N:
-      return False
-
-  return True
-
-
-def is_valid(smp):
-  '''             
-  Description
-  -----------
-    Returns True if the following conditions are met:
-
-      every simplex is unique
-
-      every simplex contains unique vertices
-
-      (for 2D and 3D) every simplex shares an edge with exactly one 
-      other simplex. (for 1D) exactly 2 simplexes are given                     
-
-  Parameters
-  ----------
-    smp: simplices defining the domain
-
-  Note
-  ----
-    This function can take a while for a large (>1000) number of 
-    simplexes 
-
-  '''
-  smp = np.asarray(smp)
-  smp = np.array([np.sort(i) for i in smp])
-  dim = smp.shape[1]
-  sub_smp = []
-  # check for repeated simplexes 
-  if not contains_N_duplicates(smp,1):
-    return False
-
-  for s in smp:
-    # check for repeated vertices in a simplex
-    if not contains_N_duplicates(s,1):
-      return False
-
-    for c in combinations(s,dim-1):
-      c_list = list(c)
-      c_list.sort()
-      sub_smp.append(c_list)
-
-  out = contains_N_duplicates(sub_smp,2)
-  return out
 
 
