@@ -7,11 +7,9 @@ import rbf.integrate
 import rbf.stencil
 import logging
 import scipy.sparse
-import modest
 from itertools import combinations
 logger = logging.getLogger(__name__)
 
-@modest.funtime
 def adjacency_argsort(nodes,n=10):
   ''' 
   Description
@@ -48,7 +46,6 @@ def adjacency_argsort(nodes,n=10):
 
   return permutation
 
-@modest.funtime
 def verify_node_spacing(rho,nodes,tol=0.25):
   ''' 
   Description
@@ -301,7 +298,6 @@ def _repel_stick(free_nodes,vertices,
 
   return free_nodes,node_group
 
-@modest.funtime
 def volume(rho,vertices,simplices,fix_nodes=None,
            itr=20,n=10,delta=0.1,check_simplices=True,
            sort_nodes=True):
