@@ -7,13 +7,18 @@ import networkx
 import logging
 logger = logging.getLogger(__name__)
 
-class StencilError(Exception):
-  pass
-
 
 def stencils_to_edges(stencils):
   ''' 
   returns an array of edges defined by the stencils
+  
+  Parameters
+  ----------
+    stencil : (N,D) int aray
+
+  Returns
+  -------
+    edges : (K,2) int array
   '''
   N,S = stencils.shape
   node1 = np.arange(N)[:,None].repeat(S,axis=1)
@@ -25,8 +30,16 @@ def stencils_to_edges(stencils):
 
 def is_connected(stencils):
   ''' 
-  returns True if stencils forms a connected graph (i.e. connectivity
+  returns True if stencils forms a connected graph (i.e. connectivity 
   greater than 0)
+
+  Parameters
+  ----------
+    stencil : (N,D) int aray
+
+  Returns
+  -------
+    out : bool
   '''
   edges = stencils_to_edges(stencils)
   # edges needs to be a list of tuples
@@ -39,6 +52,14 @@ def connectivity(stencils):
   ''' 
   returns the minimum number of edges that must be removed in order to 
   break the connectivity of the graph defined by the stencils
+
+  Parameters
+  ----------
+    stencil : (N,D) int aray
+
+  Returns
+  -------
+    out : int
   '''
   edges = stencils_to_edges(stencils)
   # edges needs to be a list of tuples
@@ -49,9 +70,24 @@ def connectivity(stencils):
 
 def distance(test,pnts,vert=None,smp=None):
   ''' 
-  returns euclidean distance between test and pnts. If the line
-  segment between test and pnts crosses a boundary then the distance
+  returns euclidean distance between test and pnts. If the line 
+  segment between test and pnts crosses a boundary then the distance 
   is inf
+  
+  Parameters
+  ----------
+    test : (D,) array
+    
+    pnts : (N,D) array
+
+    vert : (P,D) array, optional
+    
+    smp : (Q,D) int array, optional
+    
+  Returns
+  -------
+    dist : (N,) array
+    
   '''
   if smp is None:
     smp = np.zeros((0,len(test)),dtype=int)
@@ -86,19 +122,30 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
 
   Parameters
   ----------
-    query: (Q,D) array of query points 
+    query: (Q,D) array 
+      query points 
   
-    population: (P,D) array of population points 
+    population: (P,D) array
+      population points 
 
-    N: number of neighbors within the population to find for each 
-      query point
+    N : int
+      number of neighbors to find for each query point
  
-    vert (default=None): float array of vertices for the boundary 
+    vert : (N,D) array, optional
 
-    smp (default=None): integer array of connectivity for the vertices
+    smp : (M,D) int array, optional
       
-    excluding (default=None): indices of points in the population 
-      which cannot be identified as a nearest neighbor
+    excluding : (K,) int array, optional
+      indices of points in the population which cannot be identified 
+      as a nearest neighbor
+
+  Returns 
+  -------
+    neighbors, dist
+
+    neighbors : (Q,N) int array
+    
+    dist : (Q,N) array
 
   Note
   ----
@@ -118,20 +165,20 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
     excluding_bool = np.zeros(population.shape[0],dtype=bool)
     excluding_bool[excluding] = True
 
-  if len(query.shape) != 2:
-    raise StencilError(
-      'query points must be a 2-D array')
+  if query.ndim != 2:
+    raise ValueError(
+      'query points must be a two-dimensional array')
 
-  if len(population.shape) != 2:
-    raise StencilError(
-      'population points must be a 2-D array')
+  if population.ndim != 2:
+    raise ValueError(
+      'population points must be a two-dimensional array')
 
   if N > population.shape[0]: 
-    raise StencilError(
+    raise ValueError(
       'cannot find %s nearest neighbors with %s points' % (N,population.shape[0]))
 
   if N < 0:
-    raise StencilError(
+    raise ValueError(
       'must specify a non-negative number of nearest neighbors')
  
   # querying the KDTree returns a segmentation fault if N is zero and 
@@ -174,7 +221,7 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
       dist_i = dist_i[np.argsort(dist_i)[:N]]
       dist[i] = dist_i
       if (query_size == population.shape[0]) & (np.any(np.isinf(dist_i))):
-        raise StencilError('cannot find %s nearest neighbors for point '
+        raise ValueError('cannot find %s nearest neighbors for point '
                            '%s without crossing a boundary' % (N,query[i]))
 
   return neighbors,dist
@@ -188,19 +235,22 @@ def stencil_network(nodes,N=None,C=None,vert=None,smp=None):
 
   Parameters
   ----------
-    nodes: (N,D) array of nodes
+    nodes : (N,D) array 
 
-    C (default=None): desired connectivity of the resulting stencils. The 
-      stencil size is then chosen so that the connectivity is at least 
-      this large. Overrides N if specified
+    C : int, optional
+      desired connectivity of the resulting stencils. The stencil size 
+      is then chosen so that the connectivity is at least this large. 
+      Overrides N if provided
     
-    N (default=None): stencil size. Defaults to 10 or the number of 
-      nodes, whichever is smaller
+    N : int, optional 
+      stencil size. Defaults to 10 or the number of nodes, whichever 
+      is smaller
 
-    vert (default=None): vertices of the boundary that edges cannot 
-      cross
+    vert : (P,D) array, optional
+      vertices of the boundary that edges cannot cross
 
-    smp (default=None): connectivity of the vertices
+    smp : (Q,D) array, optional
+      connectivity of the boundary vertices
 
   Note
   ----
@@ -216,7 +266,7 @@ def stencil_network(nodes,N=None,C=None,vert=None,smp=None):
     while connectivity(s) < C:
       N += 1
       if N > nodes.shape[0]:
-        raise StencilError('cannot create a stencil with the desired '
+        raise ValueError('cannot create a stencil with the desired '
                            'connectivity')
       s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
 
@@ -257,7 +307,7 @@ def _stencil_network_1d(P,N):
   P = int(P)
   N = int(N)
   if P < N:
-    raise StencilError('cannot form a size %s stencil with %s nodes' % (N,P))
+    raise ValueError('cannot form a size %s stencil with %s nodes' % (N,P))
 
   if N == 0:
     return np.zeros((P,N),dtype=int)
@@ -286,14 +336,38 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
   
   Parameters
   ----------
-    nodes: (N,1) array of nodes
+    nodes : (M,1) array 
 
-    N: stencil size
+    C : int, optional
+      desired connectivity of the resulting stencils. The stencil size 
+      is then chosen so that the connectivity is at least this large. 
+      Overrides N if provided
+    
+    N : int, optional 
+      stencil size. Defaults to 10 or the number of nodes, whichever 
+      is smaller
 
-    vert: vertices of boundaries
+    vert : (P,1) array, optional
+      vertices of the boundary that edges cannot cross
 
-    smp: simplices of boundaries  
+    smp : (Q,1) array, optional
+      connectivity of the boundary vertices
 
+  Returns
+  -------
+    out : (M,N) int array
+    
+  Example
+  -------
+    # create a first-order forward finite difference stencil
+    >>> x = np.arange(4.0)[:,None]
+    >>> stencil_network_1d(x,2)
+
+    array([[0, 1],
+           [1, 2],
+           [2, 3],
+           [2, 3]])
+                         
   '''
   nodes = np.asarray(nodes)
 
@@ -303,8 +377,8 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
   if C is not None:
     raise NotImplementedError('specifying connectivity is not yet supported')
   
-  if len(nodes.shape) != 2:
-    raise ValueError('nodes must be 2-D array')
+  if nodes.ndim != 2:
+    raise ValueError('nodes must be two-dimensional array')
 
   if nodes.shape[1] != 1:
     raise ValueError('nodes must only have one spatial dimension')
@@ -329,13 +403,5 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
     sorted_idx = idx[np.argsort(nodes[idx])]
     stencil_i = sorted_idx[stencil_i]
     stencil[sorted_idx,:] = stencil_i
-
-  # for the sake of consistency, sort each stencil in order of 
-  # distance from center node. Note that this takes up the most time
-  #for i in range(P):
-  #  nodes_i = nodes[stencil[i]]
-  #  dist_i = np.abs(nodes_i - nodes[i])
-  #  sorted_idx = np.argsort(dist_i)
-  #  stencil[i,:] = stencil[i,sorted_idx]
 
   return stencil                      

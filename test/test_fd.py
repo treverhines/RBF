@@ -326,5 +326,22 @@ class Test(unittest.TestCase):
                             basis=rbf.basis.phs8,order='max')
     self.assertTrue(np.isclose(u.dot(w),diff_true))
     
-    
+  def test_diff_matrix(self):
+    x = np.arange(4.0)[:,None]
+    diff_mat = rbf.fd.diff_matrix(x,(2,)).toarray()
+    true_mat = np.array([[ 1., -2.,  1.,  0.],
+                         [ 1., -2.,  1.,  0.],
+                         [ 0.,  1., -2.,  1.],
+                         [ 0.,  1., -2.,  1.]])
+    self.assertTrue(np.all(np.isclose(diff_mat,true_mat)))
+                         
+  def test_poly_diff_matrix(self):    
+    x = np.arange(4.0)[:,None]
+    diff_mat = rbf.fd.poly_diff_matrix(x,(1,)).toarray()
+    true_mat = np.array([[-1.,  1.,  0.,  0.],
+                         [ 0., -1.,  1.,  0.],
+                         [ 0.,  0., -1.,  1.],
+                         [ 0.,  0., -1.,  1.]])
+    self.assertTrue(np.all(np.isclose(diff_mat,true_mat)))
+                         
 unittest.main()
