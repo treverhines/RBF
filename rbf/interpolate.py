@@ -7,7 +7,7 @@ import rbf.basis
 import rbf.poly
 import rbf.geometry
 
-def _coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
+def _coefficient_matrix(x,eps,basis,order):
   ''' 
   returns the matrix that maps the coefficients to the function values 
   at the observation points
@@ -29,7 +29,7 @@ def _coefficient_matrix(x,eps=None,basis=rbf.basis.phs3,order=0):
   return A  
 
 
-def _interpolation_matrix(xitp,x,diff=None,eps=None,basis=rbf.basis.phs3,order=0):
+def _interpolation_matrix(xitp,x,diff,eps,basis,order):
   ''' 
   returns the matrix that maps the coefficients to the function values 
   at the interpolation points
@@ -105,7 +105,7 @@ class RBFInterpolant(object):
                order=1,  
                extrapolate=True,
                fill=np.nan,
-               penalty=0.0,**kwargs):
+               penalty=0.0):
     ''' 
     Initiates the RBF interpolant
 
@@ -163,7 +163,7 @@ class RBFInterpolant(object):
     P = rbf.poly.monomial_count(order,D)
 
     # form matrix for the LHS
-    A = _coefficient_matrix(x,eps=eps,basis=basis,order=order)
+    A = _coefficient_matrix(x,eps,basis,order)
 
     # scale RHS and LHS by weight
     A[:N,:] *= weight[:,None]
@@ -176,12 +176,11 @@ class RBFInterpolant(object):
     # extend values to have a consistent size as A
     value = np.concatenate((value,np.zeros(P)))
 
-    # stack coefficient matrix and regularization matrix
-    A_ext = np.vstack((A,L))
-    value_ext = np.concatenate((value,np.zeros(N)))
-
     # solve for RBF coefficients
-    coeff = np.linalg.lstsq(A_ext,value_ext)[0] 
+    AtA = A.T.dot(A)
+    LtL = L.T.dot(L) 
+    Atv = A.T.dot(value)
+    coeff = np.linalg.solve(AtA + LtL,Atv)
 
     self.x = x
     self.coeff = coeff
@@ -220,8 +219,8 @@ class RBFInterpolant(object):
       # xitp indices for this chunk
       idx = range(n,min(n+max_chunk,Nitp))
       A = _interpolation_matrix(xitp[idx],self.x,
-                                diff=diff,eps=self.eps,
-                                basis=self.basis,order=self.order)
+                                diff,self.eps,
+                                self.basis,self.order)
       out[idx] = np.einsum('ij,j...->i...',A,self.coeff)
       n += max_chunk
 
