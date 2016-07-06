@@ -16,4 +16,4 @@ Package containing the tools necessary for radial basis function (RBF) applicati
   
   The user does not need to worry about instantiation of an RBF class because many of the commonly used RBFs are already instantiated and can be called using function in the rbf.basis module.     
   
-![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 1")
+![alt text](https://github.com/treverhines/RBF/demo/figures/demo_basis.png "demo_basis")
