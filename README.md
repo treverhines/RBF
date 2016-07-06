@@ -12,7 +12,7 @@ Package containing the tools necessary for radial basis function (RBF) applicati
 * functions for Monte-Carlo integration and recursive Monte-Carlo integration over an polygonal/polyhedral domain
 
 # Usage
-See the accompanying examples in `RBF/demo`
+See the accompanying examples in `RBF/demo`. Most of these demonstrations are one-dimensional for the sake of visualization. The extension to multiple dimensions should be straight forward when you read the help documentation for each function.
 
 ## Basis
 The linchpin of this module is the RBF class, which is used to evaluate an RBF and its derivatives.  An RBF is instantiated using a symbolic sympy expression.  Evaluating the RBFs is done by calling the RBF instance where the user supplies the evaluation points, the RBF centers, and the desired derivate (if any).  When called, an analytical derivative of the symbolic expression is evaluated and then the function is compiled into cython code.  This compiled code is saved and reused when the RBF is called again with the same derivative specification.   
@@ -68,6 +68,26 @@ EPS is a scaling factor which can be obtained for defining your own RBFs by call
 
 ## Interpolation
 Creating a simple RBF interpolant is straight forward with an RBF instance
+```
+x = np.linspace(-np.pi,np.pi,5)[:,None] # observation points
+u = np.sin(x[:,0]) # values
+xitp = np.linspace(-4.0,4.0,1000)[:,None] # interpolation points
 
+A = rbf.basis.phs3(x,x)
+coeff = np.linalg.solve(A,u) # estimate coefficients for each RBF
+Aitp = rbf.basis.phs3(xitp,x) # interpolation matrix
+uitp = Aitp.dot(coeff)
 
+fig,ax = plt.subplots(figsize=(6,4))
+ax.plot(x[:,0],u,'ko')
+ax.plot(xitp[:,0],uitp,'k-')
+ax.plot(xitp[:,0],np.sin(xitp[:,0]),'k--')
+ax.legend(['observation points','interpolant','true solution'],loc=2,frameon=False)
+ax.set_title('third-order polyharmonic spline interpolation')
+fig.tight_layout()
+plt.savefig('figures/demo_interpolate.png')
+```
+![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_interpolate.png "demo_basis_2")
+
+The RBFInterpolant class, which is in the rbf.interpolate module, is provided for more complicated interpolation problems (e.g. smoothed interpolation).
 
