@@ -15,5 +15,5 @@ Package containing the tools necessary for radial basis function (RBF) applicati
   The linchpin of this module is the RBF class, which is used to evaluate an RBF and its derivatives.  An RBF is instantiated using a symbolic sympy expression.  Evaluating the RBFs is done by calling the RBF instance where the user supplies the positions where the RBFs are to be evaluated, the centers of the RBFs and the desired derivate (if any).  When called, the an analytical derivative of the symbolic expression is evalauted and then the function is compiled into cython code. This compiled code is saved and reused when the RBF is called again with the same derivative specification.   
   
   The user does not need to worry about instantiation of an RBF class because many of the commonly used RBFs are already instantiated and can be called using function in the rbf.basis module.     
-  
-![alt text](https://github.com/treverhines/RBF/demo/figures/demo_basis.png "demo_basis")
+
+![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_basis.png "demo_basis")
