@@ -8,6 +8,38 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _distance_matrix(pnts1,pnts2,vert,smp):
+  ''' 
+  returns a distance matrix where the distance is inf if the segment 
+  connecting two points intersects the boundary 
+  '''
+  distance_matrix = np.zeros((pnts1.shape[0],pnts2.shape[0]))
+  for i,p in enumerate(pnts1):
+    pi = p[None,:].repeat(pnts2.shape[0],axis=0)
+    di = np.sqrt(np.sum((p - pnts2)**2,axis=1))
+    cc = np.zeros(pnts2.shape[0],dtype=int)
+    cc[di!=0.0] = rbf.geometry.intersection_count(
+                      pi[di!=0.0],
+                      pnts2[di!=0.0],
+                      vert,smp)
+
+    distance_matrix[i,:] = di
+    distance_matrix[i,cc>0] = np.inf
+
+  return distance_matrix
+
+
+def _naive_nearest(query,population,N,vert,smp):
+  ''' 
+  should have the same functionality as nearest except this is slower 
+  and does not check the input for proper sizes and types
+  '''
+  dm = _distance_matrix(query,population,vert,smp)
+  neighbors = np.argsort(dm,axis=1)[:,:N]
+  dist = np.sort(dm,axis=1)[:,:N]
+  return neighbors,dist
+
+
 def stencils_to_edges(stencils):
   ''' 
   returns an array of edges defined by the stencils
@@ -68,50 +100,7 @@ def connectivity(stencils):
   return networkx.node_connectivity(graph)
 
 
-def distance(test,pnts,vert=None,smp=None):
-  ''' 
-  returns euclidean distance between test and pnts. If the line 
-  segment between test and pnts crosses a boundary then the distance 
-  is inf
-  
-  Parameters
-  ----------
-    test : (D,) array
-    
-    pnts : (N,D) array
-
-    vert : (P,D) array, optional
-    
-    smp : (Q,D) int array, optional
-    
-  Returns
-  -------
-    dist : (N,) array
-    
-  '''
-  if smp is None:
-    smp = np.zeros((0,len(test)),dtype=int)
-
-  if vert is None:
-    vert = np.zeros((0,len(test)),dtype=float)
-
-  test = np.asarray(test,dtype=float)
-  pnts = np.asarray(pnts,dtype=float)
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
-
-  test = np.repeat(test[None,:],pnts.shape[0],axis=0)
-  dist = np.sqrt(np.sum((pnts-test)**2,1))
-  cc = np.zeros(pnts.shape[0],dtype=int)
-  cc[dist!=0.0] = rbf.geometry.intersection_count(
-                    test[dist!=0.0],
-                    pnts[dist!=0.0],
-                    vert,smp)
-  dist[cc>0] = np.inf
-  return dist
-
-
-def nearest(query,population,N,vert=None,smp=None,excluding=None):
+def nearest(query,population,N,vert=None,smp=None):
   ''' 
   Description 
   -----------
@@ -135,10 +124,6 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
 
     smp : (M,D) int array, optional
       
-    excluding : (K,) int array, optional
-      indices of points in the population which cannot be identified 
-      as a nearest neighbor
-
   Returns 
   -------
     neighbors, dist
@@ -155,15 +140,15 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
   '''
   query = np.asarray(query,dtype=float)
   population = np.asarray(population,dtype=float)
-  
-  if excluding is None:
-    # dont exclude any points
-    excluding_bool = np.zeros(population.shape[0],dtype=bool)
-
+  if smp is None:
+    smp = np.zeros((0,query.shape[1]),dtype=int)
   else:
-    # exclude indicated points
-    excluding_bool = np.zeros(population.shape[0],dtype=bool)
-    excluding_bool[excluding] = True
+    smp = np.asarray(smp,dtype=int)
+
+  if vert is None:
+    vert = np.zeros((0,population.shape[1]),dtype=float)
+  else:
+    vert = np.asarray(vert,dtype=float)
 
   if query.ndim != 2:
     raise ValueError(
@@ -173,16 +158,16 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
     raise ValueError(
       'population points must be a two-dimensional array')
 
-  if N > population.shape[0]: 
+  if N > population.shape[0]:
     raise ValueError(
       'cannot find %s nearest neighbors with %s points' % (N,population.shape[0]))
 
   if N < 0:
     raise ValueError(
       'must specify a non-negative number of nearest neighbors')
- 
+
   # querying the KDTree returns a segmentation fault if N is zero and 
-  # so this needs to be handles seperately 
+  # so this needs to be handles separately 
   if N == 0:
     dist = np.zeros((query.shape[0],0),dtype=float)
     neighbors = np.zeros((query.shape[0],0),dtype=int)
@@ -193,39 +178,27 @@ def nearest(query,population,N,vert=None,smp=None,excluding=None):
       dist = dist[:,None]
       neighbors = neighbors[:,None]
 
-  if (vert is None) & (excluding is None):
+  if (smp.shape[0] == 0):
+    # if there are no boundaries then return the output of the KDTree
     return neighbors,dist
 
   for i in range(query.shape[0]):
-    # distance from point i to nearest neighbors, crossing
-    # a boundary gives infinite distance. If the neighbor 
-    # is in the excluding list then it also has infinite 
-    # distance
-    dist_i = distance(query[i],population[neighbors[i]],vert=vert,smp=smp)
-    dist_i[excluding_bool[neighbors[i]]] = np.inf
-    
-    query_size = N
-    while np.any(np.isinf(dist_i)):
-      # if some neighbors cross a boundary then query a larger
-      # set of nearest neighbors from the KDTree
-      query_size += N
-      if query_size > population.shape[0]:
-        query_size = population.shape[0]
-         
-      dist_i,neighbors_i = T.query(query[i],query_size)
-      # recompute distance to larger set of neighbors
-      dist_i = distance(query[i],population[neighbors_i],vert=vert,smp=smp)
-      dist_i[excluding_bool[neighbors_i]] = np.inf
-      # assign the closest N neighbors to the neighbors array
-      neighbors[i] = neighbors_i[np.argsort(dist_i)[:N]]
-      dist_i = dist_i[np.argsort(dist_i)[:N]]
-      dist[i] = dist_i
-      if (query_size == population.shape[0]) & (np.any(np.isinf(dist_i))):
+    subpop_size = N
+    di = _distance_matrix(query[[i]],population[neighbors[i]],vert,smp)[0,:]
+    while np.any(np.isinf(di)):
+      # search over an incrementally larger set of nearest neighbors 
+      # until we find N neighbors which do not cross a boundary
+      if subpop_size == population.shape[0]:
         raise ValueError('cannot find %s nearest neighbors for point '
-                           '%s without crossing a boundary' % (N,query[i]))
+                         '%s without crossing a boundary' % (N,query[i]))
+      subpop_size = min(subpop_size+N,population.shape[0])
+      dummy,subpop_idx = T.query(query[i],subpop_size)
+      ni,di = _naive_nearest(query[[i]],population[subpop_idx],N,vert,smp)
+      ni,di = ni[0],di[0]
+      neighbors[i] = subpop_idx[ni]
+      dist[i] = di
 
   return neighbors,dist
-
 
 def stencil_network(nodes,N=None,C=None,vert=None,smp=None):
   ''' 
