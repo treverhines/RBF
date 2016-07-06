@@ -15,7 +15,7 @@ Package containing the tools necessary for radial basis function (RBF) applicati
 See the accompanying examples in `RBF/demo`
 
 ## Basis
-The linchpin of this module is the RBF class, which is used to evaluate an RBF and its derivatives.  An RBF is instantiated using a symbolic sympy expression.  Evaluating the RBFs is done by calling the RBF instance where the user supplies the evaluation points, the RBF centers, and the desired derivate (if any).  When called, an analytical derivative of the symbolic expression is evalauted and then the function is compiled into cython code.  This compiled code is saved and reused when the RBF is called again with the same derivative specification.   
+The linchpin of this module is the RBF class, which is used to evaluate an RBF and its derivatives.  An RBF is instantiated using a symbolic sympy expression.  Evaluating the RBFs is done by calling the RBF instance where the user supplies the evaluation points, the RBF centers, and the desired derivate (if any).  When called, an analytical derivative of the symbolic expression is evaluated and then the function is compiled into cython code.  This compiled code is saved and reused when the RBF is called again with the same derivative specification.   
   
 Here is an example where an RBF is instantiated and then evaluated. See the help documentation for rbf.basis.RBF for more information on the arguments
 ```
@@ -56,5 +56,18 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_basis_2.png "demo_basis_2")
 
-The user does not need to worry about instantiation of an RBF class because many of the commonly used RBFs are already instantiated and can be called using function in the rbf.basis module.     
+The user does not need to worry about instantiation of an RBF class because many of the commonly used RBFs are already instantiated and can be called using function in the rbf.basis module.  The available functions are
+* ga : gaussian, exp(-(EPS\*R)^2)
+* iq : inverse quadratic, 1/(1+(EPS\*R)^2)
+* mq : multiquadratic, sqrt(1 + (EPS\*R)^2)
+* imq : inverse multiquadratic, 1/sqrt(1 + (EPS\*R)^2)
+* phs{1,3,5,7} : odd order polyharmonic splines, (EPS\*R)^{1,3,5,7}
+* phs{2,4,6,8} : even order polyharmonic splines, log(EPS\*R)(EPS\*R)^{2,4,6,8}  
+
+EPS is a scaling factor which can be obtained for defining your own RBFs by calling `rbf.basis.get_EPS()`. When evaluating the RBF, you can set the scaling factor with the `eps` key word argument. 
+
+## Interpolation
+Creating a simple RBF interpolant is straight forward with an RBF instance
+
+
 
