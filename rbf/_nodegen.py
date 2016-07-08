@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# DO NOT USE THIS MODULE. USE NODES.PY INSTEAD
+
 from __future__ import division
 import numpy as np
 import rbf.halton
