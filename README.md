@@ -24,7 +24,11 @@ compile and install
 $ cd RBF
 $ python setup.py install
 ```
-
+test that everything works
+```
+$ cd test
+$ python test_all.py
+```
 ## Logging
 This package uses loggers for some of the more time intensive processes.  To print the logged content to stdout, start your python script with
 ```
