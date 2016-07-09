@@ -11,10 +11,30 @@ Package containing the tools necessary for radial basis function (RBF) applicati
 * Node generation with a minmimum energy algorithm.  This is used for solving PDEs with the spectral RBF method or the RBF-FD method
 * functions for Monte-Carlo integration and recursive Monte-Carlo integration over an polygonal/polyhedral domain
 
+## Dependencies
+RBF requires the following python packages: numpy, scipy, sympy, matplotlib, and cython.  These dependencies should be satisfied with just the base Anaconda python package (https://www.continuum.io/downloads)
+
+## Installation
+download RBF
+```
+$ git clone http://github.com/treverhines/RBF.git 
+```
+compile and install
+```
+$ cd RBF
+$ python setup.py install
+```
+
+## Logging
+This package uses loggers for some of the more time intensive processes.  To print the logged content to stdout, start your python script with
+```
+import logging
+logging.basicConfig(level=logging.INFO)
+```
 ## Usage
 The following walks through the examples in `RBF/demo`
 
-## Basis
+### Basis
 The linchpin of this module is the RBF class, which is used to evaluate an RBF and its derivatives.  An RBF is instantiated using a symbolic sympy expression.  Evaluating the RBFs is done by calling the RBF instance where the user supplies the evaluation points, the RBF centers, and the desired derivate (if any).  When called, an analytical derivative of the symbolic expression is evaluated and then the function is compiled into cython code.  This compiled code is saved and reused when the RBF is called again with the same derivative specification.   
   
 Here is an example where an RBF is instantiated and then the RBF and its first derivative are evaluated. See the help documentation for rbf.basis.RBF for more information on the arguments
@@ -69,8 +89,8 @@ The user does not need to worry about instantiation of an RBF class because many
 
 EPS is a scaling factor which can be obtained for defining your own RBFs by calling `rbf.basis.get_EPS()`. When evaluating the RBF, you can set the scaling factor with the `eps` key word argument.  For interpolation problems or when trying to solve a PDE, EPS is often treated as a free parameter that needs to be optimized. This can become an intractible burden for large problems.  When using odd order polyharmonic splines, which are scale-invariant, the shape parameter does not need to be optimized. Odd order polyharmonic splines generally perform well for interpolation and solving PDEs.     
 
-## Interpolation
-### 1-D interpolation
+### Interpolation
+#### 1-D interpolation
 Creating a simple RBF interpolant is straight forward with an RBF instance
 ```
 # import a prebuilt RBF function
@@ -128,7 +148,7 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_interpolate_1d.png "demo_interpolate_1d")
 
-### 2-D interpolation
+#### 2-D interpolation
 Here I provide an example for 2-D interpolation and also I demonstrate how to differentiate the interpolant
 ```np.random.seed(1)
 
@@ -183,8 +203,8 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_interpolate_2d.png "demo_interpolate_2d")
 
-## Solving PDEs with the spectral RBF method
-### Node generation
+### Solving PDEs with the spectral RBF method
+#### Node generation
 We can numerically solve PDEs over an arbitrary N-dimensional domain with RBFs.  Unlike finite element methods or traditional finite difference methods which require a mesh (nodes with known connectivity), the RBF method just needs to know the nodes. This makes it easier to discretize a complicated domain and gives the user more control over how that discretization is done.
 
 The `rbf.nodes` module provides a function for node generation over an arbitary 1, 2, or 3 dimensional closed domain and also allows for variable node density.  Throughout this package domains are defined using simplicial complexes, which are a collection of simplices (points, line segments, and triangles).  A simplicial complex is defined with two arrays, one specificing the locations of vertices and the other specifying the vertex indices which make up each simplex.  For example a unit square can be described as
@@ -278,7 +298,7 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_nodes_2.png "demo_nodes_2")
 
-### Laplacian on a circle
+#### Laplacian on a circle
 Here we are solving the the Laplacian equation over a unit circle, where the boundaries are fixed at zero and there is an applied forcing term.  The solution to this problem is (1-r)\*sin(x)\*cos(y)
 
 ```
@@ -365,7 +385,7 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_spectral_laplacian.png "demo_spectral_laplacian")
 
-## To Do
+### To Do
 This package contains more features but they have not yet been included in this help documentation. They include
 * generation of RBF-FD stencils (module: rbf.stencil)
 * generation of RBF-FD weights (module: rbf.fd)
