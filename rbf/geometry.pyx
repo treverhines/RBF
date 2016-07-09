@@ -1,87 +1,85 @@
 # distutils: extra_compile_args = -fopenmp
 # distutils: extra_link_args = -fopenmp
 ''' 
-Description 
------------ 
-  Defines functions for basic computational geometry in 1, 2, and 3
-  dimensions. This modules requires all volumes, surfaces and segments
-  to be described as simplicial complexes, that is, as a collection of
-  simplexes defined by their vertices.  Most end user functions in
-  this module have a vertices and simplices argument, the former is a
-  (N,D) collection of all D dimensional vertices in the simplicial
-  complex and the latter is an (M,D) array of vertex indices making up
-  each simplex. For example the unit square in two dimensions can be
-  described as collection of line segments:
+Defines functions for basic computational geometry in 1, 2, and 3 
+dimensions. This modules requires all volumes, surfaces and segments 
+to be described as simplicial complexes, that is, as a collection of 
+simplexes defined by their vertices.  Most end user functions in this 
+module have a vertices and simplices argument, the former is a (N,D) 
+collection of all D dimensional vertices in the simplicial complex and 
+the latter is an (M,D) array of vertex indices making up each simplex. 
+For example the unit square in two dimensions can be described as 
+collection of line segments:
 
-  >>> vertices = [[0.0,0.0],
-                  [1.0,0.0],
-                  [1.0,1.0],
-                  [0.0,1.0]]
-  >>> simplices = [[0,1],
-                   [1,2],
-                   [2,3],
-                   [3,0]]
+>>> vertices = [[0.0,0.0],
+                [1.0,0.0],
+                [1.0,1.0],
+                [0.0,1.0]]
+>>> simplices = [[0,1],
+                 [1,2],
+                 [2,3],
+                 [3,0]]
 
-  A three dimensional cube can similarly be described as a collection
-  of triangles:
+A three dimensional cube can similarly be described as a collection
+of triangles:
 
-  >>> vertices = [[0.0,0.0,0.0],
-                  [0.0,0.0,1.0],
-                  [0.0,1.0,0.0],
-                  [0.0,1.0,1.0],
-                  [1.0,0.0,0.0],
-                  [1.0,0.0,1.0],
-                  [1.0,1.0,0.0],
-                  [1.0,1.0,1.0]]
-  >>> simplices = [[0,1,4],
-                   [1,5,4],
-                   [1,7,5],
-                   [1,3,7],
-                   [0,1,3],
-                   [0,2,3],
-                   [0,2,6],
-                   [0,4,6],
-                   [4,5,7],
-                   [4,6,7],
-                   [2,3,7],
-                   [2,6,7]]
+>>> vertices = [[0.0,0.0,0.0],
+                [0.0,0.0,1.0],
+                [0.0,1.0,0.0],
+                [0.0,1.0,1.0],
+                [1.0,0.0,0.0],
+                [1.0,0.0,1.0],
+                [1.0,1.0,0.0],
+                [1.0,1.0,1.0]]
+>>> simplices = [[0,1,4],
+                 [1,5,4],
+                 [1,7,5],
+                 [1,3,7],
+                 [0,1,3],
+                 [0,2,3],
+                 [0,2,6],
+                 [0,4,6],
+                 [4,5,7],
+                 [4,6,7],
+                 [2,3,7],
+                 [2,6,7]]
 
-  Although the notation is clumsy, a 1D domains can be described as a
-  collection of vertices in a manner that is consistent with the above
-  two examples:
+Although the notation is clumsy, a 1D domains can be described as a 
+collection of vertices in a manner that is consistent with the above 
+two examples:
    
-  >>> vertices = [[0.0],[1.0]]
-  >>> simplices = [[0],[1]]
+>>> vertices = [[0.0],[1.0]]
+>>> simplices = [[0],[1]]
 
-  This module is primarily use to find whether and where line segments
-  intersect a simplicial complex and whether points are contained
-  within a closed simplicial complex.  For example, one can determine
-  whether a collection of points, saved as 'points', are contained
-  within a simplicial complex, defined by 'vertices' and 'simplices'
-  with the command
+This module is primarily use to find whether and where line segments 
+intersect a simplicial complex and whether points are contained within 
+a closed simplicial complex.  For example, one can determine whether a 
+collection of points, saved as *points*, are contained within a 
+simplicial complex, defined by *vertices* and *simplices* with the 
+command
 
-  >>> contains(points,vertices,simplices)
+>>> contains(points,vertices,simplices)
 
-  which returns a boolean array.
+which returns a boolean array.
 
-  One can find the number of times a collection of line segments,
-  defined by 'start_points' and 'end_points', intersect a simplicial
-  complex with the command
+One can find the number of times a collection of line segments, 
+defined by *start_points* and *end_points*, intersect a simplicial 
+complex with the command
 
-  >> intersection_count(start_points,end_points,vertices,simplices)
+>> intersection_count(start_points,end_points,vertices,simplices)
 
-  which returns an array of the number of simplexes intersections for
-  each segment. If it is known that a collection of line segments
-  intersect a simplicial complex then the intersection point can be
-  found with the command
+which returns an array of the number of simplexes intersections for
+each segment. If it is known that a collection of line segments
+intersect a simplicial complex then the intersection point can be
+found with the command
 
-  >> intersection_point(start_points,end_points,vertices,simplices)
+>> intersection_point(start_points,end_points,vertices,simplices)
  
-  This returns an (N,D) array of intersection points where N is the
-  number of line segments.  If a line segment does not intersect the 
-  simplicial complex then the above command returns a ValueError. If
-  there are multiple intersections for a single segment then only the 
-  first detected intersection will be returned.
+This returns an (N,D) array of intersection points where N is the 
+number of line segments.  If a line segment does not intersect the 
+simplicial complex then the above command returns a ValueError. If 
+there are multiple intersections for a single segment then only the 
+first detected intersection will be returned.
 
 Note
 ----

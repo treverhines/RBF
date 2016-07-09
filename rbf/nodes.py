@@ -1,4 +1,7 @@
-#!/usr/bin/env python
+''' 
+provides a function for generating a locally quasi-uniform 
+distribution of nodes over an arbitrary domain
+'''
 from __future__ import division
 import numpy as np
 import rbf.halton

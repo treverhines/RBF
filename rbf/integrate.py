@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+''' 
+This module provides several functions for Monte-Carlo integration
+'''
 from __future__ import division
 import numpy as np
 import rbf.halton as hlt

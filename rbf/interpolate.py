@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+''' 
+This module provides a class for RBF interpolation
+'''
 import numpy as np
 from numpy.linalg import pinv
 import scipy.optimize

@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+''' 
+This module creates RBF-FD stencils
+'''
 from __future__ import division
 import numpy as np
 import scipy.spatial

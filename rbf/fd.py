@@ -1,3 +1,6 @@
+''' 
+This module provides functions for generating RBF-FD weights
+'''
 from __future__ import division
 import numpy as np
 import rbf.basis

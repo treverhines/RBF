@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 ''' 
 This module defines some of the commonly used radial basis functions. 
 It makes use of the class, RBF, which takes a symbolic expression of 
