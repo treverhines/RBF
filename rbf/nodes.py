@@ -44,7 +44,8 @@ def nearest_neighbor_argsort(nodes,n=10):
 
   return permutation
 
-def verify_node_spacing(rho,nodes,tol=0.25):
+
+def check_node_spacing(rho,nodes,tol=0.25):
   ''' 
   Returns indices of nodes which are consistent with the node density 
   function rho. Indexing nodes with the output will return a pared 
@@ -112,11 +113,11 @@ def _repel_step(free_nodes,rho,
   # compute the force proportionality constant between each node
   # based on their charges
   c = 1.0/(rho(nodes)[i,None]*rho(free_nodes)[:,None,None])
-
-  # sum up all the forces on each node
-  direction = np.sum(c*(free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3,1)
-
-  # normalize the forces to one
+  # caluclate forces on each node resulting from the *n* nearest nodes 
+  forces = c*(free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3
+  # sum up all the forces for each node
+  direction = np.sum(forces,1)
+  # normalize the net forces to one
   direction /= np.linalg.norm(direction,axis=1)[:,None]
   # in the case of a zero vector replace nans with zeros
   direction = np.nan_to_num(direction)  
@@ -130,8 +131,8 @@ def _repel_step(free_nodes,rho,
   return free_nodes
 
 
-def _repel_bounce(free_nodes,vertices,
-                  simplices,rho,   
+def _repel_bounce(free_nodes,vert,
+                  smp,rho,   
                   fix_nodes,
                   itr,n,delta,
                   max_bounces):
@@ -141,7 +142,7 @@ def _repel_bounce(free_nodes,vertices,
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
 
   # this is used for the lengthscale of the domain
-  scale = np.max(vertices) - np.min(vertices)
+  scale = vert.ptp()
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
@@ -154,20 +155,20 @@ def _repel_bounce(free_nodes,vertices,
                                  n,delta)
 
     # boolean array of nodes which are now outside the domain
-    crossed = ~gm.contains(free_nodes_new,vertices,simplices)
+    crossed = ~gm.contains(free_nodes_new,vert,smp)
     bounces = 0
     while np.any(crossed):
       # point where nodes intersected the boundary
       inter = gm.intersection_point(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
-                vertices,simplices)
+                vert,smp)
 
       # normal vector to intersection point
       norms = gm.intersection_normal(
                 free_nodes[crossed],     
                 free_nodes_new[crossed],
-                vertices,simplices)
+                vert,smp)
       
       # distance that the node wanted to travel beyond the boundary
       res = free_nodes_new[crossed] - inter
@@ -185,7 +186,7 @@ def _repel_bounce(free_nodes,vertices,
         free_nodes_new[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
         # check to see if the bounced node is now within the domain, 
         # if not then iterations continue
-        crossed = ~gm.contains(free_nodes_new,vertices,simplices)
+        crossed = ~gm.contains(free_nodes_new,vert,smp)
         bounces += 1
 
     free_nodes = free_nodes_new  
@@ -193,8 +194,8 @@ def _repel_bounce(free_nodes,vertices,
   return free_nodes
 
 
-def _repel_stick(free_nodes,vertices,
-                 simplices,rho,   
+def _repel_stick(free_nodes,vert,
+                 smp,rho,   
                  fix_nodes,
                  itr,n,delta):
   ''' 
@@ -203,68 +204,66 @@ def _repel_stick(free_nodes,vertices,
   '''
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
 
-  # this array will be populated 
-  node_group = np.repeat(-1,free_nodes.shape[0])
+  # Keeps track of whether nodes in the interior or boundary. -1 
+  # indicates interior and >= 0 indicates boundary. If its on the 
+  # boundary then the number is the index of the simplex that the node 
+  # is on
+  smpid = np.repeat(-1,free_nodes.shape[0])
 
   # length scale of the domain
-  scale = np.max(vertices) - np.min(vertices)
+  scale = vert.ptp()
 
   # ensure that the number of nodes used to compute repulsion force is
   # less than or equal to the total number of nodes
   n = min(n,free_nodes.shape[0]+fix_nodes.shape[0])
 
   for k in range(itr):
-    # indices of all nodes not associated with a simplex (i.e. free 
-    # nodes)
-    ungrouped = np.nonzero(node_group==-1)[0]
+    # indices of all interior nodes
+    interior, = (smpid==-1).nonzero()
 
     # indices of nodes associated with a simplex (i.e. nodes which 
     # intersected a boundary
-    grouped = np.nonzero(node_group>=0)[0]
+    boundary, = (smpid>=0).nonzero()
 
     # nodes which are stationary 
-    grouped_free_nodes = free_nodes[grouped]    
-    all_fix_nodes = np.vstack((fix_nodes,grouped_free_nodes))
-
-    # nodes which are free
-    ungrouped_free_nodes = free_nodes[ungrouped]
+    all_fix_nodes = np.vstack((fix_nodes,free_nodes[boundary]))
 
     # new position of free nodes
-    ungrouped_free_nodes_new = _repel_step(
-                                 ungrouped_free_nodes,rho,
-                                 all_fix_nodes,
-                                 n,delta)
+    free_nodes_new = np.array(free_nodes,copy=True)
+    # shift positions of interior nodes
+    free_nodes_new[interior] = _repel_step(free_nodes[interior],
+                                 rho,all_fix_nodes,n,delta)
 
     # indices of free nodes which crossed a boundary
-    crossed = ~gm.contains(ungrouped_free_nodes_new,vertices,simplices)
+    crossed = ~gm.contains(free_nodes_new,vert,smp)
   
     # if a node intersected a boundary then associate it with a simplex
-    node_group[ungrouped[crossed]] = gm.intersection_index(
-                                       ungrouped_free_nodes[crossed],     
-                                       ungrouped_free_nodes_new[crossed], 
-                                       vertices,simplices)
+    smpid[crossed] = gm.intersection_index(
+                       free_nodes[crossed],     
+                       free_nodes_new[crossed], 
+                       vert,smp)
 
     # outward normal vector at intesection points
     norms = gm.intersection_normal(
-              ungrouped_free_nodes[crossed],     
-              ungrouped_free_nodes_new[crossed], 
-              vertices,simplices)
+              free_nodes[crossed],     
+              free_nodes_new[crossed], 
+              vert,smp)
 
     # intersection point for nodes which crossed a boundary
     inter = gm.intersection_point(
-              ungrouped_free_nodes[crossed],     
-              ungrouped_free_nodes_new[crossed],
-              vertices,simplices)
+              free_nodes[crossed],     
+              free_nodes_new[crossed],
+              vert,smp)
 
     # new position of nodes which crossed the boundary is just within
     # the intersection point
-    ungrouped_free_nodes_new[crossed] = inter - 1e-10*scale*norms
-    free_nodes[ungrouped] = ungrouped_free_nodes_new
+    free_nodes_new[crossed] = inter - 1e-10*scale*norms
+    free_nodes = free_nodes_new
 
-  return free_nodes,node_group
+  return free_nodes,smpid
 
 
-def make_nodes(N,vertices,simplices,rho=None,fix_nodes=None,
+def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
                itr=20,neighbors=10,delta=0.1,
                sort_nodes=True):
   ''' 
@@ -288,10 +287,10 @@ def make_nodes(N,vertices,simplices,rho=None,fix_nodes=None,
     N : int
       numbr of nodes
       
-    vertices : (P,D) array
+    vert : (P,D) array
       boundary vertices
 
-    simplices : (Q,D) array
+    smp : (Q,D) array
       describes how the vertices are connected to form the boundary
     
     rho : function, optional
@@ -336,31 +335,29 @@ def make_nodes(N,vertices,simplices,rho=None,fix_nodes=None,
 
   Note
   ----
-    It is assumed that *vertices* and *simplices* define a closed 
+    It is assumed that *vert* and *smp* define a closed 
     domain. If this is not the case, the function will run normally 
     but the nodes will likely be greatly dispersed
     
   '''
   max_sample_size = 1000000
 
-  vertices = np.asarray(vertices,dtype=float) 
-  simplices = np.asarray(simplices,dtype=int) 
+  vert = np.asarray(vert,dtype=float) 
+  smp = np.asarray(smp,dtype=int) 
+  if fix_nodes is None:
+    fix_nodes = np.zeros((0,vert.shape[1]))
+  else:
+    fix_nodes = np.asarray(fix_nodes)
 
   if rho is None:
     def rho(p):
       return np.ones(p.shape[0])
 
-  if fix_nodes is None:
-    fix_nodes = np.zeros((0,vertices.shape[1]))
-  else:
-    fix_nodes = np.asarray(fix_nodes)
-      
   # form bounding box for the domain so that a RNG can produce values
   # that mostly lie within the domain
-  lb = np.min(vertices,0)
-  ub = np.max(vertices,0)
-
-  ndim = vertices.ndim
+  lb = np.min(vert,axis=0)
+  ub = np.max(vert,axis=0)
+  ndim = vert.ndim
   
   # form Halton sequence generator
   H = rbf.halton.Halton(ndim+1)
@@ -404,7 +401,7 @@ def make_nodes(N,vertices,simplices,rho=None,fix_nodes=None,
     new_nodes = new_nodes[rho(new_nodes) > seq1d]
 
     # reject test points that are outside of the domain
-    new_nodes = new_nodes[gm.contains(new_nodes,vertices,simplices)]
+    new_nodes = new_nodes[gm.contains(new_nodes,vert,smp)]
 
     # append to collection of accepted nodes
     nodes = np.vstack((nodes,new_nodes))
@@ -416,11 +413,11 @@ def make_nodes(N,vertices,simplices,rho=None,fix_nodes=None,
 
   # use a minimum energy algorithm to spread out the nodes
   logger.info('repelling nodes with boundary bouncing') 
-  nodes = _repel_bounce(nodes,vertices,simplices,rho,
+  nodes = _repel_bounce(nodes,vert,smp,rho,
                         fix_nodes,itr,neighbors,delta,3)
 
   logger.info('repelling nodes with boundary sticking') 
-  nodes,smpid = _repel_stick(nodes,vertices,simplices,rho,
+  nodes,smpid = _repel_stick(nodes,vert,smp,rho,
                              fix_nodes,itr,neighbors,delta)
 
   # sort so that nodes that are close in space are also close in memory

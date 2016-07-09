@@ -47,7 +47,7 @@ vert = np.array([0.5+radius*np.cos(t),
                  0.5+radius*np.sin(t)]).T
 smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
                  
-N = 100000
+N = 30000
 itr = 20
 delta = 0.1
 
@@ -63,7 +63,7 @@ def rho(p):
   # x and y are mapped to integers between 0 and 512
   p = p*512
   p = np.array(p,dtype=int)
-  return 1.0 - gray[511-p[:,1],p[:,0]]
+  return 1.0001 - gray[511-p[:,1],p[:,0]]
 
 
 nodes2,smpid2 = make_nodes(N,vert,smp,rho=rho,itr=itr,delta=delta)
@@ -85,7 +85,7 @@ fig,ax = plt.subplots()
 # plot interior nodes
 ax.plot(nodes2[smpid2==-1,0],nodes2[smpid2==-1,1],'k.',markersize=2.0)
 # plot boundary nodes
-ax.plot(nodes2[smpid2>=0,0],nodes2[smpid2>=0,1],'b.',markersize=4.0)
+ax.plot(nodes2[smpid2>=0,0],nodes2[smpid2>=0,1],'b.',markersize=2.0)
 ax.set_aspect('equal')
 fig.tight_layout()
 plt.savefig('figures/demo_nodes_2.png')
