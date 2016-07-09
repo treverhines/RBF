@@ -11,7 +11,7 @@ Package containing the tools necessary for radial basis function (RBF) applicati
 * Node generation with a minmimum energy algorithm.  This is used for solving PDEs with the spectral RBF method or the RBF-FD method
 * functions for Monte-Carlo integration and recursive Monte-Carlo integration over an polygonal/polyhedral domain
 
-# Usage
+## Usage
 The following walks through the examples in `RBF/demo`
 
 ## Basis
@@ -70,6 +70,7 @@ The user does not need to worry about instantiation of an RBF class because many
 EPS is a scaling factor which can be obtained for defining your own RBFs by calling `rbf.basis.get_EPS()`. When evaluating the RBF, you can set the scaling factor with the `eps` key word argument.  For interpolation problems or when trying to solve a PDE, EPS is often treated as a free parameter that needs to be optimized. This can become an intractible burden for large problems.  When using odd order polyharmonic splines, which are scale-invariant, the shape parameter does not need to be optimized. Odd order polyharmonic splines generally perform well for interpolation and solving PDEs.     
 
 ## Interpolation
+### 1-D interpolation
 Creating a simple RBF interpolant is straight forward with an RBF instance
 ```
 # import a prebuilt RBF function
@@ -127,7 +128,7 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_interpolate_1d.png "demo_interpolate_1d")
 
-## 2-D interpolation
+### 2-D interpolation
 Here I provide an example for 2-D interpolation and also I demonstrate how to differentiate the interpolant
 ```np.random.seed(1)
 
@@ -363,3 +364,14 @@ fig.tight_layout()
 plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_spectral_laplacian.png "demo_spectral_laplacian")
+
+## To Do
+This package contains more features but they have not yet been included in this help documentation. They include
+* generation of RBF-FD stencils (module: rbf.stencil)
+* generation of RBF-FD weights (module: rbf.fd)
+* computational geometry (module: rbf.geometry)
+* generation of halton sequences (module: rbf.halton)
+* Monte-Carlo integration (module: rbf.integrate)
+* generation of B-spline basis functions (module: rbf.bspline) 
+
+See the documentation within the modules for help on using these features 
