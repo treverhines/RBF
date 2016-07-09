@@ -2,7 +2,6 @@
 import numpy as np
 from rbf.nodes import make_nodes
 from PIL import Image
-from rbf.integrate import density_normalizer
 import matplotlib.pyplot as plt
 import logging
 logging.basicConfig(level=logging.DEBUG)
