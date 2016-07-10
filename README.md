@@ -145,7 +145,7 @@ ax.plot(x[:,0],u,'ko')
 ax.plot(xitp[:,0],uitp1,'r-')
 ax.plot(xitp[:,0],uitp2,'b-')
 ax.plot(xitp[:,0],np.sin(xitp[:,0]),'k--')
-ax.legend(['observation points','interpolant 1','interpolant 2','true solution'$
+ax.legend(['observation points','interpolant 1','interpolant 2','true solution'])
 ax.set_title('third-order polyharmonic spline interpolation')
 fig.tight_layout()
 plt.show()
