@@ -31,7 +31,7 @@ $ python test_all.py
 ```
 ## Logging
 This package uses loggers for some of the more time intensive processes.  To print the logged content to stdout, start your python script with
-```
+```python
 import logging
 logging.basicConfig(level=logging.INFO)
 ```
@@ -42,7 +42,7 @@ The following walks through the examples in `RBF/demo`
 The linchpin of this module is the RBF class, which is used to evaluate an RBF and its derivatives.  An RBF is instantiated using a symbolic sympy expression.  Evaluating the RBFs is done by calling the RBF instance where the user supplies the evaluation points, the RBF centers, and the desired derivate (if any).  When called, an analytical derivative of the symbolic expression is evaluated and then the function is compiled into cython code.  This compiled code is saved and reused when the RBF is called again with the same derivative specification.   
   
 Here is an example where an RBF is instantiated and then the RBF and its first derivative are evaluated. See the help documentation for rbf.basis.RBF for more information on the arguments
-```
+```python
 import numpy as np
 import matplotlib.pyplot as plt
 import rbf.basis
@@ -64,7 +64,7 @@ soln = iq(x,c)
 soln_diff = iq(x,c,diff=(1,))
 ```
 plot the resuts
-```
+```python
 fig,ax = plt.subplots(figsize=(6,4))
 ax.plot(x,soln)
 ax.set_xlim((-5.0,5.0))
@@ -96,7 +96,7 @@ EPS is a scaling factor which can be obtained for defining your own RBFs by call
 ### Interpolation
 #### 1-D interpolation
 Creating a simple RBF interpolant is straight forward with an RBF instance
-```
+```python
 # import a prebuilt RBF function
 from rbf.basis import phs3
 
@@ -124,7 +124,7 @@ Aitp = rbf.basis.phs3(xitp,x)
 uitp1 = Aitp.dot(coeff)
 ```
 You can also interpolate using the RBFInterpolant class
-```
+```python
 from rbf.interpolate import RBFInterpolant
 
 # This command will produce an identical interpolant to the one 
@@ -138,7 +138,7 @@ I = RBFInterpolant(x,u)
 uitp2 = I(xitp)
 ```
 plot the results from the above two code blocks
-```
+```python
 # plot the results
 fig,ax = plt.subplots(figsize=(6,4))
 ax.plot(x[:,0],u,'ko')
@@ -154,7 +154,8 @@ plt.show()
 
 #### 2-D interpolation
 Here I provide an example for 2-D interpolation and also I demonstrate how to differentiate the interpolant
-```np.random.seed(1)
+```python
+np.random.seed(1)
 
 # create 20 2-D observation points
 x = np.random.random((100,2))
@@ -180,7 +181,7 @@ utrue = np.sin(2*np.pi*xitp[:,0])*np.cos(2*np.pi*xitp[:,1])
 dxtrue = 2*np.pi*np.cos(2*np.pi*xitp[:,0])*np.cos(2*np.pi*xitp[:,1])
 ```
 plot the results
-```
+```python
 fig,ax = plt.subplots(2,2)
 p = ax[0,0].tripcolor(xitp[:,0],xitp[:,1],uitp)
 ax[0,0].scatter(x[:,0],x[:,1],c=u,s=100,clim=p.get_clim())
@@ -212,7 +213,7 @@ plt.show()
 We can numerically solve PDEs over an arbitrary N-dimensional domain with RBFs.  Unlike finite element methods or traditional finite difference methods which require a mesh (nodes with known connectivity), the RBF method just needs to know the nodes. This makes it easier to discretize a complicated domain and gives the user more control over how that discretization is done.
 
 The `rbf.nodes` module provides a function for node generation over an arbitary 1, 2, or 3 dimensional closed domain and also allows for variable node density.  Throughout this package domains are defined using simplicial complexes, which are a collection of simplices (points, line segments, and triangles).  A simplicial complex is defined with two arrays, one specificing the locations of vertices and the other specifying the vertex indices which make up each simplex.  For example a unit square can be described as
-```
+```python
 vert = [[0.0,0.0],
         [1.0,0.0],
         [1.0,1.0]
@@ -225,7 +226,7 @@ smp = [[0,1],
 where each row in smp defines the vertices in a simplex making up the unit square.
 
 We now generate 1000 nodes which are quasi-uniformly spaced within the unit square. This is done with a minimum energy algorithm. See `rbf.nodes.make_nodes` for a detailed description of the arguments and the algorithm.
-```
+```python
 from rbf.nodes import make_nodes
 
 # number of nodes
@@ -243,7 +244,7 @@ delta = 0.1
 nodes1,smpid1 = make_nodes(N,vert,smp,itr=itr,delta=delta)
 ```
 plot the results
-```
+```python
 fig,ax = plt.subplots()
 # plot interior nodes
 ax.plot(nodes1[smpid1==-1,0],nodes1[smpid1==-1,1],'ko')
@@ -258,7 +259,7 @@ plt.show()
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_nodes_1.png "demo_nodes_1")
 
 In this next example, we create a more complicated domain and have a node density that corresponds with the image Lenna.png (located in `rbf/demo`)
-```
+```python
 from PIL import Image
 
 # define more complicated domain
@@ -290,7 +291,7 @@ def rho(p):
 nodes2,smpid2 = make_nodes(N,vert,smp,rho=rho,itr=itr,delta=delta)
 ```
 plot the results
-```
+```python
 fig,ax = plt.subplots()
 # plot interior nodes
 ax.plot(nodes2[smpid2==-1,0],nodes2[smpid2==-1,1],'k.',markersize=2.0)
@@ -305,7 +306,7 @@ plt.show()
 #### Laplacian on a circle
 Here we are solving the the Laplacian equation over a unit circle, where the boundaries are fixed at zero and there is an applied forcing term.  The solution to this problem is (1-r)\*sin(x)\*cos(y)
 
-```
+```python
 def true_soln(pnts):
   # true solution with has zeros on the unit circle
   r = np.sqrt(pnts[:,0]**2 + pnts[:,1]**2)
@@ -361,7 +362,7 @@ itp,dummy = make_nodes(10000,vert,smp,itr=0)
 soln = basis(itp,nodes).dot(coeff)
 ```
 plot the results
-```
+```python
 fig,ax = plt.subplots(1,2,figsize=(10,4))
 ax[0].set_title('RBF solution')
 p = ax[0].tripcolor(itp[:,0],itp[:,1],soln)
