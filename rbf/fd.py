@@ -20,7 +20,7 @@ def _default_stencil_size(nodes,dim,diff=None,diffs=None):
     max_order = max(sum(d) for d in diffs)
 
   else:
-    raise ValueError('diff or diffs must be specified')
+    max_order = 0
     
   if max_order == 0:
     N = min(max_size,1)
@@ -78,10 +78,10 @@ def _rhs(x,centers,eps,powers,diff,basis):
   return d
 
 
-def diff_weights(x,nodes,diff=None,
-                 diffs=None,coeffs=None,centers=None,
-                 basis=rbf.basis.phs3,order=None,
-                 eps=None):
+def weights(x,nodes,diff=None,
+            diffs=None,coeffs=None,centers=None,
+            basis=rbf.basis.phs3,order=None,
+            eps=None):
   ''' 
   computes the weights used for a finite difference approximation at x.
   The weights are computed using the RBF-FD method described in [1].
@@ -136,7 +136,7 @@ def diff_weights(x,nodes,diff=None,
     >>> position = np.array([1.0]) 
     >>> nodes = np.array([[0.0],[1.0],[2.0]]) 
     >>> diff = (2,) 
-    >>> diff_weights(position,nodes,diff)
+    >>> weights(position,nodes,diff)
 
     array([ 1., -2., 1.])
     
@@ -147,7 +147,7 @@ def diff_weights(x,nodes,diff=None,
                           [1.0,0.0],
                           [0.0,1.0]])
     >>> diff = (1,0)
-    >>> diff_weights(position,nodes,diff)
+    >>> weights(position,nodes,diff)
 
     array([ -1., 1., 0.])
     
@@ -202,7 +202,8 @@ def diff_weights(x,nodes,diff=None,
     coeffs = [1.0]
     
   else:
-    raise ValueError('must specify either diff or diffs')
+    diffs = [(0,)*x.shape[0]]
+    coeffs = [1.0]
     
   powers = rbf.poly.monomial_powers(order,nodes.shape[1])
   if powers.shape[0] > nodes.shape[0]:
@@ -213,23 +214,22 @@ def diff_weights(x,nodes,diff=None,
     
   # left hand side
   lhs = _lhs(nodes,centers,eps,powers,basis)
-  # if diff is a DiffExpression instance
   rhs = np.zeros(centers.shape[0] + powers.shape[0])
   for c,d in zip(coeffs,diffs):
     rhs += c*_rhs(x,centers,eps,powers,d,basis)
 
   try:
-    weights = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
+    out = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
   except np.linalg.LinAlgError:
      raise np.linalg.LinAlgError(
        'cannot compute RBF-FD weight for point %s. Make sure that the '
        'stencil meets the conditions for non-singularity. This error '
        'may also be due to numerically flat basis functions' % x)
 
-  return weights 
+  return out
 
 
-def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
+def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   ''' 
   returns the traditional 1-D finite difference weights derived 
   from polynomial expansion. The input must have one spatial dimension
@@ -269,7 +269,8 @@ def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
     coeffs = [1.0]
     
   else:
-    raise ValueError('must specify either diff or diffs')
+    diffs = [(0,)*x.shape[0]]
+    coeffs = [1.0]
 
   order = rbf.poly.maximum_order(*nodes.shape)
   powers = rbf.poly.monomial_powers(order,1)
@@ -279,27 +280,112 @@ def poly_diff_weights(x,nodes,diff=None,diffs=None,coeffs=None):
     rhs += c*rbf.poly.mvmonos(x[None,:],powers,diff=d)[0,:]
   
   try:
-    weights = np.linalg.solve(lhs,rhs)
+    out = np.linalg.solve(lhs,rhs)
 
   except np.linalg.LinAlgError:
      raise np.linalg.LinAlgError(
        'cannot compute poly-FD weight for point %s. Make sure that '
        'the stencil meets the conditions for non-singularity. ' % x)
 
-  return weights 
+  return out
 
 
-def diff_matrix(x,diff=None,diffs=None,coeffs=None,
-                basis=rbf.basis.phs3,order=None,
-                N=None,vert=None,smp=None):
+def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
+                  basis=rbf.basis.phs3,order=None,
+                  N=None,vert=None,smp=None):
+  ''' 
+  Returns a weight matrix which estimates a derivative of a function 
+  at *x* using observations of the function at *nodes*. The function 
+  derivative is approximated as a weighted sum of the function values 
+  at the *N* nearest nodes for each point in *x*. 
+  
+  Parameters
+  ----------
+    x : (N,D) array
+      estimation points
+
+    nodes : (M,D) array   
+      observation points
+    
+    diff : (D,) array, optional
+      derivative order for each direction
+    
+    diffs : (K,D) int array, optional
+      derivative orders for each direction for each term, overwrites 
+      diff if it is provided. If neither diff or diffs are provided
+      then the derivative order is zero for all directions.
+    
+    coeffs : (K,) array, optional
+      coefficients for each term in diffs
+      
+    basis : rbf.basis.RBF instance, optional
+      basis function
+      
+    order : int, optional
+      polynomial order
+      
+    N : int, optional
+      stencil size
+    
+    vert : (P,D) array, optional
+      verticies of boundaries which stencils cannot cross
+    
+    smp : (Q,D) int array, optional
+      connectivity of the vertices to form boundaries  
+
+  Returns
+  -------
+    L : (N,N) csr sparse matrix    
+      
+      
+  Example
+  -------
+    # create a second order differentiation matrix in one-dimensional 
+    # space
+    >>> x = np.arange(4.0)[:,None]
+    >>> W = weight_matrix(x,x,diff=(2,))
+    >>> W.toarray()
+
+    array([[ 1., -2.,  1.,  0.],
+           [ 1., -2.,  1.,  0.],
+           [ 0.,  1., -2.,  1.],
+           [ 0.,  1., -2.,  1.]])
+                         
+  '''
+  x = np.asarray(x)
+  nodes = np.asarray(nodes)
+  
+  if N is None:
+    N = _default_stencil_size(nodes.shape[0],nodes.shape[1],
+                              diff=diff,diffs=diffs)
+    
+  sn,dist = rbf.stencil.nearest(x,nodes,N,vert,smp)
+
+  # values that will be put into the sparse matrix
+  data = np.zeros(sn.shape,dtype=float)
+
+  for i,si in enumerate(sn):
+    data[i,:] = weights(x[i],nodes[si],diff=diff,
+                        diffs=diffs,coeffs=coeffs,
+                        basis=basis,order=order)
+
+  rows = np.repeat(range(data.shape[0]),data.shape[1])
+  cols = sn.ravel()
+  data = data.ravel()
+  size = x.shape[0],nodes.shape[0]
+  L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
+
+  return L
+                
+
+def diff_matrix(x,*args,**kwargs):
   '''  
-  convenience function for creating a stencil network and then making 
-  a differentiation matrix using RBF-FD weights.   
+  creates a differentiation matrix using RBF-FD weights. 
 
   Parameters
   ----------
     x : (N,D) array
-      collocation points
+      observation points
           
     diff : (D,) int array, optional
       derivative order for each direction.  Either diff or diffs must 
@@ -345,42 +431,20 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
            [ 0.,  1., -2.,  1.]])
                          
   '''
-  x = np.asarray(x)
-  
-  if N is None:
-    N = _default_stencil_size(x.shape[0],x.shape[1],diff=diff,diffs=diffs)
-    
-  sn = rbf.stencil.stencil_network(x,N=N,vert=vert,smp=smp)
+  return weight_matrix(x,x,*args,**kwargs)
 
-  # values that will be put into the sparse matrix
-  data = np.zeros(sn.shape,dtype=float)
-
-  # determine whether to use the polynomial weight function
-  for i,si in enumerate(sn):
-    data[i,:] = diff_weights(x[i],x[si],diff=diff,
-                             diffs=diffs,coeffs=coeffs,
-                             basis=basis,order=order)
-
-  rows = np.repeat(range(data.shape[0]),data.shape[1])
-  cols = sn.ravel()
-  data = data.ravel()
-  size = x.shape[0],x.shape[0]
-  L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
-
-  return L
 
 def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
                      N=None,vert=None,smp=None):
   ''' 
-  convenience function for creating a stencil network and then making 
-  a differentiation matrix using the traditional FD weights. The 
-  stencil is determined by adjacency rather than nearest neighbors, 
-  which results in better network connectivity
+  creates a differentiation matrix using traditional finite difference 
+  weights.The stencil is determined by adjacency rather than nearest 
+  neighbors, which results in better network connectivity
 
   Parameters
   ----------
     x : (N,D) array
-      collocation points
+      observation points
           
     diff : (D,) int array, optional
       derivative order for each direction.  Either diff or diffs must 
@@ -423,15 +487,16 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
   x = np.asarray(x) 
 
   if N is None:
-    N = _default_stencil_size(x.shape[0],x.shape[1],diff=diff,diffs=diffs)
+    N = _default_stencil_size(x.shape[0],x.shape[1],
+                              diff=diff,diffs=diffs)
     
   sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
   for i,si in enumerate(sn):
-    data[i,:] = poly_diff_weights(x[i],x[si],diff=diff,
-                                  diffs=diffs,coeffs=coeffs)
+    data[i,:] = poly_weights(x[i],x[si],diff=diff,
+                             diffs=diffs,coeffs=coeffs)
     
   rows = np.repeat(range(data.shape[0]),data.shape[1])
   cols = sn.ravel()
@@ -440,4 +505,5 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
   L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
 
   return L
+
 

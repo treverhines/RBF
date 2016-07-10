@@ -91,12 +91,15 @@ def check_node_spacing(rho,nodes,tol=0.25):
   return keep_indices
 
 
-def _repel_step(free_nodes,rho,
-                fix_nodes,
-                n,delta):
+def _repel_step(free_nodes,rho,fix_nodes,
+                n,delta,vert,smp):
   ''' 
   returns the new position of the free nodes after a repulsion step
+  
+  nodes on opposite sides of the boundary defined by vert and smp 
+  cannot repel eachother 
   '''
+  
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
 
   # if n is 0 or 1 then the nodes remain stationary
@@ -107,7 +110,7 @@ def _repel_step(free_nodes,rho,
   nodes = np.vstack((free_nodes,fix_nodes))
 
   # find index and distance to nearest nodes
-  i,d = rbf.stencil.nearest(free_nodes,nodes,n)
+  i,d = rbf.stencil.nearest(free_nodes,nodes,n,vert,smp)
 
   # dont consider a node to be one of its own nearest neighbors
   i = i[:,1:]
@@ -134,15 +137,22 @@ def _repel_step(free_nodes,rho,
   return free_nodes
 
 
-def _repel_bounce(free_nodes,vert,
-                  smp,rho,   
-                  fix_nodes,
-                  itr,n,delta,
-                  max_bounces):
+def _repel_bounce(free_nodes,vert,smp,rho,   
+                  fix_nodes,itr,n,delta,
+                  max_bounces,bound_force):
   ''' 
   nodes are repelled by eachother and bounce off boundaries
   '''
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
+
+  # if bound_force then use the domain boundary as the force 
+  # boundary
+  if bound_force:
+    bound_vert = vert
+    bound_smp = smp
+  else:
+    bound_vert = np.zeros((0,vert.shape[1]),dtype=float)
+    bound_smp = np.zeros((0,vert.shape[1]),dtype=int)
 
   # this is used for the lengthscale of the domain
   scale = vert.ptp()
@@ -153,9 +163,8 @@ def _repel_bounce(free_nodes,vert,
 
   for k in range(itr):
     # node positions after repulsion 
-    free_nodes_new = _repel_step(free_nodes,rho,
-                                 fix_nodes,
-                                 n,delta)
+    free_nodes_new = _repel_step(free_nodes,rho,fix_nodes,
+                                 n,delta,bound_vert,bound_smp)
 
     # boolean array of nodes which are now outside the domain
     crossed = ~gm.contains(free_nodes_new,vert,smp)
@@ -197,15 +206,23 @@ def _repel_bounce(free_nodes,vert,
   return free_nodes
 
 
-def _repel_stick(free_nodes,vert,
-                 smp,rho,   
-                 fix_nodes,
-                 itr,n,delta):
+def _repel_stick(free_nodes,vert,smp,rho,   
+                 fix_nodes,itr,n,delta,
+                 bound_force):
   ''' 
   nodes are repelled by eachother and then become fixed when they hit 
   a boundary
   '''
   free_nodes = np.array(free_nodes,dtype=float,copy=True)
+
+  # if bound_force then use the domain boundary as the force 
+  # boundary
+  if bound_force:
+    bound_vert = vert
+    bound_smp = smp
+  else:
+    bound_vert = np.zeros((0,vert.shape[1]),dtype=float)
+    bound_smp = np.zeros((0,vert.shape[1]),dtype=int)
 
   # Keeps track of whether nodes in the interior or boundary. -1 
   # indicates interior and >= 0 indicates boundary. If its on the 
@@ -235,7 +252,8 @@ def _repel_stick(free_nodes,vert,
     free_nodes_new = np.array(free_nodes,copy=True)
     # shift positions of interior nodes
     free_nodes_new[interior] = _repel_step(free_nodes[interior],
-                                 rho,all_fix_nodes,n,delta)
+                                 rho,all_fix_nodes,n,delta,
+                                 bound_vert,bound_smp)
 
     # indices of free nodes which crossed a boundary
     crossed = ~gm.contains(free_nodes_new,vert,smp)
@@ -268,7 +286,7 @@ def _repel_stick(free_nodes,vert,
 
 def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
                itr=20,neighbors=10,delta=0.1,
-               sort_nodes=True):
+               sort_nodes=True,bound_force=False):
   ''' 
   Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  
@@ -326,6 +344,11 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
     sort_nodes : bool, optional
       If True, nodes that are close in space will also be close in 
       memory. This is done with the Reverse Cuthill-McKee algorithm
+      
+    bound_force : bool, optional
+      If True, then nodes cannot repel other nodes through the domain 
+      boundary. Set to True if the domain has edges that nearly touch 
+      eachother
 
   Returns
   -------
@@ -417,11 +440,13 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
   # use a minimum energy algorithm to spread out the nodes
   logger.info('repelling nodes with boundary bouncing') 
   nodes = _repel_bounce(nodes,vert,smp,rho,
-                        fix_nodes,itr,neighbors,delta,3)
+                        fix_nodes,itr,neighbors,delta,3,
+                        bound_force)
 
   logger.info('repelling nodes with boundary sticking') 
   nodes,smpid = _repel_stick(nodes,vert,smp,rho,
-                             fix_nodes,itr,neighbors,delta)
+                             fix_nodes,itr,neighbors,delta,
+                             bound_force)
 
   # sort so that nodes that are close in space are also close in memory
   if sort_nodes:
