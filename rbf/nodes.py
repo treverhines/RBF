@@ -296,7 +296,7 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
   nearest neighbors and their charges (which is inversely proportional 
   to the node density). Each node then moves in the direction of the 
   net force acting on it.  The step size is equal to delta times the 
-  distance to the nearest node. This is repeated for 2*n iterations.
+  distance to the nearest node. This is repeated for 2*itr iterations.
   
   During the first *itr* iterations, if a node intersects a boundary 
   then it elastically bounces off the boundary. During the last *itr* 
