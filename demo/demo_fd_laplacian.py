@@ -1,20 +1,25 @@
 #!/usr/bin/env python
 #
-# demonstrate using the spectral RBF method for solving the following 
+# demonstrate using the RBF-FD method for solving the following 
 # PDE:
 #
 #  (d^2/dx^2 + d^2/dy^2)u(x,y) = f(x,y)  for R < 1.0
 #                       u(x,y) = 0.0     for R = 1.0
 #
 #  R = sqrt(x**2 + y**2)
-
+#
+# This script is intended to be nearly identical to 
+# demo_spectral_laplacian.py so that the user can easily compare the 
+# spectral and finite difference methods. It is NOT intended to be a 
+# demonstration of how to efficiently use the RBF-FD method. See 
+# demo_fd_annulus.py for a demonstration of how to efficiently solve a 
+# PDE with the RBF-FD method
 import numpy as np
 import rbf.basis
 import matplotlib.pyplot as plt
 from rbf.nodes import make_nodes
 from rbf.fd import weight_matrix
 from matplotlib import cm
-
 # set default cmap to viridis if you have it
 if 'viridis' in vars(cm):
   plt.rcParams['image.cmap'] = 'viridis'
@@ -40,7 +45,10 @@ def forcing(pnts):
 
 # stencil size
 S = 20
-# polynomial order
+# The RBF-FD method allows for polynomial precision, where polynomials 
+# of a given order are added to the interpolant used to derive the 
+# finite difference weights.  Setting P to 2 adds a second order 
+# polynomial to the interpolant.
 P = 2
 
 # define a circular domain
@@ -59,29 +67,29 @@ basis = rbf.basis.phs3
 # create the left-hand-side matrix which is the Laplacian of the basis 
 # function for interior nodes and the undifferentiated basis functions 
 # for the boundary nodes
-A  = weight_matrix(nodes,nodes,diff=(2,0),N=S,order=P).toarray() 
-A += weight_matrix(nodes,nodes,diff=(0,2),N=S,order=P).toarray() 
-A[boundary,:] = weight_matrix(nodes[boundary],nodes,N=S,order=P).toarray()
+A  = weight_matrix(nodes,nodes,diff=(2,0),N=S,order=P,basis=basis).toarray() 
+A += weight_matrix(nodes,nodes,diff=(0,2),N=S,order=P,basis=basis).toarray() 
+A[boundary,:] = weight_matrix(nodes[boundary],nodes,N=S,order=P,basis=basis).toarray()
 
 # create the right-hand-side vector, consisting of the forcing term 
 # for the interior nodes and zeros for the boundary nodes
 d = forcing(nodes) 
 d[boundary] = 0.0 
 
-# find the RBF coefficients that solve the PDE
-coeff = np.linalg.solve(A,d)
+# find the solution at the nodes
+u = np.linalg.solve(A,d)
 
 # create a collection of interpolation points to evaluate the 
-# solution. It is easiest to just call make_nodes again
+# solution. It is easiest to just call make_nodes again 
 itp,dummy = make_nodes(10000,vert,smp,itr=0)
 
 # solution at the interpolation points
-soln = weight_matrix(itp,nodes,N=S,order=P).dot(coeff)
+uitp = weight_matrix(itp,nodes,N=S,order=P,basis=basis).dot(u)
 
 # plot the results
 fig,ax = plt.subplots(1,2,figsize=(10,4))
 ax[0].set_title('RBF solution')
-p = ax[0].tripcolor(itp[:,0],itp[:,1],soln)
+p = ax[0].tripcolor(itp[:,0],itp[:,1],uitp)
 ax[0].plot(nodes[:,0],nodes[:,1],'ko')
 # plot the boundary
 for s in smp:
@@ -90,7 +98,8 @@ for s in smp:
 fig.colorbar(p,ax=ax[0])
 
 ax[1].set_title('error')
-p = ax[1].tripcolor(itp[:,0],itp[:,1],soln - true_soln(itp))
+p = ax[1].tripcolor(itp[:,0],itp[:,1],uitp - true_soln(itp))
+#p = ax[1].tripcolor(nodes[:,0],nodes[:,1],u - true_soln(nodes))
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
 
@@ -102,5 +111,5 @@ ax[0].set_ylim((-1.05,1.05))
 ax[1].set_xlim((-1.05,1.05))
 ax[1].set_ylim((-1.05,1.05))
 fig.tight_layout()
-plt.savefig('figures/demo_spectral_laplacian.png')
+plt.savefig('figures/demo_fd_laplacian.png')
 plt.show()

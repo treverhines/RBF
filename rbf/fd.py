@@ -83,52 +83,58 @@ def weights(x,nodes,diff=None,
             basis=rbf.basis.phs3,order=None,
             eps=None):
   ''' 
-  computes the weights used for a finite difference approximation at x.
-  The weights are computed using the RBF-FD method described in [1].
+  Returns the weights which map a functions values at *nodes* to 
+  estimates of that functions derivative at *x*. The weights are 
+  computed using the RBF-FD method described in [1].  In this function 
+  *x* is a single point in D-dimensional space. Use weight_matrix to 
+  compute the weights for multiple point.
 
   Parameters
   ----------
     x : (D,) array
-      position where the derivative is being approximated
+      estimation point
 
     nodes : (N,D) array
-      nodes adjacent to x
+      observation points
 
-    diff :(D,) int array, may specify diffs and coeffs instead
-      derivative orders for each spatial dimension.  For optimal 
-      performance, provide this argument as a tuple
+    diff :(D,) int array, optional
+      derivative orders for each spatial variable. This can instead be 
+      specified through the diffs and coeffs arguments, which is more 
+      efficient when approximating a differential operator with 
+      multiple terms. If neither diff or diffs are provided then the 
+      resulting weights will approximate the undifferentiated function 
+      at x (i.e. diff=(0,)*D).
 
-    centers : (N,D) array, optional
-      centers of each radial basis function. If not specified, then 
-      the nodes will be used as centers. This is often used when 
-      trying out exotic ways of imposing boundary conditions.
-   
-    basis : rbf.basis.RBF, optional
-      radial basis function to use. Select from those available 
-      in rbf.basis
- 
-    order : int, optional
-      order of added polynomial terms.  can be 'max' to use the 
-      largest number of polynomials without creating a singular 
-      matrix.  This may lead to lead to instabilities in derivative 
-      approximations. 1 is generally a safe value
-
-    eps : (N,) array, optional
-      shape parameter for each radial basis function. This only makes 
-      a difference when using RBFs that are not scale invariant, which 
-      you should not do. Any of the odd PHS basis function are 
-      unaffected by the shape parameter. However, if the problem is 
-      particularly poorly scaled then eps may be a good way to scale 
-      the problem to something sensible.
-    
     diffs : (K,D) int array, optional
-      derivative terms. if specified then it overwrites diff and 
-      coeffs must also be specified. For optimal performance, provide 
-      this argument as a list of tuples.
+      derivative orders for each spatial variable for each term in a 
+      differential operator. Overwrites diff if it is provided. If 
+      neither diff or diffs are provided then the derivative order is 
+      zero for all directions.
 
     coeffs : (K,) array, optional 
       list of coefficients for each derivative in diffs. does nothing 
       if diffs is not specified
+
+    centers : (N,D) array, optional
+      centers of each radial basis function. If not specified, then 
+      *nodes* will be used as the centers. This is often used when 
+      trying out exotic ways of imposing boundary conditions.
+   
+    basis : rbf.basis.RBF, optional
+      radial basis function to use. Select from those available 
+      in rbf.basis or create your own.
+ 
+    order : int, optional
+      Use all monomial basis functions which have an order up to and 
+      including this value. Set this to 'max' to use as many monomials 
+      as possible.
+
+    eps : (N,) array, optional
+      shape parameter for each radial basis function. This only makes 
+      a difference when using RBFs that are not scale invariant.  All 
+      the predefined RBFs except for the odd order polyharmonic 
+      splines are not scale invariant.
+    
 
   Example
   -------
@@ -231,8 +237,8 @@ def weights(x,nodes,diff=None,
 
 def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   ''' 
-  returns the traditional 1-D finite difference weights derived 
-  from polynomial expansion. The input must have one spatial dimension
+  Returns the traditional 1-D finite difference weights derived 
+  from polynomial expansion. The input must have one spatial dimension.
   
   Parameters
   ----------
@@ -240,11 +246,11 @@ def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
 
     nodes : (N,1) array
 
-    diff : (1,) int array 
+    diff : (1,) int array, optional 
 
-    diffs : (N,1) int array
+    diffs : (N,1) int array, optional
 
-    coeffs : (N,) array
+    coeffs : (N,) array, optional
         
   '''
   x = np.asarray(x,dtype=float)
@@ -294,36 +300,45 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
                   N=None,vert=None,smp=None):
   ''' 
-  Returns a weight matrix which estimates a derivative of a function 
-  at *x* using observations of the function at *nodes*. The function 
-  derivative is approximated as a weighted sum of the function values 
-  at the *N* nearest nodes for each point in *x*. 
+  Returns a weight matrix which maps a functions values at *nodes* to 
+  estimates of that functions derivative at *x*.  The weight matrix is 
+  made with the RBF-FD method.
   
   Parameters
   ----------
     x : (N,D) array
       estimation points
 
-    nodes : (M,D) array   
+    nodes : (N,D) array
       observation points
-    
-    diff : (D,) array, optional
-      derivative order for each direction
-    
+
+    diff :(D,) int array, optional
+      derivative orders for each spatial variable. This can instead be 
+      specified through the diffs and coeffs arguments, which is more 
+      efficient when approximating a differential operator with 
+      multiple terms. If neither diff or diffs are provided then the 
+      resulting weights will approximate the undifferentiated function 
+      at x (i.e. diff=(0,)*D).
+
     diffs : (K,D) int array, optional
-      derivative orders for each direction for each term, overwrites 
-      diff if it is provided. If neither diff or diffs are provided
-      then the derivative order is zero for all directions.
-    
-    coeffs : (K,) array, optional
-      coefficients for each term in diffs
-      
-    basis : rbf.basis.RBF instance, optional
-      basis function
-      
+      derivative orders for each spatial variable for each term in a 
+      differential operator. Overwrites diff if it is provided. If 
+      neither diff or diffs are provided then the derivative order is 
+      zero for all directions.
+
+    coeffs : (K,) array, optional 
+      list of coefficients for each derivative in diffs. does nothing 
+      if diffs is not specified
+
+    basis : rbf.basis.RBF, optional
+      radial basis function to use. Select from those available 
+      in rbf.basis or create your own.
+ 
     order : int, optional
-      polynomial order
-      
+      Use all monomial basis functions which have an order up to and 
+      including this value. Set this to 'max' to use as many monomials 
+      as possible.
+
     N : int, optional
       stencil size
     
@@ -331,12 +346,11 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
       verticies of boundaries which stencils cannot cross
     
     smp : (Q,D) int array, optional
-      connectivity of the vertices to form boundaries  
+      connectivity of the vertices to form boundaries
 
   Returns
   -------
-    L : (N,N) csr sparse matrix    
-      
+    L : (N,M) csr sparse matrix          
       
   Example
   -------
@@ -379,31 +393,43 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
                 
 
 def diff_matrix(x,*args,**kwargs):
-  '''  
-  creates a differentiation matrix using RBF-FD weights. 
+  ''' 
+  creates a differentiation matrix which approximates a functions 
+  derivative at *x* using observations of that function at *x*. The 
+  weights are computed using the RBF-FD method.
 
   Parameters
   ----------
     x : (N,D) array
       observation points
-          
-    diff : (D,) int array, optional
-      derivative order for each direction.  Either diff or diffs must 
-      be provided
-      
+
+    diff :(D,) int array, optional
+      derivative orders for each spatial variable. This can instead be 
+      specified through the diffs and coeffs arguments, which is more 
+      efficient when approximating a differential operator with 
+      multiple terms. If neither diff or diffs are provided then the 
+      resulting weights will approximate the undifferentiated function 
+      at x (i.e. diff=(0,)*D).
+
     diffs : (K,D) int array, optional
-      derivative orders for each direction for each term, overwrites 
-      diff if it is provided
-    
-    coeffs : (K,) array, optional
-      coefficients for each term in diffs
-      
-    basis : rbf.basis.RBF instance, optional
-      basis function
-      
+      derivative orders for each spatial variable for each term in a 
+      differential operator. Overwrites diff if it is provided. If 
+      neither diff or diffs are provided then the derivative order is 
+      zero for all directions.
+
+    coeffs : (K,) array, optional 
+      list of coefficients for each derivative in diffs. does nothing 
+      if diffs is not specified
+   
+    basis : rbf.basis.RBF, optional
+      radial basis function to use. Select from those available 
+      in rbf.basis or create your own.
+ 
     order : int, optional
-      polynomial order
-      
+      Use all monomial basis functions which have an order up to and 
+      including this value. Set this to 'max' to use as many monomials 
+      as possible.
+
     N : int, optional
       stencil size
     
@@ -411,7 +437,7 @@ def diff_matrix(x,*args,**kwargs):
       verticies of boundaries which stencils cannot cross
     
     smp : (Q,D) int array, optional
-      connectivity of the vertices to form boundaries  
+      connectivity of the vertices to form boundaries
 
   Returns
   -------
@@ -437,25 +463,34 @@ def diff_matrix(x,*args,**kwargs):
 def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
                      N=None,vert=None,smp=None):
   ''' 
-  creates a differentiation matrix using traditional finite difference 
-  weights.The stencil is determined by adjacency rather than nearest 
-  neighbors, which results in better network connectivity
+  creates a differentiation matrix which approximates a functions 
+  derivative at *x* using observations of that function at *x*. The 
+  weights are computed using the traditional finite difference method. 
+  The stencil is determined by adjacency rather than nearest 
+  neighbors, which results in better network connectivity.  
 
   Parameters
   ----------
     x : (N,D) array
       observation points
           
-    diff : (D,) int array, optional
-      derivative order for each direction.  Either diff or diffs must 
-      be provided
-      
+    diff :(D,) int array, optional
+      derivative orders for each spatial variable. This can instead be 
+      specified through the diffs and coeffs arguments, which is more 
+      efficient when approximating a differential operator with 
+      multiple terms. If neither diff or diffs are provided then the 
+      resulting weights will approximate the undifferentiated function 
+      at x (i.e. diff=(0,)*D).
+
     diffs : (K,D) int array, optional
-      derivative orders for each direction for each term, overwrites 
-      diff if it is provided
-    
-    coeffs : (K,) array, optional
-      coefficients for each term in diffs
+      derivative orders for each spatial variable for each term in a 
+      differential operator. Overwrites diff if it is provided. If 
+      neither diff or diffs are provided then the derivative order is 
+      zero for all directions.
+
+    coeffs : (K,) array, optional 
+      list of coefficients for each derivative in diffs. does nothing 
+      if diffs is not specified
 
     N : int, optional
       stencil size

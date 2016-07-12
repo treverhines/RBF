@@ -12,9 +12,10 @@
 # slit along the positive x-axis. dD are the edges of the annulus, C1 
 # and C2 are the top and bottom edges of the slit, nx and ny are the x 
 # and y components of the outward normal vectors to dD. The second 
-# equation is a free surface boundary condition. For improved 
-# accuracy, ghost nodes should be added along free surfaces.  We 
-# demonstrate how to add ghost nodes in demo_fd_annulus_with_ghosts.py.
+# equation is a free surface boundary condition.
+#
+# When comparing this script with demo_fd_annulus.py it should become 
+# clear why ghost nodes are necessary
 import numpy as np
 import rbf.basis
 from rbf.nodes import make_nodes
@@ -22,12 +23,29 @@ from rbf.geometry import simplex_outward_normals
 from rbf.stencil import nearest
 from rbf.fd import weight_matrix
 import matplotlib.pyplot as plt
+import logging
 import scipy.sparse
 from matplotlib import cm
 # set default cmap to viridis if you have it
 if 'viridis' in vars(cm):
   plt.rcParams['image.cmap'] = 'viridis'
-  
+
+def make_ghost_nodes(nodes,smpid,idx,vert,smp):
+  # create nodes that are just outside the boundary
+  nodes = np.asarray(nodes)
+  smpid = np.asarray(smpid)
+  sub_nodes = nodes[idx]
+  sub_smpid = smpid[idx]
+  if np.any(sub_smpid == -1):
+    raise ValueError('cannot make a ghost node for an interior node')
+    
+  norms = simplex_outward_normals(vert,smp)[sub_smpid]
+  dummy,dx = nearest(sub_nodes,nodes,2,vert=vert,smp=smp)
+  # distance to the nearest neighbors
+  dx = dx[:,[1]]
+  ghosts = sub_nodes + dx*norms   
+  return ghosts
+
 # stencil size
 S = 20
 # polynomial order
@@ -47,7 +65,7 @@ smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 # setting bound_force=True ensures that the edges where the annulus is 
 # cut will have an appropriate number of boundary nodes. This also 
 # makes the function considerably slower
-nodes,smpid = make_nodes(N,vert,smp,bound_force=True,itr=100,delta=0.05)
+nodes,smpid = make_nodes(N,vert,smp,itr=100,delta=0.05,bound_force=True)
 
 # identify nodes associated with the different boundary types
 slit_top, = (smpid==199).nonzero()
@@ -56,6 +74,11 @@ slit_bot, = (smpid==99).nonzero()
 boundary, = ((smpid>=0) & (smpid!=199) & (smpid!=99)).nonzero()
 interior, = (smpid==-1).nonzero()
 
+# add ghost nodes
+ghost_nodes = make_ghost_nodes(nodes,smpid,boundary,vert,smp)
+nodes = np.vstack((nodes,ghost_nodes))
+# ghost node indices
+ghost = N + np.arange(len(boundary))
 
 # do not build stencils which cross this line
 bnd_vert = np.array([[0.0,0.0],[5.0,0.0]])
@@ -69,6 +92,9 @@ weight_kwargs = {'N':S,'order':P,
 A_interior = weight_matrix(nodes[interior],nodes,
                            diffs=[(2,0),(0,2)],coeffs=[1.0,1.0],
                            **weight_kwargs)
+A_ghost = weight_matrix(nodes[boundary],nodes,
+                        diffs=[(2,0),(0,2)],coeffs=[1.0,1.0],
+                        **weight_kwargs)
 
 # find boundary normal vectors
 normals = simplex_outward_normals(vert,smp)[smpid[boundary]]
@@ -82,16 +108,18 @@ A_boundary = (n1*weight_matrix(nodes[boundary],nodes,diff=(1,0),**weight_kwargs)
 A_slit_top = weight_matrix(nodes[slit_top],nodes,diff=(0,0),**weight_kwargs)
 A_slit_bot = weight_matrix(nodes[slit_bot],nodes,diff=(0,0),**weight_kwargs)
 
-# stack all the matrices
-A = scipy.sparse.vstack((A_interior,A_boundary,
+A = scipy.sparse.vstack((A_interior,A_ghost,A_boundary,
                          A_slit_top,A_slit_bot))
 
-# build the rhs 
+# build the rhs in the same order
 d_interior = np.zeros(interior.shape[0])
+d_ghost = np.zeros(ghost.shape[0])
 d_boundary = np.zeros(boundary.shape[0])
 d_slit_top = np.ones(slit_top.shape[0])
 d_slit_bot = -np.ones(slit_bot.shape[0])
-d = np.concatenate((d_interior,d_boundary,d_slit_top,d_slit_bot))
+
+d = np.concatenate((d_interior,d_ghost,d_boundary,
+                    d_slit_top,d_slit_bot))
 
 # solve for u
 soln = scipy.sparse.linalg.spsolve(A,d)
@@ -117,13 +145,13 @@ for s in smp:
 
 ax[0].set_aspect('equal')
 ax[1].set_aspect('equal')
-ax[0].set_title('RBF-FD solution')
+ax[0].set_title('RBF-FD solution with ghost nodes')
 ax[1].set_title('error')
 ax[0].set_xlim((-2.1,2.1))
 ax[0].set_ylim((-2.1,2.1))
 ax[1].set_xlim((-2.1,2.1))
 ax[1].set_ylim((-2.1,2.1))
 fig.tight_layout()
-plt.savefig('figures/demo_fd_annulus.png')
+plt.savefig('figures/demo_fd_annulus_with_ghosts.png')
 plt.show()
 quit()

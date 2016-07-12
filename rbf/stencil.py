@@ -44,7 +44,7 @@ def _naive_nearest(query,population,N,vert,smp):
 
 def stencils_to_edges(stencils):
   ''' 
-  returns an array of edges defined by the stencils
+  returns an array of edges defined by the *stencils*
   
   Parameters
   ----------
@@ -64,7 +64,7 @@ def stencils_to_edges(stencils):
 
 def is_connected(stencils):
   ''' 
-  returns True if stencils forms a connected graph (i.e. connectivity 
+  returns True if *stencils* forms a connected graph (i.e. connectivity 
   greater than 0)
 
   Parameters
@@ -85,7 +85,7 @@ def is_connected(stencils):
 def connectivity(stencils):
   ''' 
   returns the minimum number of edges that must be removed in order to 
-  break the connectivity of the graph defined by the stencils
+  break the connectivity of the graph defined by the *stencils*
 
   Parameters
   ----------
@@ -104,12 +104,10 @@ def connectivity(stencils):
 
 def nearest(query,population,N,vert=None,smp=None):
   ''' 
-  Description 
-  -----------
-    Identifies the N points among the population that are closest 
-    to each of the query points. If two points form a line segment 
-    which intersects any part of the boundary defined by vert and 
-    smp then they are considered infinitely far away.  
+  Identifies the *N* points among the population that are closest to 
+  each of the query points. If two points form a line segment which 
+  intersects any part of the boundary defined by *vert* and *smp* then 
+  they are considered infinitely far away.
 
   Parameters
   ----------
@@ -202,57 +200,27 @@ def nearest(query,population,N,vert=None,smp=None):
 
   return neighbors,dist
 
-def stencil_network(nodes,N=None,C=None,vert=None,smp=None):
+def stencil_network(nodes,N,vert=None,smp=None):
   ''' 
-  returns a stencil of nearest neighbors for each node. The number of 
-  nodes in each stencil can be explicitly specified with N or the 
-  N can be chosen such that the connectivity is at least C.
+  Returns the indices of *N* nearest neighbors for each node in 
+  *nodes*.
 
   Parameters
   ----------
     nodes : (N,D) array 
-
-    C : int, optional
-      desired connectivity of the resulting stencils. The stencil size 
-      is then chosen so that the connectivity is at least this large. 
-      Overrides N if provided
     
-    N : int, optional 
-      stencil size. Defaults to 10 or the number of nodes, whichever 
-      is smaller
-
+    N : int
+      stencil size
+      
     vert : (P,D) array, optional
       vertices of the boundary that edges cannot cross
 
     smp : (Q,D) array, optional
       connectivity of the boundary vertices
 
-  Note
-  ----
-    computing connectivity can be expensive when the number of nodes 
-    is greater than about 100. Specify N when dealing with a large
-    number of nodes  
   '''
-  nodes = np.asarray(nodes,dtype=float)
-
-  if C is not None:
-    N = 2
-    s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-    while connectivity(s) < C:
-      N += 1
-      if N > nodes.shape[0]:
-        raise ValueError('cannot create a stencil with the desired '
-                           'connectivity')
-      s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-
-    return s
-
-  else:
-    if N is None:
-      N = min(nodes.shape[0],10)
-
-    s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-    return s
+  s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
+  return s
     
     
 def _slice_list(lst,cuts):
@@ -301,7 +269,7 @@ def _stencil_network_1d(P,N):
   return stencils
 
 
-def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
+def stencil_network_1d(nodes,N,vert=None,smp=None):
   ''' 
   returns a stencil network for 1d nodes where each stencil is 
   determined by adjacency and not distance.  For each node, its 
@@ -313,14 +281,8 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
   ----------
     nodes : (M,1) array 
 
-    C : int, optional
-      desired connectivity of the resulting stencils. The stencil size 
-      is then chosen so that the connectivity is at least this large. 
-      Overrides N if provided
-    
-    N : int, optional 
-      stencil size. Defaults to 10 or the number of nodes, whichever 
-      is smaller
+    N : int
+      stencil size
 
     vert : (P,1) array, optional
       vertices of the boundary that edges cannot cross
@@ -346,14 +308,8 @@ def stencil_network_1d(nodes,N=None,C=None,vert=None,smp=None):
   '''
   nodes = np.asarray(nodes)
 
-  if N is None:
-    N = min(nodes.shape[0],3)
-
-  if C is not None:
-    raise NotImplementedError('specifying connectivity is not yet supported')
-  
   if nodes.ndim != 2:
-    raise ValueError('nodes must be two-dimensional array')
+    raise ValueError('nodes must be a two-dimensional array')
 
   if nodes.shape[1] != 1:
     raise ValueError('nodes must only have one spatial dimension')

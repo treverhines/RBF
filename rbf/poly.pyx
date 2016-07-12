@@ -1,6 +1,6 @@
 ''' 
-This module is used for creating the polynomial terms which are 
-commonly added to RBF interpolants
+This module is used for evaluating the monomial basis functions which 
+are commonly added to RBF interpolants
 '''
 
 from __future__ import division
@@ -40,7 +40,7 @@ def memoize(f):
 
 def mvmonos(x,powers,diff=None):
   ''' 
-  Multivariate monomials
+  Multivariate monomial basis functions
 
   Parameters
   ----------
@@ -48,15 +48,16 @@ def mvmonos(x,powers,diff=None):
       positions where the monomials will be evaluated
 
     powers : (M,D) int array 
-      powers for each spatial variable in the each monomial term
+      Defines each monomial basis function using multi-index notation.  
+      Each row contains the exponents for each spatial variable in a 
+      monomial.
 
     diff : (D,) int array, optional
       derivative order for each variable
 
   Returns
   -------
-    out: (N,M) Alternant matrix where x is evaluated for each monomial
-
+    out: (N,M) Alternant matrix where x is evaluated for each monomial 
  
   Example
   -------
@@ -133,10 +134,11 @@ cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,tuple diff):
 
   return np.asarray(out)
   
+
 @memoize
 def monomial_powers(order,dim):
   ''' 
-  returns an array describing all possible monomial powers in a 
+  Returns an array describing all the monomial basis functions in a 
   polymonial with the given order and number of dimensions. Calling 
   this function with -1 for the order will return an empty list (no 
   terms in the polynomial)
@@ -179,8 +181,8 @@ def monomial_powers(order,dim):
 @memoize
 def monomial_count(order,dim):
   ''' 
-  returns the number of monomial terms in a polynomial with the given 
-  order and number of dimensions
+  Returns the number of monomial basis functions in a polynomial with 
+  the given order and number of dimensions
 
   Parameters
   ----------
@@ -203,7 +205,7 @@ def monomial_count(order,dim):
 @memoize
 def maximum_order(stencil_size,dim):
   ''' 
-  returns the maximum polynomial order allowed for the given stencil 
+  Returns the maximum polynomial order allowed for the given stencil 
   size and number of dimensions
 
   Parameters
