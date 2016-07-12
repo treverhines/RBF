@@ -1,5 +1,5 @@
 # RBF
-Package containing the tools necessary for radial basis function (RBF) applications
+Package containing the tools necessary for radial basis function (RBF) applications.
 
 ## Features
 * Efficient evaluation of RBFs and their analytically derived spatial derivatives.  This package allows for unlimited spatial dimensions and arbitrarily spatial derivatives   
@@ -303,8 +303,8 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_nodes_2.png "demo_nodes_2")
 
-#### Laplacian on a circle
-Here we are solving the the Laplacian equation over a unit circle, where the boundaries are fixed at zero and there is an applied forcing term.  The solution to this problem is (1-r)\*sin(x)\*cos(y)
+#### Laplace's equation on a circle
+Here we are solving Laplace's equation over a unit circle, where the boundaries are fixed at zero and there is an applied forcing term.  The solution to this problem is (1-r)\*sin(x)\*cos(y)
 
 ```python
 def true_soln(pnts):
@@ -390,6 +390,20 @@ plt.show()
 ```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_spectral_laplacian.png "demo_spectral_laplacian")
 
+### Solving PDEs with the RBF-FD method
+The radial basis function generated finite difference (RBF-FD) method is a relatively new method for solving PDEs.  The RBF-FD method allows one to approximate a derivative as a weighted sum of function realizations at N neighboring locations, where the locations can be randomly distributed.  Once the weights have been computed, the method is effectively identical to solving a PDE with a traditional finite difference method.  This package offers two functions for computing the RBF-FD weights, `rbf.fd.weights` and `rbf.fd.weight_matrix`. The latter function allows the user to solve a PDE with almost the exact same procedure as for the spectral RBF method (see `rbf/demo/demo_fd_laplacian.py`).    
+
+For the function `rbf.fd.weight_matrix`, the stencil generation is done under the hood. By default the stencils are just a collection of nearest neighbors which are efficiently found with `scipy.spatial.cKDTree`. However, a nearest neighbor stencil may not be appropriate for some problems.  For example you may have a domain with edges that *nearly* touch and you do not want the PDE to be enforced across that boundary. The function `rbf.stencil.stencil_network` creates nearest neighbor stencils but it does not allow stencils to reach across boundaries. This is effectively done by redefining the distance norm so that if a line segment connecting two points intersects a boundary then they are infinitely far away.  This function then makes it possible to solve problems like this
+
+![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_fd_annulus.png "demo_fd_annulus")
+
+The above plot is showing the solution to Laplace's equation on a slit annulus. The edges are free surfaces except for the top and bottom of the slit, which are fixed at 1 and -1.  The code which generated the above script can be found in `rbf/demo/demo_fd_annulus.py`. 
+
+RBFs seem to have a hard time handling free surface boundary conditions. In order to get a stable solution it is often necessary to add ghost nodes. Ghost nodes are additional nodes placed outside the boundary. Rather than enforcing the PDE at the ghost nodes, the added rows in the stiffness matrix are used to enforce the PDE at the boundary nodes.  A ghost node demonstration can be found in `rbf/demo/demo_fd_annulus_with_ghosts.py`. The below figure shows the solution to the same PDE as above but with the addition of ghost nodes
+
+![alt text](https://github.com/treverhines/RBF/blob/master/demo/figures/demo_fd_annulus_with_ghosts.png "demo_fd_annulus")
+
+
 ### To Do
 This package contains more features but they have not yet been included in this help documentation. They include
 * generation of RBF-FD stencils (module: rbf.stencil)
@@ -400,3 +414,4 @@ This package contains more features but they have not yet been included in this 
 * generation of B-spline basis functions (module: rbf.bspline) 
 
 See the documentation within the modules for help on using these features 
+
