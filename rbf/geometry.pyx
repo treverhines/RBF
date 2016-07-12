@@ -416,12 +416,17 @@ cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef int _intersection_index_2d(segment2d seg1,
                                 double[:,:] vertices,
                                 long[:,:] simplices) except *:
   cdef:
     int i
+    int out = -1
+    double proj1,proj2,t
+    double closest = 999.9
     segment2d seg2
+    vector2d n
   
   for i in range(simplices.shape[0]):
     seg2.a.x = vertices[simplices[i,0],0]
@@ -429,10 +434,26 @@ cdef int _intersection_index_2d(segment2d seg1,
     seg2.b.x = vertices[simplices[i,1],0]
     seg2.b.y = vertices[simplices[i,1],1]
     if is_intersecting_2d(seg1,seg2):
-      return i
+      # the intersecting segment should be the first segment 
+      # intersected when going from seg1.a to seg1.b
+      n = segment_normal_2d(seg2) 
+      proj1 = ((seg1.a.x-seg2.a.x)*n.x +
+               (seg1.a.y-seg2.a.y)*n.y)
+      proj2 = ((seg1.b.x-seg2.a.x)*n.x +
+               (seg1.b.y-seg2.a.y)*n.y)
+      # t is a scalar between 0 and 1. If t=0 then the intersection is 
+      # at seg1.a and if t=1 then the intersection is at seg1.b
+      t = proj1/(proj1-proj2)
+      if t < closest:
+        closest = t
+        out = i
 
-  raise ValueError('No intersection found for segment [[%s,%s],[%s,%s]]' % 
-                   (seg1.a.x,seg1.a.y,seg1.b.x,seg1.b.y))
+  if out == -1:
+    # out is -1 iff no intersection was found
+    raise ValueError('No intersection found for segment [[%s,%s],[%s,%s]]' % 
+                     (seg1.a.x,seg1.a.y,seg1.b.x,seg1.b.y))
+
+  return out
 
 
 @boundscheck(False)
@@ -773,13 +794,18 @@ cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
+@cdivision(True)
 cdef int _intersection_index_3d(segment3d seg,
                                 double[:,:] vertices,
                                 long[:,:] simplices) except *:         
   cdef:
     int i
+    int out = -1
     int N = simplices.shape[0]
     triangle3d tri
+    double proj1,proj2,t
+    double closest = 999.9
+    vector3d n
     
   for i in range(N):
     tri.a.x = vertices[simplices[i,0],0]
@@ -792,10 +818,26 @@ cdef int _intersection_index_3d(segment3d seg,
     tri.c.y = vertices[simplices[i,2],1]
     tri.c.z = vertices[simplices[i,2],2]
     if is_intersecting_3d(seg,tri):
-      return i
- 
-  raise ValueError('No intersection found for segment [[%s,%s,%s],[%s,%s,%s]]' % 
-                   (seg.a.x,seg.a.y,seg.a.z,seg.b.x,seg.b.y,seg.b.z))
+      n = triangle_normal_3d(tri)
+      proj1 = ((seg.a.x-tri.a.x)*n.x + 
+               (seg.a.y-tri.a.y)*n.y +
+               (seg.a.z-tri.a.z)*n.z)
+      proj2 = ((seg.b.x-tri.a.x)*n.x + 
+               (seg.b.y-tri.a.y)*n.y +
+               (seg.b.z-tri.a.z)*n.z)
+      # t is a scalar between 0 and 1. If t=0 then the intersection is 
+      # at seg1.a and if t=1 then the intersection is at seg1.b
+      t = proj1/(proj1-proj2)
+      if t < closest:
+        closest = t
+        out = i
+
+  if out == -1:
+    # out is -1 iff it has never been changed and no intersection was found
+    raise ValueError('No intersection found for segment [[%s,%s,%s],[%s,%s,%s]]' % 
+                     (seg.a.x,seg.a.y,seg.a.z,seg.b.x,seg.b.y,seg.b.z))
+
+  return out
 
 
 @boundscheck(False)
@@ -993,7 +1035,7 @@ def intersection_point(start_points,end_points,vertices,simplices):
   Returns the intersection points between the line segments, described 
   by start_points and end_points, and the simplicial complex, 
   described by vertices and simplices. This function works for 1, 2, 
-  and 3 spatial dimensions.
+  and 3 spatial dimensions. 
 
   Parameters
   ----------
@@ -1020,14 +1062,15 @@ def intersection_point(start_points,end_points,vertices,simplices):
 
   Note
   ----
-    This function fails when a intersection is not found for a line
-    segment
+    This function fails when a intersection is not found for a line 
+    segment. If there are multiple intersections then the intersection 
+    closest to start_point is used.
 
   '''
-  start_points = np.asarray(start_points)
-  end_points = np.asarray(end_points)
-  vertices = np.asarray(vertices)
-  simplices = np.asarray(simplices)
+  start_points = np.asarray(start_points,dtype=float)
+  end_points = np.asarray(end_points,dtype=float)
+  vertices = np.asarray(vertices,dtype=float)
+  simplices = np.asarray(simplices,dtype=int)
   if not (start_points.shape[1] == end_points.shape[1]):
     raise ValueError('inconsistent spatial dimensions')
 
@@ -1039,9 +1082,8 @@ def intersection_point(start_points,end_points,vertices,simplices):
 
   dim = start_points.shape[1]
   if dim == 1:
+    crossed_idx = intersection_index(start_points,end_points,vertices,simplices)
     vert = vertices[simplices[:,0]]
-    crossed_bool = (start_points-vert.T)*(end_points-vert.T) <= 0.0
-    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
     out = vert[crossed_idx]
 
   if dim == 2:
@@ -1085,14 +1127,16 @@ def intersection_normal(start_points,end_points,vertices,simplices):
 
   Note
   ----
-    This function fails when a intersection is not found for a line
-    segment
+    This function fails when a intersection is not found for a line 
+    segment. If there are multiple intersections then the intersection 
+    closest to start_point is used.
+
 
   '''
-  start_points = np.asarray(start_points)
-  end_points = np.asarray(end_points)
-  vertices = np.asarray(vertices)
-  simplices = np.asarray(simplices)
+  start_points = np.asarray(start_points,dtype=float)
+  end_points = np.asarray(end_points,dtype=float)
+  vertices = np.asarray(vertices,dtype=float)
+  simplices = np.asarray(simplices,dtype=int)
   if not (start_points.shape[1] == end_points.shape[1]):
     raise ValueError('inconsistent spatial dimensions')
 
@@ -1105,9 +1149,8 @@ def intersection_normal(start_points,end_points,vertices,simplices):
   dim = start_points.shape[1]
   if dim == 1:
     out = np.ones(start_points.shape,dtype=float)
+    crossed_idx = intersection_index(start_points,end_points,vertices,simplices)
     vert = vertices[simplices[:,0]]
-    crossed_bool = (start_points-vert.T)*(end_points-vert.T) <= 0.0
-    crossed_idx = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
     crossed_vert = vert[crossed_idx]
     out[crossed_vert < start_points] = -1.0
 
@@ -1151,7 +1194,8 @@ def intersection_index(start_points,end_points,vertices,simplices):
   Note
   ----
     This function fails when a intersection is not found for a line
-    segment
+    segment. If there are multiple intersections then the intersection 
+    closest to start_point is used.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1169,10 +1213,19 @@ def intersection_index(start_points,end_points,vertices,simplices):
 
   dim = start_points.shape[1]
   if dim == 1:
-    out = np.ones(start_points.shape,dtype=float)
+    out = np.zeros(start_points.shape[0],dtype=int)
     vert = vertices[simplices[:,0]]
-    crossed_bool = (start_points-vert.T)*(end_points-vert.T) <= 0.0
-    out = np.array([np.nonzero(i)[0][0] for i in crossed_bool],dtype=int)
+    proj1 = (start_points-vert.T) 
+    proj2 = (end_points-vert.T) 
+    crossed_bool = proj1*proj2 <= 0.0
+    for i in range(start_points.shape[0]):
+      # indices of all simplices crossed for segment i
+      crossed_idx, = np.nonzero(crossed_bool[i])
+      proj1i = proj1[i,crossed_idx]
+      proj2i = proj2[i,crossed_idx]
+      # find the intersection closest to start_point i
+      idx = np.argmin(proj1i/(proj1i-proj2i))
+      out[i] = crossed_idx[idx]
 
   if dim == 2:
     out = intersection_index_2d(start_points,end_points,vertices,simplices)
@@ -1510,8 +1563,9 @@ def enclosure(vert,smp,orient=True):
      
   Note
   ----
-    This function does not ensure that the simplicial complex is
-    closed.  If it is not then bogus results will be returned. 
+    This function does not ensure that the simplicial complex is 
+    closed and does not intersect itself. If it is not then bogus 
+    results will be returned.
   '''
   vert = np.array(vert,dtype=float,copy=True)
   smp = np.asarray(smp,dtype=int)
