@@ -129,8 +129,11 @@ def weights(x,nodes,diff=None,
  
     order : int, optional
       Use all monomial basis functions which have an order up to and 
-      including this value. Set this to 'max' to use as many monomials 
-      as possible.
+      including this value. The number of monomials needs to be less 
+      than the stencil size. Setting this to 'max' uses the maximum 
+      order allowed by the stencil. If the specified order exceeds the 
+      maximum allowed order then it will be reset to the maximum 
+      allowed order.
 
     eps : (N,) array, optional
       shape parameter for each radial basis function. This only makes 
@@ -191,11 +194,17 @@ def weights(x,nodes,diff=None,
   else:
     eps = np.asarray(eps,dtype=float)
 
+  max_order = rbf.poly.maximum_order(*nodes.shape)
   if order == 'max':
-    order = rbf.poly.maximum_order(*nodes.shape)
+    order = max_order
 
   elif order is None:
-    order = _default_poly_order(nodes.shape[0],nodes.shape[1])
+    order = _default_poly_order(*nodes.shape)
+
+  else:  
+    # If order was specified, make sure that it is less than the 
+    # maximum order
+    order = min(order,max_order)
     
   # this if else block ensures that diffs overwrites diff
   if diffs is not None:
@@ -215,6 +224,8 @@ def weights(x,nodes,diff=None,
     coeffs = [1.0]
     
   powers = rbf.poly.monomial_powers(order,nodes.shape[1])
+  # this check should be removed now that I am forcing the order to be 
+  # less than or equal to the max
   if powers.shape[0] > nodes.shape[0]:
     raise ValueError(
       'the number of monomials exceeds the number of RBFs for the '
@@ -433,7 +444,7 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
     order : int, optional
       Use all monomial basis functions which have an order up to and 
       including this value. Set this to 'max' to use as many monomials 
-      as possible.
+      as possible. 
 
     N : int, optional
       stencil size. If N neighbors cannot be found, then incrementally 
