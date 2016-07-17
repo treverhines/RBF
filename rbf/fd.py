@@ -11,9 +11,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _default_stencil_size(nodes,dim,diff=None,diffs=None):
-  max_size = nodes
+def _default_stencil_size(dim,diff=None,diffs=None):
   if diff is not None:
+    # maximum derivative order
     max_order = sum(diff)
 
   elif diffs is not None:
@@ -22,23 +22,26 @@ def _default_stencil_size(nodes,dim,diff=None,diffs=None):
   else:
     max_order = 0
     
-  if max_order == 0:
-    N = min(max_size,1)
+  if max_order == 0: 
+    # if no derivative is being estimated then N=1
+    N = 1
     
   elif dim == 1:
-    N = min(max_size,max_order + 1)    
+    N = max_order + 1
 
   else:
-    N = min(max_size,8)  
+    N = 8
     
   return N
 
 
 def _default_poly_order(stencil_size,dim):
+  # maximum polynomial order
   max_order = rbf.poly.maximum_order(stencil_size,dim)
   if dim == 1:
     order = max_order
   else:
+    # use 1 or 0 if the stencil size is not big enough
     order = min(1,max_order)  
 
   return order
@@ -370,7 +373,7 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
   nodes = np.asarray(nodes)
   
   if N is None:
-    N = _default_stencil_size(nodes.shape[0],nodes.shape[1],
+    N = _default_stencil_size(nodes.shape[1],
                               diff=diff,diffs=diffs)
     
   sn,dist = rbf.stencil.nearest(x,nodes,N,vert,smp)
@@ -392,7 +395,9 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
   return L
                 
 
-def diff_matrix(x,*args,**kwargs):
+def diff_matrix(x,diff=None,diffs=None,coeffs=None,
+                basis=rbf.basis.phs3,order=None,
+                N=None,vert=None,smp=None):
   ''' 
   creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. The 
@@ -400,7 +405,7 @@ def diff_matrix(x,*args,**kwargs):
 
   Parameters
   ----------
-    x : (N,D) array
+    x : (M,D) array
       observation points
 
     diff :(D,) int array, optional
@@ -431,7 +436,9 @@ def diff_matrix(x,*args,**kwargs):
       as possible.
 
     N : int, optional
-      stencil size
+      stencil size. If N neighbors cannot be found, then incrementally 
+      smaller values of N are tested until a stencil network can be 
+      formed.
     
     vert : (P,D) array, optional
       verticies of boundaries which stencils cannot cross
@@ -441,7 +448,7 @@ def diff_matrix(x,*args,**kwargs):
 
   Returns
   -------
-    L : (N,N) csr sparse matrix    
+    L : (M,M) csr sparse matrix    
       
   Example
   -------
@@ -457,7 +464,28 @@ def diff_matrix(x,*args,**kwargs):
            [ 0.,  1., -2.,  1.]])
                          
   '''
-  return weight_matrix(x,x,*args,**kwargs)
+  x = np.asarray(x)
+  
+  if N is None:
+    N = _default_stencil_size(x.shape[1],
+                              diff=diff,diffs=diffs)
+    
+  sn = rbf.stencil.stencil_network(x,N,vert,smp)
+
+  # values that will be put into the sparse matrix
+  data = np.zeros(sn.shape,dtype=float)
+
+  for i,si in enumerate(sn):
+    data[i,:] = weights(x[i],x[si],diff=diff,
+                        diffs=diffs,coeffs=coeffs,
+                        basis=basis,order=order)
+
+  rows = np.repeat(range(data.shape[0]),data.shape[1])
+  cols = sn.ravel()
+  data = data.ravel()
+  size = x.shape[0],x.shape[0]
+  L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
+  return L
 
 
 def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
@@ -471,7 +499,7 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
 
   Parameters
   ----------
-    x : (N,D) array
+    x : (M,D) array
       observation points
           
     diff :(D,) int array, optional
@@ -493,7 +521,9 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
       if diffs is not specified
 
     N : int, optional
-      stencil size
+      stencil size. If N neighbors cannot be found, then incrementally 
+      smaller values of N are tested until a stencil network can be 
+      formed.
     
     vert : (P,D) array, optional
       verticies of boundaries which stencils cannot cross
@@ -503,7 +533,7 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
 
   Returns
   -------
-    L : (N,N) csr sparse matrix    
+    L : (M,M) csr sparse matrix    
 
   Example
   -------
@@ -522,7 +552,7 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
   x = np.asarray(x) 
 
   if N is None:
-    N = _default_stencil_size(x.shape[0],x.shape[1],
+    N = _default_stencil_size(x.shape[1],
                               diff=diff,diffs=diffs)
     
   sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)

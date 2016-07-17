@@ -1211,13 +1211,16 @@ def intersection_index(start_points,end_points,vertices,simplices):
   if not (start_points.shape[0] == end_points.shape[0]): 
     raise ValueError('start points and end points must have the same length')
 
+
   dim = start_points.shape[1]
   if dim == 1:
     out = np.zeros(start_points.shape[0],dtype=int)
     vert = vertices[simplices[:,0]]
     proj1 = (start_points-vert.T) 
     proj2 = (end_points-vert.T) 
-    crossed_bool = proj1*proj2 <= 0.0
+    # identify intersections in a manner that is consistent with the 
+    # 2d and 3d method
+    crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
     for i in range(start_points.shape[0]):
       # indices of all simplices crossed for segment i
       crossed_idx, = np.nonzero(crossed_bool[i])
@@ -1282,7 +1285,9 @@ def intersection_count(start_points,end_points,vertices,simplices):
   dim = start_points.shape[1]
   if dim == 1:
     vert = vertices[simplices[:,0]]
-    crossed_bool = (start_points-vert.T)*(end_points-vert.T) <= 0.0
+    proj1 = (start_points-vert.T) 
+    proj2 = (end_points-vert.T) 
+    crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
     out = np.sum(crossed_bool,axis=1)
 
   if dim == 2:
@@ -1343,7 +1348,9 @@ def contains(points,vertices,simplices):
     vert = vertices[simplices[:,0]]
     outside_point = np.min(vert,axis=0) - 1.0
     end_points = outside_point[:,None].repeat(points.shape[0],axis=0)
-    crossed_bool = (points-vert.T)*(end_points-vert.T) <= 0.0
+    proj1 = (points-vert.T) 
+    proj2 = (end_points-vert.T) 
+    crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
     crossed_count = np.sum(crossed_bool,axis=1)
     out = np.array(crossed_count%2,dtype=bool)
 
