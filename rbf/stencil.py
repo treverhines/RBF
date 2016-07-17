@@ -9,6 +9,11 @@ import networkx
 import logging
 logger = logging.getLogger(__name__)
 
+class StencilError(Exception):
+  ''' 
+  raised when a stencil cannot be made for topological purposes
+  '''
+  pass
 
 def _distance_matrix(pnts1,pnts2,vert,smp):
   ''' 
@@ -159,7 +164,7 @@ def nearest(query,population,N,vert=None,smp=None):
       'population points must be a two-dimensional array')
 
   if N > population.shape[0]:
-    raise ValueError(
+    raise StencilError(
       'cannot find %s nearest neighbors with %s points' % (N,population.shape[0]))
 
   if N < 0:
@@ -189,8 +194,8 @@ def nearest(query,population,N,vert=None,smp=None):
       # search over an incrementally larger set of nearest neighbors 
       # until we find N neighbors which do not cross a boundary
       if subpop_size == population.shape[0]:
-        raise ValueError('cannot find %s nearest neighbors for point '
-                         '%s without crossing a boundary' % (N,query[i]))
+        raise StencilError('cannot find %s nearest neighbors for point '
+                           '%s without crossing a boundary' % (N,query[i]))
       subpop_size = min(subpop_size+N,population.shape[0])
       dummy,subpop_idx = T.query(query[i],subpop_size)
       ni,di = _naive_nearest(query[[i]],population[subpop_idx],N,vert,smp)
@@ -200,14 +205,18 @@ def nearest(query,population,N,vert=None,smp=None):
 
   return neighbors,dist
 
+
 def stencil_network(nodes,N,vert=None,smp=None):
   ''' 
-  Returns the indices of *N* nearest neighbors for each node in 
-  *nodes*.
+  Return the indices of *N* nearest neighbors for each element in 
+  *nodes*. If *N* neighbors cannot be found for every element then 
+  then this function attempts to find *N* - 1 nearest neighbors. This 
+  continues until the same number of neighbors can be found for each 
+  element
 
   Parameters
   ----------
-    nodes : (N,D) array 
+    nodes : (M,D) array 
     
     N : int
       stencil size
@@ -218,10 +227,24 @@ def stencil_network(nodes,N,vert=None,smp=None):
     smp : (Q,D) array, optional
       connectivity of the boundary vertices
 
-  '''
-  s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-  return s
+  Returns
+  -------
+    s : (M,K) int array where K <= N
     
+  '''
+  while True:
+    try:
+      s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
+      return s
+      
+    except StencilError as err:  
+      if N == 0:
+        # this block should never have to run because a stencil should 
+        # always be made with N=0. This is just in case im wrong
+        raise err 
+        
+      N -= 1
+      
     
 def _slice_list(lst,cuts):
   ''' 
@@ -250,7 +273,7 @@ def _stencil_network_1d(P,N):
   P = int(P)
   N = int(N)
   if P < N:
-    raise ValueError('cannot form a size %s stencil with %s nodes' % (N,P))
+    raise StencilError('cannot form a size %s stencil with %s nodes' % (N,P))
 
   if N == 0:
     return np.zeros((P,N),dtype=int)
@@ -326,13 +349,24 @@ def stencil_network_1d(nodes,N,vert=None,smp=None):
   smp = np.asarray(smp,dtype=int)
   cuts = vert[smp[:,0],0]
 
-  segments = _slice_list(nodes,cuts)
-  stencil = np.zeros((P,N),dtype=int)
-  for idx in segments:
-    count = len(idx)
-    stencil_i = _stencil_network_1d(count,N)
-    sorted_idx = idx[np.argsort(nodes[idx])]
-    stencil_i = sorted_idx[stencil_i]
-    stencil[sorted_idx,:] = stencil_i
+  # use progressively smaller N until a stencil network can be made
+  while True:
+    try:
+      segments = _slice_list(nodes,cuts)
+      out = np.zeros((P,N),dtype=int)
+      for idx in segments:
+        count = len(idx)
+        stencil_i = _stencil_network_1d(count,N)
+        sorted_idx = idx[np.argsort(nodes[idx])]
+        stencil_i = sorted_idx[stencil_i]
+        out[sorted_idx,:] = stencil_i
 
-  return stencil                      
+      return out
+
+    except StencilError as err:
+      if N == 0:
+        # this block should never have to run because a stencil should 
+        # always be made with N=0. This is just in case im wrong
+        raise err 
+    
+      N -= 1
