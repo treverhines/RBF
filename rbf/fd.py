@@ -11,27 +11,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _default_stencil_size(dim,diff=None,diffs=None):
-  if diff is not None:
+def _default_stencil_size(diff=None,diffs=None):
+  if diffs is not None:
+    max_order = max(sum(d) for d in diffs)
+    dim = len(diffs[0])
+
+  elif diff is not None:
     # maximum derivative order
     max_order = sum(diff)
-
-  elif diffs is not None:
-    max_order = max(sum(d) for d in diffs)
-
+    dim = len(diff)
+    
   else:
     max_order = 0
+    dim = 0
     
-  if max_order == 0: 
-    # if no derivative is being estimated then N=1
-    N = 1
-    
-  elif dim == 1:
-    N = max_order + 1
+  N = (max_order + 1)**dim
 
-  else:
-    N = 8
-    
   return N
 
 
@@ -384,8 +379,7 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
   nodes = np.asarray(nodes)
   
   if N is None:
-    N = _default_stencil_size(nodes.shape[1],
-                              diff=diff,diffs=diffs)
+    N = _default_stencil_size(diff=diff,diffs=diffs)
     
   sn,dist = rbf.stencil.nearest(x,nodes,N,vert,smp)
 
@@ -478,8 +472,7 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
   x = np.asarray(x)
   
   if N is None:
-    N = _default_stencil_size(x.shape[1],
-                              diff=diff,diffs=diffs)
+    N = _default_stencil_size(diff=diff,diffs=diffs)
     
   sn = rbf.stencil.stencil_network(x,N,vert,smp)
 
@@ -563,8 +556,7 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
   x = np.asarray(x) 
 
   if N is None:
-    N = _default_stencil_size(x.shape[1],
-                              diff=diff,diffs=diffs)
+    N = _default_stencil_size(diff=diff,diffs=diffs)
     
   sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)
 

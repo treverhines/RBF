@@ -44,7 +44,8 @@ def forcing(pnts):
   return out
 
 # stencil size
-S = 20
+#S = 20
+S = None
 # The RBF-FD method allows for polynomial precision, where polynomials 
 # of a given order are added to the interpolant used to derive the 
 # finite difference weights.  Setting P to 2 adds a second order 
@@ -84,7 +85,7 @@ u = np.linalg.solve(A,d)
 itp,dummy = make_nodes(10000,vert,smp,itr=0)
 
 # solution at the interpolation points
-uitp = weight_matrix(itp,nodes,N=S,order=P,basis=basis).dot(u)
+uitp = weight_matrix(itp,nodes,N=9,order=P,basis=basis).dot(u)
 
 # plot the results
 fig,ax = plt.subplots(1,2,figsize=(10,4))

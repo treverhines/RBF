@@ -48,13 +48,13 @@ def make_ghost_nodes(nodes,smpid,idx,vert,smp):
   return ghosts
 
 # stencil size
-S = 20
+S = 15
 # polynomial order
 P = 1
 # basis function
 basis = rbf.basis.phs3
 # number of nodes
-N = 200
+N = 1000
 
 # define the vertices and simplices for cut annulus
 t = np.linspace(0.002*np.pi,1.998*np.pi,100)
