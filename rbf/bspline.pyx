@@ -1,11 +1,7 @@
-# distutils: extra_compile_args = -fopenmp  
-# distutils: extra_link_args = -fopenmp
-
 from __future__ import division
 import numpy as np
 cimport numpy as np
 from cython cimport boundscheck,wraparound
-from cython.parallel cimport prange
 
 cpdef bint is_sorted(double[:] x):
   cdef:
@@ -50,34 +46,37 @@ def natural_knots(nmax,p,side='both'):
 def basis_number(k,p):
   return len(k) - p - 1
 
+
 @wraparound(False)
 @boundscheck(False)
 cpdef np.ndarray bsp1d(double[:] x,
-                       double[:] k,
-                       unsigned int n,
-                       unsigned int p,
-                       unsigned int diff=0):
+                       double[:] knots,
+                       int index,
+                       int order,
+                       int diff=0):
+  ''' 
+  returns a 1D B-spline evaluated at x
+  '''
   cdef:
-    unsigned int N = x.shape[0]
-    unsigned int i
-    double tol
-    double[:] out = np.empty(N,dtype=np.float64,order='C')
+    int N = x.shape[0]
+    int M = knots.shape[0]
+    int i
+    double tol = (knots[M-1] - knots[0])*1e-10
+    double[:] out = np.empty(N)
 
-  assert diff <= p,(
+  assert diff <= order,(
     'derivative order must be less than or equal to the spline order')
   
-  assert k.shape[0] >= (n+p+2),(
+  assert M >= (index+order+2),(
     'there are not enough knots for the given spline order and index')
   
-  assert is_sorted(k),(
+  assert is_sorted(knots),(
     'knots must be in ascending order')
 
-  tol = (k[k.shape[0]-1] - k[0])*1e-6
-  a = tol
   with nogil:
-    #for i in prange(N,schedule='static',chunksize=CHUNKSIZE):
-    for i in prange(N):
-      out[i] = bsp1d_k(x[i],k,n,p,diff,tol)
+    # can be parallelized with prange
+    for i in range(N):
+      out[i] = bsp1d_k(x[i],knots,index,order,diff,tol)
   
   return np.asarray(out)
 
@@ -86,14 +85,28 @@ cpdef np.ndarray bsp1d(double[:] x,
 @boundscheck(False)
 cdef double bsp1d_k(double x,
                     double[:] k,
-                    unsigned int n,
-                    unsigned int p,
-                    unsigned int diff,
+                    int n,
+                    int p,
+                    int diff,
                     double tol) nogil:
+  ''' 
+  returns a bspline evaluated at x
+
+  Parameters
+  ----------
+    x: position where the B-spline is evaluated
+    k: B-spline knots
+    n: B-spline index. 0 returns the left-most B-spline evaluated at x
+    p: B-spline order. 0 is a boxcar function
+    diff: derivative order
+    tol: tolerance used to determine whether two knots are identical.
+    
+  '''
   cdef:
     double out = 0.0
 
   if diff > 0:
+    # check knot spacing to prevent zero division
     if (k[n+p] - k[n]) > tol:
       out = p/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,diff-1,tol)
 
@@ -101,6 +114,10 @@ cdef double bsp1d_k(double x,
       out -= p/(k[n+p+1] - k[n+1])*bsp1d_k(x,k,n+1,p-1,diff-1,tol)
 
   elif p == 0:
+    # If the order is zero and the right-most B-spline is being 
+    # evaluated then return 1 on the closed interval between the
+    # two knots. Otherwise return 1 on the left-closed interval
+    # between the two knots
     if k[n+1] == k[k.shape[0]-1]:
       if ((x >= k[n]) & (x <= k[n+1])):
         out = 1.0
@@ -109,6 +126,7 @@ cdef double bsp1d_k(double x,
       if ((x >= k[n]) & (x < k[n+1])):
         out = 1.0
 
+  # if the derivative is zero and order is not zero
   else:
     if (k[n+p] - k[n]) > tol:
       out = (x - k[n])/(k[n+p] - k[n])*bsp1d_k(x,k,n,p-1,0,tol)
@@ -119,7 +137,7 @@ cdef double bsp1d_k(double x,
   return out
 
 def bspnd(x,k,n,p,diff=None):
-  '''                                            
+  ''' 
   returns an N-D B-spline which is the tensor product of 1-D B-splines   
   The arguments for this function should all be length N sequences and       
   each element will be passed to bspline_1d             

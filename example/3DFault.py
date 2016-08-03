@@ -2,37 +2,96 @@
 import numpy as np
 import rbf.nodegen
 from rbf.basis import phs3 as basis
-from rbf.normalize import normalizer
-from rbf.geometry import boundary_contains
-import modest
+from rbf.integrate import density_normalizer
+from rbf.geometry import contains
+#from rbf.geometry import enclosure
 from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
 from rbf.formulation import evaluate_coeffs_and_diffs
 import numpy as np
 import mayavi.mlab
-from myplot.cm import slip2
 import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
 import logging
-from modest import summary
 import random
 import sympy as sp
-logging.basicConfig(level=logging.INFO)
+import mkl
+import modest
+import petsc4py
+import sys
+petsc4py.init(sys.argv)
+from petsc4py import PETSc
 
+mkl.set_num_threads(1)
+logging.basicConfig(level=logging.DEBUG)
 
-@modest.funtime
+def precond1(G):
+  out = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
+  return out
+
 def jacobi_preconditioned_solve(G,d):
-  if not scipy.sparse.isspmatrix_csc(G):
-    G = scipy.sparse.csc_matrix(G)
+  N = G.shape[0]
+  #G += 10.1*scipy.sparse.eye(N)
+  G = G.tocsr()
+  #perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)
+  #rev_perm = np.argsort(perm)
+  #G = G[perm,:]
+  #G = G[:,perm]
+  #d = d[perm]
+  #G /= 10000.0
+  #d /= 10000.0
+  #Gar = G.toarray()
+  #Gar = np.abs(Gar) + 1e-10
+  #plt.imshow(np.log10(Gar))
+  #plt.show()
+  G = G.astype(np.float64)
+  d = d.astype(np.float64)
+  A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data)) # instantiate a matrix
+  d = PETSc.Vec().createWithArray(d)
+  #soln = scipy.sparse.linalg.spsolve(G,d)
+  soln = np.zeros(G.shape[1]) + 0.0
+  soln = PETSc.Vec().createWithArray(soln)
+  
+  #plt.plot(d)
+  #plt.show()
+  ksp = PETSc.KSP()
+  ksp.create()
+  ksp.rtol = 1e-20
+  ksp.atol = 1e-20
+  ksp.max_it = 10000
+  ksp.setType('gmres')
+  #ksp.setRestart(100)
+  ksp.setInitialGuessNonzero(True)
+  #ksp.setInitialGuessKnoll(True)
+  ksp.setOperators(A)
+  ksp.setFromOptions()
+  pc = ksp.getPC()
+  pc.setType('none')
+  pc.setUp()
+  ksp.solve(d,soln)
+  ksp.view()
+  print(ksp.getIterationNumber())
+  print(ksp.getResidualNorm())
+  print(ksp.getConvergedReason())
+  out = np.copy(soln.getArray())
+  #out = out[rev_perm]
+  return out
+
+#G = scipy.sparse.rand(100,100,0.5)
+#m = np.linspace(0,1,100)
+#d = G.dot(m)
+#G = G.tocsr()
+#print(scipy.sparse.linalg.spsolve(G,d))
+#print(jacobi_preconditioned_solve(G,d))
+#quit()
+
+def _jacobi_preconditioned_solve(G,d):
+  #if not scipy.sparse.isspmatrix_csc(G):
+  #  G = scipy.sparse.csc_matrix(G)
 
   # sort G and d using reverse cuthill mckee algorithm
-  perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)
-  rev_perm = np.argsort(perm)
-  G = G[perm,:]
-  G = G[:,perm]
-  d = d[perm]
 
   # form jacobi preconditioner       
   #diag = np.array(G[range(G.shape[0]),range(G.shape[0])])[0]
@@ -42,16 +101,22 @@ def jacobi_preconditioned_solve(G,d):
 
   #M = scipy.sparse.diags(1.0/diag,0)
   #out,status = scipy.sparse.linalg.lgmres(G,d,M=M)
+  modest.tic('solving')
+  #G = G.astype(np.float64) 
+  #d= d.astype(np.float64)
+  #M = scipy.sparse.linalg.spilu(G.tocsc(),drop_tol=1e-8)
+  #pc = scipy.sparse.linalg.LinearOperator(G.shape,M.solve)
   out = scipy.sparse.linalg.spsolve(G,d)
+  modest.toc('solving')
   #if status != 0:
   #  raise ValueError(
   #    'lgmres exited with status %s' % status)
 
   # return to original sorting
-  d = d[rev_perm]
-  out = out[rev_perm]
-  G = G[rev_perm,:]
-  G = G[:,rev_perm]
+  #d = d[rev_perm]
+  #out = out[rev_perm]
+  #G = G[rev_perm,:]
+  #G = G[:,rev_perm]
   return out
 
 # formulate the PDE
@@ -110,9 +175,9 @@ DiffOps = [[coeffs_and_diffs(PDEs[i],u[j],x,mapping=sym2num) for j in range(dim)
 FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
-N = 2000
-Ns = 50
-order = 3
+N = 5000
+Ns = 20
+order = 1
 
 vert = np.array([[0.0,0.0,0.0],
                  [0.0,0.0,1.0],
@@ -131,7 +196,7 @@ smp = np.array([[0,1,4],
                 [0,2,6],
                 [0,4,6],
                 [4,5,7],
-                [4,6,7],
+                [4,7,6],
                 [2,3,7],
                 [2,6,7]])
 
@@ -147,20 +212,40 @@ vert_f = np.array([[0.5001,0.25,0.5],
 smp_f =  np.array([[0,1,2],
                    [0,2,3]])
 
-@normalizer(vert,smp,kind='density',nodes=N)
+@density_normalizer(vert,smp,N)
 def rho(p):
   #out = np.zeros(p.shape[0])
-  #out += 1.0/(1.0 + 10*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
-  return 1.0 + 0*p[:,0]
+  out = 0.00 + 0.5/(1.0 + 1000*np.linalg.norm(p-np.array([0.5,0.5,1.0]),axis=1)**2)
+  return out
 
 scale = np.max(vert) - np.min(vert)
 
 # fault nodes
-nodes_f,norms_f,group_f = rbf.nodegen.surface(rho,vert_f,smp_f)
-nodes_d,norms_d,group_d = rbf.nodegen.volume(rho,vert,smp,groups=grp,
-                                             fix_nodes=nodes_f)
+nodes_f,smpid_f,is_edge_f = rbf.nodegen.surface(rho,vert_f,smp_f)
+
+#mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
+#                     nodes_f[:,2],scale_factor=0.005)
+#mayavi.mlab.show()
+
+simplex_normals = rbf.geometry.simplex_upward_normals(vert_f,smp_f)
+
+norms_f = simplex_normals[smpid_f]
+group_f = np.array(is_edge_f,dtype=int)
+
+nodes_d,smpid_d = rbf.nodegen.volume(rho,vert,smp,
+                                     fix_nodes=nodes_f)
+
+simplex_normals = rbf.geometry.simplex_outward_normals(vert,smp)
+
+norms_d = simplex_normals[smpid_d]
+norms_d[smpid_d<0] = 0
+group_d = np.zeros(nodes_d.shape[0],dtype=int)
+group_d[smpid_d>=0] = 1
+group_d[smpid_d==2] = 2
+group_d[smpid_d==3] = 2
+
 # cut out any fault nodes outside of the domain
-is_inside = boundary_contains(nodes_f,vert,smp)
+is_inside = contains(nodes_f,vert,smp)
 nodes_f = nodes_f[is_inside]
 norms_f = norms_f[is_inside]
 group_f = group_f[is_inside]
@@ -177,9 +262,10 @@ basis_no = rbf.bspline.basis_number(knots_z,2)
 slip[1,:] = rbf.bspline.bspnd(nodes_f[:,[1,2]],(knots_y,knots_z),(0,0),(2,2))
 #slip[1,:] = 1.0
 
-#mayavi.mlab.points3d(nodes_f[:,0],nodes_f[:,1],
-#                     nodes_f[:,2],slip[1,:])
+#mayavi.mlab.points3d(nodes_d[:,0],nodes_d[:,1],
+#                     nodes_d[:,2],scale_factor=0.005)
 #mayavi.mlab.show()
+
 # domain nodes
 
 # split fault nodes into hanging wall and foot wall nodes
@@ -233,9 +319,9 @@ nodes[ix['fault_foot_ghost']] += dx_next_closest[ix['fault_foot_ghost']]*norms[i
 
 N = len(nodes)
 
+modest.tic('buildingG')
 G = [[scipy.sparse.lil_matrix((N,N),dtype=np.float64) for mi in range(dim)] for di in range(dim)]
 data = [np.zeros(N) for mi in range(dim)]
-modest.tic('forming G')
 # This can be parallelized!!!!
 for di in range(dim):
   for mi in range(dim):
@@ -330,6 +416,7 @@ G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
 data = np.concatenate(data)
 G = G.tocsc()
+modest.toc('buildingG')
 
 out = jacobi_preconditioned_solve(G,data)
 out = np.reshape(out,(dim,N))
@@ -338,21 +425,20 @@ out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
 out = out.T
 
 idx = ix['fault_foot'] + ix['fault_hanging'] + ix['interior'] + ix['fixed'] + ix['free']
-modest.toc('forming G')
 
 import matplotlib.pyplot as plt
 plt.quiver(nodes[ix['free'],0],nodes[ix['free'],1],out[ix['free'],0],out[ix['free'],1])
 plt.show()
 
-mayavi.mlab.quiver3d(nodes[idx,0],nodes[idx,1],nodes[idx,2],out[idx,0],out[idx,1],out[idx,2],mode='arrow',color=(0,1,0))
+#mayavi.mlab.quiver3d(nodes[idx,0],nodes[idx,1],nodes[idx,2],out[idx,0],out[idx,1],out[idx,2],mode='arrow',color=(0,1,0))
 
 
-mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.2,color=(1,1,1))
-mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.2,color=(1,0,0))
+#mayavi.mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,opacity=0.2,color=(1,1,1))
+#mayavi.mlab.triangular_mesh(vert_f[:,0],vert_f[:,1],vert_f[:,2],smp_f,opacity=0.2,color=(1,0,0))
 
-mayavi.mlab.show()
+#mayavi.mlab.show()
 logging.basicConfig(level=logging.INFO)
-summary()
+
 
 
 

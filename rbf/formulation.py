@@ -1,8 +1,6 @@
-#!/usr/bin/env python
 import sympy as sp
 import numpy as np
 import logging
-import modest
 logger = logging.getLogger(__name__)
 
 
@@ -10,8 +8,19 @@ class FormulationError(Exception):
   pass
 
 
-def unique(x):
+def make_constant_function(a):
+  ''' 
+  returns the same scalar value, regardles of input
   '''
+  def const(*args,**kwargs):
+    return a
+  # change the name to the scalar value this returns
+  const.__name__ = '%g' % a
+  return const
+
+
+def unique(x):
+  ''' 
   returns unique values of x
   '''
   out = []
@@ -23,7 +32,7 @@ def unique(x):
 
 
 def indices(x,val):
-  '''
+  ''' 
   return indices of x which equal val
   '''
   out = []
@@ -35,7 +44,7 @@ def indices(x,val):
  
 
 def derivative_order(expr):
-  '''
+  ''' 
   checks to see if expr is a Derivative, if it is then returns the 
   base expression and the variables its derivatives are with respect
   to.  If expr is is Not a Derivative then returns (expr,())
@@ -47,7 +56,7 @@ def derivative_order(expr):
 
 
 def symbolic_coeffs_and_diffs(expr,u):
-  '''
+  ''' 
   returns the coefficients for each term containing u or a derivative 
   of u. Also returns the variables that derivatives of u are with 
   respect to
@@ -83,22 +92,15 @@ def symbolic_coeffs_and_diffs(expr,u):
       
     diffs += diff,
 
-  return zip(coeffs,diffs)
+  return coeffs,diffs
   
 
 def rmap(val,mappings):
-  '''
+  ''' 
   recursively map the values in val using the mapping dictionary
   '''
   if not hasattr(val,'__iter__'):
-    try:
-      return mappings[val]
-    except KeyError:
-      logger.warning('cannot map %s, attempting to coerce it to a '
-            'float' % val)
-      print('WARNING: cannot map %s, attempting to coerce it to a '
-            'float' % val)
-      return float(val)
+    return mappings[val]
 
   else: 
     out = []
@@ -109,7 +111,7 @@ def rmap(val,mappings):
 
 
 def reformat_diff(diff,ivars):
-  '''
+  ''' 
   converts diff from a collection of differentiation directions to
   the count for each differentiation direction
   '''
@@ -126,35 +128,30 @@ def reformat_diff(diff,ivars):
 
 
 def function_product(*args):
-  '''
+  ''' 
   takes scalar valued functions and makes a function which returns a
   product of the input functions.  The resulting function passes the
-  same positional and key word arguments to each input function
+  same positional and key word arguments to each input function. 
   '''
   def fprod(*fprod_args,**fprod_kwargs):  
     out = 1.0
     for i in args:
-      if not hasattr(i,'__call__'):
-        out *= i
-      else:
-        out *= i(*fprod_args,**fprod_kwargs)
+      out *= i(*fprod_args,**fprod_kwargs)
     return out
 
   return fprod
 
 
 def function_sum(*args):
-  '''
-  takes a scalar valued functions of one variable and returns 
-  a function which returns a sum of the input functions.    
+  ''' 
+  takes scalar valued functions and makes a function which returns a
+  sum of the input functions.  The resulting function passes the
+  same positional and key word arguments to each input function. 
   '''
   def fsum(*fsum_args,**fsum_kwargs):  
     out = 0.0
     for i in args:
-      if not hasattr(i,'__call__'):
-        out += i
-      else:
-        out += i(*fsum_args,**fsum_kwargs)
+      out += i(*fsum_args,**fsum_kwargs)
     return out
 
   return fsum
@@ -168,9 +165,15 @@ def coeffs_and_diffs(expr,u,ivar,mapping=None):
   if mapping is None:
     mapping = {}
 
+  # the values in mapping can either be scalars or functions. this 
+  # converts them all to functions
+  for k in mapping.keys(): 
+    if not hasattr(mapping[k],'__call__'):
+      mapping[k] = make_constant_function(mapping[k])
+
   coeff_list = []
   diff_list = []
-  for coeff,diff in symbolic_coeffs_and_diffs(expr,u):
+  for coeff,diff in zip(*symbolic_coeffs_and_diffs(expr,u)):
     coeff = function_product(*rmap(coeff,mapping))
     diff = reformat_diff(diff,ivar) 
     coeff_list += [coeff]
@@ -187,17 +190,10 @@ def coeffs_and_diffs(expr,u,ivar,mapping=None):
     # sum up coefficients    
     compressed_coeff_list += [function_sum(*coeffs_with_same_diff)]
     
-  out = zip(compressed_coeff_list,compressed_diff_list)
+  out = compressed_coeff_list,compressed_diff_list
   return out    
 
 
-def evaluate_coeffs_and_diffs(cd,*args,**kwargs):
-  out = []
-  for c,d in cd:
-    c_evaluated = c(*args,**kwargs)
-    # if the coefficient evaluates to zeros then ignore the term
-    if c_evaluated != 0.0:
-      out += (c(*args,**kwargs),d),
-
-  return out
+def evaluate_coeffs(coeffs,*args,**kwargs):
+  return [c(*args,**kwargs) for c in coeffs]
 

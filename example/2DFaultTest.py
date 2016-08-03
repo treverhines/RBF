@@ -5,10 +5,11 @@ import modest
 from rbf.basis import phs3 as basis
 from rbf.integrate import density_normalizer
 from rbf.geometry import contains
-from rbf.fd import diff_weights
+from rbf.weights import rbf_weight
 import rbf.stencil
 from rbf.formulation import coeffs_and_diffs
-from rbf.formulation import evaluate_coeffs
+from rbf.formulation import evaluate_coeffs_and_diffs
+import numpy as np
 import rbf.bspline
 import matplotlib.pyplot as plt
 import matplotlib.cm
@@ -24,12 +25,81 @@ import sys
 import petsc4py
 petsc4py.init(sys.argv)
 from petsc4py import PETSc
-import modest.petsc
 
-def solver(G,d):
-  #return modest.petsc.petsc_solve(G,d,ksp='preonly',pc='lu')
+
+def solver(G,d,init_guess=None):
+  # TO VIEW THE RESIDUALS FOR EACH ITERATION CALL THIS SCRIPT WITH
+  #
+  #  python 2DFaultTest.py -ksp_monitor_true_residual
+  #
+  N = G.shape[0]
+  #G += 10.1*scipy.sparse.eye(N)
   G = G.tocsr()
-  return scipy.sparse.linalg.spsolve(G,d)
+  #print(np.linalg.cond(G.toarray()))
+  G = G.astype(np.float64)
+  d = d.astype(np.float64)
+  A = PETSc.Mat().createAIJ(size=G.shape,csr=(G.indptr,G.indices,G.data)) # instantiate a matrix
+  d = PETSc.Vec().createWithArray(d)
+  #soln = scipy.sparse.linalg.spsolve(G,d)
+  if init_guess is None:
+    soln = np.zeros(G.shape[1]) + 0.0
+  else:
+    soln = init_guess
+  
+  #soln[ix['fault_foot']] = -1.0
+  #soln[ix['fault_hanging']] = 1.0
+  soln = PETSc.Vec().createWithArray(soln)
+
+  #plt.plot(d)
+  #plt.show()
+  ksp = PETSc.KSP()
+  ksp.create()
+  #ksp.monitor_true_residual = True
+  ksp.rtol = 1e-10
+  ksp.atol = 1e-5
+  ksp.max_it = 10000
+  ksp.setType('gmres')
+  #ksp.setRestart(100)
+  #ksp.setInitialGuessNonzero(True)
+  #ksp.setInitialGuessKnoll(True)
+  ksp.setOperators(A)
+  ksp.setFromOptions()
+  pc = ksp.getPC()
+  pc.setType('none')
+  pc.setUp()
+  ksp.solve(d,soln)
+  ksp.view()
+  print(ksp.getIterationNumber())
+  print(ksp.getResidualNorm())
+  print(ksp.getConvergedReason())
+  out = np.copy(soln.getArray())
+  #out = out[rev_perm]
+  return out
+
+def _solver(G,d):
+  if not scipy.sparse.isspmatrix_csc(G):
+    G = scipy.sparse.csc_matrix(G)
+
+  # sort G and d using reverse cuthill mckee algorithm
+  perm = scipy.sparse.csgraph.reverse_cuthill_mckee(G)  
+  rev_perm = np.argsort(perm)
+  G = G[perm,:]
+  G = G[:,perm]
+  d = d[perm]
+
+  # it is not clear whether sorting the matrix helps much
+  modest.tic('solving')
+  #print(np.linalg.cond(G.toarray())) 
+  out = scipy.sparse.linalg.spsolve(G,d,use_umfpack=False)
+  print(modest.toc('solving'))
+
+  # return to original sorting
+  d = d[rev_perm]
+  out = out[rev_perm]
+  G = G[rev_perm,:]
+  G = G[:,rev_perm]
+  return out   
+
 
 # formulate the PDE
 x = sp.symbols('x0:2')
@@ -81,11 +151,11 @@ FreeBCOps = [[coeffs_and_diffs(FreeBCs[i],u[j],x,mapping=sym2num) for j in range
 FixBCOps = [[coeffs_and_diffs(FixBCs[i],u[j],x,mapping=sym2num) for j in range(dim)] for i in range(dim)]
 
 # The number of nodes needed depends on how sharp slip varies on the fault
-N = 2000
-Ns = 10
+N = 1000
+Ns = 8
 # It seems like using the maximum polynomial order is not helpful for
 # this problem. Stick with cubic order polynomials and RBFs 
-order = 1
+order = 0
 
 # domain vertices
 vert = np.array([[-1.0,-1.0],
@@ -204,78 +274,88 @@ def form_Gij(indices):
   di,mi = indices
   G = scipy.sparse.lil_matrix((N,N),dtype=np.float64)
   for i in ix['interior']:
-    coeffs,diffs = DiffOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,i)
-    w = diff_weights(nodes[i],
+    w = rbf_weight(nodes[i],
                    nodes[s[i]],
-                   diffs=diffs,
-                   coeffs=coeffs_eval,
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],i),
                    order=order,
                    basis=basis)
 
     G[i,s[i]] = w
 
   for i in ix['free']:
-    coeffs,diffs = FreeBCOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,i)
-    w = diff_weights(nodes[i],
+    w = rbf_weight(nodes[i],
                    nodes[s[i]],
-                   diffs=diffs,
-                   coeffs=coeffs_eval,
+                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],i),
                    order=order,
                    basis=basis)
 
     G[i,s[i]] = w
 
   for i in ix['fixed']:
-    coeffs,diffs = FixBCOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,i)
-    w = diff_weights(nodes[i],
+    w = rbf_weight(nodes[i],
                    nodes[s[i]],
-                   diffs=diffs,
-                   coeffs=coeffs_eval,
+                   evaluate_coeffs_and_diffs(FixBCOps[di][mi],i),
                    order=order,
                    basis=basis)
 
     G[i,s[i]] = w
 
-  # treat fault nodes as free nodes and the later reorganize the G
-  # matrix so that the fault nodes are forces to be equal
-  for i in ix['fault_hanging']+ix['fault_foot']:
-    coeffs,diffs = FreeBCOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,i)
-    w = diff_weights(nodes[i],
-                   nodes[s[i]],
-                   coeffs=coeffs_eval,
-                   diffs=diffs,
+  # use the hanging wall node indices to impose equal shear tractions 
+  # on either side of the fault. use the foot wall to impose the 
+  # slip boundary condition
+  for itr,hanging_i in enumerate(ix['fault_hanging']):
+    foot_i = ix['fault_foot'][itr]
+    # weights used to compute traction force on hanging wall
+    hanging_w = rbf_weight(nodes[hanging_i],
+                   nodes[s[hanging_i]],
+                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],hanging_i),
                    order=order,
                    basis=basis)
 
-    G[i,s[i]] = w
+    # weights used to compute traction force on foot wall
+    foot_w = rbf_weight(nodes[foot_i],
+                   nodes[s[foot_i]],
+                   evaluate_coeffs_and_diffs(FreeBCOps[di][mi],foot_i),
+                   order=order,
+                   basis=basis)
 
+    # have the hanging wall fault index difference the shear tractions
+    G[hanging_i,s[hanging_i]] = hanging_w
+    G[hanging_i,s[foot_i]] = -foot_w
+
+    # use the foot wall fault index to difference the displacements
+    hanging_w = rbf_weight(nodes[hanging_i],
+                   nodes[s[hanging_i]],
+                   evaluate_coeffs_and_diffs(FixBCOps[di][mi],hanging_i),
+                   order=order,
+                   basis=basis)
+
+    # weights used to compute traction force on foot wall
+    foot_w = rbf_weight(nodes[foot_i],
+                   nodes[s[foot_i]],
+                   evaluate_coeffs_and_diffs(FixBCOps[di][mi],foot_i),
+                   order=order,
+                   basis=basis)
+
+    G[foot_i,s[hanging_i]] = hanging_w
+    G[foot_i,s[foot_i]] = -foot_w
+    
   # use the ghost node rows to enforce the free boundary conditions
   # at the boundary nodes
   for itr,i in enumerate(ix['free_ghost']):
     j = ix['free'][itr]
-    coeffs,diffs = DiffOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,j)
-    w = diff_weights(nodes[j],
+    w = rbf_weight(nodes[j],
                    nodes[s[j]],
-                   coeffs=coeffs_eval,
-                   diffs=diffs,
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
                    order=order,
                    basis=basis)
-
     G[i,s[j]] = w
 
   for itr,i in enumerate(ix['fault_hanging_ghost']):
     j = ix['fault_hanging'][itr]
-    coeffs,diffs = DiffOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,j)
-    w = diff_weights(nodes[j],
+    w = rbf_weight(nodes[j],
                    nodes[s[j]],
-                   diffs=diffs,
-                   coeffs=coeffs_eval,
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
                    order=order,
                    basis=basis)
 
@@ -283,12 +363,9 @@ def form_Gij(indices):
 
   for itr,i in enumerate(ix['fault_foot_ghost']):
     j = ix['fault_foot'][itr]
-    coeffs,diffs = DiffOps[di][mi]
-    coeffs_eval = evaluate_coeffs(coeffs,j)
-    w = diff_weights(nodes[j],
+    w = rbf_weight(nodes[j],
                    nodes[s[j]],
-                   diffs=diffs,
-                   coeffs=coeffs_eval,
+                   evaluate_coeffs_and_diffs(DiffOps[di][mi],j),
                    order=order,
                    basis=basis)
 
@@ -308,35 +385,26 @@ mkl.set_num_threads(mkl.get_max_threads())
 
 G = [[G_flat.pop(0) for i in range(dim)] for j in range(dim)]
 data = [np.zeros(N) for i in range(dim)]    
+data = np.array(data)
+data[:,ix['fault_foot']] = slip
+init_guess = np.zeros((dim,N))
+init_guess[:,ix['fault_foot']] = -0.5*slip
+init_guess[:,ix['fault_hanging']] = 0.5*slip
 
+data = np.concatenate(data)
+init_guess = np.concatenate(init_guess)
 
-# adjust G and d to allow for split nodes
-for di in range(dim):
-  for mi in range(dim):
-    G[di][mi].tocsc()
-    data[di] = (data[di] + 
-                G[di][mi][:,ix['fault_foot']].dot(slip[mi,:]) + 
-                G[di][mi][:,ix['fault_hanging']].dot(-slip[mi,:]))
-
-    G[di][mi][:,ix['fault_foot']] = G[di][mi][:,ix['fault_foot']] + G[di][mi][:,ix['fault_hanging']]
-    G[di][mi][:,ix['fault_hanging']] = 0
-    G[di][mi][ix['fault_foot'],:] = G[di][mi][ix['fault_foot'],:] - G[di][mi][ix['fault_hanging'],:]
-    G[di][mi][ix['fault_hanging'],:] = 0
-
-  G[di][di][ix['fault_hanging'],ix['fault_hanging']] = 1
-  data[di][ix['fault_foot']] = data[di][ix['fault_foot']] - data[di][ix['fault_hanging']]
-  data[di][ix['fault_hanging']] = 0
-
-    
 G = [scipy.sparse.hstack(G[i]) for i in range(dim)]
 G = scipy.sparse.vstack(G)
-data = np.concatenate(data)
+
+#plt.imshow(np.log10(np.abs(G.toarray())))
+#plt.show()
 
 idx_noghost = ix['interior'] + ix['free'] + ix['fixed'] + ix['fault_hanging'] + ix['fault_foot']
-out = solver(G,data)
+out = solver(G,data,init_guess)
 out = np.reshape(out,(dim,N))
-out[:,ix['fault_foot']] = out[:,ix['fault_foot']] - slip
-out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
+#out[:,ix['fault_foot']] = out[:,ix['fault_foot']] - slip
+#out[:,ix['fault_hanging']] = out[:,ix['fault_foot']] + 2*slip
 fig,ax = plt.subplots()
 cs = ax.tripcolor(nodes[idx_noghost,0],
                   nodes[idx_noghost,1],

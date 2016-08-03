@@ -1,0 +1,3 @@
+- Make differential operator class
+- Make a function which builds the stiffness matrix
+- use euler characteristic to check for closedness
