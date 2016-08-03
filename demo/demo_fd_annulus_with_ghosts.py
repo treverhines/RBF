@@ -48,13 +48,13 @@ def make_ghost_nodes(nodes,smpid,idx,vert,smp):
   return ghosts
 
 # stencil size
-S = 15
+S = 20
 # polynomial order
 P = 1
 # basis function
 basis = rbf.basis.phs3
 # number of nodes
-N = 1000
+N = 200
 
 # define the vertices and simplices for cut annulus
 t = np.linspace(0.002*np.pi,1.998*np.pi,100)
@@ -66,7 +66,7 @@ smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 # setting bound_force=True ensures that the edges where the annulus is 
 # cut will have an appropriate number of boundary nodes. This also 
 # makes the function considerably slower
-nodes,smpid = make_nodes(N,vert,smp,itr=100,delta=0.05,bound_force=True)
+nodes,smpid = make_nodes(N,vert,smp,bound_force=True)
 
 # identify nodes associated with the different boundary types
 slit_top, = (smpid==199).nonzero()

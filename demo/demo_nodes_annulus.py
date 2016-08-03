@@ -17,17 +17,10 @@ smp = np.array([np.arange(198),np.roll(np.arange(198),-1)]).T
 # number of nodes
 N = 500
 
-# number of iterations for the node generation algorithm
-itr = 100
-
-# step size scaling factor. default is 0.1. smaller values create more 
-# uniform spacing after sufficiently many iterations
-delta = 0.1
-
 # setting bound_force=True ensures that the edges where the annulus is 
 # cut will have an appropriate number of boundary nodes. This also 
 # makes the function considerably slower
-nodes,smpid = make_nodes(N,vert,smp,itr=itr,delta=delta,bound_force=True)
+nodes,smpid = make_nodes(N,vert,smp,bound_force=True)
 
 plt.plot(nodes[smpid>=0,0],nodes[smpid>=0,1],'bo')
 plt.plot(nodes[smpid==-1,0],nodes[smpid==-1,1],'ko')

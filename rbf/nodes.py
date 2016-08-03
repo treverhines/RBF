@@ -285,7 +285,7 @@ def _repel_stick(free_nodes,vert,smp,rho,
 
 
 def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
-               itr=20,neighbors=10,delta=0.1,
+               itr=100,neighbors=None,delta=0.05,
                sort_nodes=True,bound_force=False):
   ''' 
   Generates nodes within the D-dimensional volume enclosed by the 
@@ -379,11 +379,16 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
     def rho(p):
       return np.ones(p.shape[0])
 
+  if neighbors is None:
+    # number of neighbors defaults to 3 raised to the number of 
+    # spatial dimensions
+    neighbors = 3**vert.shape[1]
+    
   # form bounding box for the domain so that a RNG can produce values
   # that mostly lie within the domain
   lb = np.min(vert,axis=0)
   ub = np.max(vert,axis=0)
-  ndim = vert.ndim
+  ndim = vert.shape[1]
   
   # form Halton sequence generator
   H = rbf.halton.Halton(ndim+1)

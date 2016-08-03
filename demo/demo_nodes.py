@@ -22,16 +22,9 @@ smp = [[0,1],
 # number of nodes
 N = 1000
 
-# number of iterations for the node generation algorithm
-itr = 100
-
-# step size scaling factor. default is 0.1. smaller values create more 
-# uniform spacing after sufficiently many iterations
-delta = 0.1
-
 # generate nodes. nodese is a (N,2) array and smpid is a (N,) 
 # identifying the simplex, if any, that each node is attached to
-nodes1,smpid1 = make_nodes(N,vert,smp,itr=itr,delta=delta)
+nodes1,smpid1 = make_nodes(N,vert,smp)
 
 ### Example 2 
 #####################################################################
@@ -47,8 +40,6 @@ vert = np.array([0.5+radius*np.cos(t),
 smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
                  
 N = 30000
-itr = 20
-delta = 0.1
 
 # make gray scale image
 img = Image.open('Lenna.png')
@@ -65,7 +56,7 @@ def rho(p):
   return 1.0001 - gray[511-p[:,1],p[:,0]]
 
 
-nodes2,smpid2 = make_nodes(N,vert,smp,rho=rho,itr=itr,delta=delta)
+nodes2,smpid2 = make_nodes(N,vert,smp,rho=rho)
 
 ### plot results
 #####################################################################

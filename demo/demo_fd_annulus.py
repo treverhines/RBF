@@ -47,7 +47,7 @@ smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 # setting bound_force=True ensures that the edges where the annulus is 
 # cut will have an appropriate number of boundary nodes. This also 
 # makes the function considerably slower
-nodes,smpid = make_nodes(N,vert,smp,bound_force=True,itr=100,delta=0.05)
+nodes,smpid = make_nodes(N,vert,smp,bound_force=True)
 
 # identify nodes associated with the different boundary types
 slit_top, = (smpid==199).nonzero()
