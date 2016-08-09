@@ -202,7 +202,7 @@ def _repel_bounce(free_nodes,vert,smp,rho,
         bounces += 1
 
     free_nodes = free_nodes_new  
-  
+
   return free_nodes
 
 
@@ -361,10 +361,16 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
 
   Note
   ----
-    It is assumed that *vert* and *smp* define a closed 
-    domain. If this is not the case, the function will run normally 
-    but the nodes will likely be greatly dispersed
+    It is assumed that *vert* and *smp* define a closed domain. If 
+    this is not the case, then it is likely that an error message will 
+    be raised which says "ValueError: No intersection found for 
+    segment ..."
     
+    This function tends to fail when adjacent simplices form a sharp 
+    angle.  The error message raised will be "ValueError: No 
+    intersection found for segment ...".  The only solution is to 
+    taper the angle by adding more simplices
+      
   '''
   max_sample_size = 1000000
 

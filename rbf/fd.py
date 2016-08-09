@@ -12,34 +12,47 @@ logger = logging.getLogger(__name__)
 
 
 def _default_stencil_size(diff=None,diffs=None):
+  ''' 
+  Sets the stencil size equal to (N+1)*D, where N is the largest
+  derivative order and D is the number of spatial dimensions.   
+  '''
   if diffs is not None:
-    max_order = max(sum(d) for d in diffs)
+    max_diff_order = max(sum(d) for d in diffs)
     dim = len(diffs[0])
 
   elif diff is not None:
     # maximum derivative order
-    max_order = sum(diff)
+    max_diff_order = sum(diff)
     dim = len(diff)
     
   else:
-    max_order = 0
+    max_diff_order = 0
     dim = 0
     
-  N = (max_order + 1)**dim
+  N = (max_diff_order + 1)**dim
 
   return N
 
 
-def _default_poly_order(stencil_size,dim):
-  # maximum polynomial order
-  max_order = rbf.poly.maximum_order(stencil_size,dim)
-  if dim == 1:
-    order = max_order
-  else:
-    # use 1 or 0 if the stencil size is not big enough
-    order = min(1,max_order)  
+def _default_poly_order(diff=None,diffs=None):
+  ''' 
+  This sets the polynomial order equal to the largest derivative 
+  order.  This is the smallest polynomial order needed to overcome PHS 
+  stagnation error
+  '''
+  if diffs is not None:
+    max_diff_order = max(sum(d) for d in diffs)
 
-  return order
+  elif diff is not None:
+    # maximum derivative order
+    max_diff_order = sum(diff)
+    
+  else:
+    max_diff_order = 0
+    
+  P = max_diff_order
+
+  return P
 
 
 def _lhs(nodes,centers,eps,powers,basis):
@@ -124,11 +137,7 @@ def weights(x,nodes,diff=None,
  
     order : int, optional
       Use all monomial basis functions which have an order up to and 
-      including this value. The number of monomials needs to be less 
-      than the stencil size. Setting this to 'max' uses the maximum 
-      order allowed by the stencil. If the specified order exceeds the 
-      maximum allowed order then it will be reset to the maximum 
-      allowed order.
+      including this value. 
 
     eps : (N,) array, optional
       shape parameter for each radial basis function. This only makes 
@@ -189,17 +198,14 @@ def weights(x,nodes,diff=None,
   else:
     eps = np.asarray(eps,dtype=float)
 
+  if order is None:
+    order = _default_poly_order(diff=diff,diffs=diffs)
+
+  # the maximum polynomial order is determined by the stencil size. 
+  # This reduces the polynomial order to be less than or equal to the 
+  # maximum allowed
   max_order = rbf.poly.maximum_order(*nodes.shape)
-  if order == 'max':
-    order = max_order
-
-  elif order is None:
-    order = _default_poly_order(*nodes.shape)
-
-  else:  
-    # If order was specified, make sure that it is less than the 
-    # maximum order
-    order = min(order,max_order)
+  order = min(order,max_order)
     
   # this if else block ensures that diffs overwrites diff
   if diffs is not None:
@@ -287,7 +293,7 @@ def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
     diffs = [(0,)*x.shape[0]]
     coeffs = [1.0]
 
-  order = rbf.poly.maximum_order(*nodes.shape)
+  order = nodes.shape[0] - 1
   powers = rbf.poly.monomial_powers(order,1)
   lhs = rbf.poly.mvmonos(nodes,powers,diff=(0,)).T
   rhs = np.zeros(nodes.shape[0])
