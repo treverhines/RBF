@@ -206,7 +206,7 @@ class RBF(object):
     if not (len(diff) == x.shape[1]):
       raise ValueError(
         'diff must have the same length as the number of spatial '
-        'dimensions  in x and c')
+        'dimensions in x and c')
 
     # expand to allow for broadcasting
     x = x[:,None,:]

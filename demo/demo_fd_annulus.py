@@ -24,6 +24,8 @@ from rbf.fd import weight_matrix
 import matplotlib.pyplot as plt
 import scipy.sparse
 from matplotlib import cm
+import logging
+logging.basicConfig(level=logging.DEBUG)
 # set default cmap to viridis if you have it
 if 'viridis' in vars(cm):
   plt.rcParams['image.cmap'] = 'viridis'
@@ -31,7 +33,7 @@ if 'viridis' in vars(cm):
 # stencil size
 S = 20
 # polynomial order
-P = 1
+P = 2
 # basis function
 basis = rbf.basis.phs3
 # number of nodes
@@ -67,7 +69,7 @@ weight_kwargs = {'N':S,'order':P,
 # build lhs
 # enforce laplacian on interior nodes
 A_interior = weight_matrix(nodes[interior],nodes,
-                           diffs=[(2,0),(0,2)],coeffs=[1.0,1.0],
+                           [[2,0],[0,2]],
                            **weight_kwargs)
 
 # find boundary normal vectors
@@ -75,12 +77,12 @@ normals = simplex_outward_normals(vert,smp)[smpid[boundary]]
 n1 = scipy.sparse.diags(normals[:,0],0)
 n2 = scipy.sparse.diags(normals[:,1],0)
 # enforce free surface boundary conditions
-A_boundary = (n1*weight_matrix(nodes[boundary],nodes,diff=(1,0),**weight_kwargs) +
-              n2*weight_matrix(nodes[boundary],nodes,diff=(0,1),**weight_kwargs))
+A_boundary = (n1*weight_matrix(nodes[boundary],nodes,[1,0],**weight_kwargs) +
+              n2*weight_matrix(nodes[boundary],nodes,[0,1],**weight_kwargs))
 
 # These next two matrices are really just identity matrices padded with zeros
-A_slit_top = weight_matrix(nodes[slit_top],nodes,diff=(0,0),**weight_kwargs)
-A_slit_bot = weight_matrix(nodes[slit_bot],nodes,diff=(0,0),**weight_kwargs)
+A_slit_top = weight_matrix(nodes[slit_top],nodes,[0,0],**weight_kwargs)
+A_slit_bot = weight_matrix(nodes[slit_bot],nodes,[0,0],**weight_kwargs)
 
 # stack all the matrices
 A = scipy.sparse.vstack((A_interior,A_boundary,
@@ -97,8 +99,10 @@ d = np.concatenate((d_interior,d_boundary,d_slit_top,d_slit_bot))
 soln = scipy.sparse.linalg.spsolve(A,d)
 
 # interpolate the estimated solution
+#itp = nodes
 itp,dummy = make_nodes(50000,vert,smp,bound_force=False,itr=10)
-soln_itp = weight_matrix(itp,nodes,**weight_kwargs).dot(soln)
+#soln_itp = soln
+soln_itp = weight_matrix(itp,nodes,[0,0],**weight_kwargs).dot(soln)
 
 # calculate the true solution
 true_soln = np.arctan2(itp[:,1],-itp[:,0])/np.pi

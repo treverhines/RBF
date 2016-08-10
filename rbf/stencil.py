@@ -243,6 +243,8 @@ def stencil_network(nodes,N,vert=None,smp=None):
         # always be made with N=0. This is just in case im wrong
         raise err 
         
+      logger.info(
+        'cannot make form a stencil network with stencil size %s. Trying %s instead' % (N,N-1))
       N -= 1
       
     
@@ -369,4 +371,6 @@ def stencil_network_1d(nodes,N,vert=None,smp=None):
         # always be made with N=0. This is just in case im wrong
         raise err 
     
+      logger.info(
+        'cannot make form a stencil network with stencil size %s. Trying %s instead' % (N,N-1))
       N -= 1

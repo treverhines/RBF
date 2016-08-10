@@ -85,16 +85,16 @@ def mvmonos(x,powers,diff=None):
   x = np.asarray(x,dtype=float)
   powers = np.asarray(powers,dtype=int)
   if diff is None:
-    diff = (0,)*x.shape[1]
+    diff = np.zeros(x.shape[1],dtype=int)
   else:
-    diff = tuple(diff)
+    diff = np.asarray(diff,dtype=int)
 
   return _mvmonos(x,powers,diff)
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,tuple diff):
+cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
   ''' 
   cython evaluation of mvmonos
   '''
@@ -200,32 +200,3 @@ def monomial_count(order,dim):
     raise ValueError('polynomial order number must be -1 or greater')
 
   return int(binom(order+dim,dim))
-
-
-@memoize
-def maximum_order(stencil_size,dim):
-  ''' 
-  Returns the maximum polynomial order allowed for the given stencil 
-  size and number of dimensions
-
-  Parameters
-  ----------
-    stencil_size : int
-      number of nodes in the stencil
-
-    dim : int
-      spatial dimensions
-
-  '''
-  if not (stencil_size >= 0):
-    raise ValueError('stencil size must be 0 or greater')
-    
-  if not (dim >= 1):
-    raise ValueError('number of dimensions must be 1 or greater')
-
-  order = -1
-  while (monomial_count(order+1,dim) <= stencil_size):
-    order += 1
-
-  return order  
-

@@ -8,16 +8,17 @@ import rbf.fd
 import rbf.nodes
 import matplotlib.pyplot as plt
 import logging
+import rbf.domain
+
 
 logging.basicConfig(level=logging.DEBUG)
 
-Nt = 10000
+Nt = 5000
 
 # RBF-FD FREE PARAMETERS
-Ns = (2 + 3)**2
-Ns = 9
+Ns = None
 basis = rbf.basis.phs3
-order = 2
+order = None
 
 # define the domain
 t = np.linspace(0.0,2*np.pi,100)
@@ -25,13 +26,14 @@ x = np.cos(t)
 y = np.sin(t)
 vert = np.array([x,y]).T
 smp = np.array([np.arange(100),np.roll(np.arange(100),-1)]).T
-nodes = rbf.nodes.make_nodes(Nt,vert,smp,itr=0)[0]
+nodes,sid = rbf.nodes.make_nodes(Nt,vert,smp,itr=100)
 
 # define the function
 x,y = sympy.symbols('x,y')
 r = sympy.sqrt((x-0.0)**2 + y**2)
-u = sympy.exp(-r**2)
+#u = sympy.exp(-r**2)
 #u = 1.0/(1 + r**2)
+u = sympy.sin(5*x)*sympy.cos(5*y)
 udx = u.diff(x,x)
 ufunc = sympy.lambdify((x,y),u,'numpy')
 udxfunc = sympy.lambdify((x,y),udx,'numpy')
@@ -47,12 +49,14 @@ ax2.set_aspect('equal')
 p = ax2.tripcolor(nodes[:,0],nodes[:,1],valdx)
 fig2.colorbar(p)
 
-D = rbf.fd.diff_matrix(nodes,diff=(2,0),N=Ns,basis=basis,order=order)
+D = rbf.fd.diff_matrix(nodes,(2,0),N=Ns,basis=basis,order=order)
 valdx_est = D.dot(val)
-fig2,ax2 = plt.subplots()
-ax2.set_aspect('equal')  
-p = ax2.tripcolor(nodes[:,0],nodes[:,1],np.log10(np.abs(valdx-valdx_est)))
-#p = ax2.tripcolor(nodes[:,0],nodes[:,1],valdx_est)
-fig2.colorbar(p)
+fig3,ax3 = plt.subplots()
+ax3.set_aspect('equal')  
+max_err = np.log10(np.abs(valdx-valdx_est))
+print(np.max(max_err[sid==-1]))
+#p = ax3.scatter(nodes[:,0],nodes[:,1],c=np.log10(np.abs(valdx-valdx_est)),edgecolor='none')
+p = ax3.tripcolor(nodes[:,0],nodes[:,1],valdx_est)
+fig3.colorbar(p)
 plt.show()  
 quit()

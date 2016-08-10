@@ -73,7 +73,7 @@ def check_node_spacing(rho,nodes,tol=0.25):
       function
 
   '''
-  logger.info('verifying node spacing')  
+  logger.debug('verifying node spacing')  
   dim = nodes.shape[1]
   keep_indices = np.arange(nodes.shape[0],dtype=int)
   # minimum distance allowed between nodes
@@ -81,7 +81,7 @@ def check_node_spacing(rho,nodes,tol=0.25):
   s,dx = rbf.stencil.nearest(nodes,nodes,2)
   while np.any(dx[:,1] < mindist):
     toss = np.argmin(dx[:,1]/mindist)
-    logger.info('removing node %s for being too close to adjacent node' 
+    logger.debug('removing node %s for being too close to adjacent node' 
                 % keep_indices[toss])
     nodes = np.delete(nodes,toss,axis=0)
     keep_indices = np.delete(keep_indices,toss,axis=0)
@@ -443,18 +443,18 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
     # append to collection of accepted nodes
     nodes = np.vstack((nodes,new_nodes))
 
-    logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
+    logger.debug('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
 
   nodes = nodes[:N]
 
   # use a minimum energy algorithm to spread out the nodes
-  logger.info('repelling nodes with boundary bouncing') 
+  logger.debug('repelling nodes with boundary bouncing') 
   nodes = _repel_bounce(nodes,vert,smp,rho,
                         fix_nodes,itr,neighbors,delta,3,
                         bound_force)
 
-  logger.info('repelling nodes with boundary sticking') 
+  logger.debug('repelling nodes with boundary sticking') 
   nodes,smpid = _repel_stick(nodes,vert,smp,rho,
                              fix_nodes,itr,neighbors,delta,
                              bound_force)

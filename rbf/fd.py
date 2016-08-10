@@ -10,87 +10,92 @@ import scipy.sparse
 import logging
 logger = logging.getLogger(__name__)
 
+def _reshape_diffs(diffs):
+  ''' 
+  turns diffs into a 2D array
+  '''
+  diffs = np.asarray(diffs)
+  if diffs.ndim > 2:
+    raise ValueError('diffs can only be a 1 or 2 dimensional array')
+  D = diffs.shape[-1]
+  out = diffs.reshape((-1,D))
+  return out
+  
 
-def _default_stencil_size(diff=None,diffs=None):
+def _default_stencil_size(diffs):
   ''' 
   Sets the stencil size equal to (N+1)*D, where N is the largest
   derivative order and D is the number of spatial dimensions.   
   '''
-  if diffs is not None:
-    max_diff_order = max(sum(d) for d in diffs)
-    dim = len(diffs[0])
-
-  elif diff is not None:
-    # maximum derivative order
-    max_diff_order = sum(diff)
-    dim = len(diff)
-    
-  else:
-    max_diff_order = 0
-    dim = 0
-    
+  max_diff_order = max(sum(d) for d in diffs)
+  dim = len(diffs[0])
   N = (max_diff_order + 1)**dim
-
   return N
 
 
-def _default_poly_order(diff=None,diffs=None):
+def _default_poly_order(diffs):
   ''' 
   This sets the polynomial order equal to the largest derivative 
   order.  This is the smallest polynomial order needed to overcome PHS 
   stagnation error
   '''
-  if diffs is not None:
-    max_diff_order = max(sum(d) for d in diffs)
-
-  elif diff is not None:
-    # maximum derivative order
-    max_diff_order = sum(diff)
-    
-  else:
-    max_diff_order = 0
-    
-  P = max_diff_order
-
+  P = max(sum(d) for d in diffs)
   return P
 
 
-def _lhs(nodes,centers,eps,powers,basis):
+def _max_poly_order(stencil_size,dim):
+  ''' 
+  Returns the maximum polynomial order allowed for the given stencil 
+  size and number of dimensions
+  '''
+  if not (stencil_size >= 0):
+    raise ValueError('stencil size must be 0 or greater')
+
+  if not (dim >= 1):
+    raise ValueError('number of dimensions must be 1 or greater')
+
+  order = -1
+  while (rbf.poly.monomial_count(order+1,dim) <= stencil_size):
+    order += 1
+
+  return order
+
+
+def _lhs(nodes,eps,powers,basis):
   ''' 
   Returns the transposed RBF alternant matrix will added polynomial 
   terms and constraints
   '''
-  # number of centers and dimensions
+  # number of nodes and dimensions
   Ns,Ndim = nodes.shape
   # number of monomial terms  
   Np = powers.shape[0]
   # deriviative orders
   diff = (0,)*Ndim
   A = np.zeros((Ns+Np,Ns+Np))
-  A[:Ns,:Ns] = basis(nodes,centers,eps=eps,diff=diff).T
+  A[:Ns,:Ns] = basis(nodes,nodes,eps=eps,diff=diff).T
   Ap = rbf.poly.mvmonos(nodes,powers,diff=diff)
   A[Ns:,:Ns] = Ap.T
   A[:Ns,Ns:] = Ap
   return A
 
 
-def _rhs(x,centers,eps,powers,diff,basis): 
+def _rhs(x,nodes,eps,powers,diff,basis): 
   ''' 
   Returns the differentiated RBF and polynomial terms evaluated at x
   '''
   x = x[None,:]
-  # number of centers and dimensions
-  Ns,Ndim = centers.shape
+  # number of nodes and dimensions
+  Ns,Ndim = nodes.shape
   # number of monomial terms
   Np = powers.shape[0]
   d = np.empty(Ns+Np)
-  d[:Ns] = basis(x,centers,eps,diff=diff)[0,:]
+  d[:Ns] = basis(x,nodes,eps,diff=diff)[0,:]
   d[Ns:] = rbf.poly.mvmonos(x,powers,diff=diff)[0,:]
   return d
 
 
-def weights(x,nodes,diff=None,
-            diffs=None,coeffs=None,centers=None,
+def weights(x,nodes,diffs,coeffs=None,
             basis=rbf.basis.phs3,order=None,
             eps=None):
   ''' 
@@ -108,36 +113,28 @@ def weights(x,nodes,diff=None,
     nodes : (N,D) array
       observation points
 
-    diff :(D,) int array, optional
-      derivative orders for each spatial variable. This can instead be 
-      specified through the diffs and coeffs arguments, which is more 
-      efficient when approximating a differential operator with 
-      multiple terms. If neither diff or diffs are provided then the 
-      resulting weights will approximate the undifferentiated function 
-      at x (i.e. diff=(0,)*D).
-
-    diffs : (K,D) int array, optional
-      derivative orders for each spatial variable for each term in a 
-      differential operator. Overwrites diff if it is provided. If 
-      neither diff or diffs are provided then the derivative order is 
-      zero for all directions.
+    diffs : (D,) int array or (K,D) int array 
+      derivative orders for each spatial variable. For example [2,0] 
+      indicates that the weights should approximate the second 
+      derivative along the x axis in two-dimensional space.  diffs can 
+      also be a (K,D) array, where each (D,) sub-array is a term in a 
+      differential operator. For example the two-dimensional Laplacian 
+      can be represented as [[2,0],[0,2]].  
 
     coeffs : (K,) array, optional 
-      list of coefficients for each derivative in diffs. does nothing 
-      if diffs is not specified
+      Coefficients for each term in the differential operator 
+      specified with *diffs*.  Defaults to an array of ones. If diffs 
+      was specified as a (D,) array then coeffs should be a length 1 
+      array.
 
-    centers : (N,D) array, optional
-      centers of each radial basis function. If not specified, then 
-      *nodes* will be used as the centers. This is often used when 
-      trying out exotic ways of imposing boundary conditions.
-   
     basis : rbf.basis.RBF, optional
-      radial basis function to use. Select from those available 
-      in rbf.basis or create your own.
+      Type of radial basis function. Select from those available in 
+      rbf.basis or create your own.
  
     order : int, optional
-      Use all monomial basis functions which have an order up to and 
-      including this value. 
+      Order of the added monomials. This defaults to the highest 
+      derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
+      order is set to 2. 
 
     eps : (N,) array, optional
       shape parameter for each radial basis function. This only makes 
@@ -187,70 +184,54 @@ def weights(x,nodes,diff=None,
   '''
   x = np.asarray(x,dtype=float)
   nodes = np.asarray(nodes,dtype=float)
+  diffs = _reshape_diffs(diffs)
+  # stencil size and number of dimensions
+  N,D = nodes.shape
 
-  if centers is None:
-    centers = nodes
+  if coeffs is None:
+    coeffs = np.ones(diffs.shape[0],dtype=float)
   else:
-    centers = np.asarray(centers,dtype=float)
-
+    coeffs = np.asarray(coeffs)
+    if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
+      raise ValueError('coeffs and diffs have incompatible shapes')
+      
   if eps is None:
-    eps = np.ones(centers.shape[0])
+    eps = np.ones(N)
   else:
     eps = np.asarray(eps,dtype=float)
 
   if order is None:
-    order = _default_poly_order(diff=diff,diffs=diffs)
+    order = _default_poly_order(diffs)
 
   # the maximum polynomial order is determined by the stencil size. 
   # This reduces the polynomial order to be less than or equal to the 
   # maximum allowed
-  max_order = rbf.poly.maximum_order(*nodes.shape)
-  order = min(order,max_order)
+  max_order = _max_poly_order(N,D)
+  if order > max_order:
+    logger.info(
+      'Polynomial order is too high for the stencil size. '
+      'Decreasing to the maximum allowable polynomial order')
+    order = max_order
     
-  # this if else block ensures that diffs overwrites diff
-  if diffs is not None:
-    diffs = [tuple(d) for d in diffs]
-    if coeffs is None:
-      raise ValueError('coeffs must be provided along with diffs')
-     
-    if len(coeffs) != len(diffs):
-      raise ValueError('length of coeffs must equal length of diffs')
-
-  elif diff is not None:
-    diffs = [tuple(diff)]
-    coeffs = [1.0]
-    
-  else:
-    diffs = [(0,)*x.shape[0]]
-    coeffs = [1.0]
-    
-  powers = rbf.poly.monomial_powers(order,nodes.shape[1])
-  # this check should be removed now that I am forcing the order to be 
-  # less than or equal to the max
-  if powers.shape[0] > nodes.shape[0]:
-    raise ValueError(
-      'the number of monomials exceeds the number of RBFs for the '
-      'stencil. Lower the polynomial order or ' 
-      'increase the stencil size')
-    
+  powers = rbf.poly.monomial_powers(order,D)
   # left hand side
-  lhs = _lhs(nodes,centers,eps,powers,basis)
-  rhs = np.zeros(centers.shape[0] + powers.shape[0])
+  lhs = _lhs(nodes,eps,powers,basis)
+  rhs = np.zeros(nodes.shape[0] + powers.shape[0])
   for c,d in zip(coeffs,diffs):
-    rhs += c*_rhs(x,centers,eps,powers,d,basis)
+    rhs += c*_rhs(x,nodes,eps,powers,d,basis)
 
   try:
     out = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
   except np.linalg.LinAlgError:
      raise np.linalg.LinAlgError(
-       'cannot compute RBF-FD weight for point %s. Make sure that the '
+       'Cannot compute RBF-FD weight for point %s. Make sure that the '
        'stencil meets the conditions for non-singularity. This error '
        'may also be due to numerically flat basis functions' % x)
 
   return out
 
 
-def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
+def poly_weights(x,nodes,diffs,coeffs=None):
   ''' 
   Returns the traditional 1-D finite difference weights derived 
   from polynomial expansion. The input must have one spatial dimension.
@@ -261,42 +242,29 @@ def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
 
     nodes : (N,1) array
 
-    diff : (1,) int array, optional 
+    diffs : (...,1) int array, optional
 
-    diffs : (N,1) int array, optional
-
-    coeffs : (N,) array, optional
+    coeffs : (...,) array, optional
         
   '''
   x = np.asarray(x,dtype=float)
   nodes = np.asarray(nodes,dtype=float)
-
-  if x.shape[0] != 1:
-    raise ValueError('x must have one spatial dimension to compute a poly-FD weight')
-
-  if nodes.shape[1] != 1:
+  diffs = _reshape_diffs(diffs)
+  N,D = nodes.shape
+  if D != 1:
     raise ValueError('nodes must have one spatial dimension to compute a poly-FD weight')
     
-  if diffs is not None:
-    diffs = [tuple(d) for d in diffs]
-    if coeffs is None:
-      raise ValueError('coeffs must be provided along with diffs')
-     
-    if len(coeffs) != len(diffs):
-      raise ValueError('length of coeffs must equal length of diffs')
-
-  elif diff is not None:
-    diffs = [tuple(diff)]
-    coeffs = [1.0]
-    
+  if coeffs is None:
+    coeffs = np.ones(diffs.shape[0],dtype=float)
   else:
-    diffs = [(0,)*x.shape[0]]
-    coeffs = [1.0]
+    coeffs = np.asarray(coeffs)
+    if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
+      raise ValueError('coeffs and diffs have incompatible shapes')
 
-  order = nodes.shape[0] - 1
+  order = N - 1
   powers = rbf.poly.monomial_powers(order,1)
-  lhs = rbf.poly.mvmonos(nodes,powers,diff=(0,)).T
-  rhs = np.zeros(nodes.shape[0])
+  lhs = rbf.poly.mvmonos(nodes,powers).T
+  rhs = np.zeros(N)
   for c,d in zip(coeffs,diffs):
     rhs += c*rbf.poly.mvmonos(x[None,:],powers,diff=d)[0,:]
   
@@ -311,9 +279,9 @@ def poly_weights(x,nodes,diff=None,diffs=None,coeffs=None):
   return out
 
 
-def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
+def weight_matrix(x,nodes,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
-                  N=None,vert=None,smp=None):
+                  eps=None,N=None,vert=None,smp=None):
   ''' 
   Returns a weight matrix which maps a functions values at *nodes* to 
   estimates of that functions derivative at *x*.  The weight matrix is 
@@ -324,35 +292,37 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
     x : (N,D) array
       estimation points
 
-    nodes : (N,D) array
+    nodes : (M,D) array
       observation points
 
-    diff :(D,) int array, optional
-      derivative orders for each spatial variable. This can instead be 
-      specified through the diffs and coeffs arguments, which is more 
-      efficient when approximating a differential operator with 
-      multiple terms. If neither diff or diffs are provided then the 
-      resulting weights will approximate the undifferentiated function 
-      at x (i.e. diff=(0,)*D).
-
-    diffs : (K,D) int array, optional
-      derivative orders for each spatial variable for each term in a 
-      differential operator. Overwrites diff if it is provided. If 
-      neither diff or diffs are provided then the derivative order is 
-      zero for all directions.
+    diffs : (D,) int array or (K,D) int array 
+      derivative orders for each spatial variable. For example [2,0] 
+      indicates that the weights should approximate the second 
+      derivative along the x axis in two-dimensional space.  diffs can 
+      also be a (K,D) array, where each (D,) sub-array is a term in a 
+      differential operator. For example the two-dimensional Laplacian 
+      can be represented as [[2,0],[0,2]].  
 
     coeffs : (K,) array, optional 
-      list of coefficients for each derivative in diffs. does nothing 
-      if diffs is not specified
+      Coefficients for each term in the differential operator 
+      specified with *diffs*.  Defaults to an array of ones. If diffs 
+      was specified as a (D,) array then coeffs should be a length 1 
+      array.
 
     basis : rbf.basis.RBF, optional
-      radial basis function to use. Select from those available 
-      in rbf.basis or create your own.
+      Type of radial basis function. Select from those available in 
+      rbf.basis or create your own.
  
     order : int, optional
-      Use all monomial basis functions which have an order up to and 
-      including this value. Set this to 'max' to use as many monomials 
-      as possible.
+      Order of the added monomials. This defaults to the highest 
+      derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
+      order is set to 2. 
+
+    eps : (M,) array, optional
+      shape parameter for each radial basis function. This only makes 
+      a difference when using RBFs that are not scale invariant.  All 
+      the predefined RBFs except for the odd order polyharmonic 
+      splines are not scale invariant.
 
     N : int, optional
       stencil size
@@ -372,7 +342,7 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
     # create a second order differentiation matrix in one-dimensional 
     # space
     >>> x = np.arange(4.0)[:,None]
-    >>> W = weight_matrix(x,x,diff=(2,))
+    >>> W = weight_matrix(x,x,(2,))
     >>> W.toarray()
 
     array([[ 1., -2.,  1.,  0.],
@@ -381,20 +351,22 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
            [ 0.,  1., -2.,  1.]])
                          
   '''
+  logger.debug('building RBF-FD weight matrix...')
   x = np.asarray(x)
   nodes = np.asarray(nodes)
+  diffs = _reshape_diffs(diffs)
   
   if N is None:
-    N = _default_stencil_size(diff=diff,diffs=diffs)
+    N = _default_stencil_size(diffs)
     
-  sn,dist = rbf.stencil.nearest(x,nodes,N,vert,smp)
+  sn,dist = rbf.stencil.nearest(x,nodes,N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
 
   for i,si in enumerate(sn):
-    data[i,:] = weights(x[i],nodes[si],diff=diff,
-                        diffs=diffs,coeffs=coeffs,
+    data[i,:] = weights(x[i],nodes[si],diffs,
+                        coeffs=coeffs,eps=eps,
                         basis=basis,order=order)
 
   rows = np.repeat(range(data.shape[0]),data.shape[1])
@@ -402,13 +374,13 @@ def weight_matrix(x,nodes,diff=None,diffs=None,coeffs=None,
   data = data.ravel()
   size = x.shape[0],nodes.shape[0]
   L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
-
+  logger.debug('done')
   return L
                 
 
-def diff_matrix(x,diff=None,diffs=None,coeffs=None,
+def diff_matrix(x,diffs,coeffs=None,
                 basis=rbf.basis.phs3,order=None,
-                N=None,vert=None,smp=None):
+                eps=None,N=None,vert=None,smp=None):
   ''' 
   creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. The 
@@ -419,37 +391,37 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
     x : (M,D) array
       observation points
 
-    diff :(D,) int array, optional
-      derivative orders for each spatial variable. This can instead be 
-      specified through the diffs and coeffs arguments, which is more 
-      efficient when approximating a differential operator with 
-      multiple terms. If neither diff or diffs are provided then the 
-      resulting weights will approximate the undifferentiated function 
-      at x (i.e. diff=(0,)*D).
-
-    diffs : (K,D) int array, optional
-      derivative orders for each spatial variable for each term in a 
-      differential operator. Overwrites diff if it is provided. If 
-      neither diff or diffs are provided then the derivative order is 
-      zero for all directions.
+    diffs : (D,) int array or (K,D) int array 
+      derivative orders for each spatial variable. For example [2,0] 
+      indicates that the weights should approximate the second 
+      derivative along the x axis in two-dimensional space.  diffs can 
+      also be a (K,D) array, where each (D,) sub-array is a term in a 
+      differential operator. For example the two-dimensional Laplacian 
+      can be represented as [[2,0],[0,2]].  
 
     coeffs : (K,) array, optional 
-      list of coefficients for each derivative in diffs. does nothing 
-      if diffs is not specified
-   
+      Coefficients for each term in the differential operator 
+      specified with *diffs*.  Defaults to an array of ones. If diffs 
+      was specified as a (D,) array then coeffs should be a length 1 
+      array.
+
     basis : rbf.basis.RBF, optional
-      radial basis function to use. Select from those available 
-      in rbf.basis or create your own.
+      Type of radial basis function. Select from those available in 
+      rbf.basis or create your own.
  
     order : int, optional
-      Use all monomial basis functions which have an order up to and 
-      including this value. Set this to 'max' to use as many monomials 
-      as possible. 
+      Order of the added monomials. This defaults to the highest 
+      derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
+      order is set to 2. 
+
+    eps : (M,) array, optional
+      shape parameter for each radial basis function. This only makes 
+      a difference when using RBFs that are not scale invariant.  All 
+      the predefined RBFs except for the odd order polyharmonic 
+      splines are not scale invariant.
 
     N : int, optional
-      stencil size. If N neighbors cannot be found, then incrementally 
-      smaller values of N are tested until a stencil network can be 
-      formed.
+      stencil size
     
     vert : (P,D) array, optional
       verticies of boundaries which stencils cannot cross
@@ -466,7 +438,7 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
     # create a second order differentiation matrix in one-dimensional 
     # space
     >>> x = np.arange(4.0)[:,None]
-    >>> diff_mat = diff_matrix(x,diff=(2,))
+    >>> diff_mat = diff_matrix(x,(2,))
     >>> diff_mat.toarray()
 
     array([[ 1., -2.,  1.,  0.],
@@ -475,19 +447,21 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
            [ 0.,  1., -2.,  1.]])
                          
   '''
+  logger.debug('building RBF-FD differentiation matrix...')
   x = np.asarray(x)
+  diffs = _reshape_diffs(diffs)
   
   if N is None:
-    N = _default_stencil_size(diff=diff,diffs=diffs)
+    N = _default_stencil_size(diffs)
     
-  sn = rbf.stencil.stencil_network(x,N,vert,smp)
+  sn = rbf.stencil.stencil_network(x,N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
 
   for i,si in enumerate(sn):
-    data[i,:] = weights(x[i],x[si],diff=diff,
-                        diffs=diffs,coeffs=coeffs,
+    data[i,:] = weights(x[i],x[si],diffs,
+                        coeffs=coeffs,eps=eps,
                         basis=basis,order=order)
 
   rows = np.repeat(range(data.shape[0]),data.shape[1])
@@ -495,10 +469,11 @@ def diff_matrix(x,diff=None,diffs=None,coeffs=None,
   data = data.ravel()
   size = x.shape[0],x.shape[0]
   L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
+  logger.debug('done')
   return L
 
 
-def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
+def poly_diff_matrix(x,diffs,coeffs=None,
                      N=None,vert=None,smp=None):
   ''' 
   creates a differentiation matrix which approximates a functions 
@@ -512,23 +487,19 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
     x : (M,D) array
       observation points
           
-    diff :(D,) int array, optional
-      derivative orders for each spatial variable. This can instead be 
-      specified through the diffs and coeffs arguments, which is more 
-      efficient when approximating a differential operator with 
-      multiple terms. If neither diff or diffs are provided then the 
-      resulting weights will approximate the undifferentiated function 
-      at x (i.e. diff=(0,)*D).
-
-    diffs : (K,D) int array, optional
-      derivative orders for each spatial variable for each term in a 
-      differential operator. Overwrites diff if it is provided. If 
-      neither diff or diffs are provided then the derivative order is 
-      zero for all directions.
+    diffs : (D,) int array or (K,D) int array 
+      derivative orders for each spatial variable. For example [2,0] 
+      indicates that the weights should approximate the second 
+      derivative along the x axis in two-dimensional space.  diffs can 
+      also be a (K,D) array, where each (D,) sub-array is a term in a 
+      differential operator. For example the two-dimensional Laplacian 
+      can be represented as [[2,0],[0,2]].  
 
     coeffs : (K,) array, optional 
-      list of coefficients for each derivative in diffs. does nothing 
-      if diffs is not specified
+      Coefficients for each term in the differential operator 
+      specified with *diffs*.  Defaults to an array of ones. If diffs 
+      was specified as a (D,) array then coeffs should be a length 1 
+      array.
 
     N : int, optional
       stencil size. If N neighbors cannot be found, then incrementally 
@@ -550,7 +521,7 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
     # create a second order differentiation matrix in one-dimensional 
     # space
     >>> x = np.arange(4.0)[:,None]
-    >>> diff_mat = poly_diff_matrix(x,diff=(2,))
+    >>> diff_mat = poly_diff_matrix(x,(2,))
     >>> diff_mat.toarray()
 
     array([[ 1., -2.,  1.,  0.],
@@ -559,25 +530,26 @@ def poly_diff_matrix(x,diff=None,diffs=None,coeffs=None,
            [ 0.,  1., -2.,  1.]])
 
   '''
+  logger.debug('building polynomial differentiation matrix...')
   x = np.asarray(x) 
+  diffs = _reshape_diffs(diffs)
 
   if N is None:
-    N = _default_stencil_size(diff=diff,diffs=diffs)
+    N = _default_stencil_size(diffs)
     
   sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
   for i,si in enumerate(sn):
-    data[i,:] = poly_weights(x[i],x[si],diff=diff,
-                             diffs=diffs,coeffs=coeffs)
+    data[i,:] = poly_weights(x[i],x[si],diffs,coeffs=coeffs)
     
   rows = np.repeat(range(data.shape[0]),data.shape[1])
   cols = sn.ravel()
   data = data.ravel()
   size = x.shape[0],x.shape[0]
   L = scipy.sparse.csr_matrix((data,(rows,cols)),size)
-
+  logger.debug('done')
   return L
 
 
