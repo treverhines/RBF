@@ -71,7 +71,7 @@ def _lhs(nodes,eps,powers,basis):
   # number of monomial terms  
   Np = powers.shape[0]
   # deriviative orders
-  diff = (0,)*Ndim
+  diff = np.zeros(Ndim,dtype=int)
   A = np.zeros((Ns+Np,Ns+Np))
   A[:Ns,:Ns] = basis(nodes,nodes,eps=eps,diff=diff).T
   Ap = rbf.poly.mvmonos(nodes,powers,diff=diff)
@@ -221,7 +221,7 @@ def weights(x,nodes,diffs,coeffs=None,
     rhs += c*_rhs(x,nodes,eps,powers,d,basis)
 
   try:
-    out = np.linalg.solve(lhs,rhs)[:nodes.shape[0]]
+    out = np.linalg.solve(lhs,rhs)[:N]
   except np.linalg.LinAlgError:
      raise np.linalg.LinAlgError(
        'Cannot compute RBF-FD weight for point %s. Make sure that the '

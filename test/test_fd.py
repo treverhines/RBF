@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
     nodes = np.array([[1.0],[2.0]])
     diff = (0,)
     w_true = np.array([1.0,0.0])
-    w = rbf.fd.poly_weights(x,nodes,diff=diff)
+    w = rbf.fd.poly_weights(x,nodes,diff)
     self.assertTrue(np.all(w==w_true))
 
   def test_poly_weight_diff1(self):
@@ -35,14 +35,14 @@ class Test(unittest.TestCase):
     nodes = np.array([[1.0],[2.0]])
     diff = (1,)
     w_true = np.array([-1.0,1.0])
-    w = rbf.fd.poly_weights(x,nodes,diff=diff)
+    w = rbf.fd.poly_weights(x,nodes,diff)
     self.assertTrue(np.all(w==w_true))
 
     x = np.array([1.0])
     nodes = np.array([[0.0],[1.0],[2.0]])
     diff = (1,)
     w_true = np.array([-0.5,0.0,0.5])
-    w = rbf.fd.poly_weights(x,nodes,diff=diff)
+    w = rbf.fd.poly_weights(x,nodes,diff)
     self.assertTrue(np.all(w==w_true))
 
   def test_poly_weight_diff2(self):
@@ -50,7 +50,7 @@ class Test(unittest.TestCase):
     nodes = np.array([[0.0],[1.0],[2.0]])
     diff = (2,)
     w_true = np.array([1.0,-2.0,1.0])
-    w = rbf.fd.poly_weights(x,nodes,diff=diff)
+    w = rbf.fd.poly_weights(x,nodes,diff)
     self.assertTrue(np.all(w==w_true))
 
   def test_1d_rbf_weight_diff0(self):
@@ -58,30 +58,30 @@ class Test(unittest.TestCase):
     nodes = np.array([[0.2],[1.2],[2.1]])
 
     diff = (0,)
-    w1 = rbf.fd.poly_weights(x,nodes,diff=diff)
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs1)
+    w1 = rbf.fd.poly_weights(x,nodes,diff)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs1,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs2)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs2,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs3)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs3,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs4)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs4,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs5)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs5,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs6)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs6,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs7)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs7,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs8)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs8,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.ga)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.ga,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.iq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.iq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.imq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.imq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.mq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.mq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
 
   def test_1d_rbf_weight_diff1(self):
@@ -89,61 +89,61 @@ class Test(unittest.TestCase):
     nodes = np.array([[0.2],[1.2],[2.1]])
 
     diff = (1,)
-    w1 = rbf.fd.poly_weights(x,nodes,diff=diff)
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs1)
+    w1 = rbf.fd.poly_weights(x,nodes,diff)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs1,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs2)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs2,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs3)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs3,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs4)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs4,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs5)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs5,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs6)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs6,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs7)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs7,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs8)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs8,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.ga)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.ga,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.iq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.iq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.imq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.imq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.mq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.mq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
 
-  def test_1d_rbf_weight_diff1(self):
+  def test_1d_rbf_weight_diff2(self):
     x = np.array([1.5])
     nodes = np.array([[0.2],[1.2],[2.1]])
 
     diff = (2,)
-    w1 = rbf.fd.poly_weights(x,nodes,diff=diff)
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs1)
+    w1 = rbf.fd.poly_weights(x,nodes,diff)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs1,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs2)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs2,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs3)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs3,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs4)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs4,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs5)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs5,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs6)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs6,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs7)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs7,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.phs8)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.phs8,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.ga)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.ga,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.iq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.iq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.imq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.imq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
-    w2 = rbf.fd.weights(x,nodes,diff=diff,order='max',basis=rbf.basis.mq)
+    w2 = rbf.fd.weights(x,nodes,diff,basis=rbf.basis.mq,order=2)
     self.assertTrue(np.all(np.isclose(w1,w2)))
   
   def test_2d_rbf_weight_diffx1(self):
@@ -155,40 +155,40 @@ class Test(unittest.TestCase):
                       [0.0,1.0]])
 
     u = np.array([0.0,2.0,3.0])
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs1,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs1)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs2,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs2)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs3,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs3)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs4,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs4)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs5,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs5,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs6,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs7,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs7)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(1,0),
-                             basis=rbf.basis.phs8,order=1)
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
 
@@ -201,40 +201,40 @@ class Test(unittest.TestCase):
                       [0.0,1.0]])
 
     u = np.array([0.0,2.0,3.0])
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs1,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs1)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs2,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs2)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs3,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs3)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs4,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs4)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs5,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs5,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs6,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs7,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs7)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,diff=(0,1),
-                             basis=rbf.basis.phs8,order=1)
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),3.0))
   
   def test_2d_rbf_weight_diffx2(self):
@@ -243,43 +243,42 @@ class Test(unittest.TestCase):
     x = np.array([0.5,0.5])
     H = rbf.halton.Halton(2)
     nodes = H(500)
-    centers = H(500)
     
     u = test_func2d(nodes)
     diff_true = test_func2d_diffx(x)
 
     # estimate derivates at x 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs1,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs1)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=0.2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs2,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs2)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs3,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs3)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs4,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs4)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs5,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs5)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs6,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs6)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
     
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs7,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs7)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(1,0),
-                            basis=rbf.basis.phs8,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(1,0),
+                       basis=rbf.basis.phs8)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
   def test_2d_rbf_weight_diffy2(self):
     # estimate derivative in f(x,y) = sin(2*pi*x)*cos(2*pi*y). The 
@@ -288,43 +287,42 @@ class Test(unittest.TestCase):
     x = np.array([0.7,0.6])
     H = rbf.halton.Halton(2)
     nodes = H(500)
-    centers = H(500) 
     
     u = test_func2d(nodes)
     diff_true = test_func2d_diffy(x)
 
     # estimate derivates at x 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs1,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs1)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=0.2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs2,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs2)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs3,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs3)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs4,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs4)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs5,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs5)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs6,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs6)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
     
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs7,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs7)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,centers=centers,diff=(0,1),
-                            basis=rbf.basis.phs8,order='max')
-    self.assertTrue(np.isclose(u.dot(w),diff_true))
+    w = rbf.fd.weights(x,nodes,(0,1),
+                       basis=rbf.basis.phs8)
+    self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
     
   def test_diff_matrix(self):
     x = np.arange(4.0)[:,None]

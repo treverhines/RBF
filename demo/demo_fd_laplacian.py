@@ -21,79 +21,59 @@ from rbf.nodes import make_nodes
 from rbf.fd import weight_matrix
 from matplotlib import cm
 import logging
+import rbf.domain
+import scipy.sparse
+import sympy
 logging.basicConfig(level=logging.DEBUG)
 # set default cmap to viridis if you have it
 if 'viridis' in vars(cm):
   plt.rcParams['image.cmap'] = 'viridis'
 
-def true_soln(pnts):
-  # true solution with has zeros on the unit circle
-  r = np.sqrt(pnts[:,0]**2 + pnts[:,1]**2)
-  soln = (1 - r)*np.sin(pnts[:,0])*np.cos(pnts[:,1])
-  return soln 
 
-def forcing(pnts):
-  # laplacian of the true solution (forcing term)
-  x = pnts[:,0]
-  y = pnts[:,1]
-  out = ((2*x**2*np.sin(x)*np.cos(y) - 
-          2*x*np.cos(x)*np.cos(y) + 
-          2*y**2*np.sin(x)*np.cos(y) + 
-          2*y*np.sin(x)*np.sin(y) - 
-          2*np.sqrt(x**2 + y**2)*np.sin(x)*np.cos(y) - 
-          np.sin(x)*np.cos(y))/np.sqrt(x**2 + y**2))
+x,y = sympy.symbols('x,y')
+r = sympy.sqrt(x**2 + y**2)
+true_soln_sym = (1-r)*sympy.sin(x)*sympy.cos(y)
+true_soln = sympy.lambdify((x,y),true_soln_sym,'numpy')
 
-  return out
-
-# stencil size
-#S = 20
-S = None
-# The RBF-FD method allows for polynomial precision, where polynomials 
-# of a given order are added to the interpolant used to derive the 
-# finite difference weights.  Setting P to 2 adds a second order 
-# polynomial to the interpolant.
-P = None
+forcing_sym = true_soln_sym.diff(x,x) + true_soln_sym.diff(y,y)
+forcing = sympy.lambdify((x,y),forcing_sym,'numpy')
 
 # define a circular domain
-t = np.linspace(0.0,2*np.pi,100)
-vert = np.array([np.cos(t),np.sin(t)]).T
-smp = np.array([np.arange(100),np.roll(np.arange(100),-1)]).T
+vert,smp = rbf.domain.circle()
 
 # create the nodes
 N = 1000
+S = None
 nodes,smpid = make_nodes(N,vert,smp)
+# smpid describes which boundary simplex, if any, the nodes are 
+# attached to. If it is -1, then the node is in the interior
 boundary, = (smpid>=0).nonzero()
-
-# basis function used to solve this PDE
-basis = rbf.basis.phs3
+interior, = (smpid==-1).nonzero()
 
 # create the left-hand-side matrix which is the Laplacian of the basis 
 # function for interior nodes and the undifferentiated basis functions 
-# for the boundary nodes
-A  = weight_matrix(nodes,nodes,(2,0),N=S,order=P,basis=basis).toarray() 
-A += weight_matrix(nodes,nodes,(0,2),N=S,order=P,basis=basis).toarray() 
-A[boundary,:] = weight_matrix(nodes[boundary],nodes,(0,0),N=S,order=P,basis=basis).toarray()
+# for the boundary nodes. The third argument to weight_matrix 
+# describes the derivates order for each spatial dimension
+A = scipy.sparse.lil_matrix((N,N))
+A[interior,:]  = weight_matrix(nodes[interior],nodes,[2,0])
+A[interior,:] += weight_matrix(nodes[interior],nodes,[0,2])
+A[boundary,:]  = weight_matrix(nodes[boundary],nodes,[0,0])
+# convert A to a csr matrix for efficient solving
+A = A.tocsr()
 
 # create the right-hand-side vector, consisting of the forcing term 
 # for the interior nodes and zeros for the boundary nodes
-d = forcing(nodes) 
-d[boundary] = 0.0 
+d = np.zeros(N)
+d[interior] = forcing(nodes[interior,0],nodes[interior,1]) 
+d[boundary] = true_soln(nodes[boundary,0],nodes[boundary,1])
 
 # find the solution at the nodes
-u = np.linalg.solve(A,d)
-
-# create a collection of interpolation points to evaluate the 
-# solution. It is easiest to just call make_nodes again 
-itp,dummy = make_nodes(10000,vert,smp,itr=0)
-itp = nodes
-uitp = u
-# solution at the interpolation points
-#uitp = weight_matrix(itp,nodes,(0,0),N=9,order=2,basis=basis).dot(u)
+u = scipy.sparse.linalg.spsolve(A,d)
 
 # plot the results
 fig,ax = plt.subplots(1,2,figsize=(10,4))
 ax[0].set_title('RBF solution')
-p = ax[0].tripcolor(itp[:,0],itp[:,1],uitp)
+p = ax[0].tripcolor(nodes[:,0],nodes[:,1],u)
 ax[0].plot(nodes[:,0],nodes[:,1],'ko')
 # plot the boundary
 for s in smp:
@@ -103,8 +83,8 @@ fig.colorbar(p,ax=ax[0])
 
 ax[1].set_title('error')
 ax[1].plot(nodes[:,0],nodes[:,1],'ko')
-p = ax[1].tripcolor(itp[:,0],itp[:,1],uitp - true_soln(itp))
-#p = ax[1].tripcolor(nodes[:,0],nodes[:,1],u - true_soln(nodes))
+
+p = ax[1].tripcolor(nodes[:,0],nodes[:,1],u - true_soln(nodes[:,0],nodes[:,1]))
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
 

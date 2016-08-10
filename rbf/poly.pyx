@@ -160,6 +160,9 @@ def monomial_powers(order,dim):
                [1,0],
                [0,1]])
   '''
+  order = int(order)
+  dim = int(dim)
+  
   if not (dim >= 1):
     raise ValueError('number of dimensions must be 1 or greater')
     
@@ -193,6 +196,9 @@ def monomial_count(order,dim):
       polynomial dimension
 
   '''
+  order = int(order)
+  dim = int(dim)
+  
   if not (dim >= 1):
     raise ValueError('number of dimensions must be 1 or greater')
     
