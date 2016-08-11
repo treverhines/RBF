@@ -38,7 +38,8 @@ def scatter_contour(nodes,vals,**kwargs):
 
 
 # total number of nodes
-N = 500
+N = 5000
+P = 2
 
 # symbolic definition of the solution
 x,y,z = sympy.symbols('x,y,z')
@@ -55,7 +56,7 @@ forcing = sympy.lambdify((x,y,z),forcing_sym,'numpy')
 # smpid describes which boundary simplex, if any, the nodes are 
 # attached to. If it is -1, then the node is in the interior
 vert,smp = rbf.domain.sphere()
-nodes,smpid = make_nodes(N,vert,smp)
+nodes,smpid = make_nodes(N,vert,smp,itr=10)
 interior, = np.nonzero(smpid==-1)
 boundary, = np.nonzero(smpid>=0)
 
@@ -64,8 +65,8 @@ boundary, = np.nonzero(smpid>=0)
 # for the boundary nodes. The third argument to weight_matrix 
 # describes the derivates order for each spatial dimension
 A = scipy.sparse.lil_matrix((N,N))
-A[interior,:]  = weight_matrix(nodes[interior],nodes,[[2,0,0],[0,2,0],[0,0,2]])
-A[boundary,:]  = weight_matrix(nodes[boundary],nodes,[0,0,0])
+A[interior,:]  = weight_matrix(nodes[interior],nodes,[[2,0,0],[0,2,0],[0,0,2]],order=P)
+A[boundary,:]  = weight_matrix(nodes[boundary],nodes,[0,0,0],order=P)
 # convert A to a csr matrix for efficient solving
 A = A.tocsr()
 
