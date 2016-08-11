@@ -13,54 +13,51 @@ import rbf.basis
 import matplotlib.pyplot as plt
 from rbf.nodes import make_nodes
 from matplotlib import cm
+import sympy
+import rbf.domain
+
+# total number of nodes
+N = 100
+basis = rbf.basis.phs3
+
 # set default cmap to viridis if you have it
 if 'viridis' in vars(cm):
   plt.rcParams['image.cmap'] = 'viridis'
 
-def true_soln(pnts):
-  # true solution with has zeros on the unit circle
-  r = np.sqrt(pnts[:,0]**2 + pnts[:,1]**2)
-  soln = (1 - r)*np.sin(pnts[:,0])*np.cos(pnts[:,1])
-  return soln 
+# symbolic definition of the solution
+x,y = sympy.symbols('x,y')
+r = sympy.sqrt(x**2 + y**2)
+true_soln_sym = (1-r)*sympy.sin(x)*sympy.cos(y)
+# numerical solution
+true_soln = sympy.lambdify((x,y),true_soln_sym,'numpy')
 
-def forcing(pnts):
-  # laplacian of the true solution (forcing term)
-  x = pnts[:,0]
-  y = pnts[:,1]
-  out = ((2*x**2*np.sin(x)*np.cos(y) - 
-          2*x*np.cos(x)*np.cos(y) + 
-          2*y**2*np.sin(x)*np.cos(y) + 
-          2*y*np.sin(x)*np.sin(y) - 
-          2*np.sqrt(x**2 + y**2)*np.sin(x)*np.cos(y) - 
-          np.sin(x)*np.cos(y))/np.sqrt(x**2 + y**2))
-
-  return out
-
+# symbolic forcing term
+forcing_sym = true_soln_sym.diff(x,x) + true_soln_sym.diff(y,y)
+# numerical forcing term
+forcing = sympy.lambdify((x,y),forcing_sym,'numpy')
 
 # define a circular domain
-t = np.linspace(0.0,2*np.pi,100)
-vert = np.array([np.cos(t),np.sin(t)]).T
-smp = np.array([np.arange(100),np.roll(np.arange(100),-1)]).T
+vert,smp = rbf.domain.circle()
 
-# create the nodes
-N = 100
 nodes,smpid = make_nodes(N,vert,smp)
+# smpid describes which boundary simplex, if any, the nodes are 
+# attached to. If it is -1, then the node is in the interior
 boundary, = (smpid>=0).nonzero()
-
-# basis function used to solve this PDE
-basis = rbf.basis.phs3
+interior, = (smpid==-1).nonzero()
 
 # create the left-hand-side matrix which is the Laplacian of the basis 
 # function for interior nodes and the undifferentiated basis functions 
 # for the boundary nodes
-A  = basis(nodes,nodes,diff=(2,0)) 
-A += basis(nodes,nodes,diff=(0,2)) 
+A = np.zeros((N,N))
+A[interior]  = basis(nodes[interior],nodes,diff=[2,0]) 
+A[interior] += basis(nodes[interior],nodes,diff=[0,2]) 
 A[boundary,:] = basis(nodes[boundary],nodes)
 
 # create the right-hand-side vector, consisting of the forcing term 
 # for the interior nodes and zeros for the boundary nodes
-d = forcing(nodes) 
-d[boundary] = 0.0 
+d = np.zeros(N)
+d[interior] = forcing(nodes[interior,0],nodes[interior,1]) 
+d[boundary] = true_soln(nodes[boundary,0],nodes[boundary,1]) 
 
 # find the RBF coefficients that solve the PDE
 coeff = np.linalg.solve(A,d)
@@ -84,7 +81,7 @@ for s in smp:
 fig.colorbar(p,ax=ax[0])
 
 ax[1].set_title('error')
-p = ax[1].tripcolor(itp[:,0],itp[:,1],soln - true_soln(itp))
+p = ax[1].tripcolor(itp[:,0],itp[:,1],soln - true_soln(itp[:,0],itp[:,1]))
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
 

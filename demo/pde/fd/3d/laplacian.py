@@ -38,7 +38,7 @@ def scatter_contour(nodes,vals,**kwargs):
 
 
 # total number of nodes
-N = 20000
+N = 500
 
 # symbolic definition of the solution
 x,y,z = sympy.symbols('x,y,z')
@@ -54,7 +54,7 @@ forcing = sympy.lambdify((x,y,z),forcing_sym,'numpy')
 
 # smpid describes which boundary simplex, if any, the nodes are 
 # attached to. If it is -1, then the node is in the interior
-vert,smp = rbf.domain.sphere(3)
+vert,smp = rbf.domain.sphere()
 nodes,smpid = make_nodes(N,vert,smp)
 interior, = np.nonzero(smpid==-1)
 boundary, = np.nonzero(smpid>=0)
