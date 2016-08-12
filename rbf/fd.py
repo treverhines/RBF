@@ -27,9 +27,9 @@ def _default_stencil_size(diffs):
   Sets the stencil size equal to (N+1)*D, where N is the largest
   derivative order and D is the number of spatial dimensions.   
   '''
-  max_diff_order = max(sum(d) for d in diffs)
+  P = max(sum(d) for d in diffs)
   dim = len(diffs[0])
-  N = (max_diff_order + 1)**dim
+  N = rbf.poly.monomial_count(P+1,dim) - 1
   return N
 
 
@@ -43,19 +43,19 @@ def _default_poly_order(diffs):
   return P
 
 
-def _max_poly_order(stencil_size,dim):
+def _max_poly_order(size,dim):
   ''' 
   Returns the maximum polynomial order allowed for the given stencil 
   size and number of dimensions
   '''
-  if not (stencil_size >= 0):
+  if not (size >= 0):
     raise ValueError('stencil size must be 0 or greater')
 
   if not (dim >= 1):
     raise ValueError('number of dimensions must be 1 or greater')
 
   order = -1
-  while (rbf.poly.monomial_count(order+1,dim) <= stencil_size):
+  while (rbf.poly.monomial_count(order+1,dim) <= size):
     order += 1
 
   return order
@@ -200,18 +200,17 @@ def weights(x,nodes,diffs,coeffs=None,
   else:
     eps = np.asarray(eps,dtype=float)
 
+  max_order = _max_poly_order(N,D)
   if order is None:
     order = _default_poly_order(diffs)
-
+    order = min(order,max_order)
+    
   # the maximum polynomial order is determined by the stencil size. 
   # This reduces the polynomial order to be less than or equal to the 
   # maximum allowed
-  max_order = _max_poly_order(N,D)
   if order > max_order:
-    logger.info(
-      'Polynomial order is too high for the stencil size. '
-      'Decreasing to the maximum allowable polynomial order')
-    order = max_order
+    raise ValueError(
+      'Polynomial order is too high for the stencil size')
     
   powers = rbf.poly.monomial_powers(order,D)
   # left hand side
@@ -281,7 +280,7 @@ def poly_weights(x,nodes,diffs,coeffs=None):
 
 def weight_matrix(x,nodes,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
-                  eps=None,N=None,vert=None,smp=None):
+                  eps=None,size=None,vert=None,smp=None):
   ''' 
   Returns a weight matrix which maps a functions values at *nodes* to 
   estimates of that functions derivative at *x*.  The weight matrix is 
@@ -324,7 +323,7 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
       the predefined RBFs except for the odd order polyharmonic 
       splines are not scale invariant.
 
-    N : int, optional
+    size : int, optional
       stencil size
     
     vert : (P,D) array, optional
@@ -356,11 +355,17 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
   nodes = np.asarray(nodes)
   diffs = _reshape_diffs(diffs)
   
-  if N is None:
-    N = _default_stencil_size(diffs)
-    
-  sn,dist = rbf.stencil.nearest(x,nodes,N,vert=vert,smp=smp)
-
+  if size is None:
+    size = _default_stencil_size(diffs)
+    while True:
+      try:    
+        sn,dist = rbf.stencil.nearest(x,nodes,size,vert=vert,smp=smp)
+        break 
+      except rbf.stencil.StencilError as err:
+        size -= 1
+  else:
+    sn,dist = rbf.stencil.nearest(x,nodes,size,vert=vert,smp=smp)
+  
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
 
@@ -380,7 +385,7 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
 
 def diff_matrix(x,diffs,coeffs=None,
                 basis=rbf.basis.phs3,order=None,
-                eps=None,N=None,vert=None,smp=None):
+                eps=None,size=None,vert=None,smp=None):
   ''' 
   creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. The 
@@ -420,7 +425,7 @@ def diff_matrix(x,diffs,coeffs=None,
       the predefined RBFs except for the odd order polyharmonic 
       splines are not scale invariant.
 
-    N : int, optional
+    size : int, optional
       stencil size
     
     vert : (P,D) array, optional
@@ -450,12 +455,18 @@ def diff_matrix(x,diffs,coeffs=None,
   logger.debug('building RBF-FD differentiation matrix...')
   x = np.asarray(x)
   diffs = _reshape_diffs(diffs)
-  
-  if N is None:
-    N = _default_stencil_size(diffs)
-    
-  sn = rbf.stencil.stencil_network(x,N,vert=vert,smp=smp)
 
+  if size is None:
+    size = _default_stencil_size(diffs)
+    while True:
+      try:    
+        sn = rbf.stencil.stencil_network(x,size,vert=vert,smp=smp)
+        break 
+      except rbf.stencil.StencilError as err:
+        size -= 1
+  else:
+    sn = rbf.stencil.stencil_network(x,size,vert=vert,smp=smp)
+    
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
 
@@ -474,7 +485,7 @@ def diff_matrix(x,diffs,coeffs=None,
 
 
 def poly_diff_matrix(x,diffs,coeffs=None,
-                     N=None,vert=None,smp=None):
+                     size=None,vert=None,smp=None):
   ''' 
   creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. The 
@@ -501,7 +512,7 @@ def poly_diff_matrix(x,diffs,coeffs=None,
       was specified as a (D,) array then coeffs should be a length 1 
       array.
 
-    N : int, optional
+    size : int, optional
       stencil size. If N neighbors cannot be found, then incrementally 
       smaller values of N are tested until a stencil network can be 
       formed.
@@ -534,10 +545,16 @@ def poly_diff_matrix(x,diffs,coeffs=None,
   x = np.asarray(x) 
   diffs = _reshape_diffs(diffs)
 
-  if N is None:
-    N = _default_stencil_size(diffs)
-    
-  sn = rbf.stencil.stencil_network_1d(x,N=N,vert=vert,smp=smp)
+  if size is None:
+    size = _default_stencil_size(diffs)
+    while True:
+      try:    
+        sn = rbf.stencil.stencil_network_1d(x,size,vert=vert,smp=smp)
+        break 
+      except rbf.stencil.StencilError as err:
+        size -= 1
+  else:
+    sn = rbf.stencil.stencil_network_1d(x,size,vert=vert,smp=smp)
 
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)

@@ -39,7 +39,6 @@ def scatter_contour(nodes,vals,**kwargs):
 
 # total number of nodes
 N = 5000
-P = 2
 
 # symbolic definition of the solution
 x,y,z = sympy.symbols('x,y,z')
@@ -65,8 +64,8 @@ boundary, = np.nonzero(smpid>=0)
 # for the boundary nodes. The third argument to weight_matrix 
 # describes the derivates order for each spatial dimension
 A = scipy.sparse.lil_matrix((N,N))
-A[interior,:]  = weight_matrix(nodes[interior],nodes,[[2,0,0],[0,2,0],[0,0,2]],order=P)
-A[boundary,:]  = weight_matrix(nodes[boundary],nodes,[0,0,0],order=P)
+A[interior,:]  = weight_matrix(nodes[interior],nodes,[[2,0,0],[0,2,0],[0,0,2]])
+A[boundary,:]  = weight_matrix(nodes[boundary],nodes,[0,0,0])
 # convert A to a csr matrix for efficient solving
 A = A.tocsr()
 

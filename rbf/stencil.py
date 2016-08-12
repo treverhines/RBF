@@ -36,14 +36,14 @@ def _distance_matrix(pnts1,pnts2,vert,smp):
   return distance_matrix
 
 
-def _naive_nearest(query,population,N,vert,smp):
+def _naive_nearest(query,population,size,vert,smp):
   ''' 
   should have the same functionality as nearest except this is slower 
   and does not check the input for proper sizes and types
   '''
   dm = _distance_matrix(query,population,vert,smp)
-  neighbors = np.argsort(dm,axis=1)[:,:N]
-  dist = np.sort(dm,axis=1)[:,:N]
+  neighbors = np.argsort(dm,axis=1)[:,:size]
+  dist = np.sort(dm,axis=1)[:,:size]
   return neighbors,dist
 
 
@@ -206,7 +206,7 @@ def nearest(query,population,N,vert=None,smp=None):
   return neighbors,dist
 
 
-def stencil_network(nodes,N,vert=None,smp=None):
+def stencil_network(nodes,size,vert=None,smp=None):
   ''' 
   Return the indices of *N* nearest neighbors for each element in 
   *nodes*. If *N* neighbors cannot be found for every element then 
@@ -218,7 +218,7 @@ def stencil_network(nodes,N,vert=None,smp=None):
   ----------
     nodes : (M,D) array 
     
-    N : int
+    size : int
       stencil size
       
     vert : (P,D) array, optional
@@ -229,24 +229,11 @@ def stencil_network(nodes,N,vert=None,smp=None):
 
   Returns
   -------
-    s : (M,K) int array where K <= N
+    s : (M,size) int array
     
   '''
-  while True:
-    try:
-      s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-      return s
-      
-    except StencilError as err:  
-      if N == 0:
-        # this block should never have to run because a stencil should 
-        # always be made with N=0. This is just in case im wrong
-        raise err 
-        
-      logger.info(
-        'cannot make form a stencil network with stencil size %s. Trying %s instead' % (N,N-1))
-      N -= 1
-      
+  s,dx = nearest(nodes,nodes,size,vert=vert,smp=smp)
+  return s
     
 def _slice_list(lst,cuts):
   ''' 
@@ -294,7 +281,7 @@ def _stencil_network_1d(P,N):
   return stencils
 
 
-def stencil_network_1d(nodes,N,vert=None,smp=None):
+def stencil_network_1d(nodes,size,vert=None,smp=None):
   ''' 
   returns a stencil network for 1d nodes where each stencil is 
   determined by adjacency and not distance.  For each node, its 
@@ -306,7 +293,7 @@ def stencil_network_1d(nodes,N,vert=None,smp=None):
   ----------
     nodes : (M,1) array 
 
-    N : int
+    size : int
       stencil size
 
     vert : (P,1) array, optional
@@ -317,7 +304,7 @@ def stencil_network_1d(nodes,N,vert=None,smp=None):
 
   Returns
   -------
-    out : (M,N) int array
+    out : (M,size) int array
     
   Example
   -------
@@ -352,25 +339,13 @@ def stencil_network_1d(nodes,N,vert=None,smp=None):
   cuts = vert[smp[:,0],0]
 
   # use progressively smaller N until a stencil network can be made
-  while True:
-    try:
-      segments = _slice_list(nodes,cuts)
-      out = np.zeros((P,N),dtype=int)
-      for idx in segments:
-        count = len(idx)
-        stencil_i = _stencil_network_1d(count,N)
-        sorted_idx = idx[np.argsort(nodes[idx])]
-        stencil_i = sorted_idx[stencil_i]
-        out[sorted_idx,:] = stencil_i
+  segments = _slice_list(nodes,cuts)
+  out = np.zeros((P,size),dtype=int)
+  for idx in segments:
+    count = len(idx)
+    stencil_i = _stencil_network_1d(count,size)
+    sorted_idx = idx[np.argsort(nodes[idx])]
+    stencil_i = sorted_idx[stencil_i]
+    out[sorted_idx,:] = stencil_i
 
-      return out
-
-    except StencilError as err:
-      if N == 0:
-        # this block should never have to run because a stencil should 
-        # always be made with N=0. This is just in case im wrong
-        raise err 
-    
-      logger.info(
-        'cannot make form a stencil network with stencil size %s. Trying %s instead' % (N,N-1))
-      N -= 1
+  return out
