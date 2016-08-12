@@ -24,8 +24,8 @@ def _reshape_diffs(diffs):
 
 def _default_stencil_size(diffs):
   ''' 
-  Sets the stencil size equal to (N+1)*D, where N is the largest
-  derivative order and D is the number of spatial dimensions.   
+  returns an estimate of the number of nodes needed do a decent job at 
+  approximating the given derivative
   '''
   P = max(sum(d) for d in diffs)
   dim = len(diffs[0])
@@ -241,9 +241,9 @@ def poly_weights(x,nodes,diffs,coeffs=None):
 
     nodes : (N,1) array
 
-    diffs : (...,1) int array, optional
+    diffs : (D,) int array or (K,D) int array 
 
-    coeffs : (...,) array, optional
+    coeffs : (K,) array, optional
         
   '''
   x = np.asarray(x,dtype=float)

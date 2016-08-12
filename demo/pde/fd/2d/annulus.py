@@ -27,20 +27,22 @@ from matplotlib import cm
 import logging
 logging.basicConfig(level=logging.DEBUG)
 # set default cmap to viridis if you have it
-if 'viridis' in vars(cm):
-  plt.rcParams['image.cmap'] = 'viridis'
   
-# stencil size
-S = 20
-# polynomial order
-P = 2
-# basis function
-basis = rbf.basis.phs3
+gap = 2.0*np.pi/180.0
+
+def solution(x):
+  angle = np.arctan2(x[:,1],x[:,0]) 
+  angle[angle > 0.0] -= 2*np.pi 
+  u = angle/((2*np.pi - gap)/(2*np.pi))
+  u /= np.pi
+  u += 1
+  return u
+  
 # number of nodes
-N = 200
+N = 500
 
 # define the vertices and simplices for cut annulus
-t = np.linspace(0.002*np.pi,1.998*np.pi,100)
+t = np.linspace(gap,2*np.pi,100)
 vert_outer = np.array([2*np.cos(t),2*np.sin(t)]).T
 vert_inner = np.array([np.cos(t[::-1]),np.sin(t[::-1])]).T
 vert = np.vstack((vert_outer,vert_inner))
@@ -58,18 +60,13 @@ slit_bot, = (smpid==99).nonzero()
 boundary, = ((smpid>=0) & (smpid!=199) & (smpid!=99)).nonzero()
 interior, = (smpid==-1).nonzero()
 
-
 # do not build stencils which cross this line
-bnd_vert = np.array([[0.0,0.0],[5.0,0.0]])
+bnd_vert = np.array([[0.0,0.0],[10*np.cos(gap/2.0),10*np.sin(gap/2.0)]])
 bnd_smp = np.array([[0,1]])
-
-weight_kwargs = {'N':S,'order':P,
-                 'vert':bnd_vert,'smp':bnd_smp,
-                 'basis':basis}
+weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp}
 # build lhs
 # enforce laplacian on interior nodes
-A_interior = weight_matrix(nodes[interior],nodes,
-                           [[2,0],[0,2]],
+A_interior = weight_matrix(nodes[interior],nodes,[[2,0],[0,2]],
                            **weight_kwargs)
 
 # find boundary normal vectors
@@ -91,21 +88,19 @@ A = scipy.sparse.vstack((A_interior,A_boundary,
 # build the rhs 
 d_interior = np.zeros(interior.shape[0])
 d_boundary = np.zeros(boundary.shape[0])
-d_slit_top = np.ones(slit_top.shape[0])
-d_slit_bot = -np.ones(slit_bot.shape[0])
+d_slit_top = -np.ones(slit_top.shape[0])
+d_slit_bot = np.ones(slit_bot.shape[0])
 d = np.concatenate((d_interior,d_boundary,d_slit_top,d_slit_bot))
 
 # solve for u
 soln = scipy.sparse.linalg.spsolve(A,d)
 
 # interpolate the estimated solution
-#itp = nodes
-itp,dummy = make_nodes(50000,vert,smp,bound_force=False,itr=10)
-#soln_itp = soln
+itp,dummy = make_nodes(10000,vert,smp,bound_force=False,itr=10)
 soln_itp = weight_matrix(itp,nodes,[0,0],**weight_kwargs).dot(soln)
 
 # calculate the true solution
-true_soln = np.arctan2(itp[:,1],-itp[:,0])/np.pi
+true_soln = solution(itp)
 
 fig,ax  = plt.subplots(1,2,figsize=(10,4))
 p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none')
