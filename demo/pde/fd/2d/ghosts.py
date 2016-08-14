@@ -27,9 +27,6 @@ import matplotlib.pyplot as plt
 import logging
 import scipy.sparse
 from matplotlib import cm
-# set default cmap to viridis if you have it
-if 'viridis' in vars(cm):
-  plt.rcParams['image.cmap'] = 'viridis'
 
 def make_ghost_nodes(nodes,smpid,idx,vert,smp):
   # create nodes that are just outside the boundary
@@ -47,12 +44,6 @@ def make_ghost_nodes(nodes,smpid,idx,vert,smp):
   ghosts = sub_nodes + dx*norms   
   return ghosts
 
-# stencil size
-S = 20
-# polynomial order
-P = 2
-# basis function
-basis = rbf.basis.phs3
 # number of nodes
 N = 200
 
@@ -85,9 +76,8 @@ ghost = N + np.arange(len(boundary))
 bnd_vert = np.array([[0.0,0.0],[5.0,0.0]])
 bnd_smp = np.array([[0,1]])
 
-weight_kwargs = {'N':S,'order':P,
-                 'vert':bnd_vert,'smp':bnd_smp,
-                 'basis':basis}
+weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp,'size':20,'order':2}
+
 # build lhs
 # enforce laplacian on interior nodes
 A_interior = weight_matrix(nodes[interior],nodes,
@@ -133,13 +123,13 @@ soln_itp = weight_matrix(itp,nodes,[0,0],**weight_kwargs).dot(soln)
 true_soln = np.arctan2(itp[:,1],-itp[:,0])/np.pi
 
 fig,ax  = plt.subplots(1,2,figsize=(10,4))
-p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none')
+p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none',cmap='viridis')
 fig.colorbar(p,ax=ax[0])
 ax[0].plot(nodes[:,0],nodes[:,1],'ko',markersize=5)
 for s in smp:
   ax[0].plot(vert[s,0],vert[s,1],'k-',lw=2)
 
-p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none')
+p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none',cmap='viridis')
 fig.colorbar(p,ax=ax[1])
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)

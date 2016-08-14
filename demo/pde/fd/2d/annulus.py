@@ -28,7 +28,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 # set default cmap to viridis if you have it
   
-gap = 2.0*np.pi/180.0
+gap = 20.0*np.pi/180.0
 
 def solution(x):
   angle = np.arctan2(x[:,1],x[:,0]) 
@@ -39,7 +39,7 @@ def solution(x):
   return u
   
 # number of nodes
-N = 500
+N = 200
 
 # define the vertices and simplices for cut annulus
 t = np.linspace(gap,2*np.pi,100)
@@ -63,7 +63,7 @@ interior, = (smpid==-1).nonzero()
 # do not build stencils which cross this line
 bnd_vert = np.array([[0.0,0.0],[10*np.cos(gap/2.0),10*np.sin(gap/2.0)]])
 bnd_smp = np.array([[0,1]])
-weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp}
+weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp,'size':20}
 # build lhs
 # enforce laplacian on interior nodes
 A_interior = weight_matrix(nodes[interior],nodes,[[2,0],[0,2]],
@@ -103,13 +103,13 @@ soln_itp = weight_matrix(itp,nodes,[0,0],**weight_kwargs).dot(soln)
 true_soln = solution(itp)
 
 fig,ax  = plt.subplots(1,2,figsize=(10,4))
-p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none')
+p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none',cmap='viridis')
 fig.colorbar(p,ax=ax[0])
 ax[0].plot(nodes[:,0],nodes[:,1],'ko',markersize=5)
 for s in smp:
   ax[0].plot(vert[s,0],vert[s,1],'k-',lw=2)
 
-p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none')
+p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none',cmap='viridis')
 fig.colorbar(p,ax=ax[1])
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
