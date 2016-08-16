@@ -89,6 +89,11 @@ def mvmonos(x,powers,diff=None):
   else:
     diff = np.asarray(diff,dtype=int)
 
+  if x.shape[1] != powers.shape[1]:
+    raise ValueError('x and powers have different number of spatial dimensions')
+  if x.shape[1] != diff.shape[0]:
+    raise ValueError('x and diff have different number of spatial dimensions')
+    
   return _mvmonos(x,powers,diff)
 
 

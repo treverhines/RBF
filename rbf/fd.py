@@ -232,14 +232,29 @@ def weights(x,nodes,diffs,coeffs=None,
 
 def poly_weights(x,nodes,diffs,coeffs=None):
   ''' 
-  Returns the traditional 1-D finite difference weights derived 
-  from polynomial expansion. The input must have one spatial dimension.
+  Returns the weights which map a functions values at *nodes* to 
+  estimates of that functions derivative at *x*. The weights are 
+  computed using a polynomial expansion. 
+  
+  For D-dimensional space The number of nodes, N, must be in the set 
+  binom(P+D,D) for P in (0,1,2,...). In other words for 1-dimensional 
+  space
+
+    N in (1,2,3,4,5,6,...),
+  
+  for 2-dimensional space
+
+    N in (1,3,6,10,15,21,...),
+
+  and for 3-dimensional space
+
+    N in (1,4,10,20,35,56,...)  
   
   Parameters
   ----------
-    x : (1,) array
+    x : (D,) array
 
-    nodes : (N,1) array
+    nodes : (N,D) array
 
     diffs : (D,) int array or (K,D) int array 
 
@@ -250,9 +265,7 @@ def poly_weights(x,nodes,diffs,coeffs=None):
   nodes = np.asarray(nodes,dtype=float)
   diffs = _reshape_diffs(diffs)
   N,D = nodes.shape
-  if D != 1:
-    raise ValueError('nodes must have one spatial dimension to compute a poly-FD weight')
-    
+
   if coeffs is None:
     coeffs = np.ones(diffs.shape[0],dtype=float)
   else:
@@ -260,8 +273,14 @@ def poly_weights(x,nodes,diffs,coeffs=None):
     if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
       raise ValueError('coeffs and diffs have incompatible shapes')
 
-  order = N - 1
-  powers = rbf.poly.monomial_powers(order,1)
+  order = _max_poly_order(N,D)
+  monos = rbf.poly.monomial_count(order,D)
+  if N != monos:
+    raise ValueError(
+      'For D-dimensional space the number of nodes must be in the set '
+      'binom(P+D,D) for P in (0,1,2,...)')
+      
+  powers = rbf.poly.monomial_powers(order,D)
   lhs = rbf.poly.mvmonos(nodes,powers).T
   rhs = np.zeros(N)
   for c,d in zip(coeffs,diffs):
