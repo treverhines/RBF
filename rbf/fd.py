@@ -503,8 +503,8 @@ def diff_matrix(x,diffs,coeffs=None,
   return L
 
 
-def poly_diff_matrix(x,diffs,coeffs=None,
-                     size=None,vert=None,smp=None):
+def diff_matrix_1d(x,diffs,coeffs=None,
+                   size=None,vert=None,smp=None):
   ''' 
   creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. The 
