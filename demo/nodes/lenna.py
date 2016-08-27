@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import numpy as np
+import matplotlib.pyplot as plt
 from rbf.nodes import make_nodes
 from PIL import Image
-import matplotlib.pyplot as plt
+print('hi')
 import logging
 logging.basicConfig(level=logging.DEBUG)
 

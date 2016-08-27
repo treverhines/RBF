@@ -90,6 +90,17 @@ class RBFInterpolant(object):
   -----
     Regularization is imposed using the ridge regression method 
     described in chapter 19.4 of [1].
+    
+    With certain choices of basis functions and polynomial orders this 
+    interpolant is equivalent to a thin plate spline.  For example, if 
+    the observation space is one-dimensional then a thin plate spline
+    can be obtained with the arguments
+    
+      basis = rbf.basis.phs3, order = 1
+    
+    for two-dimensional observation space
+    
+      basis = rbf.basis.phs2, order = 1   
 
   
   References
@@ -120,7 +131,8 @@ class RBFInterpolant(object):
         function values at the observation points
 
       weight : (N,) array, optional
-        weights to put on each observation point
+        weights to put on each observation point. This should be the 
+        inverse of the data variance
         
       eps : (N,) array, optional
         shape parameters for each RBF. this has no effect for odd
@@ -171,18 +183,13 @@ class RBFInterpolant(object):
     A[:N,:] *= weight[:,None]
     value = value*weight
 
-    # form regularization matrix
-    L = np.zeros((N,N+P))  
-    L[range(N),range(N)] = penalty
+    # add smoothing 
+    A[range(N),range(N)] += penalty
 
     # extend values to have a consistent size as A
     value = np.concatenate((value,np.zeros(P)))
 
-    # solve for RBF coefficients
-    AtA = A.T.dot(A)
-    LtL = L.T.dot(L) 
-    Atv = A.T.dot(value)
-    coeff = np.linalg.solve(AtA + LtL,Atv)
+    coeff = np.linalg.solve(A,value)
 
     self.x = x
     self.coeff = coeff

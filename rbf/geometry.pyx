@@ -1,5 +1,3 @@
-# distutils: extra_compile_args = -fopenmp
-# distutils: extra_link_args = -fopenmp
 ''' 
 Defines functions for basic computational geometry in 1, 2, and 3 
 dimensions. This modules requires all volumes, surfaces and segments 
@@ -89,14 +87,15 @@ Note
   these packages are too slow for RBF purposes.
 
 '''
+from __future__ import division
 import numpy as np
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
 from cython.parallel import prange
 from libc.stdlib cimport rand
-from libc.stdlib cimport malloc,free
 from itertools import combinations
 from scipy.special import factorial
+
 
 # NOTE: fabs is not the same as abs in C!!! 
 cdef extern from "math.h":
