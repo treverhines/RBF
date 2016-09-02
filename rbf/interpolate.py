@@ -86,27 +86,50 @@ class RBFInterpolant(object):
     * prevent extrapolation by masking data that is outside of the 
       convex hull defined by the data points
 
-  Notes
-  -----
-    Regularization is imposed using the ridge regression method 
-    described in chapter 19.4 of [1].
+  Formulation
+  -----------
+    The interpolant, f(x*), is defined as
+    
+      f(x*) = K(x*,x)a + T(x*)b
+  
+    where K(x*,x) is a Vandermonde matrix evaluated at the 
+    interpolation points, x*, for radial basis functions centered at 
+    the observation points, x. T(x*) is a polynomial matrix evaluated 
+    at the interpolation points, and a and b are coefficients that 
+    need to be estimated. The coefficients are found by solving the 
+    linear system
+  
+      | (WK(x,x) + pI)  T(x) | | a |    | WY |
+      |         T(x)^t     0 | | b |  = |  0 |
+
+    where W are the data weights (should be the inverse of the data 
+    variance), Y are the observations at x, and p is a penalty 
+    parameter. With p=0 the observations are fit perfectly by the 
+    interpolant.  Increasing p degrades the fit while improving the 
+    smoothness of the interpolant. This formulation closely follows 
+    chapter 19.4 of [1] and chapter 13.2.1 of [2].
     
     With certain choices of basis functions and polynomial orders this 
-    interpolant is equivalent to a thin plate spline.  For example, if 
-    the observation space is one-dimensional then a thin plate spline
+    interpolant is equivalent to a thin-plate spline.  For example, if 
+    the observation space is one-dimensional then a thin-plate spline 
     can be obtained with the arguments
     
       basis = rbf.basis.phs3, order = 1
     
-    for two-dimensional observation space
+    for two-dimensional observation space a thin-plate spline can be 
+    obtained with the arguments
     
-      basis = rbf.basis.phs2, order = 1   
+      basis = rbf.basis.phs2, order = 1.
 
-  
+    See [2] for additional details on thin-plate splines.    
+    
   References
   ----------
     [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, 
       World Scientific Publishing Co, 2007.
+    
+    [2] Schimek, M., Smoothing and Regression: Approaches, 
+      Computations, and Applications. John Wiley & Sons, 2000.
     
   '''
   def __init__(self,
@@ -154,7 +177,9 @@ class RBFInterpolant(object):
         
       penalty : float, optional
         the smoothing parameter. This decreases the size of the RBF 
-        coefficients while leaving the polynomial terms undamped
+        coefficients while leaving the polynomial terms undamped. Thus 
+        the endmember for a large penalty parameter will be equivalent 
+        to polynomial regression.
 
     '''
     x = np.asarray(x) 
