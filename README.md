@@ -1,5 +1,5 @@
 # RBF
-Package containing the tools necessary for radial basis function (RBF) applications.
+Package containing the tools necessary for radial basis function (RBF) applications.  Applications include interpolating/smoothing scattered data and solving PDEs over complicated domains.
 
 ## Features
 * Efficient evaluation of RBFs and their analytically derived spatial derivatives.  This package allows for unlimited spatial dimensions and arbitrarily spatial derivatives   
