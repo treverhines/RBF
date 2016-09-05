@@ -99,8 +99,8 @@ class RBFInterpolant(object):
     need to be estimated. The coefficients are found by solving the 
     linear system
   
-      | (WK(x,x) + pI)  T(x) | | a |    | WY |
-      |         T(x)^t     0 | | b |  = |  0 |
+      | (WK(x,x) + pI)  WT(x) | | a |    | WY |
+      |         T(x)^t      0 | | b |  = |  0 |
 
     where W are the data weights (should be the inverse of the data 
     variance), Y are the observations at x, and p is a penalty 
