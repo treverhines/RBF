@@ -15,11 +15,11 @@
 # and y components of the outward normal vectors to dD. The second 
 # equation is a free surface boundary condition.
 #
-# When comparing this script with demo_fd_annulus.py it should become 
+# When comparing this script with annulus.py it should become 
 # clear why ghost nodes are necessary
 import numpy as np
 import rbf.basis
-from rbf.nodes import make_nodes
+from rbf.nodes import menodes
 from rbf.geometry import simplex_outward_normals
 from rbf.stencil import nearest
 from rbf.fd import weight_matrix
@@ -27,6 +27,21 @@ import matplotlib.pyplot as plt
 import logging
 import scipy.sparse
 from matplotlib import cm
+if 'viridis' in vars(cm):
+  plt.rcParams['image.cmap'] = 'viridis'
+
+logging.basicConfig(level=logging.DEBUG)
+
+gap = 5.0*np.pi/180.0
+
+def solution(x):
+  angle = np.arctan2(x[:,1],x[:,0])
+  angle[angle > 0.0] -= 2*np.pi
+  u = angle/((2*np.pi - gap)/(2*np.pi))
+  u /= np.pi
+  u += 1
+  return u
+
 
 def make_ghost_nodes(nodes,smpid,idx,vert,smp):
   # create nodes that are just outside the boundary
@@ -48,16 +63,18 @@ def make_ghost_nodes(nodes,smpid,idx,vert,smp):
 N = 200
 
 # define the vertices and simplices for cut annulus
-t = np.linspace(0.002*np.pi,1.998*np.pi,100)
+t = np.linspace(gap,2*np.pi,100)
 vert_outer = np.array([2*np.cos(t),2*np.sin(t)]).T
 vert_inner = np.array([np.cos(t[::-1]),np.sin(t[::-1])]).T
 vert = np.vstack((vert_outer,vert_inner))
 smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 
+
+
 # setting bound_force=True ensures that the edges where the annulus is 
 # cut will have an appropriate number of boundary nodes. This also 
 # makes the function considerably slower
-nodes,smpid = make_nodes(N,vert,smp,bound_force=True)
+nodes,smpid = menodes(N,vert,smp,bound_force=True)
 
 # identify nodes associated with the different boundary types
 slit_top, = (smpid==199).nonzero()
@@ -106,8 +123,8 @@ A = scipy.sparse.vstack((A_interior,A_ghost,A_boundary,
 d_interior = np.zeros(interior.shape[0])
 d_ghost = np.zeros(ghost.shape[0])
 d_boundary = np.zeros(boundary.shape[0])
-d_slit_top = np.ones(slit_top.shape[0])
-d_slit_bot = -np.ones(slit_bot.shape[0])
+d_slit_top = -np.ones(slit_top.shape[0])
+d_slit_bot = np.ones(slit_bot.shape[0])
 
 d = np.concatenate((d_interior,d_ghost,d_boundary,
                     d_slit_top,d_slit_bot))
@@ -116,20 +133,20 @@ d = np.concatenate((d_interior,d_ghost,d_boundary,
 soln = scipy.sparse.linalg.spsolve(A,d)
 
 # interpolate the estimated solution
-itp,dummy = make_nodes(50000,vert,smp,bound_force=False,itr=10)
+itp,dummy = menodes(50000,vert,smp,bound_force=False,itr=10)
 soln_itp = weight_matrix(itp,nodes,[0,0],**weight_kwargs).dot(soln)
 
 # calculate the true solution
-true_soln = np.arctan2(itp[:,1],-itp[:,0])/np.pi
+true_soln = solution(itp)
 
 fig,ax  = plt.subplots(1,2,figsize=(10,4))
-p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none',cmap='viridis')
+p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none')
 fig.colorbar(p,ax=ax[0])
 ax[0].plot(nodes[:,0],nodes[:,1],'ko',markersize=5)
 for s in smp:
   ax[0].plot(vert[s,0],vert[s,1],'k-',lw=2)
 
-p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none',cmap='viridis')
+p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none')
 fig.colorbar(p,ax=ax[1])
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
@@ -143,6 +160,6 @@ ax[0].set_ylim((-2.1,2.1))
 ax[1].set_xlim((-2.1,2.1))
 ax[1].set_ylim((-2.1,2.1))
 fig.tight_layout()
-plt.savefig('figures/demo_fd_annulus_with_ghosts.png')
+plt.savefig('figures/ghosts.png')
 plt.show()
 quit()

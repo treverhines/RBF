@@ -21,7 +21,7 @@ Lf = sympy.lambdify((x,y),Lf,'numpy')
 # create nodes
 T = 1000
 vert,smp = rbf.domain.circle()
-nodes,sid = rbf.nodes.make_nodes(T,vert,smp,neighbors=5,itr=200,delta=0.05)
+nodes,sid = rbf.nodes.menodes(T,vert,smp,neighbors=5,itr=200,delta=0.05)
 interior, = np.nonzero(sid == -1)
 boundary, = np.nonzero(sid >= 0)
 
@@ -37,7 +37,7 @@ fig.tight_layout()
 # plot test function
 val = f(nodes[:,0],nodes[:,1])
 diff_true = Lf(nodes[:,0],nodes[:,1])
-p = ax.tripcolor(nodes[:,0],nodes[:,1],diff_true,cmap='viridis')
+p = ax.tripcolor(nodes[:,0],nodes[:,1],diff_true)
 ax.set_title(u'$\Delta$ u(x,y)')
 fig.colorbar(p)
 
@@ -50,7 +50,7 @@ L = rbf.fd.diff_matrix(nodes,[[2,0],[0,2]],size=N)
 diff_est = L.dot(val)
 err = np.abs(diff_est - diff_true)
 
-p = ax[0][0].tripcolor(nodes[:,0],nodes[:,1],np.log10(err),cmap='viridis')
+p = ax[0][0].tripcolor(nodes[:,0],nodes[:,1],np.log10(err))
 for s in smp:
   ax[0][0].plot(vert[s,0],vert[s,1],'k-')
 
@@ -65,7 +65,7 @@ L = rbf.fd.diff_matrix(nodes,[[2,0],[0,2]],size=N)
 diff_est = L.dot(val)
 err = np.abs(diff_est - diff_true)
 
-p = ax[0][1].tripcolor(nodes[:,0],nodes[:,1],np.log10(err),cmap='viridis')
+p = ax[0][1].tripcolor(nodes[:,0],nodes[:,1],np.log10(err))
 for s in smp:
   ax[0][1].plot(vert[s,0],vert[s,1],'k-')
 
@@ -80,7 +80,7 @@ L = rbf.fd.diff_matrix(nodes,[[2,0],[0,2]],size=N)
 diff_est = L.dot(val)
 err = np.abs(diff_est - diff_true)
 
-p = ax[1][0].tripcolor(nodes[:,0],nodes[:,1],np.log10(err),cmap='viridis')
+p = ax[1][0].tripcolor(nodes[:,0],nodes[:,1],np.log10(err))
 for s in smp:
   ax[1][0].plot(vert[s,0],vert[s,1],'k-')
 
@@ -95,7 +95,7 @@ L = rbf.fd.diff_matrix(nodes,[[2,0],[0,2]],size=N)
 diff_est = L.dot(val)
 err = np.abs(diff_est - diff_true)
 
-p = ax[1][1].tripcolor(nodes[:,0],nodes[:,1],np.log10(err),cmap='viridis')
+p = ax[1][1].tripcolor(nodes[:,0],nodes[:,1],np.log10(err))
 for s in smp:
   ax[1][1].plot(vert[s,0],vert[s,1],'k-')
 

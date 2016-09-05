@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
-from rbf.nodes import make_nodes
+from rbf.nodes import menodes
 from PIL import Image
 import matplotlib.pyplot as plt
 import logging
@@ -22,7 +22,7 @@ N = 1000
 
 # generate nodes. nodese is a (N,2) array and smpid is a (N,) 
 # identifying the simplex, if any, that each node is attached to
-nodes,smpid = make_nodes(N,vert,smp)
+nodes,smpid = menodes(N,vert,smp)
 
 boundary, = np.nonzero(smpid>=0)
 interior, = np.nonzero(smpid==-1)

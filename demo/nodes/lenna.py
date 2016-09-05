@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.nodes import make_nodes
+from rbf.nodes import menodes
 from PIL import Image
-print('hi')
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -34,7 +33,7 @@ def rho(p):
   return 1.0001 - gray[511-p[:,1],p[:,0]]
 
 
-nodes,smpid = make_nodes(N,vert,smp,rho=rho)
+nodes,smpid = menodes(N,vert,smp,rho=rho)
 interior, = np.nonzero(smpid==-1)
 boundary, = np.nonzero(smpid>=0)
 

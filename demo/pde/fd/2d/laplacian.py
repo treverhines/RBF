@@ -14,7 +14,7 @@
 import numpy as np
 import rbf.basis
 import matplotlib.pyplot as plt
-from rbf.nodes import make_nodes
+from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from matplotlib import cm
 import logging
@@ -44,7 +44,7 @@ forcing = sympy.lambdify((x,y),forcing_sym,'numpy')
 # define a circular domain
 vert,smp = rbf.domain.circle()
 
-nodes,smpid = make_nodes(N,vert,smp)
+nodes,smpid = menodes(N,vert,smp)
 # smpid describes which boundary simplex, if any, the nodes are 
 # attached to. If it is -1, then the node is in the interior
 boundary, = (smpid>=0).nonzero()

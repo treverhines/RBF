@@ -11,18 +11,18 @@
 import numpy as np
 import rbf.basis
 import matplotlib.pyplot as plt
-from rbf.nodes import make_nodes
+from rbf.nodes import menodes
 from matplotlib import cm
 import sympy
 import rbf.domain
+# set default cmap to viridis if you have it
+if 'viridis' in vars(cm):
+  plt.rcParams['image.cmap'] = 'viridis'
 
 # total number of nodes
 N = 100
 basis = rbf.basis.phs3
 
-# set default cmap to viridis if you have it
-if 'viridis' in vars(cm):
-  plt.rcParams['image.cmap'] = 'viridis'
 
 # symbolic definition of the solution
 x,y = sympy.symbols('x,y')
@@ -39,7 +39,7 @@ forcing = sympy.lambdify((x,y),forcing_sym,'numpy')
 # define a circular domain
 vert,smp = rbf.domain.circle()
 
-nodes,smpid = make_nodes(N,vert,smp)
+nodes,smpid = menodes(N,vert,smp)
 # smpid describes which boundary simplex, if any, the nodes are 
 # attached to. If it is -1, then the node is in the interior
 boundary, = (smpid>=0).nonzero()
@@ -63,8 +63,8 @@ d[boundary] = true_soln(nodes[boundary,0],nodes[boundary,1])
 coeff = np.linalg.solve(A,d)
 
 # create a collection of interpolation points to evaluate the 
-# solution. It is easiest to just call make_nodes again
-itp,dummy = make_nodes(10000,vert,smp,itr=0)
+# solution. It is easiest to just call menodes again
+itp,dummy = menodes(10000,vert,smp,itr=0)
 
 # solution at the interpolation points
 soln = basis(itp,nodes).dot(coeff)

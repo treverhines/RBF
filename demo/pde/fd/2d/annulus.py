@@ -14,10 +14,10 @@
 # and y components of the outward normal vectors to dD. The second 
 # equation is a free surface boundary condition. For improved 
 # accuracy, ghost nodes should be added along free surfaces.  We 
-# demonstrate how to add ghost nodes in demo_fd_annulus_with_ghosts.py.
+# demonstrate how to add ghost nodes in ghosts.py.
 import numpy as np
 import rbf.basis
-from rbf.nodes import make_nodes
+from rbf.nodes import menodes
 from rbf.geometry import simplex_outward_normals
 from rbf.stencil import nearest
 from rbf.fd import weight_matrix
@@ -25,10 +25,15 @@ import matplotlib.pyplot as plt
 import scipy.sparse
 from matplotlib import cm
 import logging
-logging.basicConfig(level=logging.DEBUG)
 # set default cmap to viridis if you have it
-  
-gap = 20.0*np.pi/180.0
+if 'viridis' in vars(cm):
+  plt.rcParams['image.cmap'] = 'viridis'
+
+
+
+logging.basicConfig(level=logging.DEBUG)
+
+gap = 5.0*np.pi/180.0
 
 def solution(x):
   angle = np.arctan2(x[:,1],x[:,0]) 
@@ -51,7 +56,7 @@ smp = np.array([np.arange(200),np.roll(np.arange(200),-1)]).T
 # setting bound_force=True ensures that the edges where the annulus is 
 # cut will have an appropriate number of boundary nodes. This also 
 # makes the function considerably slower
-nodes,smpid = make_nodes(N,vert,smp,bound_force=True)
+nodes,smpid = menodes(N,vert,smp,bound_force=True)
 
 # identify nodes associated with the different boundary types
 slit_top, = (smpid==199).nonzero()
@@ -96,20 +101,20 @@ d = np.concatenate((d_interior,d_boundary,d_slit_top,d_slit_bot))
 soln = scipy.sparse.linalg.spsolve(A,d)
 
 # interpolate the estimated solution
-itp,dummy = make_nodes(10000,vert,smp,bound_force=False,itr=10)
+itp,dummy = menodes(10000,vert,smp,bound_force=False,itr=10)
 soln_itp = weight_matrix(itp,nodes,[0,0],**weight_kwargs).dot(soln)
 
 # calculate the true solution
 true_soln = solution(itp)
 
 fig,ax  = plt.subplots(1,2,figsize=(10,4))
-p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none',cmap='viridis')
+p = ax[0].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp,edgecolor='none')
 fig.colorbar(p,ax=ax[0])
 ax[0].plot(nodes[:,0],nodes[:,1],'ko',markersize=5)
 for s in smp:
   ax[0].plot(vert[s,0],vert[s,1],'k-',lw=2)
 
-p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none',cmap='viridis')
+p = ax[1].scatter(itp[:,0],itp[:,1],s=10,c=soln_itp - true_soln,edgecolor='none')
 fig.colorbar(p,ax=ax[1])
 for s in smp:
   ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
@@ -123,6 +128,7 @@ ax[0].set_ylim((-2.1,2.1))
 ax[1].set_xlim((-2.1,2.1))
 ax[1].set_ylim((-2.1,2.1))
 fig.tight_layout()
-plt.savefig('figures/demo_fd_annulus.png')
+plt.savefig('figures/annulus.png')
 plt.show()
 quit()
+

@@ -283,10 +283,13 @@ def _repel_stick(free_nodes,vert,smp,rho,
 
   return free_nodes,smpid
 
-
-def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
-               itr=100,neighbors=None,delta=0.05,
-               sort_nodes=True,bound_force=False):
+def make_nodes(*args,**kwargs):
+  print('"make_nodes" has been renamed to "menodes"')
+  return menodes(*args,**kwargs)
+  
+def menodes(N,vert,smp,rho=None,fix_nodes=None,
+            itr=100,neighbors=None,delta=0.05,
+            sort_nodes=True,bound_force=False):
   ''' 
   Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  
