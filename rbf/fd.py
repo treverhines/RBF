@@ -24,7 +24,7 @@ def _reshape_diffs(diffs):
 
 def _default_stencil_size(diffs):
   ''' 
-  returns an estimate of the number of nodes needed do a decent job at 
+  returns an estimate of the number of nodes needed to do a decent job at 
   approximating the given derivative
   '''
   P = max(sum(d) for d in diffs)
@@ -204,10 +204,7 @@ def weights(x,nodes,diffs,coeffs=None,
   if order is None:
     order = _default_poly_order(diffs)
     order = min(order,max_order)
-    
-  # the maximum polynomial order is determined by the stencil size. 
-  # This reduces the polynomial order to be less than or equal to the 
-  # maximum allowed
+
   if order > max_order:
     raise ValueError(
       'Polynomial order is too high for the stencil size')
@@ -387,7 +384,6 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
   
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
-
   for i,si in enumerate(sn):
     data[i,:] = weights(x[i],nodes[si],diffs,
                         coeffs=coeffs,eps=eps,
@@ -488,7 +484,6 @@ def diff_matrix(x,diffs,coeffs=None,
     
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
-
   for i,si in enumerate(sn):
     data[i,:] = weights(x[i],x[si],diffs,
                         coeffs=coeffs,eps=eps,
