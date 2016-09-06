@@ -11,8 +11,8 @@ import rbf.geometry
 
 def _coefficient_matrix(x,eps,basis,order):
   ''' 
-  returns the matrix that maps the coefficients to the function values 
-  at the observation points
+  returns the matrix used to compute the radial basis function 
+  coefficients
   '''
   # number of observation points and spatial dimensions
   N,D = x.shape
@@ -21,7 +21,6 @@ def _coefficient_matrix(x,eps,basis,order):
   powers = rbf.poly.monomial_powers(order,D)
   # number of polynomial terms
   P = powers.shape[0]
-
   # allocate array 
   A = np.zeros((N+P,N+P))
   A[:N,:N] = basis(x,x,eps=eps)
@@ -38,15 +37,13 @@ def _interpolation_matrix(xitp,x,diff,eps,basis,order):
   '''
   # number of interpolation points and spatial dimensions
   I,D = xitp.shape
-
   # number of observation points
   N = x.shape[0]
-
   # powers for the additional polynomials
   powers = rbf.poly.monomial_powers(order,D)
   # number of polynomial terms
   P = powers.shape[0]
-
+  # allocate array 
   A = np.zeros((I,N+P))
   A[:,:N] = basis(xitp,x,eps=eps,diff=diff)
   A[:,N:] = rbf.poly.mvmonos(xitp,powers,diff=diff)
@@ -55,7 +52,7 @@ def _interpolation_matrix(xitp,x,diff,eps,basis,order):
 
 def _in_hull(p, hull):
   ''' 
-  Tests if points in p are in the convex hull made up by hull
+  Tests if points in *p* are in the convex hull made up by *hull*
   '''
   dim = p.shape[1]
   if dim >= 2:
@@ -121,7 +118,13 @@ class RBFInterpolant(object):
     
       basis = rbf.basis.phs2, order = 1.
 
-    See [2] for additional details on thin-plate splines.    
+    See [2] for additional details on thin-plate splines.   
+
+  Note
+  ----
+    This function involves solving a dense system of equations, which 
+    will be prohibitive for large data sets. See rbf.smooth for 
+    smoothing large data sets.
     
   References
   ----------
@@ -135,7 +138,7 @@ class RBFInterpolant(object):
   def __init__(self,
                x,
                value, 
-               weight=None,
+               sigma=None,
                eps=None, 
                basis=rbf.basis.phs3,
                order=1,  
@@ -153,9 +156,8 @@ class RBFInterpolant(object):
       value : (N,) array
         function values at the observation points
 
-      weight : (N,) array, optional
-        weights to put on each observation point. This should be the 
-        inverse of the data variance
+      sigma : (N,) array, optional
+        One standard deviation uncertainty on each observation point
         
       eps : (N,) array, optional
         shape parameters for each RBF. this has no effect for odd
@@ -184,36 +186,30 @@ class RBFInterpolant(object):
     '''
     x = np.asarray(x) 
     value = np.asarray(value)
+    N,D = x.shape
+    P = rbf.poly.monomial_count(order,D)
 
     if eps is None:
-      eps = np.ones(x.shape[0])
+      eps = np.ones(N)
     else:
       eps = np.asarray(eps)
 
-    if weight is None:
-      weight = np.ones(x.shape[0])
+    if sigma is None:
+      sigma = np.ones(N)
     else:
-      weight = np.asarray(weight)
+      sigma = np.asarray(sigma)
       
-    # number of observation points
-    N,D = x.shape
-
-    # number of polynomial terms
-    P = rbf.poly.monomial_count(order,D)
-
     # form matrix for the LHS
     A = _coefficient_matrix(x,eps,basis,order)
-
     # scale RHS and LHS by weight
+    weight = 1.0/sigma**2
     A[:N,:] *= weight[:,None]
     value = value*weight
-
-    # add smoothing 
+    # add smoothing along diagonals
     A[range(N),range(N)] += penalty
-
-    # extend values to have a consistent size as A
+    # add zeros to the RHS for the polynomial constraints
     value = np.concatenate((value,np.zeros(P)))
-
+    # find the radial basis function coefficients
     coeff = np.linalg.solve(A,value)
 
     self.x = x
@@ -245,7 +241,6 @@ class RBFInterpolant(object):
     n = 0
     xitp = np.asarray(xitp) 
     #xitp = self.norm(xitp)
-    
     Nitp = xitp.shape[0]
     # allocate output array
     out = np.zeros(Nitp)
