@@ -75,18 +75,25 @@ def _average_shortest_distance(x):
                                     
 
 def _default_cutoff(x):
+  '''  
+  the default cutoff frequency has a corresponding wavelength that is 
+  20 times the average shortest distance between observations
+  '''
   return 1.0/(20*_average_shortest_distance(x))
 
 
 def _sigma_bar(sigma):
+  ''' 
+  returns the characteristic uncertainty
+  '''
   if sigma.shape[0] == 0:
     return np.inf
   else:  
     return np.sqrt(1.0/np.mean(1.0/sigma**2))
   
 
-def _penalty(cutoff,sigma):
-  return (2*np.pi*cutoff)**2*_sigma_bar(sigma)
+def _penalty(cutoff,order,sigma):
+  return (2*np.pi*cutoff)**order*_sigma_bar(sigma)
 
 
 def _diag(diag):
@@ -124,12 +131,17 @@ def smooth(x,u,sigma=None,
       observations at x
     
     sigma : (..., N) array, optional
-      one standard deviation uncertainty on the observations. must 
-      have the same shape as u
+      one standard deviation uncertainty on the observations. This 
+      must have the same shape as u. Any np.inf entries are treated as 
+      masked data.  Masked data can either be ignored or filled in 
+      depending on the *fill* argument. If *sigma* is not provided 
+      then it defaults to an array of ones.
     
     cutoff : float, optional
       cutoff frequency. Frequencies greater than this value will be 
-      damped out
+      damped out. This defaults to a frequency that corresponds to a 
+      wavelength which is 20 times the average shortest distance 
+      between points in *x*.
       
     order : int, optional
       smoothness order.  Higher orders will cause the frequency 
@@ -144,8 +156,14 @@ def smooth(x,u,sigma=None,
       number of posterior samples used to estimate the uncertainty
       
     fill : str, optional
-      indicates how to treat missing data (i.e. data with np.inf 
-      uncertainty).  Either 'none', 'interpolate', or 'extrapolate'. 
+      indicates how to treat missing data (i.e. data where *sigma* is 
+      np.inf).  Either 'none', 'interpolate', or 'extrapolate'. If 
+      'none' then missing data is ignored and the returned mean and 
+      uncertainty at those observation points will be np.nan and 
+      np.inf respectively. If *fill* is 'interpolate' then a smoothed 
+      solution will be estimated at missing interior observation 
+      points (i.e. no extrapolation).  If fill is 'extrapolate' then a 
+      smoothed solution is estimated at every observation point.
     
   Returns
   -------
@@ -157,8 +175,8 @@ def smooth(x,u,sigma=None,
   x = np.asarray(x)
   u = np.asarray(u)  
   u = np.nan_to_num(u)
-  N,D = x.shape
-  P = int(np.prod(u.shape[:-1]))
+  N,dim = x.shape
+  P = int(np.prod(u.shape[:-1])) 
   if sigma is None:
     sigma = np.ones(u.shape)
 
@@ -176,19 +194,18 @@ def smooth(x,u,sigma=None,
   post_sigma = np.empty((P,N))
   post_sigma[...] = np.inf  
   
-  # memoized function to form the differentiation matrix used in the 
-  # prior. If multiple data sets have the same missing values then the 
-  # differentiation matrices are reused
+  # memoized function to form the differentiation matrices used for 
+  # the prior and post-processing
   @memoize
   def form_L(mask):
     mask = np.asarray(mask,dtype=bool)        
-    diff = order*np.eye(D,dtype=int)
-    if D == 1:
+    prior_diff = order*np.eye(dim,dtype=int)
+    if dim == 1:
       # if one dimensional, then use adjacency rather than nearest 
       # neighbors to form stencils
-      L = rbf.fd.diff_matrix_1d(x[~mask],diff,**kwargs)
+      L = rbf.fd.diff_matrix_1d(x[~mask],prior_diff,**kwargs)
     else:
-      L = rbf.fd.diff_matrix(x[~mask],diff,**kwargs)
+      L = rbf.fd.diff_matrix(x[~mask],prior_diff,**kwargs)
 
     return L  
                 
@@ -204,7 +221,7 @@ def smooth(x,u,sigma=None,
     # form weight matrix
     W = _diag(1.0/sigma[i,~mask])
     # compute penalty parameter
-    p = _penalty(cutoff,sigma[i,~mask])
+    p = _penalty(cutoff,order,sigma[i,~mask])
     # form left and right hand side of the system to solve
     lhs = W.T.dot(W) + L.T.dot(L)/p**2
     rhs = W.T.dot(W).dot(u[i,~mask])
