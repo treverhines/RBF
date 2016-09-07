@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# this function demonstrates rbf.smooth.smooth for two-dimensional 
+# this function demonstrates rbf.filter.filter for two-dimensional 
 # data
 import numpy as np
 import matplotlib.pyplot as plt
-import rbf.smooth
+import rbf.filter
 import rbf.domain
 import rbf.nodes
 from scipy.signal import periodogram
@@ -27,7 +27,7 @@ cutoff = 2.0
 
 # derivative order
 order = 2
-post_mean,post_std = rbf.smooth.smooth(x,obs_mean,sigma=obs_std,
+post_mean,post_std = rbf.filter.filter(x,obs_mean,sigma=obs_std,
                                        order=order,cutoff=cutoff)
 
 # plot the results
@@ -45,7 +45,7 @@ ax1.grid(True)
 ax1.set_title(u'$\mathrm{observed}$')
 ax1.set_aspect('equal')
 ax2.grid(True)
-ax2.set_title(u'$\mathrm{smoothed},\ \omega_c=2.0$')
+ax2.set_title(u'$\mathrm{filtered},\ \omega_c=2.0$')
 ax2.set_aspect('equal')
 fig.tight_layout()
 plt.savefig('figures/filter2d.png')

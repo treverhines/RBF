@@ -107,14 +107,15 @@ def _diag(diag):
   return out
      
 
-def smooth(x,u,sigma=None,
+def filter(x,u,sigma=None,
            cutoff=None, 
            fill='extrapolate',
            order=2,
            samples=100,
+           diffs=None,
            **kwargs):
   ''' 
-  Smooths noisy data in a Bayesian framework by assuming a prior 
+  Filters noisy data in a Bayesian framework by assuming a prior 
   covariance model for the underlying signal.  The prior covariance is 
   chosen such that the power spectral density of the mean of the 
   posterior is effectively zero above a user specified cutoff 
@@ -164,6 +165,17 @@ def smooth(x,u,sigma=None,
       solution will be estimated at missing interior observation 
       points (i.e. no extrapolation).  If fill is 'extrapolate' then a 
       smoothed solution is estimated at every observation point.
+
+    diffs : (D,) or (K,D) int array, optional
+      If provided then the output will be a derivative of the smoothed 
+      solution. The derivative can be specified with a (D,) array where 
+      each entry indicates the derivative order for the corresponding 
+      spatial dimension.  For example [2,0] indicates to return the 
+      second x derivative of a two-dimensional field. A differential 
+      operator can be specified with a (K,D) array. For example the 
+      Laplacian of the smoothed solution can be returned with 
+      [[2,0],[0,2]].
+    
     
   Returns
   -------
@@ -182,6 +194,9 @@ def smooth(x,u,sigma=None,
 
   if cutoff is None:
     cutoff = _default_cutoff(x)
+    
+  if diffs is None:
+    diffs = np.zeros(dim,dtype=int)  
 
   # flatten u and sigma to a 2D array
   input_u_shape = u.shape
@@ -197,17 +212,19 @@ def smooth(x,u,sigma=None,
   # memoized function to form the differentiation matrices used for 
   # the prior and post-processing
   @memoize
-  def form_L(mask):
+  def build_L_and_D(mask):
     mask = np.asarray(mask,dtype=bool)        
-    prior_diff = order*np.eye(dim,dtype=int)
+    prior_diffs = order*np.eye(dim,dtype=int)
     if dim == 1:
       # if one dimensional, then use adjacency rather than nearest 
       # neighbors to form stencils
-      L = rbf.fd.diff_matrix_1d(x[~mask],prior_diff,**kwargs)
+      L = rbf.fd.diff_matrix_1d(x[~mask],prior_diffs,**kwargs)
+      D = rbf.fd.diff_matrix_1d(x[~mask],diffs,**kwargs)
     else:
-      L = rbf.fd.diff_matrix(x[~mask],prior_diff,**kwargs)
+      L = rbf.fd.diff_matrix(x[~mask],prior_diffs,**kwargs)
+      D = rbf.fd.diff_matrix(x[~mask],diffs,**kwargs)
 
-    return L  
+    return L,D  
                 
   # stores differentiation matrices
   for i in xrange(P):
@@ -217,7 +234,7 @@ def smooth(x,u,sigma=None,
     K = np.sum(~mask)
     # build differentiation matrix, which is the inverse of the 
     # Choleksy decomposition of the prior covariance
-    L = form_L(tuple(mask))
+    L,D = build_L_and_D(tuple(mask))
     # form weight matrix
     W = _diag(1.0/sigma[i,~mask])
     # compute penalty parameter
@@ -227,8 +244,8 @@ def smooth(x,u,sigma=None,
     rhs = W.T.dot(W).dot(u[i,~mask])
     # generate LU decomposition of left-hand side
     lu = spla.splu(lhs)
-    # compute mean of posterior
-    post_mean[i,~mask] = lu.solve(rhs)
+    # compute the derivative of the posterior mean
+    post_mean[i,~mask] = D.dot(lu.solve(rhs))
     # compute the posterior standard deviation
     ivar = _IterativeVariance(post_mean[i,~mask])
     for j in xrange(samples):
@@ -236,6 +253,8 @@ def smooth(x,u,sigma=None,
       w2 = np.random.normal(0.0,1.0,K)
       # generate sample of the posterior
       post_sample = lu.solve(rhs + W.T.dot(w1) + L.T.dot(w2)/p)
+      # differentiate the sample
+      post_sample = D.dot(post_sample)
       ivar.add_sample(post_sample)
     
     post_sigma[i,~mask] = np.sqrt(ivar.get_variance())
