@@ -64,7 +64,7 @@ def mvmonos(x,powers,diff=None):
     # compute f1(x) = 1, f2(x) = x, f3(x) = x**2 at positions 1.0, 
     # 2.0, and 3.0
     >>> pos = np.array([[1.0],[2.0],[3.0]])
-    >>> pows = np.array([[1],[2],[3]])
+    >>> pows = np.array([[0],[1],[2]])
     >>> mvmonos(pos,pows)
 
     array([[ 1.,  1.,  1.],

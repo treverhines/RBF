@@ -4,6 +4,7 @@ provides a function for smoothing large, multidimensional, noisy data sets
 import numpy as np
 import rbf.fd
 import rbf.basis
+from rbf.poly import memoize
 import scipy.sparse
 import scipy.sparse.linalg as spla
 from scipy.spatial import cKDTree
@@ -28,7 +29,7 @@ class _IterativeVariance:
     return self.sum_squared_diff / self.count
 
 
-def _mask(x,sigma,kind):
+def _get_mask(x,sigma,kind):
   ''' 
   Returns an (N,) boolean array identifying where a smoothed estimate 
   should be made.  
@@ -46,14 +47,11 @@ def _mask(x,sigma,kind):
   
   '''
   data_is_missing = np.isinf(sigma) 
-  data_is_not_missing = ~data_is_missing
-  N = sigma.shape[0]
-
   if kind == 'none':
     mask = data_is_missing
 
   elif kind == 'interpolate':
-    mask = ~_in_hull(x,x[data_is_not_missing])
+    mask = ~_in_hull(x,x[~data_is_missing])
 
   elif kind == 'extrapolate':
     mask = np.zeros(sigma.shape,dtype=bool)
@@ -65,6 +63,9 @@ def _mask(x,sigma,kind):
 
 
 def _average_shortest_distance(x):
+  ''' 
+  returns the average shortest distance between points in x
+  '''
   if x.shape[0] == 0:
     return np.inf
   else:
@@ -88,6 +89,17 @@ def _penalty(cutoff,sigma):
   return (2*np.pi*cutoff)**2*_sigma_bar(sigma)
 
 
+def _diag(diag):
+  ''' 
+  returns a diagonal csr matrix. Unlike scipy.sparse.diags, this 
+  properly handles zero-length input
+  '''
+  K = len(diag)
+  r,c = range(K),range(K)
+  out = scipy.sparse.csr_matrix((diag,(r,c)),(K,K))
+  return out
+     
+
 def smooth(x,u,sigma=None,
            cutoff=None, 
            fill='extrapolate',
@@ -108,11 +120,12 @@ def smooth(x,u,sigma=None,
     x : (N,D) array
       observations points
     
-    u : (N,) array, 
+    u : (..., N) array, 
       observations at x
     
-    sigma : (N,) array, optional
-      one standard deviation uncertainty on the observations  
+    sigma : (..., N) array, optional
+      one standard deviation uncertainty on the observations. must 
+      have the same shape as u
     
     cutoff : float, optional
       cutoff frequency. Frequencies greater than this value will be 
@@ -136,74 +149,83 @@ def smooth(x,u,sigma=None,
     
   Returns
   -------
-    post_mean : (N,) array
+    post_mean : (..., N) array
     
-    post_sigma : (N,) array
+    post_sigma : (..., N) array
   
   '''    
   x = np.asarray(x)
   u = np.asarray(u)  
   u = np.nan_to_num(u)
-  u_shape = u.shape
   N,D = x.shape
+  P = int(np.prod(u.shape[:-1]))
   if sigma is None:
-    sigma = np.ones(u_shape)
+    sigma = np.ones(u.shape)
 
   if cutoff is None:
     cutoff = _default_cutoff(x)
 
-  # throw out points where we do not want to estimate the solution
-  keep_idx, = np.nonzero(~_mask(x,sigma,fill))
-  K = len(keep_idx)
-  x = x[keep_idx]
-  u = u[keep_idx]
-  sigma = sigma[keep_idx]
-  # build data weight matrix, which is the inverse of the Cholesky 
-  # decomposition of the data covariance
-  Wdata = 1.0/sigma
-  Wrow,Wcol = range(K),range(K)
-  W = scipy.sparse.csr_matrix((Wdata,(Wrow,Wcol)),(K,K))
-  # build differentiation matrix, which is the inverse of the Choleksy 
-  # decomposition of the prior covariance
-  diff = order*np.eye(D,dtype=int)
-  if D == 1:
-    # if one dimensional, then use adjacency rather than nearest 
-    # neighbors to form stencils
-    L = rbf.fd.diff_matrix_1d(x,diff,**kwargs)
-  else:
-    L = rbf.fd.diff_matrix(x,diff,**kwargs)
+  # flatten u and sigma to a 2D array
+  input_u_shape = u.shape
+  u = u.reshape((P,N))
+  sigma = sigma.reshape((P,N))
     
-  # penalty used to scale the prior
-  p = _penalty(cutoff,sigma)
-  L *= 1.0/p
-  # form left and right hand side of the system to solve
-  lhs = W.T.dot(W) + L.T.dot(L)
-  rhs = W.T.dot(W).dot(u)
-  # generate LU decomposition of left-hand side
-  lu = spla.splu(lhs)
-  # compute mean of posterior
-  post_mean = lu.solve(rhs)
-  # compute the posterior standard deviation
-  ivar = _IterativeVariance(post_mean)
-  for i in xrange(samples):
-    w1 = np.random.normal(0.0,1.0,K)
-    w2 = np.random.normal(0.0,1.0,K)
-    # generate sample of the posterior
-    post_sample = lu.solve(rhs + W.T.dot(w1) + L.T.dot(w2))
-    ivar.add_sample(post_sample)
-    
-  post_sigma = np.sqrt(ivar.get_variance())
-  # expand the mean and standard deviation to the original size. 
-  # points which were not smoothed are returned with mean=np.nan and 
-  # sigma=np.inf
-  post_mean_full = np.empty(N)
-  post_mean_full[:] = np.nan
-  post_mean_full[keep_idx] = post_mean
-  post_sigma_full = np.empty(N)
-  post_sigma_full[:] = np.inf
-  post_sigma_full[keep_idx] = post_sigma
+  # allocate output array 
+  post_mean = np.empty((P,N))
+  post_mean[...] = np.nan  
+  post_sigma = np.empty((P,N))
+  post_sigma[...] = np.inf  
+  
+  # memoized function to form the differentiation matrix used in the 
+  # prior. If multiple data sets have the same missing values then the 
+  # differentiation matrices are reused
+  @memoize
+  def form_L(mask):
+    mask = np.asarray(mask,dtype=bool)        
+    diff = order*np.eye(D,dtype=int)
+    if D == 1:
+      # if one dimensional, then use adjacency rather than nearest 
+      # neighbors to form stencils
+      L = rbf.fd.diff_matrix_1d(x[~mask],diff,**kwargs)
+    else:
+      L = rbf.fd.diff_matrix(x[~mask],diff,**kwargs)
 
-  return post_mean_full,post_sigma_full
+    return L  
+                
+  # stores differentiation matrices
+  for i in xrange(P):
+    # throw out points where we do not want to estimate the solution
+    mask = _get_mask(x,sigma[i],fill)
+    # number of unmasked entries
+    K = np.sum(~mask)
+    # build differentiation matrix, which is the inverse of the 
+    # Choleksy decomposition of the prior covariance
+    L = form_L(tuple(mask))
+    # form weight matrix
+    W = _diag(1.0/sigma[i,~mask])
+    # compute penalty parameter
+    p = _penalty(cutoff,sigma[i,~mask])
+    # form left and right hand side of the system to solve
+    lhs = W.T.dot(W) + L.T.dot(L)/p**2
+    rhs = W.T.dot(W).dot(u[i,~mask])
+    # generate LU decomposition of left-hand side
+    lu = spla.splu(lhs)
+    # compute mean of posterior
+    post_mean[i,~mask] = lu.solve(rhs)
+    # compute the posterior standard deviation
+    ivar = _IterativeVariance(post_mean[i,~mask])
+    for j in xrange(samples):
+      w1 = np.random.normal(0.0,1.0,K)
+      w2 = np.random.normal(0.0,1.0,K)
+      # generate sample of the posterior
+      post_sample = lu.solve(rhs + W.T.dot(w1) + L.T.dot(w2)/p)
+      ivar.add_sample(post_sample)
+    
+    post_sigma[i,~mask] = np.sqrt(ivar.get_variance())
+
+  post_mean = post_mean.reshape(input_u_shape)
+  post_sigma = post_sigma.reshape(input_u_shape)
+  return post_mean,post_sigma
   
 
           
