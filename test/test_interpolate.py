@@ -166,9 +166,9 @@ class Test(unittest.TestCase):
     val = test_func2d(obs)
     val[0] += 100.0
     
-    weight = np.ones(N)
-    weight[0] = 0.0
-    I = rbf.interpolate.RBFInterpolant(obs,val,weight=weight,penalty=0.01,
+    sigma = np.ones(N)
+    sigma[0] = np.inf
+    I = rbf.interpolate.RBFInterpolant(obs,val,sigma=sigma,penalty=0.01,
                                        basis=rbf.basis.phs3,order=1)
     
     valitp_est = I(itp)
