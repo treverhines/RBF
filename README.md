@@ -2,8 +2,13 @@
 Python package containing the tools necessary for radial basis function (RBF) applications.  Applications include interpolating/smoothing scattered data and solving PDEs over complicated domains.
 
 ## Features
-* Efficient evaluation of RBFs and their analytically derived spatial derivatives.  This package allows for unlimited spatial dimensions and arbitrarily spatial derivatives   
-* Regularized RBF interpolation, which can fit a smoothed interpolant to noisy data   
+* Efficient evaluation of RBFs and their analytically derived spatial 
+derivatives.  This package allows for unlimited spatial dimensions and 
+arbitrarily spatial derivatives
+
+* Regularized RBF interpolation, which can fit a smoothed interpolant 
+to noisy data
+
 * Generation of radial basis function finite difference (RBF-FD) weights, which are used to estimate derivatives of scattered data
 * Efficient generation of RBF-FD stencils which can be given constraints to not cross a user defined boundary. This is useful if the user does not want to estimate a derivative over a known discontinuity.  
 * computational geometry functions for 1, 2, and 3 spatial dimensions. Among these functions is a point in polygon/polyhedra test
