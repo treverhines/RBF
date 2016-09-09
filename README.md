@@ -2,7 +2,7 @@
 Python package containing the tools necessary for radial basis 
 function (RBF) applications.  Applications include 
 interpolating/smoothing scattered data and solving PDEs over 
-complicated domains.
+complicated domains. 
 
 
 ## Features
@@ -33,6 +33,7 @@ solving PDEs with the spectral RBF method or the RBF-FD method
   3. [Solving PDEs: Spectral Method](#solving-pdes-spectral-method)
   3. [Solving PDEs: RBF-FD Method](#solving-pdes-rbf-fd-method)
 4. [To Do](#to-do)
+5. [Acknowledgements](#acknowledgements)
 
 ## Installation
 RBF requires the following python packages: numpy, scipy, sympy, 
@@ -239,7 +240,7 @@ smp = [[0,1],
        [2,3],
        [3,0]]
 ```             
-where each row in smp defines the vertices in a simplex making up the 
+where each row in `smp` defines the vertices in a simplex making up the 
 unit square. The vertices and simplices for some simple domains can be 
 generated from the functions in `rbf.domain`.
 
@@ -266,7 +267,7 @@ this figure
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/nodes/figures/square.png "square")
 
 In this next example, we create a more complicated domain and have a 
-node density that corresponds with the image Lenna.png (located in 
+node density that corresponds with the image `Lenna.png` (located in 
 `rbf/demo`)
 ```python
 from PIL import Image
@@ -309,7 +310,7 @@ Here we are solving Laplace's equation over a unit circle, where the
 boundaries are fixed at zero and there is an applied forcing term. The 
 solution to this problem is (1-r)\*sin(x)\*cos(y). The forcing 
 term needed to produce this solution is defined below. This 
-demonstration can also be found in demo/pde/spectral/2d/laplacian.py.
+demonstration can also be found in `demo/pde/spectral/2d/laplacian.py`.
 ```python
 import rbf.domain
 
@@ -413,4 +414,10 @@ project!)
 
 See the documentation within the modules for help on using these 
 features
+
+### Acknowledgements
+This package has been largely inspired by the book "A Primer on 
+Radial Basis Functions with Applications to the Geosciences" by 
+Bengt Fornberg and Natasha Flyer.  
+
 
