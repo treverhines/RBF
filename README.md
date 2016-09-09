@@ -36,7 +36,9 @@ solving PDEs with the spectral RBF method or the RBF-FD method
 3. [Usage](#usage)
   1. [Basis](#basis)
   2. [Interpolation](#interpolation)
-
+  3. [Solving PDEs: Spectral Method](#solving-pdes-spectral-method)
+  3. [Solving PDEs: RBF-FD Method](#solving-pdes-rbf-fd-method)
+4. [To Do](#to-do)
 
 ## Installation
 RBF requires the following python packages: numpy, scipy, sympy, 
@@ -131,10 +133,15 @@ because many of the commonly used RBFs are already instantiated and
 can be called using function in the rbf.basis module. The available 
 functions are
 * ga : gaussian, exp(-(EPS\*R)^2)
+
 * iq : inverse quadratic, 1/(1+(EPS\*R^2)
+
 * mq : multiquadratic, sqrt(1 + (EPS\*R)^2)
+
 * imq : inverse multiquadratic, 1/sqrt(1 + (EPS\*R)^2)
+
 * phs{1,3,5,7} : odd order polyharmonic splines, (EPS\*R)^{1,3,5,7}
+
 * phs{2,4,6,8} : even order polyharmonic splines, log(EPS\*R)(EPS\*R)^{2,4,6,8}  
 
 EPS is a scaling factor which can be obtained for defining your own 
@@ -148,7 +155,7 @@ does not need to be optimized. Odd order polyharmonic splines
 generally perform well for interpolation and solving PDEs.
 
 ### Interpolation
-Radial Basis Functions are most commonly used for interpolating 
+Radial basis functions are most commonly used for interpolating 
 scattered data in multidimensional space, but for simplicity we start 
 with a one-dimensional demonstration.  Creating a simple RBF 
 interpolant is straight forward with an RBF instance
@@ -191,14 +198,13 @@ of a two-dimensional function. The smoothness is controlled with the
 `RBFInterpolant` we show that we can easily differentiate the smoothed 
 interpolant. 
 ```
-# create 20 2-D observation points
-x = np.random.random((100,2))
+x = np.random.random((100,2)) # observation points
 
 # find the function value at the observation points
 u = np.sin(2*np.pi*x[:,0])*np.cos(2*np.pi*x[:,1])
 u += np.random.normal(0.0,0.1,100)
 
-# create interpolation points
+# interpolation points
 a = np.linspace(0,1,100)
 x1itp,x2itp = np.meshgrid(a,a)
 xitp = np.array([x1itp.ravel(),x2itp.ravel()]).T
@@ -217,11 +223,24 @@ derivative the the true underlying signal.
 
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/interpolate/figures/interp2d.png "interp2d")
 
-### Solving PDEs with the spectral RBF method
-#### Node generation
-We can numerically solve PDEs over an arbitrary N-dimensional domain with RBFs.  Unlike finite element methods or traditional finite difference methods which require a mesh (nodes with known connectivity), the RBF method just needs to know the nodes. This makes it easier to discretize a complicated domain and gives the user more control over how that discretization is done.
 
-The `rbf.nodes` module provides a function for node generation over an arbitary 1, 2, or 3 dimensional closed domain and also allows for variable node density.  Throughout this package domains are defined using simplicial complexes, which are a collection of simplices (points, line segments, and triangles).  A simplicial complex is defined with two arrays, one specificing the locations of vertices and the other specifying the vertex indices which make up each simplex.  For example a unit square can be described as
+### Solving PDEs: Spectral Method
+We can numerically solve PDEs over an arbitrary N-dimensional domain 
+with RBFs.  Unlike finite element methods or traditional finite 
+difference methods which require a mesh (nodes with known 
+connectivity), the RBF method just needs to know the nodes. This makes 
+it easier to discretize a complicated domain and gives the user more 
+control over how that discretization is done.
+
+#### Node generation
+The `rbf.nodes` module provides a function for node generation over an 
+arbitary 1, 2, or 3 dimensional closed domain and also allows for 
+variable node density.  Throughout this package domains are defined 
+using simplicial complexes, which are a collection of simplices 
+(points, line segments, and triangles).  A simplicial complex is 
+defined with two arrays, one specificing the locations of vertices and 
+the other specifying the vertex indices which make up each simplex.  
+For example a unit square can be described as
 ```python
 vert = [[0.0,0.0],
         [1.0,0.0],
@@ -232,38 +251,35 @@ smp = [[0,1],
        [2,3],
        [3,0]]
 ```             
-where each row in smp defines the vertices in a simplex making up the unit square. The vertices and simplices for some simple domains can be generated from the functions in `rbf.domain`.
+where each row in smp defines the vertices in a simplex making up the 
+unit square. The vertices and simplices for some simple domains can be 
+generated from the functions in `rbf.domain`.
 
-We now generate 1000 nodes which are quasi-uniformly spaced within the unit square. This is done with a minimum energy algorithm. See `rbf.nodes.menodes` for a detailed description of the arguments and the algorithm.
+We now generate 1000 nodes which are quasi-uniformly spaced within the 
+unit square. This is done with a minimum energy algorithm. See 
+`rbf.nodes.menodes` for a detailed description of the arguments and 
+the algorithm.
 ```python
 from rbf.nodes import menodes
 
 # number of nodes
 N = 1000
 
-# generate nodes. nodes1 is a (N,2) array and smpid is a (N,) 
+# generate nodes. *nodes* is a (N,2) array and *smpid* is a (N,) 
 # identifying the simplex, if any, that each node is attached to
 nodes,smpid = menodes(N,vert,smp)
 
 boundary, = np.nonzero(smpid>=0)
 interior, = np.nonzero(smpid==-1)
 ```
-plot the results
-```python
-fig,ax = plt.subplots()
-# plot interior nodes
-ax.plot(nodes[interior,0],nodes[interior,1],'ko')
-# plot boundary nodes
-ax.plot(nodes[boundary,0],nodes[boundary,1],'bo')
-ax.set_aspect('equal')
-ax.set_xlim((-0.1,1.1))
-ax.set_ylim((-0.1,1.1))
-fig.tight_layout()
-plt.show()
-```
+plotting `interior` nodes as black and `boundary` nodes as blue we get 
+this figure
+
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/nodes/figures/square.png "square")
 
-In this next example, we create a more complicated domain and have a node density that corresponds with the image Lenna.png (located in `rbf/demo`)
+In this next example, we create a more complicated domain and have a 
+node density that corresponds with the image Lenna.png (located in 
+`rbf/demo`)
 ```python
 from PIL import Image
 
@@ -295,48 +311,35 @@ nodes,smpid = menodes(N,vert,smp,rho=rho)
 interior, = np.nonzero(smpid==-1)
 boundary, = np.nonzero(smpid>=0)
 ```
-plot the results
-```python
-fig,ax = plt.subplots()
-# plot interior nodes
-ax.plot(nodes[interior,0],nodes[interior,1],'k.',markersize=2)
-# plot boundary nodes
-ax.plot(nodes[boundary,0],nodes[boundary,1],'b.',markersize=2)
-ax.set_aspect('equal')
-fig.tight_layout()
-plt.show()
-```
+again plotting the `interior` nodes as black and `boundary` nodes as 
+blue
+
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/nodes/figures/lenna.png "lenna")
 
 #### Laplace's equation on a circle
-Here we are solving Laplace's equation over a unit circle, where the boundaries are fixed at zero and there is an applied forcing term.  The solution to this problem is (1-r)\*sin(x)\*cos(y). The forcing term needed to produce this solution is computed symbolically with sympy.
-
+Here we are solving Laplace's equation over a unit circle, where the 
+boundaries are fixed at zero and there is an applied forcing term.  
+The solution to this problem is (1-r)\*sin(x)\*cos(y). The forcing 
+term needed to produce this solution is defined below. This 
+demonstration can also be found in demo/pde/spectral/2d/laplacian.py.
 ```python
-import sympy
 import rbf.domain
+
+def forcing(x,y):
+  return ((2*x**2*np.sin(x)*np.cos(y) - 
+           2*x*np.cos(x)*np.cos(y) + 
+           2*y**2*np.sin(x)*np.cos(y) + 
+           2*y*np.sin(x)*np.sin(y) - 
+           2*np.sqrt(x**2 + y**2)*np.sin(x)*np.cos(y) - 
+           np.sin(x)*np.cos(y))/np.sqrt(x**2 + y**2))
 
 # total number of nodes
 N = 100
-basis = rbf.basis.phs3
-
-# symbolic definition of the solution
-x,y = sympy.symbols('x,y')
-r = sympy.sqrt(x**2 + y**2)
-true_soln_sym = (1-r)*sympy.sin(x)*sympy.cos(y)
-# numerical solution
-true_soln = sympy.lambdify((x,y),true_soln_sym,'numpy')
-
-# symbolic forcing term
-forcing_sym = true_soln_sym.diff(x,x) + true_soln_sym.diff(y,y)
-# numerical forcing term
-forcing = sympy.lambdify((x,y),forcing_sym,'numpy')
 
 # define a circular domain
 vert,smp = rbf.domain.circle()
 
 nodes,smpid = menodes(N,vert,smp)
-# smpid describes which boundary simplex, if any, the nodes are 
-# attached to. If it is -1, then the node is in the interior
 boundary, = (smpid>=0).nonzero()
 interior, = (smpid==-1).nonzero()
 
@@ -344,78 +347,89 @@ interior, = (smpid==-1).nonzero()
 # function for interior nodes and the undifferentiated basis functions 
 # for the boundary nodes
 A = np.zeros((N,N))
-A[interior]  = basis(nodes[interior],nodes,diff=[2,0]) 
-A[interior] += basis(nodes[interior],nodes,diff=[0,2]) 
-A[boundary,:] = basis(nodes[boundary],nodes)
+A[interior]  = phs3(nodes[interior],nodes,diff=[2,0]) 
+A[interior] += phs3(nodes[interior],nodes,diff=[0,2]) 
+A[boundary]  = phs3(nodes[boundary],nodes,diff=[0,0])
 
 # create the right-hand-side vector, consisting of the forcing term 
 # for the interior nodes and zeros for the boundary nodes
 d = np.zeros(N)
 d[interior] = forcing(nodes[interior,0],nodes[interior,1]) 
-d[boundary] = true_soln(nodes[boundary,0],nodes[boundary,1]) 
 
 # find the RBF coefficients that solve the PDE
 coeff = np.linalg.solve(A,d)
 ```
-plot the results
-```python
-# create a collection of interpolation points to evaluate the 
-# solution. It is easiest to just call menodes again
-itp,dummy = menodes(10000,vert,smp,itr=0)
+Now that we have the coefficients for the basis functions we can 
+evaluate the interpolant and view the solution. 
 
-# solution at the interpolation points
-soln = basis(itp,nodes).dot(coeff)
-
-fig,ax = plt.subplots(1,2,figsize=(10,4))
-ax[0].set_title('RBF solution')
-p = ax[0].tripcolor(itp[:,0],itp[:,1],soln)
-ax[0].plot(nodes[:,0],nodes[:,1],'ko')
-# plot the boundary
-for s in smp:
-  ax[0].plot(vert[s,0],vert[s,1],'k-',lw=2)
-
-fig.colorbar(p,ax=ax[0])
-
-ax[1].set_title('error')
-p = ax[1].tripcolor(itp[:,0],itp[:,1],soln - true_soln(itp[:,0],itp[:,1]))
-for s in smp:
-  ax[1].plot(vert[s,0],vert[s,1],'k-',lw=2)
-
-fig.colorbar(p,ax=ax[1])
-ax[0].set_aspect('equal')
-ax[1].set_aspect('equal')
-ax[0].set_xlim((-1.05,1.05))
-ax[0].set_ylim((-1.05,1.05))
-ax[1].set_xlim((-1.05,1.05))
-ax[1].set_ylim((-1.05,1.05))
-fig.tight_layout()
-plt.savefig('figures/demo_spectral_laplacian.png')
-plt.show()
-```
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/pde/spectral/2d/figures/demo_spectral_laplacian.png "demo_spectral_laplacian")
 
-### Solving PDEs with the RBF-FD method
-The radial basis function generated finite difference (RBF-FD) method is a relatively new method for solving PDEs.  The RBF-FD method allows one to approximate a derivative as a weighted sum of function realizations at N neighboring locations, where the locations can be randomly distributed.  Once the weights have been computed, the method is effectively identical to solving a PDE with a traditional finite difference method.  This package offers two functions for computing the RBF-FD weights, `rbf.fd.weights` and `rbf.fd.weight_matrix`. The latter function allows the user to solve a PDE with almost the exact same procedure as for the spectral RBF method (see `rbf/demo/pde/fd/2d/laplacian.py`).    
 
-For the function `rbf.fd.weight_matrix`, the stencil generation is done under the hood. By default the stencils are just a collection of nearest neighbors which are efficiently found with `scipy.spatial.cKDTree`. However, a nearest neighbor stencil may not be appropriate for some problems.  For example you may have a domain with edges that *nearly* touch and you do not want the PDE to be enforced across that boundary. The function `rbf.stencil.stencil_network` creates nearest neighbor stencils but it does not allow stencils to reach across boundaries. This is effectively done by redefining the distance norm so that if a line segment connecting two points intersects a boundary then they are infinitely far away.  This function then makes it possible to solve problems like this
+### Solving PDEs: RBF-FD Method
+The radial basis function generated finite difference (RBF-FD) method 
+is a relatively new method for solving PDEs.  The RBF-FD method allows 
+one to approximate a derivative as a weighted sum of function 
+realizations at N neighboring locations, where the locations can be 
+randomly distributed.  Once the weights have been computed, the method 
+is effectively identical to solving a PDE with a traditional finite 
+difference method.  This package offers two functions for computing 
+the RBF-FD weights, `rbf.fd.weights` and `rbf.fd.weight_matrix`. The 
+latter function allows the user to solve a PDE with almost the exact 
+same procedure as for the spectral RBF method (see 
+`rbf/demo/pde/fd/2d/laplacian.py`).
+
+For the function `rbf.fd.weight_matrix`, the stencil generation is 
+done under the hood. By default the stencils are just a collection of 
+nearest neighbors which are efficiently found with 
+`scipy.spatial.cKDTree`. However, a nearest neighbor stencil may not 
+be appropriate for some problems.  For example you may have a domain 
+with edges that *nearly* touch and you do not want the PDE to be 
+enforced across that boundary. The function 
+`rbf.stencil.stencil_network` creates nearest neighbor stencils but it 
+does not allow stencils to reach across boundaries. This is 
+effectively done by redefining the distance norm so that if a line 
+segment connecting two points intersects a boundary then they are 
+infinitely far away.  This function then makes it possible to solve 
+problems like this
 
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/pde/fd/2d/figures/annulus.png "demo_fd_annulus")
 
-The above plot is showing the solution to Laplace's equation on a slit annulus. The edges are free surfaces except for the top and bottom of the slit, which are fixed at 1 and -1.  The code which generated the above script can be found in `rbf/demo/pde/fd/2d/annulus.py`. 
+The above plot is showing the solution to Laplace's equation on a slit 
+annulus. The edges are free surfaces except for the top and bottom of 
+the slit, which are fixed at 1 and -1.  The code which generated the 
+above script can be found in `rbf/demo/pde/fd/2d/annulus.py`.
 
-RBFs seem to have a hard time handling free surface boundary conditions. In order to get a stable solution it is often necessary to add ghost nodes. Ghost nodes are additional nodes placed outside the boundary. Rather than enforcing the PDE at the ghost nodes, the added rows in the stiffness matrix are used to enforce the PDE at the boundary nodes.  A ghost node demonstration can be found in `rbf/demo/pde/fd/2d/ghosts.py`. The below figure shows the solution to the same PDE as above but with the addition of ghost nodes
+RBFs seem to have a hard time handling free surface boundary 
+conditions. In order to get a stable solution it is often necessary to 
+add ghost nodes. Ghost nodes are additional nodes placed outside the 
+boundary. Rather than enforcing the PDE at the ghost nodes, the added 
+rows in the stiffness matrix are used to enforce the PDE at the 
+boundary nodes.  A ghost node demonstration can be found in 
+`rbf/demo/pde/fd/2d/ghosts.py`. The below figure shows the solution to 
+the same PDE as above but with the addition of ghost nodes
 
 ![alt text](https://github.com/treverhines/RBF/blob/master/demo/pde/fd/2d/figures/ghosts.png "demo_fd_annulus")
 
 
 ### To Do
-This package contains more features but they have not yet been included in this help documentation. They include
+This package contains more features but they have not yet been 
+included in this help documentation. They include
+
 * generation of RBF-FD stencils (module: rbf.stencil)
+
 * generation of RBF-FD weights (module: rbf.fd)
+
 * computational geometry (module: rbf.geometry)
+
 * generation of halton sequences (module: rbf.halton)
+
 * Monte-Carlo integration (module: rbf.integrate)
+
 * generation of B-spline basis functions (module: rbf.bspline) 
 
-See the documentation within the modules for help on using these features 
+* Smoothing and differentiating large, sparse, data sets (My latest 
+project!)
+
+See the documentation within the modules for help on using these 
+features
 
