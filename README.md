@@ -186,7 +186,7 @@ of a two-dimensional function. The smoothness is controlled with the
 `penalty` argument. To further show off the features of 
 `RBFInterpolant` we show that we can easily differentiate the smoothed 
 interpolant. 
-```
+```python
 x = np.random.random((100,2)) # observation points
 
 # find the function value at the observation points
