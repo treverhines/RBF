@@ -410,7 +410,7 @@ included in this help documentation. They include
 * Monte-Carlo integration (module: rbf.integrate)
 * generation of B-spline basis functions (module: rbf.bspline) 
 * Removing high frequency noise in LARGE, scattered, multidimensional 
-  data sets (My latest project!)
+  data sets (My latest project!, module: rbf.filter)
 
 See the documentation within the modules for help on using these 
 features
