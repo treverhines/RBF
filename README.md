@@ -83,7 +83,7 @@ specification.
   
 Here is an example where an RBF is instantiated and then the RBF and 
 its first derivative are evaluated. See the help documentation for 
-rbf.basis.RBF for more information on the arguments
+`rbf.basis.RBF` for more information on the arguments
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -123,7 +123,7 @@ plt.show()
 
 The user does not need to worry about instantiation of an RBF class 
 because many of the commonly used RBFs are already instantiated and 
-can be called using function in the rbf.basis module. The available 
+can be called using function in the `rbf.basis` module. The available 
 functions are
 * ga : gaussian, exp(-(EPS\*R)^2)
 * iq : inverse quadratic, 1/(1+(EPS\*R^2)
@@ -160,7 +160,7 @@ coeff = np.linalg.solve(A,u) # find the coefficients for each RBF
 uitp = phs3(xitp,x).dot(coeff) 
 ```
 Alternatively, we can arrive at the same solution with the 
-RBFInterpolant class
+`RBFInterpolant` class
 ```python
 from rbf.interpolate import RBFInterpolant
 
@@ -306,8 +306,8 @@ blue
 
 #### Laplace's equation on a circle
 Here we are solving Laplace's equation over a unit circle, where the 
-boundaries are fixed at zero and there is an applied forcing term.  
-The solution to this problem is (1-r)\*sin(x)\*cos(y). The forcing 
+boundaries are fixed at zero and there is an applied forcing term. The 
+solution to this problem is (1-r)\*sin(x)\*cos(y). The forcing 
 term needed to produce this solution is defined below. This 
 demonstration can also be found in demo/pde/spectral/2d/laplacian.py.
 ```python
