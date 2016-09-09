@@ -409,8 +409,8 @@ included in this help documentation. They include
 * generation of halton sequences (module: rbf.halton)
 * Monte-Carlo integration (module: rbf.integrate)
 * generation of B-spline basis functions (module: rbf.bspline) 
-* Smoothing and differentiating large, sparse, data sets (My latest 
-project!)
+* Removing high frequency noise in LARGE, scattered, multidimensional 
+  data sets (My latest project!)
 
 See the documentation within the modules for help on using these 
 features
