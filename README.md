@@ -9,30 +9,24 @@ complicated domains.
 * Efficient evaluation of RBFs and their analytically derived spatial 
 derivatives.  This package allows for unlimited spatial dimensions and 
 arbitrary spatial derivatives. 
-
 * Regularized RBF interpolation, which can fit a smoothed interpolant 
 to noisy data
-
 * Generation of radial basis function finite difference (RBF-FD) 
 weights, which are used to estimate derivatives of scattered data
-
 * Efficient generation of RBF-FD stencils which can be given 
 constraints to not cross a user defined boundary. This is useful if 
 the user does not want to estimate a derivative over a known 
 discontinuity.
-
 * computational geometry functions for 1, 2, and 3 spatial dimensions. 
 Among these functions is a point in polygon/polyhedra test
-
 * Halton sequence generator
-
 * Node generation with a minimum energy algorithm.  This is used for 
 solving PDEs with the spectral RBF method or the RBF-FD method
 
 
 ## Table of Contents
 1. [Installation](#installation)
-2. [Logging](#installation)
+2. [Logging](#logging)
 3. [Usage](#usage)
   1. [Basis](#basis)
   2. [Interpolation](#interpolation)
@@ -90,7 +84,6 @@ specification.
 Here is an example where an RBF is instantiated and then the RBF and 
 its first derivative are evaluated. See the help documentation for 
 rbf.basis.RBF for more information on the arguments
-
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -133,15 +126,10 @@ because many of the commonly used RBFs are already instantiated and
 can be called using function in the rbf.basis module. The available 
 functions are
 * ga : gaussian, exp(-(EPS\*R)^2)
-
 * iq : inverse quadratic, 1/(1+(EPS\*R^2)
-
 * mq : multiquadratic, sqrt(1 + (EPS\*R)^2)
-
 * imq : inverse multiquadratic, 1/sqrt(1 + (EPS\*R)^2)
-
 * phs{1,3,5,7} : odd order polyharmonic splines, (EPS\*R)^{1,3,5,7}
-
 * phs{2,4,6,8} : even order polyharmonic splines, log(EPS\*R)(EPS\*R)^{2,4,6,8}  
 
 EPS is a scaling factor which can be obtained for defining your own 
@@ -414,19 +402,12 @@ the same PDE as above but with the addition of ghost nodes
 ### To Do
 This package contains more features but they have not yet been 
 included in this help documentation. They include
-
 * generation of RBF-FD stencils (module: rbf.stencil)
-
 * generation of RBF-FD weights (module: rbf.fd)
-
 * computational geometry (module: rbf.geometry)
-
 * generation of halton sequences (module: rbf.halton)
-
 * Monte-Carlo integration (module: rbf.integrate)
-
 * generation of B-spline basis functions (module: rbf.bspline) 
-
 * Smoothing and differentiating large, sparse, data sets (My latest 
 project!)
 
