@@ -3,6 +3,7 @@ provides a function for smoothing large, multidimensional, noisy data sets
 '''
 import numpy as np
 import rbf.fd
+import rbf.mp
 import rbf.basis
 from rbf.poly import memoize
 import scipy.sparse
