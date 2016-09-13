@@ -10,6 +10,8 @@ import scipy.sparse
 import scipy.sparse.linalg as spla
 from scipy.spatial import cKDTree
 from rbf.interpolate import _in_hull
+import logging
+logger = logging.getLogger(__name__)
 
 class _IterativeVariance:
   ''' 
@@ -114,6 +116,7 @@ def filter(x,u,sigma=None,
            order=2,
            samples=100,
            diffs=None,
+           procs=0,
            **kwargs):
   ''' 
   Filters noisy data in a Bayesian framework by assuming a prior 
@@ -176,6 +179,13 @@ def filter(x,u,sigma=None,
       operator can be specified with a (K,D) array. For example the 
       Laplacian of the smoothed solution can be returned with 
       [[2,0],[0,2]].
+      
+    procs: int, optional
+      Distribute the tasks among this many subprocesses. This defaults 
+      to 0 (i.e. the parent process does all the work).  The tasks are 
+      to evaluate the filtered solution for one of the (N,) arrays in 
+      *u* and *sigma*. So if *u* and *sigma* are (N,) arrays then 
+      using multiple process will not provide any speed improvement.
     
     
   Returns
@@ -205,15 +215,21 @@ def filter(x,u,sigma=None,
   sigma = sigma.reshape((P,N))
     
   # allocate output array 
-  post_mean = np.empty((P,N))
-  post_mean[...] = np.nan  
-  post_sigma = np.empty((P,N))
-  post_sigma[...] = np.inf  
+  #post_mean = np.empty((P,N))
+  #post_mean[...] = np.nan  
+  #post_sigma = np.empty((P,N))
+  #post_sigma[...] = np.inf  
   
   # memoized function to form the differentiation matrices used for 
   # the prior and post-processing
   @memoize
   def build_L_and_D(mask):
+    # This function build the differentiation matrix used for the 
+    # prior, L, and the differentiation matrix used for 
+    # postprocessing, D. Note1: this function makes use of variables 
+    # which are outside of its scope. Note2: this function is memoized 
+    # and so it may take up a lot of memory if it is called many times 
+    # with different masks
     mask = np.asarray(mask,dtype=bool)        
     prior_diffs = order*np.eye(dim,dtype=int)
     if dim == 1:
@@ -227,14 +243,18 @@ def filter(x,u,sigma=None,
 
     return L,D  
                 
-  # stores differentiation matrices
-  for i in xrange(P):
-    # throw out points where we do not want to estimate the solution
+  def calc_post(i):
+    logger.debug('evaluating the filtered solution for data set %s ...' % i)
+    # This function calculates the posterior for u[i,:] and 
+    # sigma[i,:]. Note: this function makes use of variables which are 
+    # outside of its scope.
+
+    # identify observation points where we do not want to estimate the 
+    # filtered solution
     mask = _get_mask(x,sigma[i],fill)
     # number of unmasked entries
     K = np.sum(~mask)
-    # build differentiation matrix, which is the inverse of the 
-    # Choleksy decomposition of the prior covariance
+    # build differentiation matrices
     L,D = build_L_and_D(tuple(mask))
     # form weight matrix
     W = _diag(1.0/sigma[i,~mask])
@@ -246,9 +266,11 @@ def filter(x,u,sigma=None,
     # generate LU decomposition of left-hand side
     lu = spla.splu(lhs)
     # compute the derivative of the posterior mean
-    post_mean[i,~mask] = D.dot(lu.solve(rhs))
+    post_mean = np.empty((N,))
+    post_mean[~mask] = D.dot(lu.solve(rhs))
+    post_mean[mask] = np.nan
     # compute the posterior standard deviation
-    ivar = _IterativeVariance(post_mean[i,~mask])
+    ivar = _IterativeVariance(post_mean[~mask])
     for j in xrange(samples):
       w1 = np.random.normal(0.0,1.0,K)
       w2 = np.random.normal(0.0,1.0,K)
@@ -258,7 +280,15 @@ def filter(x,u,sigma=None,
       post_sample = D.dot(post_sample)
       ivar.add_sample(post_sample)
     
-    post_sigma[i,~mask] = np.sqrt(ivar.get_variance())
+    post_sigma = np.empty((N,))
+    post_sigma[~mask] = np.sqrt(ivar.get_variance())
+    post_sigma[mask] = np.inf
+    logger.debug('done')
+    return post_mean,post_sigma
+    
+  post = rbf.mp.parmap(calc_post,xrange(P),workers=procs)
+  post_mean = np.array([k[0] for k in post])
+  post_sigma = np.array([k[1] for k in post])
 
   post_mean = post_mean.reshape(input_u_shape)
   post_sigma = post_sigma.reshape(input_u_shape)
