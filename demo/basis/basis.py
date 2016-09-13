@@ -26,14 +26,16 @@ ax.plot(x,soln)
 ax.set_xlim((-5.0,5.0))
 ax.set_title('inverse quadratic')
 ax.grid()
+
+plt.savefig('figures/basis_1.png')
 fig.tight_layout()
-plt.savefig('figures/demo_basis_1.png')
 
 fig,ax = plt.subplots(figsize=(6,4))
 ax.plot(x,soln_diff)
 ax.set_xlim((-5.0,5.0))
 ax.set_title('inverse quadratic first derivative')
 ax.grid()
+
 fig.tight_layout()
-plt.savefig('figures/demo_basis_2.png')
+plt.savefig('figures/basis_2.png')
 plt.show()

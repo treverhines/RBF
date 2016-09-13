@@ -14,18 +14,15 @@ np.random.seed(1)
 
 # create 20 2-D observation points
 x = np.random.random((100,2))
-
 # find the function value at the observation points
 u = np.sin(2*np.pi*x[:,0])*np.cos(2*np.pi*x[:,1])
-
+u += np.random.normal(0.0,0.1,100)
 # create interpolation points
 a = np.linspace(0,1,100)
 x1itp,x2itp = np.meshgrid(a,a)
 xitp = np.array([x1itp.ravel(),x2itp.ravel()]).T
-
 # form interpolant
-I = RBFInterpolant(x,u)
-
+I = RBFInterpolant(x,u,penalty=0.001)
 # evaluate the interpolant
 uitp = I(xitp)
 # evaluate the x derivative of the interpolant
@@ -58,5 +55,5 @@ ax[1][0].set_title('true solution')
 ax[0][1].set_title('interpolant x derivative')
 ax[1][1].set_title('true x derivative')
 fig.tight_layout()
-plt.savefig('figures/demo_interpolate_2d.png')
+plt.savefig('figures/interp2d.png')
 plt.show()
