@@ -53,7 +53,7 @@ $ python setup.py install
 test that everything works
 ```
 $ cd test
-$ python test_all.py
+$ python -m unittest discover
 ```
 
 

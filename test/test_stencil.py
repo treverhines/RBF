@@ -94,4 +94,4 @@ class Test(unittest.TestCase):
     self.assertTrue(np.all(n1==n2))
     self.assertTrue(np.all(np.isclose(n1,n2)))
 
-unittest.main()
+#unittest.main()
