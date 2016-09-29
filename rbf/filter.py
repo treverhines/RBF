@@ -144,7 +144,7 @@ def filter(x,u,sigma=None,
     
     cutoff : float, optional
       cutoff frequency. Frequencies greater than this value will be 
-      damped out. This defaults to a frequency that corresponds to a 
+      damped out. This defaults to a frequency corresponding to a 
       wavelength which is 20 times the average shortest distance 
       between points in *x*.
       
@@ -172,17 +172,17 @@ def filter(x,u,sigma=None,
 
     diffs : (D,) or (K,D) int array, optional
       If provided then the output will be a derivative of the smoothed 
-      solution. The derivative can be specified with a (D,) array where 
-      each entry indicates the derivative order for the corresponding 
-      spatial dimension.  For example [2,0] indicates to return the 
-      second x derivative of a two-dimensional field. A differential 
-      operator can be specified with a (K,D) array. For example the 
-      Laplacian of the smoothed solution can be returned with 
-      [[2,0],[0,2]].
+      solution. The derivative can be specified with a (D,) array 
+      where each entry indicates the derivative order for the 
+      corresponding dimension. For example, if the observations exist 
+      in two-dimensional space, then the second x derivative can be 
+      returned by setting *diffs* to [2,0]. A differential operator 
+      can be specified with a (K,D) array. For example the Laplacian 
+      can be returned with [[2,0],[0,2]].
       
     procs: int, optional
       Distribute the tasks among this many subprocesses. This defaults 
-      to 0 (i.e. the parent process does all the work).  The tasks are 
+      to 0 (i.e. the parent process does all the work).  Each task is 
       to evaluate the filtered solution for one of the (N,) arrays in 
       *u* and *sigma*. So if *u* and *sigma* are (N,) arrays then 
       using multiple process will not provide any speed improvement.
@@ -214,12 +214,6 @@ def filter(x,u,sigma=None,
   u = u.reshape((P,N))
   sigma = sigma.reshape((P,N))
     
-  # allocate output array 
-  #post_mean = np.empty((P,N))
-  #post_mean[...] = np.nan  
-  #post_sigma = np.empty((P,N))
-  #post_sigma[...] = np.inf  
-  
   # memoized function to form the differentiation matrices used for 
   # the prior and post-processing
   @memoize
@@ -243,11 +237,11 @@ def filter(x,u,sigma=None,
 
     return L,D  
                 
-  def calc_post(i):
-    logger.debug('evaluating the filtered solution for data set %s ...' % i)
+  def calculate_posterior(i):
     # This function calculates the posterior for u[i,:] and 
     # sigma[i,:]. Note: this function makes use of variables which are 
     # outside of its scope.
+    logger.debug('evaluating the filtered solution for data set %s ...' % i)
 
     # identify observation points where we do not want to estimate the 
     # filtered solution
@@ -265,11 +259,12 @@ def filter(x,u,sigma=None,
     rhs = W.T.dot(W).dot(u[i,~mask])
     # generate LU decomposition of left-hand side
     lu = spla.splu(lhs)
-    # compute the derivative of the posterior mean
+    # compute the smoothed derivative of the posterior mean
     post_mean = np.empty((N,))
     post_mean[~mask] = D.dot(lu.solve(rhs))
     post_mean[mask] = np.nan
-    # compute the posterior standard deviation
+    # compute the posterior standard deviation. This is done through 
+    # repeated random perturbations of the data and prior vector. 
     ivar = _IterativeVariance(post_mean[~mask])
     for j in xrange(samples):
       w1 = np.random.normal(0.0,1.0,K)
@@ -286,7 +281,10 @@ def filter(x,u,sigma=None,
     logger.debug('done')
     return post_mean,post_sigma
     
-  post = rbf.mp.parmap(calc_post,xrange(P),workers=procs)
+  # Calculate the posterior for each (N,) array in u and sigma. 
+  # This is done in parallel, where *procs* is the number of 
+  # subprocesses spawned.
+  post = rbf.mp.parmap(calculate_posterior,xrange(P),workers=procs)
   post_mean = np.array([k[0] for k in post])
   post_sigma = np.array([k[1] for k in post])
 
