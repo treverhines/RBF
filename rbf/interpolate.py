@@ -55,6 +55,11 @@ def _in_hull(p, hull):
   Tests if points in *p* are in the convex hull made up by *hull*
   '''
   dim = p.shape[1]
+  # if there are not enough points in *hull* to form a simplex then 
+  # return False for each point in *p*.
+  if hull.shape[0] <= dim:
+    return np.zeros(p.shape[0],dtype=bool)
+  
   if dim >= 2:
     hull = scipy.spatial.Delaunay(hull)
     return hull.find_simplex(p)>=0
@@ -123,7 +128,7 @@ class RBFInterpolant(object):
   Note
   ----
     This function involves solving a dense system of equations, which 
-    will be prohibitive for large data sets. See rbf.smooth for 
+    will be prohibitive for large data sets. See rbf.filter for 
     smoothing large data sets.
     
   References
@@ -143,7 +148,6 @@ class RBFInterpolant(object):
                basis=rbf.basis.phs3,
                order=1,  
                extrapolate=True,
-               fill=np.nan,
                penalty=0.0):
     ''' 
     Initiates the RBF interpolant
@@ -168,12 +172,9 @@ class RBFInterpolant(object):
  
       extrapolate : bool, optional
         whether to allows points to be extrapolated outside of a 
-        convex hull formed by x.
+        convex hull formed by x. If False, then np.nan is returned for 
+        outside points.
 
-      fill : optional
-        if extrapolate is False then points outside of the convex hull 
-        will be assigned this value
- 
       order : int, optional
         order of added polynomial terms
         
@@ -218,7 +219,6 @@ class RBFInterpolant(object):
     self.order = order 
     self.eps = eps
     self.extrapolate = extrapolate
-    self.fill = fill
 
   def __call__(self,xitp,diff=None,max_chunk=100000):
     ''' 
@@ -256,7 +256,7 @@ class RBFInterpolant(object):
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
     if not self.extrapolate:
-      out[~_in_hull(xitp,self.x)] = self.fill
+      out[~_in_hull(xitp,self.x)] = np.nan
 
     return out
 
