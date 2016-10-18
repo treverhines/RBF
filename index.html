@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>RBF by treverhines</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">RBF</h1>
+      <h2 class="project-tagline">Python package containing the tools necessary for radial basis function (RBF) applications</h2>
+      <a href="https://github.com/treverhines/RBF" class="btn">View on GitHub</a>
+      <a href="https://github.com/treverhines/RBF/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/treverhines/RBF/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="rbf" class="anchor" href="#rbf" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RBF</h1>
+
+<p>Python package containing the tools necessary for radial basis 
+function (RBF) applications.  Applications include 
+interpolating/smoothing scattered data and solving PDEs over 
+complicated domains. </p>
+
+<h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features</h2>
+
+<ul>
+<li>Efficient evaluation of RBFs and their analytically derived spatial 
+derivatives.  This package allows for unlimited spatial dimensions and 
+arbitrary spatial derivatives. </li>
+<li>Regularized RBF interpolation, which can fit a smoothed interpolant 
+to noisy data</li>
+<li>Generation of radial basis function finite difference (RBF-FD) 
+weights, which are used to estimate derivatives of scattered data</li>
+<li>Efficient generation of RBF-FD stencils which can be given 
+constraints to not cross a user defined boundary. This is useful if 
+the user does not want to estimate a derivative over a known 
+discontinuity.</li>
+<li>computational geometry functions for 1, 2, and 3 spatial dimensions. 
+Among these functions is a point in polygon/polyhedra test</li>
+<li>Halton sequence generator</li>
+<li>Node generation with a minimum energy algorithm.  This is used for 
+solving PDEs with the spectral RBF method or the RBF-FD method</li>
+</ul>
+
+<h2>
+<a id="table-of-contents" class="anchor" href="#table-of-contents" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Table of Contents</h2>
+
+<ol>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#logging">Logging</a></li>
+<li>
+<a href="#usage">Usage</a>
+
+<ol>
+<li><a href="#basis">Basis</a></li>
+<li><a href="#interpolation">Interpolation</a></li>
+<li><a href="#solving-pdes-spectral-method">Solving PDEs: Spectral Method</a></li>
+<li><a href="#solving-pdes-rbf-fd-method">Solving PDEs: RBF-FD Method</a></li>
+</ol>
+</li>
+<li><a href="#to-do">To Do</a></li>
+<li><a href="#acknowledgements">Acknowledgements</a></li>
+</ol>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>RBF requires the following python packages: numpy, scipy, sympy, 
+matplotlib, and cython.  These dependencies should be satisfied with 
+just the base Anaconda python package 
+(<a href="https://www.continuum.io/downloads">https://www.continuum.io/downloads</a>)</p>
+
+<p>download the RBF package</p>
+
+<pre><code>$ git clone http://github.com/treverhines/RBF.git 
+</code></pre>
+
+<p>compile and install</p>
+
+<pre><code>$ cd RBF
+$ python setup.py install
+</code></pre>
+
+<p>test that everything works</p>
+
+<pre><code>$ cd test
+$ python -m unittest discover
+</code></pre>
+
+<h2>
+<a id="logging" class="anchor" href="#logging" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Logging</h2>
+
+<p>This package uses loggers for some of the more time intensive 
+processes.  To print the logged content to stdout, start your python 
+script with</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> logging
+logging.basicConfig(<span class="pl-v">level</span><span class="pl-k">=</span>logging.<span class="pl-c1">INFO</span>)</pre></div>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h2>
+
+<p>The following is a quick introduction to some of the features of this 
+package.  More examples can be found in the <code>demo</code> directory.</p>
+
+<h3>
+<a id="basis" class="anchor" href="#basis" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Basis</h3>
+
+<p>The linchpin of this module is the RBF class, which is used to 
+evaluate an RBF and its derivatives.  An RBF is instantiated using a 
+symbolic sympy expression.  Evaluating the RBFs is done by calling the 
+RBF instance where the user supplies the evaluation points, the RBF 
+centers, and the desired derivate (if any).  When called, an 
+analytical derivative of the symbolic expression is evaluated and then 
+the function is compiled into cython code.  This compiled code is 
+saved and reused when the RBF is called again with the same derivative 
+specification.</p>
+
+<p>Here is an example where an RBF is instantiated and then the RBF and 
+its first derivative are evaluated. See the help documentation for 
+<code>rbf.basis.RBF</code> for more information on the arguments</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> numpy <span class="pl-k">as</span> np
+<span class="pl-k">import</span> matplotlib.pyplot <span class="pl-k">as</span> plt
+<span class="pl-k">import</span> rbf.basis
+
+<span class="pl-c1">R</span> <span class="pl-k">=</span> rbf.basis.get_R()
+expr <span class="pl-k">=</span> <span class="pl-c1">1</span><span class="pl-k">/</span>(<span class="pl-c1">1</span> <span class="pl-k">+</span> <span class="pl-c1">R</span><span class="pl-k">**</span><span class="pl-c1">2</span>) <span class="pl-c"># inverse quadratic</span>
+iq <span class="pl-k">=</span> rbf.basis.RBF(expr)
+
+<span class="pl-c"># create RBF centers</span>
+c <span class="pl-k">=</span> np.array([<span class="pl-k">-</span><span class="pl-c1">2.0</span>,<span class="pl-c1">0.0</span>,<span class="pl-c1">2.0</span>])[:,<span class="pl-c1">None</span>]
+<span class="pl-c"># create evaluation points</span>
+x <span class="pl-k">=</span> np.linspace(<span class="pl-k">-</span><span class="pl-c1">5.0</span>,<span class="pl-c1">5.0</span>,<span class="pl-c1">1000</span>)[:,<span class="pl-c1">None</span>]
+
+<span class="pl-c"># evaluate each RBF at x</span>
+soln <span class="pl-k">=</span> iq(x,c)
+<span class="pl-c"># evaluate the first derivative of each RBF at x</span>
+soln_diff <span class="pl-k">=</span> iq(x,c,<span class="pl-v">diff</span><span class="pl-k">=</span>(<span class="pl-c1">1</span>,))</pre></div>
+
+<p>plotting the results</p>
+
+<div class="highlight highlight-source-python"><pre>fig,ax <span class="pl-k">=</span> plt.subplots(<span class="pl-v">figsize</span><span class="pl-k">=</span>(<span class="pl-c1">6</span>,<span class="pl-c1">4</span>))
+ax.plot(x,soln)
+ax.set_xlim((<span class="pl-k">-</span><span class="pl-c1">5.0</span>,<span class="pl-c1">5.0</span>))
+ax.set_title(<span class="pl-s"><span class="pl-pds">'</span>inverse quadratic<span class="pl-pds">'</span></span>)
+ax.grid()
+
+fig,ax <span class="pl-k">=</span> plt.subplots(<span class="pl-v">figsize</span><span class="pl-k">=</span>(<span class="pl-c1">6</span>,<span class="pl-c1">4</span>))
+ax.plot(x,soln_diff)
+ax.set_xlim((<span class="pl-k">-</span><span class="pl-c1">5.0</span>,<span class="pl-c1">5.0</span>))
+ax.set_title(<span class="pl-s"><span class="pl-pds">'</span>inverse quadratic first derivative<span class="pl-pds">'</span></span>)
+ax.grid()
+plt.show()</pre></div>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/basis/figures/basis_1.png" alt="alt text" title="basis_1">
+<img src="https://github.com/treverhines/RBF/blob/master/demo/basis/figures/basis_2.png" alt="alt text" title="basis_2"></p>
+
+<p>The user does not need to worry about instantiation of an RBF class 
+because many of the commonly used RBFs are already instantiated and 
+can be called using function in the <code>rbf.basis</code> module. The available 
+functions are</p>
+
+<ul>
+<li>ga : gaussian, exp(-(EPS*R)^2)</li>
+<li>iq : inverse quadratic, 1/(1+(EPS*R^2)</li>
+<li>mq : multiquadratic, sqrt(1 + (EPS*R)^2)</li>
+<li>imq : inverse multiquadratic, 1/sqrt(1 + (EPS*R)^2)</li>
+<li>phs{1,3,5,7} : odd order polyharmonic splines, (EPS*R)^{1,3,5,7}</li>
+<li>phs{2,4,6,8} : even order polyharmonic splines, log(EPS*R)(EPS*R)^{2,4,6,8}<br>
+</li>
+</ul>
+
+<p>EPS is a scaling factor which can be obtained for defining your own 
+RBFs by calling <code>rbf.basis.get_EPS()</code>. When evaluating the RBF, you 
+can set the scaling factor with the <code>eps</code> key word argument.  For 
+interpolation problems or when trying to solve a PDE, EPS is often 
+treated as a free parameter that needs to be optimized. This can 
+become an intractible burden for large problems. When using odd order 
+polyharmonic splines, which are scale-invariant, the shape parameter 
+does not need to be optimized. Odd order polyharmonic splines 
+generally perform well for interpolation and solving PDEs.</p>
+
+<h3>
+<a id="interpolation" class="anchor" href="#interpolation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Interpolation</h3>
+
+<p>Radial basis functions are most commonly used for interpolating 
+scattered data in multidimensional space, but for simplicity we start 
+with a one-dimensional demonstration.  Creating a simple RBF 
+interpolant is straight forward with an RBF instance</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> rbf.basis <span class="pl-k">import</span> phs3
+
+x <span class="pl-k">=</span> np.linspace(<span class="pl-k">-</span>np.pi,np.pi,<span class="pl-c1">5</span>)[:,<span class="pl-c1">None</span>] <span class="pl-c"># observation points</span>
+u <span class="pl-k">=</span> np.sin(x[:,<span class="pl-c1">0</span>]) <span class="pl-c"># values at the observation points</span>
+xitp <span class="pl-k">=</span> np.linspace(<span class="pl-k">-</span><span class="pl-c1">4.0</span>,<span class="pl-c1">4.0</span>,<span class="pl-c1">1000</span>)[:,<span class="pl-c1">None</span>] <span class="pl-c"># interpolation points</span>
+<span class="pl-c1">A</span> <span class="pl-k">=</span> phs3(x,x) <span class="pl-c"># coefficient matrix</span>
+coeff <span class="pl-k">=</span> np.linalg.solve(<span class="pl-c1">A</span>,u) <span class="pl-c"># find the coefficients for each RBF</span>
+
+<span class="pl-c"># Evaluates each of the RBFs at the interpolation points</span>
+uitp <span class="pl-k">=</span> phs3(xitp,x).dot(coeff) </pre></div>
+
+<p>Alternatively, we can arrive at the same solution with the 
+<code>RBFInterpolant</code> class</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> rbf.interpolate <span class="pl-k">import</span> RBFInterpolant
+
+<span class="pl-c1">I</span> <span class="pl-k">=</span> RBFInterpolant(x,u,<span class="pl-v">order</span><span class="pl-k">=</span><span class="pl-k">-</span><span class="pl-c1">1</span>)
+uitp <span class="pl-k">=</span> I(xitp)</pre></div>
+
+<p>The <code>order</code> key word argument specifies the order of the polynomial 
+which is added to the interpolant for improved accuracy.  By setting 
+it to -1, we indicate that we do not want to add any polynomial to our 
+interpolant. By default, the RBFInterpolant adds a constant and linear 
+term (i.e. order=1). The default RBF used by <code>RBFInterpolant</code> is 
+<code>phs3</code>.  Using the default arguments we see that our interpolant is a 
+better prediction of the true signal, sin(x).</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-c1">I</span> <span class="pl-k">=</span> RBFInterpolant(x,u)
+uitp2 <span class="pl-k">=</span> I(xitp)</pre></div>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/interpolate/figures/interp1d.png" alt="alt text" title="demo_interpolate_1d"></p>
+
+<p>In the next example we fit a smoothed interpolant to 100 noisy samples 
+of a two-dimensional function. The smoothness is controlled with the 
+<code>penalty</code> argument. To further show off the features of 
+<code>RBFInterpolant</code> we show that we can easily differentiate the smoothed 
+interpolant. </p>
+
+<div class="highlight highlight-source-python"><pre>x <span class="pl-k">=</span> np.random.random((<span class="pl-c1">100</span>,<span class="pl-c1">2</span>)) <span class="pl-c"># observation points</span>
+
+<span class="pl-c"># find the function value at the observation points</span>
+u <span class="pl-k">=</span> np.sin(<span class="pl-c1">2</span><span class="pl-k">*</span>np.pi<span class="pl-k">*</span>x[:,<span class="pl-c1">0</span>])<span class="pl-k">*</span>np.cos(<span class="pl-c1">2</span><span class="pl-k">*</span>np.pi<span class="pl-k">*</span>x[:,<span class="pl-c1">1</span>])
+u <span class="pl-k">+=</span> np.random.normal(<span class="pl-c1">0.0</span>,<span class="pl-c1">0.1</span>,<span class="pl-c1">100</span>)
+
+<span class="pl-c"># interpolation points</span>
+a <span class="pl-k">=</span> np.linspace(<span class="pl-c1">0</span>,<span class="pl-c1">1</span>,<span class="pl-c1">100</span>)
+x1itp,x2itp <span class="pl-k">=</span> np.meshgrid(a,a)
+xitp <span class="pl-k">=</span> np.array([x1itp.ravel(),x2itp.ravel()]).<span class="pl-c1">T</span>
+
+<span class="pl-c"># form interpolant</span>
+<span class="pl-c1">I</span> <span class="pl-k">=</span> RBFInterpolant(x,u,<span class="pl-v">penalty</span><span class="pl-k">=</span><span class="pl-c1">0.001</span>)
+
+<span class="pl-c"># evaluate the interpolant</span>
+uitp <span class="pl-k">=</span> I(xitp)
+
+<span class="pl-c"># evaluate the x derivative of the interpolant</span>
+dxitp <span class="pl-k">=</span> I(xitp,<span class="pl-v">diff</span><span class="pl-k">=</span>(<span class="pl-c1">1</span>,<span class="pl-c1">0</span>))</pre></div>
+
+<p>In the below figure we compare the smoothed interpolant and its 
+derivative the the true underlying signal.</p>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/interpolate/figures/interp2d.png" alt="alt text" title="interp2d"></p>
+
+<h3>
+<a id="solving-pdes-spectral-method" class="anchor" href="#solving-pdes-spectral-method" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Solving PDEs: Spectral Method</h3>
+
+<p>We can numerically solve PDEs over an arbitrary N-dimensional domain 
+with RBFs.  Unlike finite element methods or traditional finite 
+difference methods which require a mesh (nodes with known 
+connectivity), the RBF method just needs to know the nodes. This makes 
+it easier to discretize a complicated domain and gives the user more 
+control over how that discretization is done.</p>
+
+<h4>
+<a id="node-generation" class="anchor" href="#node-generation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Node generation</h4>
+
+<p>The <code>rbf.nodes</code> module provides a function for node generation over an 
+arbitary 1, 2, or 3 dimensional closed domain and also allows for 
+variable node density.  Throughout this package domains are defined 
+using simplicial complexes, which are a collection of simplices 
+(points, line segments, and triangles).  A simplicial complex is 
+defined with two arrays, one specificing the locations of vertices and 
+the other specifying the vertex indices which make up each simplex.<br>
+For example a unit square can be described as</p>
+
+<div class="highlight highlight-source-python"><pre>vert <span class="pl-k">=</span> [[<span class="pl-c1">0.0</span>,<span class="pl-c1">0.0</span>],
+        [<span class="pl-c1">1.0</span>,<span class="pl-c1">0.0</span>],
+        [<span class="pl-c1">1.0</span>,<span class="pl-c1">1.0</span>]
+        [<span class="pl-c1">0.0</span>,<span class="pl-c1">1.0</span>]]
+smp <span class="pl-k">=</span> [[<span class="pl-c1">0</span>,<span class="pl-c1">1</span>],
+       [<span class="pl-c1">1</span>,<span class="pl-c1">2</span>],
+       [<span class="pl-c1">2</span>,<span class="pl-c1">3</span>],
+       [<span class="pl-c1">3</span>,<span class="pl-c1">0</span>]]</pre></div>
+
+<p>where each row in <code>smp</code> defines the vertices in a simplex making up the 
+unit square. The vertices and simplices for some simple domains can be 
+generated from the functions in <code>rbf.domain</code>.</p>
+
+<p>We now generate 1000 nodes which are quasi-uniformly spaced within the 
+unit square. This is done with a minimum energy algorithm. See 
+<code>rbf.nodes.menodes</code> for a detailed description of the arguments and 
+the algorithm.</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> rbf.nodes <span class="pl-k">import</span> menodes
+
+<span class="pl-c"># number of nodes</span>
+<span class="pl-c1">N</span> <span class="pl-k">=</span> <span class="pl-c1">1000</span>
+
+<span class="pl-c"># generate nodes. *nodes* is a (N,2) array and *smpid* is a (N,) </span>
+<span class="pl-c"># identifying the simplex, if any, that each node is attached to</span>
+nodes,smpid <span class="pl-k">=</span> menodes(<span class="pl-c1">N</span>,vert,smp)
+
+boundary, <span class="pl-k">=</span> np.nonzero(smpid<span class="pl-k">&gt;=</span><span class="pl-c1">0</span>)
+interior, <span class="pl-k">=</span> np.nonzero(smpid<span class="pl-k">==</span><span class="pl-k">-</span><span class="pl-c1">1</span>)</pre></div>
+
+<p>plotting <code>interior</code> nodes as black and <code>boundary</code> nodes as blue we get 
+this figure</p>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/nodes/figures/square.png" alt="alt text" title="square"></p>
+
+<p>In this next example, we create a more complicated domain and have a 
+node density that corresponds with the image <code>Lenna.png</code> (located in 
+<code>rbf/demo</code>)</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">from</span> <span class="pl-c1">PIL</span> <span class="pl-k">import</span> Image
+
+<span class="pl-c"># define the domain</span>
+t <span class="pl-k">=</span> np.linspace(<span class="pl-c1">0</span>,<span class="pl-c1">2</span><span class="pl-k">*</span>np.pi,<span class="pl-c1">201</span>)
+t <span class="pl-k">=</span> t[:<span class="pl-k">-</span><span class="pl-c1">1</span>]
+radius <span class="pl-k">=</span> <span class="pl-c1">0.45</span><span class="pl-k">*</span>(<span class="pl-c1">0.1</span><span class="pl-k">*</span>np.sin(<span class="pl-c1">10</span><span class="pl-k">*</span>t) <span class="pl-k">+</span> <span class="pl-c1">1.0</span>)
+vert <span class="pl-k">=</span> np.array([<span class="pl-c1">0.5</span><span class="pl-k">+</span>radius<span class="pl-k">*</span>np.cos(t),<span class="pl-c1">0.5</span><span class="pl-k">+</span>radius<span class="pl-k">*</span>np.sin(t)]).<span class="pl-c1">T</span>
+smp <span class="pl-k">=</span> np.array([np.arange(<span class="pl-c1">200</span>),np.roll(np.arange(<span class="pl-c1">200</span>),<span class="pl-k">-</span><span class="pl-c1">1</span>)]).<span class="pl-c1">T</span>
+
+<span class="pl-c1">N</span> <span class="pl-k">=</span> <span class="pl-c1">30000</span>
+
+<span class="pl-c"># make gray scale image</span>
+img <span class="pl-k">=</span> Image.open(<span class="pl-s"><span class="pl-pds">'</span>Lenna.png<span class="pl-pds">'</span></span>)
+imga <span class="pl-k">=</span> np.array(img,<span class="pl-v">dtype</span><span class="pl-k">=</span><span class="pl-c1">float</span>)<span class="pl-k">/</span><span class="pl-c1">256.0</span>
+gray <span class="pl-k">=</span> np.linalg.norm(imga,<span class="pl-v">axis</span><span class="pl-k">=</span><span class="pl-k">-</span><span class="pl-c1">1</span>)
+<span class="pl-c"># normalize so that the max value is 1</span>
+gray <span class="pl-k">=</span> gray<span class="pl-k">/</span>gray.max()
+
+<span class="pl-c"># define the node density function</span>
+<span class="pl-k">def</span> <span class="pl-en">rho</span>(<span class="pl-smi">p</span>):
+  <span class="pl-c"># x and y are mapped to integers between 0 and 512</span>
+  p <span class="pl-k">=</span> p<span class="pl-k">*</span><span class="pl-c1">512</span>
+  p <span class="pl-k">=</span> np.array(p,<span class="pl-v">dtype</span><span class="pl-k">=</span><span class="pl-c1">int</span>)
+  <span class="pl-k">return</span> <span class="pl-c1">1.0001</span> <span class="pl-k">-</span> gray[<span class="pl-c1">511</span><span class="pl-k">-</span>p[:,<span class="pl-c1">1</span>],p[:,<span class="pl-c1">0</span>]]
+
+
+nodes,smpid <span class="pl-k">=</span> menodes(<span class="pl-c1">N</span>,vert,smp,<span class="pl-v">rho</span><span class="pl-k">=</span>rho)
+interior, <span class="pl-k">=</span> np.nonzero(smpid<span class="pl-k">==</span><span class="pl-k">-</span><span class="pl-c1">1</span>)
+boundary, <span class="pl-k">=</span> np.nonzero(smpid<span class="pl-k">&gt;=</span><span class="pl-c1">0</span>)</pre></div>
+
+<p>again plotting the <code>interior</code> nodes as black and <code>boundary</code> nodes as 
+blue</p>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/nodes/figures/lenna.png" alt="alt text" title="lenna"></p>
+
+<h4>
+<a id="laplaces-equation-on-a-circle" class="anchor" href="#laplaces-equation-on-a-circle" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Laplace's equation on a circle</h4>
+
+<p>Here we are solving Laplace's equation over a unit circle, where the 
+boundaries are fixed at zero and there is an applied forcing term. The 
+solution to this problem is (1-r)*sin(x)*cos(y). The forcing 
+term needed to produce this solution is defined below. This 
+demonstration can also be found in <code>demo/pde/spectral/2d/laplacian.py</code>.</p>
+
+<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> rbf.domain
+
+<span class="pl-k">def</span> <span class="pl-en">forcing</span>(<span class="pl-smi">x</span>,<span class="pl-smi">y</span>):
+  <span class="pl-k">return</span> ((<span class="pl-c1">2</span><span class="pl-k">*</span>x<span class="pl-k">**</span><span class="pl-c1">2</span><span class="pl-k">*</span>np.sin(x)<span class="pl-k">*</span>np.cos(y) <span class="pl-k">-</span> 
+           <span class="pl-c1">2</span><span class="pl-k">*</span>x<span class="pl-k">*</span>np.cos(x)<span class="pl-k">*</span>np.cos(y) <span class="pl-k">+</span> 
+           <span class="pl-c1">2</span><span class="pl-k">*</span>y<span class="pl-k">**</span><span class="pl-c1">2</span><span class="pl-k">*</span>np.sin(x)<span class="pl-k">*</span>np.cos(y) <span class="pl-k">+</span> 
+           <span class="pl-c1">2</span><span class="pl-k">*</span>y<span class="pl-k">*</span>np.sin(x)<span class="pl-k">*</span>np.sin(y) <span class="pl-k">-</span> 
+           <span class="pl-c1">2</span><span class="pl-k">*</span>np.sqrt(x<span class="pl-k">**</span><span class="pl-c1">2</span> <span class="pl-k">+</span> y<span class="pl-k">**</span><span class="pl-c1">2</span>)<span class="pl-k">*</span>np.sin(x)<span class="pl-k">*</span>np.cos(y) <span class="pl-k">-</span> 
+           np.sin(x)<span class="pl-k">*</span>np.cos(y))<span class="pl-k">/</span>np.sqrt(x<span class="pl-k">**</span><span class="pl-c1">2</span> <span class="pl-k">+</span> y<span class="pl-k">**</span><span class="pl-c1">2</span>))
+
+<span class="pl-c"># total number of nodes</span>
+<span class="pl-c1">N</span> <span class="pl-k">=</span> <span class="pl-c1">100</span>
+
+<span class="pl-c"># define a circular domain</span>
+vert,smp <span class="pl-k">=</span> rbf.domain.circle()
+
+nodes,smpid <span class="pl-k">=</span> menodes(<span class="pl-c1">N</span>,vert,smp)
+boundary, <span class="pl-k">=</span> (smpid<span class="pl-k">&gt;=</span><span class="pl-c1">0</span>).nonzero()
+interior, <span class="pl-k">=</span> (smpid<span class="pl-k">==</span><span class="pl-k">-</span><span class="pl-c1">1</span>).nonzero()
+
+<span class="pl-c"># create the left-hand-side matrix which is the Laplacian of the basis </span>
+<span class="pl-c"># function for interior nodes and the undifferentiated basis functions </span>
+<span class="pl-c"># for the boundary nodes</span>
+<span class="pl-c1">A</span> <span class="pl-k">=</span> np.zeros((<span class="pl-c1">N</span>,<span class="pl-c1">N</span>))
+<span class="pl-c1">A</span>[interior]  <span class="pl-k">=</span> phs3(nodes[interior],nodes,<span class="pl-v">diff</span><span class="pl-k">=</span>[<span class="pl-c1">2</span>,<span class="pl-c1">0</span>]) 
+<span class="pl-c1">A</span>[interior] <span class="pl-k">+=</span> phs3(nodes[interior],nodes,<span class="pl-v">diff</span><span class="pl-k">=</span>[<span class="pl-c1">0</span>,<span class="pl-c1">2</span>]) 
+<span class="pl-c1">A</span>[boundary]  <span class="pl-k">=</span> phs3(nodes[boundary],nodes,<span class="pl-v">diff</span><span class="pl-k">=</span>[<span class="pl-c1">0</span>,<span class="pl-c1">0</span>])
+
+<span class="pl-c"># create the right-hand-side vector, consisting of the forcing term </span>
+<span class="pl-c"># for the interior nodes and zeros for the boundary nodes</span>
+d <span class="pl-k">=</span> np.zeros(<span class="pl-c1">N</span>)
+d[interior] <span class="pl-k">=</span> forcing(nodes[interior,<span class="pl-c1">0</span>],nodes[interior,<span class="pl-c1">1</span>]) 
+
+<span class="pl-c"># find the RBF coefficients that solve the PDE</span>
+coeff <span class="pl-k">=</span> np.linalg.solve(<span class="pl-c1">A</span>,d)</pre></div>
+
+<p>Now that we have the coefficients for the basis functions we can 
+evaluate the interpolant and view the solution. </p>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/pde/spectral/2d/figures/demo_spectral_laplacian.png" alt="alt text" title="demo_spectral_laplacian"></p>
+
+<h3>
+<a id="solving-pdes-rbf-fd-method" class="anchor" href="#solving-pdes-rbf-fd-method" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Solving PDEs: RBF-FD Method</h3>
+
+<p>The radial basis function generated finite difference (RBF-FD) method 
+is a relatively new method for solving PDEs.  The RBF-FD method allows 
+one to approximate a derivative as a weighted sum of function 
+realizations at N neighboring locations, where the locations can be 
+randomly distributed.  Once the weights have been computed, the method 
+is effectively identical to solving a PDE with a traditional finite 
+difference method.  This package offers two functions for computing 
+the RBF-FD weights, <code>rbf.fd.weights</code> and <code>rbf.fd.weight_matrix</code>. The 
+latter function allows the user to solve a PDE with almost the exact 
+same procedure as for the spectral RBF method (see 
+<code>rbf/demo/pde/fd/2d/laplacian.py</code>).</p>
+
+<p>For the function <code>rbf.fd.weight_matrix</code>, the stencil generation is 
+done under the hood. By default the stencils are just a collection of 
+nearest neighbors which are efficiently found with 
+<code>scipy.spatial.cKDTree</code>. However, a nearest neighbor stencil may not 
+be appropriate for some problems.  For example you may have a domain 
+with edges that <em>nearly</em> touch and you do not want the PDE to be 
+enforced across that boundary. The function 
+<code>rbf.stencil.stencil_network</code> creates nearest neighbor stencils but it 
+does not allow stencils to reach across boundaries. This is 
+effectively done by redefining the distance norm so that if a line 
+segment connecting two points intersects a boundary then they are 
+infinitely far away.  This function then makes it possible to solve 
+problems like this</p>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/pde/fd/2d/figures/annulus.png" alt="alt text" title="demo_fd_annulus"></p>
+
+<p>The above plot is showing the solution to Laplace's equation on a slit 
+annulus. The edges are free surfaces except for the top and bottom of 
+the slit, which are fixed at 1 and -1.  The code which generated the 
+above script can be found in <code>rbf/demo/pde/fd/2d/annulus.py</code>.</p>
+
+<p>RBFs seem to have a hard time handling free surface boundary 
+conditions. In order to get a stable solution it is often necessary to 
+add ghost nodes. Ghost nodes are additional nodes placed outside the 
+boundary. Rather than enforcing the PDE at the ghost nodes, the added 
+rows in the stiffness matrix are used to enforce the PDE at the 
+boundary nodes.  A ghost node demonstration can be found in 
+<code>rbf/demo/pde/fd/2d/ghosts.py</code>. The below figure shows the solution to 
+the same PDE as above but with the addition of ghost nodes</p>
+
+<p><img src="https://github.com/treverhines/RBF/blob/master/demo/pde/fd/2d/figures/ghosts.png" alt="alt text" title="demo_fd_annulus"></p>
+
+<h3>
+<a id="to-do" class="anchor" href="#to-do" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>To Do</h3>
+
+<p>This package contains more features but they have not yet been 
+included in this help documentation. They include</p>
+
+<ul>
+<li>generation of RBF-FD stencils (module: rbf.stencil)</li>
+<li>generation of RBF-FD weights (module: rbf.fd)</li>
+<li>computational geometry (module: rbf.geometry)</li>
+<li>generation of halton sequences (module: rbf.halton)</li>
+<li>Monte-Carlo integration (module: rbf.integrate)</li>
+<li>generation of B-spline basis functions (module: rbf.bspline) </li>
+<li>Removing high frequency noise in LARGE, scattered, multidimensional 
+data sets (My latest project!, module: rbf.filter)</li>
+</ul>
+
+<p>See the documentation within the modules for help on using these 
+features</p>
+
+<h3>
+<a id="acknowledgements" class="anchor" href="#acknowledgements" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Acknowledgements</h3>
+
+<p>This package has been largely inspired by the book "A Primer on 
+Radial Basis Functions with Applications to the Geosciences" by 
+Bengt Fornberg and Natasha Flyer.  </p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/treverhines/RBF">RBF</a> is maintained by <a href="https://github.com/treverhines">treverhines</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
