@@ -2,7 +2,8 @@
 Python package containing the tools necessary for radial basis 
 function (RBF) applications.  Applications include 
 interpolating/smoothing scattered data and solving PDEs over 
-complicated domains. 
+complicated domains. See the full documentation here 
+(http://rbf.readthedocs.io)
 
 
 ## Features

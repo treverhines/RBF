@@ -5,6 +5,7 @@
 
 Welcome to RBF's documentation!
 ===============================
+This site is currently in progress
 
 .. toctree::
    :maxdepth: 2
