@@ -82,7 +82,7 @@ def _get_mask(x,sigma,kind):
 
 def _average_shortest_distance(x):
   ''' 
-  returns the average shortest distance between points in x
+  returns the average shortest distance between points in x. 
   '''
   if x.shape[0] == 0:
     return np.inf
