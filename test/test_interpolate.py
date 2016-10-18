@@ -150,7 +150,7 @@ class Test(unittest.TestCase):
                     [1.5,0.5],
                     [-0.5,0.5]])
     I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=1,
-                                       extrapolate=False,fill=np.nan)
+                                       extrapolate=False)
     out = I(itp)
     soln_true = np.array([False,True,True,True,True])
     self.assertTrue(np.all(np.isnan(out) == soln_true))

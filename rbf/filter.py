@@ -20,11 +20,13 @@ class _IterativeVariance:
   samples and then computing the variance.
   '''
   def __init__(self,mean):
+    mean = np.asarray(mean)
     self.mean = mean
     self.sum_squared_diff = np.zeros(mean.shape)
     self.count = 0
 
   def add_sample(self,sample):
+    sample = np.asarray(sample)
     self.sum_squared_diff += (self.mean - sample)**2
     self.count += 1
 
@@ -48,6 +50,19 @@ def _get_mask(x,sigma,kind):
     * If kind is 'extrapolate' then the smoothed solution will be
       estimated for all positions.
   
+
+  Parameters
+  ----------
+    x: (N,D) array
+      observation points
+    
+    sigma: (N,) array
+      uncertainties for each observation point. np.inf indicates that 
+      the observation is missing
+      
+    kind: str
+      either 'none', 'interpolate', or 'extrapolate'  
+      
   '''
   data_is_missing = np.isinf(sigma) 
   if kind == 'none':

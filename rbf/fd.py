@@ -36,8 +36,9 @@ def _default_stencil_size(diffs):
 def _default_poly_order(diffs):
   ''' 
   This sets the polynomial order equal to the largest derivative 
-  order.  This is the smallest polynomial order needed to overcome PHS 
-  stagnation error
+  order. So a constant and linear term (order=1) will be used when 
+  approximating a first derivative. This is the smallest polynomial 
+  order needed to overcome PHS stagnation error
   '''
   P = max(sum(d) for d in diffs)
   return P
@@ -132,7 +133,7 @@ def weights(x,nodes,diffs,coeffs=None,
       rbf.basis or create your own.
  
     order : int, optional
-      Order of the added monomials. This defaults to the highest 
+      Order of the added polynomial. This defaults to the highest 
       derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
       order is set to 2. 
 
@@ -329,7 +330,7 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
       rbf.basis or create your own.
  
     order : int, optional
-      Order of the added monomials. This defaults to the highest 
+      Order of the added polynomial. This defaults to the highest 
       derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
       order is set to 2. 
 
@@ -372,6 +373,9 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
   diffs = _reshape_diffs(diffs)
   
   if size is None:
+    # if stencil size is not given then use the default stencil size. 
+    # If the default stencil size is too large then incrementally 
+    # decrease it
     size = _default_stencil_size(diffs)
     while True:
       try:    
@@ -430,7 +434,7 @@ def diff_matrix(x,diffs,coeffs=None,
       rbf.basis or create your own.
  
     order : int, optional
-      Order of the added monomials. This defaults to the highest 
+      Order of the added polynomial. This defaults to the highest 
       derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
       order is set to 2. 
 
@@ -472,6 +476,9 @@ def diff_matrix(x,diffs,coeffs=None,
   diffs = _reshape_diffs(diffs)
 
   if size is None:
+    # if stencil size is not given then use the default stencil size. 
+    # If the default stencil size is too large then incrementally 
+    # decrease it
     size = _default_stencil_size(diffs)
     while True:
       try:    
@@ -560,6 +567,9 @@ def diff_matrix_1d(x,diffs,coeffs=None,
   diffs = _reshape_diffs(diffs)
 
   if size is None:
+    # if stencil size is not given then use the default stencil size. 
+    # If the default stencil size is too large then incrementally 
+    # decrease it
     size = _default_stencil_size(diffs)
     while True:
       try:    
