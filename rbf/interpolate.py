@@ -77,67 +77,91 @@ class RBFInterpolant(object):
   This function has numerous features that are lacking in 
   scipy.interpolate.rbf. They include:
   
-    * variable weights on the data (when creating a smoothed interpolant)
+  * variable weights on the data (when creating a smoothed interpolant)
+  * more choices of basis functions (you can also easily make your own)
+  * analytical differentiation of the interpolant 
+  * added polynomial terms for improved accuracy
+  * prevent extrapolation by masking data that is outside of the 
+    convex hull defined by the data points
 
-    * more choices of basis functions (you can also easily make your own)
+  The interpolant, :math:`f(x^*)`, is defined as
     
-    * analytical differentiation of the interpolant 
-    
-    * added polynomial terms for improved accuracy
-    
-    * prevent extrapolation by masking data that is outside of the 
-      convex hull defined by the data points
-
-  Formulation
-  -----------
-    The interpolant, f(x*), is defined as
-    
-      f(x*) = K(x*,x)a + T(x*)b
+   .. math::
+     f(x^*) = K(x^*,x)a + T(x^*)b
   
-    where K(x*,x) is a Vandermonde matrix evaluated at the 
-    interpolation points, x*, for radial basis functions centered at 
-    the observation points, x. T(x*) is a polynomial matrix evaluated 
-    at the interpolation points, and a and b are coefficients that 
-    need to be estimated. The coefficients are found by solving the 
-    linear system
+  where :math:`K(x^*,x)` is a Vandermonde matrix evaluated at the 
+  interpolation points :math:`x^*` for radial basis functions 
+  centered at the observation points :math:`x`. :math:`T(x^*)` is a 
+  polynomial matrix evaluated at the interpolation points, and 
+  :math:`a` and :math:`b` are coefficients that need to be estimated. 
+  The coefficients are found by solving the linear system of equations
   
-      | (WK(x,x) + pI)  WT(x) | | a |    | WY |
-      |         T(x)^t      0 | | b |  = |  0 |
+  .. math::
+    (WK(x,x) + pI)a  + WT(x)b &= WY \\
 
-    where W are the data weights (should be the inverse of the data 
-    variance), Y are the observations at x, and p is a penalty 
-    parameter. With p=0 the observations are fit perfectly by the 
-    interpolant.  Increasing p degrades the fit while improving the 
-    smoothness of the interpolant. This formulation closely follows 
-    chapter 19.4 of [1] and chapter 13.2.1 of [2].
-    
-    With certain choices of basis functions and polynomial orders this 
-    interpolant is equivalent to a thin-plate spline.  For example, if 
-    the observation space is one-dimensional then a thin-plate spline 
-    can be obtained with the arguments
-    
-      basis = rbf.basis.phs3, order = 1
-    
-    for two-dimensional observation space a thin-plate spline can be 
-    obtained with the arguments
-    
-      basis = rbf.basis.phs2, order = 1.
+                       T(x)^Ta &= 0 
 
-    See [2] for additional details on thin-plate splines.   
+  where :math:`W` are the data weights (should be the inverse of the 
+  data variance), :math:`Y` are the observations at :math:`x`, and 
+  :math:`p` is a penalty parameter. With :math:`p=0` the observations 
+  are fit perfectly by the interpolant.  Increasing :math:`p` degrades 
+  the fit while improving the smoothness of the interpolant. This 
+  formulation closely follows chapter 19.4 of [1] and chapter 13.2.1 
+  of [2].
+    
+  With certain choices of basis functions and polynomial orders this 
+  interpolant is equivalent to a thin-plate spline.  For example, if 
+  the observation space is one-dimensional then a thin-plate spline 
+  can be obtained with the arguments `basis` = `rbf.basis.phs3` and 
+  `order` = 1.  For two-dimensional observation space a thin-plate 
+  spline can be obtained with the arguments `basis` = `rbf.basis.phs2` 
+  and `order` = 1. See [2] for additional details on thin-plate splines.
 
-  Note
-  ----
-    This function involves solving a dense system of equations, which 
-    will be prohibitive for large data sets. See rbf.filter for 
-    smoothing large data sets.
+  Parameters 
+  ---------- 
+  x : (N,D) array
+    Observation points which make up the rbf centers
+
+  value : (N,) array
+    Function values at the observation points
+
+  sigma : (N,) array, optional
+    One standard deviation uncertainty on each observation point
+        
+  eps : (N,) array, optional
+    Shape parameters for each RBF. this has no effect for odd
+    order polyharmonic splines
+
+  basis : rbf.basis.RBF instance, optional
+    Radial basis function to use
+ 
+  extrapolate : bool, optional
+    Whether to allows points to be extrapolated outside of a 
+    convex hull formed by x. If False, then np.nan is returned for 
+    outside points.
+
+  order : int, optional
+    Order of added polynomial terms
+        
+  penalty : float, optional
+    The smoothing parameter. This decreases the size of the RBF 
+    coefficients while leaving the polynomial terms undamped. Thus 
+    the endmember for a large penalty parameter will be equivalent 
+    to polynomial regression.
+
+  Notes
+  -----
+  This function involves solving a dense system of equations, which 
+  will be prohibitive for large data sets. See rbf.filter for 
+  smoothing large data sets.
     
   References
   ----------
-    [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, 
-      World Scientific Publishing Co, 2007.
+  [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, 
+  World Scientific Publishing Co, 2007.
     
-    [2] Schimek, M., Smoothing and Regression: Approaches, 
-      Computations, and Applications. John Wiley & Sons, 2000.
+  [2] Schimek, M., Smoothing and Regression: Approaches, 
+  Computations, and Applications. John Wiley & Sons, 2000.
     
   '''
   def __init__(self,
@@ -149,42 +173,6 @@ class RBFInterpolant(object):
                order=1,  
                extrapolate=True,
                penalty=0.0):
-    ''' 
-    Initiates the RBF interpolant
-
-    Parameters 
-    ---------- 
-      x: (N,D) array
-        observation points which make up the rbf centers
-
-      value : (N,) array
-        function values at the observation points
-
-      sigma : (N,) array, optional
-        One standard deviation uncertainty on each observation point
-        
-      eps : (N,) array, optional
-        shape parameters for each RBF. this has no effect for odd
-        order polyharmonic splines
-
-      basis : rbf.basis.RBF instance, optional
-        radial basis function to use
- 
-      extrapolate : bool, optional
-        whether to allows points to be extrapolated outside of a 
-        convex hull formed by x. If False, then np.nan is returned for 
-        outside points.
-
-      order : int, optional
-        order of added polynomial terms
-        
-      penalty : float, optional
-        the smoothing parameter. This decreases the size of the RBF 
-        coefficients while leaving the polynomial terms undamped. Thus 
-        the endmember for a large penalty parameter will be equivalent 
-        to polynomial regression.
-
-    '''
     x = np.asarray(x) 
     value = np.asarray(value)
     N,D = x.shape
@@ -226,16 +214,16 @@ class RBFInterpolant(object):
 
     Parameters 
     ---------- 
-      xitp: (N,D) array
-        points where the interpolant is to be evaluated
+    xitp : (N,D) array
+      Points where the interpolant is to be evaluated
 
-      diff: (D,) int array, optional
-        derivative order for each spatial dimension
+    diff : (D,) int array, optional
+      Derivative order for each spatial dimension
         
-      max_chunk : int, optional  
-        break xitp into chunks with this size and evaluate the 
-        interpolant for each chunk.  Smaller values result in 
-        decreased memory usage but also decreased speed
+    max_chunk : int, optional  
+      Break xitp into chunks with this size and evaluate the 
+      interpolant for each chunk.  Smaller values result in 
+      decreased memory usage but also decreased speed
 
     '''
     n = 0

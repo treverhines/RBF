@@ -28,6 +28,7 @@ Table of Contents
    :maxdepth: 2
 
    basis
+   interpolate
    fd
    geometry
 
