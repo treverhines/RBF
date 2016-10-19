@@ -180,7 +180,7 @@ def weights(x,nodes,diffs,coeffs=None,
   References
   ----------
   [1] Fornberg, B. and N. Flyer. A Primer on Radial Basis 
-      Functions with Applications to the Geosciences. SIAM, 2015.
+  Functions with Applications to the Geosciences. SIAM, 2015.
     
   '''
   x = np.asarray(x,dtype=float)
