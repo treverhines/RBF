@@ -108,79 +108,79 @@ def weights(x,nodes,diffs,coeffs=None,
 
   Parameters
   ----------
-    x : (D,) array
-      estimation point
+  x : (D,) array
+    estimation point
 
-    nodes : (N,D) array
-      observation points
+  nodes : (N,D) array
+    observation points
 
-    diffs : (D,) int array or (K,D) int array 
-      derivative orders for each spatial variable. For example [2,0] 
-      indicates that the weights should approximate the second 
-      derivative along the x axis in two-dimensional space.  diffs can 
-      also be a (K,D) array, where each (D,) sub-array is a term in a 
-      differential operator. For example the two-dimensional Laplacian 
-      can be represented as [[2,0],[0,2]].  
+  diffs : (D,) int array or (K,D) int array 
+    derivative orders for each spatial variable. For example [2,0] 
+    indicates that the weights should approximate the second 
+    derivative along the x axis in two-dimensional space.  diffs can 
+    also be a (K,D) array, where each (D,) sub-array is a term in a 
+    differential operator. For example the two-dimensional Laplacian 
+    can be represented as [[2,0],[0,2]].  
 
-    coeffs : (K,) array, optional 
-      Coefficients for each term in the differential operator 
-      specified with *diffs*.  Defaults to an array of ones. If diffs 
-      was specified as a (D,) array then coeffs should be a length 1 
-      array.
+  coeffs : (K,) array, optional 
+    Coefficients for each term in the differential operator 
+    specified with *diffs*.  Defaults to an array of ones. If diffs 
+    was specified as a (D,) array then coeffs should be a length 1 
+    array.
 
-    basis : rbf.basis.RBF, optional
-      Type of radial basis function. Select from those available in 
-      rbf.basis or create your own.
+  basis : rbf.basis.RBF, optional
+    Type of radial basis function. Select from those available in 
+    rbf.basis or create your own.
  
-    order : int, optional
-      Order of the added polynomial. This defaults to the highest 
-      derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
-      order is set to 2. 
+  order : int, optional
+    Order of the added polynomial. This defaults to the highest 
+    derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
+    order is set to 2. 
 
-    eps : (N,) array, optional
-      shape parameter for each radial basis function. This only makes 
-      a difference when using RBFs that are not scale invariant.  All 
-      the predefined RBFs except for the odd order polyharmonic 
-      splines are not scale invariant.
+  eps : (N,) array, optional
+    shape parameter for each radial basis function. This only makes 
+    a difference when using RBFs that are not scale invariant.  All 
+    the predefined RBFs except for the odd order polyharmonic 
+    splines are not scale invariant.
     
 
   Example
   -------
-    # calculate the weights for a one-dimensional second order derivative.
-    >>> position = np.array([1.0]) 
-    >>> nodes = np.array([[0.0],[1.0],[2.0]]) 
-    >>> diff = (2,) 
-    >>> weights(position,nodes,diff)
+  
+  Calculate the weights for a one-dimensional second order derivative.
 
-    array([ 1., -2., 1.])
+  >>> position = np.array([1.0]) 
+  >>> nodes = np.array([[0.0],[1.0],[2.0]]) 
+  >>> diff = (2,) 
+  >>> weights(position,nodes,diff)
+      array([ 1., -2., 1.])
     
-    # calculate the weights for estimating an x derivative from three 
-    # points in a two-dimensional plane
-    >>> position = np.array([0.25,0.25])
-    >>> nodes = np.array([[0.0,0.0],
-                          [1.0,0.0],
-                          [0.0,1.0]])
-    >>> diff = (1,0)
-    >>> weights(position,nodes,diff)
+  Calculate the weights for estimating an x derivative from three 
+  points in a two-dimensional plane
 
-    array([ -1., 1., 0.])
+  >>> position = np.array([0.25,0.25])
+  >>> nodes = np.array([[0.0,0.0],
+                        [1.0,0.0],
+                        [0.0,1.0]])
+  >>> diff = (1,0)
+  >>> weights(position,nodes,diff)
+      array([ -1., 1., 0.])
     
-  Note
-  ----
-    The overhead associated with multithreading can greatly reduce
-    performance and it may be useful to set the appropriate
-    environment value so that this function is run with only one
-    thread.  Anaconda accelerate users can set the number of threads
-    within a python script with the command mkl.set_num_threads(1)
-
-    This function may become unstable with high order polynomials. 
-    This can be somewhat remedied by shifting the coordinate system so 
-    that x is zero
+  Notes
+  -----
+  The overhead associated with multithreading can greatly reduce
+  performance and it may be useful to set the appropriate
+  environment value so that this function is run with only one
+  thread.  Anaconda accelerate users can set the number of threads
+  within a python script with the command mkl.set_num_threads(1)
+  This function may become unstable with high order polynomials. 
+  This can be somewhat remedied by shifting the coordinate system so 
+  that x is zero
 
   References
   ----------
-    [1] Fornberg, B. and N. Flyer. A Primer on Radial Basis 
-        Functions with Applications to the Geosciences. SIAM, 2015.
+  [1] Fornberg, B. and N. Flyer. A Primer on Radial Basis 
+      Functions with Applications to the Geosciences. SIAM, 2015.
     
   '''
   x = np.asarray(x,dtype=float)
@@ -236,27 +236,16 @@ def poly_weights(x,nodes,diffs,coeffs=None):
   
   For D-dimensional space The number of nodes, N, must be in the set 
   binom(P+D,D) for P in (0,1,2,...). In other words for 1-dimensional 
-  space
-
-    N in (1,2,3,4,5,6,...),
-  
-  for 2-dimensional space
-
-    N in (1,3,6,10,15,21,...),
-
-  and for 3-dimensional space
-
-    N in (1,4,10,20,35,56,...)  
+  space N is in (1,2,3,4,5,6,...); for 2-dimensional space N is in 
+  (1,3,6,10,15,21,...); and for 3-dimensional space is N in 
+  (1,4,10,20,35,56,...)  
   
   Parameters
   ----------
-    x : (D,) array
-
-    nodes : (N,D) array
-
-    diffs : (D,) int array or (K,D) int array 
-
-    coeffs : (K,) array, optional
+  x : (D,) array
+  nodes : (N,D) array
+  diffs : (D,) int array or (K,D) int array 
+  coeffs : (K,) array, optional
         
   '''
   x = np.asarray(x,dtype=float)
@@ -305,66 +294,67 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
   
   Parameters
   ----------
-    x : (N,D) array
-      estimation points
+  x : (N,D) array
+    estimation points
 
-    nodes : (M,D) array
-      observation points
+  nodes : (M,D) array
+    observation points
 
-    diffs : (D,) int array or (K,D) int array 
-      derivative orders for each spatial variable. For example [2,0] 
-      indicates that the weights should approximate the second 
-      derivative along the x axis in two-dimensional space.  diffs can 
-      also be a (K,D) array, where each (D,) sub-array is a term in a 
-      differential operator. For example the two-dimensional Laplacian 
-      can be represented as [[2,0],[0,2]].  
+  diffs : (D,) int array or (K,D) int array 
+    derivative orders for each spatial variable. For example [2,0] 
+    indicates that the weights should approximate the second 
+    derivative along the x axis in two-dimensional space.  diffs can 
+    also be a (K,D) array, where each (D,) sub-array is a term in a 
+    differential operator. For example the two-dimensional Laplacian 
+    can be represented as [[2,0],[0,2]].  
 
-    coeffs : (K,) array, optional 
-      Coefficients for each term in the differential operator 
-      specified with *diffs*.  Defaults to an array of ones. If diffs 
-      was specified as a (D,) array then coeffs should be a length 1 
-      array.
+  coeffs : (K,) array, optional 
+    Coefficients for each term in the differential operator 
+    specified with *diffs*.  Defaults to an array of ones. If diffs 
+    was specified as a (D,) array then coeffs should be a length 1 
+    array.
 
-    basis : rbf.basis.RBF, optional
-      Type of radial basis function. Select from those available in 
-      rbf.basis or create your own.
- 
-    order : int, optional
-      Order of the added polynomial. This defaults to the highest 
-      derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
-      order is set to 2. 
+  basis : rbf.basis.RBF, optional
+    Type of radial basis function. Select from those available in 
+    rbf.basis or create your own.
 
-    eps : (M,) array, optional
-      shape parameter for each radial basis function. This only makes 
-      a difference when using RBFs that are not scale invariant.  All 
-      the predefined RBFs except for the odd order polyharmonic 
-      splines are not scale invariant.
+  order : int, optional
+    Order of the added polynomial. This defaults to the highest 
+    derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
+    order is set to 2. 
 
-    size : int, optional
-      stencil size
+  eps : (M,) array, optional
+    shape parameter for each radial basis function. This only makes 
+    a difference when using RBFs that are not scale invariant.  All 
+    the predefined RBFs except for the odd order polyharmonic 
+    splines are not scale invariant.
+
+  size : int, optional
+    stencil size
     
-    vert : (P,D) array, optional
-      verticies of boundaries which stencils cannot cross
-    
-    smp : (Q,D) int array, optional
-      connectivity of the vertices to form boundaries
+  vert : (P,D) array, optional
+    verticies of boundaries which stencils cannot cross
+   
+  smp : (Q,D) int array, optional
+    connectivity of the vertices to form boundaries
 
   Returns
   -------
-    L : (N,M) csr sparse matrix          
+  L : (N,M) csr sparse matrix          
       
   Example
   -------
-    # create a second order differentiation matrix in one-dimensional 
-    # space
-    >>> x = np.arange(4.0)[:,None]
-    >>> W = weight_matrix(x,x,(2,))
-    >>> W.toarray()
+  
+  Create a second order differentiation matrix in one-dimensional 
+  space
 
-    array([[ 1., -2.,  1.,  0.],
-           [ 1., -2.,  1.,  0.],
-           [ 0.,  1., -2.,  1.],
-           [ 0.,  1., -2.,  1.]])
+  >>> x = np.arange(4.0)[:,None]
+  >>> W = weight_matrix(x,x,(2,))
+  >>> W.toarray()
+      array([[ 1., -2.,  1.,  0.],
+             [ 1., -2.,  1.,  0.],
+             [ 0.,  1., -2.,  1.],
+             [ 0.,  1., -2.,  1.]])
                          
   '''
   logger.debug('building RBF-FD weight matrix...')
@@ -412,63 +402,64 @@ def diff_matrix(x,diffs,coeffs=None,
 
   Parameters
   ----------
-    x : (M,D) array
-      observation points
+  x : (M,D) array
+    observation points
 
-    diffs : (D,) int array or (K,D) int array 
-      derivative orders for each spatial variable. For example [2,0] 
-      indicates that the weights should approximate the second 
-      derivative along the x axis in two-dimensional space.  diffs can 
-      also be a (K,D) array, where each (D,) sub-array is a term in a 
-      differential operator. For example the two-dimensional Laplacian 
-      can be represented as [[2,0],[0,2]].  
+  diffs : (D,) int array or (K,D) int array 
+    derivative orders for each spatial variable. For example [2,0] 
+    indicates that the weights should approximate the second 
+    derivative along the x axis in two-dimensional space.  diffs can 
+    also be a (K,D) array, where each (D,) sub-array is a term in a 
+    differential operator. For example the two-dimensional Laplacian 
+    can be represented as [[2,0],[0,2]].  
 
-    coeffs : (K,) array, optional 
-      Coefficients for each term in the differential operator 
-      specified with *diffs*.  Defaults to an array of ones. If diffs 
-      was specified as a (D,) array then coeffs should be a length 1 
-      array.
+  coeffs : (K,) array, optional 
+    Coefficients for each term in the differential operator 
+    specified with *diffs*.  Defaults to an array of ones. If diffs 
+    was specified as a (D,) array then coeffs should be a length 1 
+    array.
 
-    basis : rbf.basis.RBF, optional
-      Type of radial basis function. Select from those available in 
-      rbf.basis or create your own.
+  basis : rbf.basis.RBF, optional
+    Type of radial basis function. Select from those available in 
+    rbf.basis or create your own.
  
-    order : int, optional
-      Order of the added polynomial. This defaults to the highest 
-      derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
-      order is set to 2. 
+  order : int, optional
+    Order of the added polynomial. This defaults to the highest 
+    derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
+    order is set to 2. 
 
-    eps : (M,) array, optional
-      shape parameter for each radial basis function. This only makes 
-      a difference when using RBFs that are not scale invariant.  All 
-      the predefined RBFs except for the odd order polyharmonic 
-      splines are not scale invariant.
+  eps : (M,) array, optional
+    shape parameter for each radial basis function. This only makes 
+    a difference when using RBFs that are not scale invariant.  All 
+    the predefined RBFs except for the odd order polyharmonic 
+    splines are not scale invariant.
 
-    size : int, optional
-      stencil size
+  size : int, optional
+    stencil size
     
-    vert : (P,D) array, optional
-      verticies of boundaries which stencils cannot cross
+  vert : (P,D) array, optional
+    verticies of boundaries which stencils cannot cross
     
-    smp : (Q,D) int array, optional
-      connectivity of the vertices to form boundaries
+  smp : (Q,D) int array, optional
+    connectivity of the vertices to form boundaries
 
   Returns
   -------
-    L : (M,M) csr sparse matrix    
+  L : (M,M) csr sparse matrix    
       
   Example
   -------
-    # create a second order differentiation matrix in one-dimensional 
-    # space
-    >>> x = np.arange(4.0)[:,None]
-    >>> diff_mat = diff_matrix(x,(2,))
-    >>> diff_mat.toarray()
+  
+  Create a second order differentiation matrix in one-dimensional 
+  space
 
-    array([[ 1., -2.,  1.,  0.],
-           [ 1., -2.,  1.,  0.],
-           [ 0.,  1., -2.,  1.],
-           [ 0.,  1., -2.,  1.]])
+  >>> x = np.arange(4.0)[:,None]
+  >>> diff_mat = diff_matrix(x,(2,))
+  >>> diff_mat.toarray()
+      array([[ 1., -2.,  1.,  0.],
+             [ 1., -2.,  1.,  0.],
+             [ 0.,  1., -2.,  1.],
+             [ 0.,  1., -2.,  1.]])
                          
   '''
   logger.debug('building RBF-FD differentiation matrix...')
@@ -516,50 +507,50 @@ def diff_matrix_1d(x,diffs,coeffs=None,
 
   Parameters
   ----------
-    x : (M,D) array
-      observation points
+  x : (M,D) array
+    observation points
           
-    diffs : (D,) int array or (K,D) int array 
-      derivative orders for each spatial variable. For example [2,0] 
-      indicates that the weights should approximate the second 
-      derivative along the x axis in two-dimensional space.  diffs can 
-      also be a (K,D) array, where each (D,) sub-array is a term in a 
-      differential operator. For example the two-dimensional Laplacian 
-      can be represented as [[2,0],[0,2]].  
+  diffs : (D,) int array or (K,D) int array 
+    derivative orders for each spatial variable. For example [2,0] 
+    indicates that the weights should approximate the second 
+    derivative along the x axis in two-dimensional space.  diffs can 
+    also be a (K,D) array, where each (D,) sub-array is a term in a 
+    differential operator. For example the two-dimensional Laplacian 
+    can be represented as [[2,0],[0,2]].  
 
-    coeffs : (K,) array, optional 
-      Coefficients for each term in the differential operator 
-      specified with *diffs*.  Defaults to an array of ones. If diffs 
-      was specified as a (D,) array then coeffs should be a length 1 
-      array.
+  coeffs : (K,) array, optional 
+    Coefficients for each term in the differential operator 
+    specified with *diffs*.  Defaults to an array of ones. If diffs 
+    was specified as a (D,) array then coeffs should be a length 1 
+    array.
 
-    size : int, optional
-      stencil size. If N neighbors cannot be found, then incrementally 
-      smaller values of N are tested until a stencil network can be 
-      formed.
+  size : int, optional
+    stencil size. If N neighbors cannot be found, then incrementally 
+    smaller values of N are tested until a stencil network can be 
+    formed.
     
-    vert : (P,D) array, optional
-      verticies of boundaries which stencils cannot cross
+  vert : (P,D) array, optional
+    verticies of boundaries which stencils cannot cross
     
-    smp : (Q,D) int array, optional
-      connectivity of the vertices to form boundaries
+  smp : (Q,D) int array, optional
+    connectivity of the vertices to form boundaries
 
   Returns
   -------
-    L : (M,M) csr sparse matrix    
+  L : (M,M) csr sparse matrix    
 
   Example
   -------
-    # create a second order differentiation matrix in one-dimensional 
-    # space
-    >>> x = np.arange(4.0)[:,None]
-    >>> diff_mat = poly_diff_matrix(x,(2,))
-    >>> diff_mat.toarray()
-
-    array([[ 1., -2.,  1.,  0.],
-           [ 1., -2.,  1.,  0.],
-           [ 0.,  1., -2.,  1.],
-           [ 0.,  1., -2.,  1.]])
+  
+  Create a second order differentiation matrix in one-dimensional 
+  space
+  >>> x = np.arange(4.0)[:,None]
+  >>> diff_mat = poly_diff_matrix(x,(2,))
+  >>> diff_mat.toarray()
+      array([[ 1., -2.,  1.,  0.],
+             [ 1., -2.,  1.,  0.],
+             [ 0.,  1., -2.,  1.],
+             [ 0.,  1., -2.,  1.]])
 
   '''
   logger.debug('building polynomial differentiation matrix...')

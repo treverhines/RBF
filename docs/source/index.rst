@@ -3,18 +3,35 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to RBF's documentation!
-===============================
-This site is currently in progress
+RBF
+***
+Python package containing the tools necessary for radial basis 
+function (RBF) applications.  Applications include 
+interpolating/smoothing scattered data and solving PDEs over 
+complicated domains. 
 
+
+Features
+--------
+* Efficient evaluation of RBFs and their analytically derived derivatives
+* Regularized RBF interpolation for noisy, scattered, data
+* Generation of radial basis function finite difference (RBF-FD) 
+  weights
+* RBF-FD Filtering for low-pass filtering **LARGE**, scattered data
+* Node and stencil generation algorithms for solving PDEs over 
+  complicated domains
+* Computational geometry functions for 1, 2, and 3 spatial dimensions
+
+Table of Contents
+-----------------
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-
+   basis
+   fd
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
