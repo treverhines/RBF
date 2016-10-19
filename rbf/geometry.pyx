@@ -1451,8 +1451,8 @@ def simplex_outward_normals(vert,smp):
 
 def simplex_upward_normals(vert,smp):
   ''' 
-  Returns the normal vectors for each simplex whose sign for the last 
-  spatial dimension is positive.
+  Returns the upward pointing normal vectors for each simplex. The up 
+  direction is assumed to be the last coordinate axis.
 
   Parameters
   ----------
