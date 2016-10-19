@@ -1,13 +1,13 @@
 ''' 
-Defines functions for basic computational geometry in 1, 2, and 3 
-dimensions. This modules requires all volumes, surfaces and segments 
-to be described as simplicial complexes, that is, as a collection of 
-simplexes defined by their vertices.  Most end user functions in this 
-module have a vertices and simplices argument, the former is a (N,D) 
-collection of all D dimensional vertices in the simplicial complex and 
-the latter is an (M,D) array of vertex indices making up each simplex. 
-For example the unit square in two dimensions can be described as 
-collection of line segments:
+Module of cythonized functions for basic computational geometry in 1, 
+2, and 3 dimensions. This modules requires all geometric objects (e.g. 
+volumes, polygons, surfaces, segments, etc.) to be described as 
+simplicial complexes. A simplicial complex is a collection of 
+simplices (e.g. segments, triangles, tetrahedra, etc.).  In this 
+module, simplicial complexes in D-dimenional space are described with 
+an (N,D) array of vertices and and (M,D) array describing the indices 
+of vertcies making up each simplex. As an example, the unit square in 
+two dimensions can be described as collection of line segments:
 
 >>> vertices = [[0.0,0.0],
                 [1.0,0.0],
@@ -81,10 +81,10 @@ first detected intersection will be returned.
 
 Note
 ----
-  There are numerous other packages which can perform the same tasks 
-  as this module.  For example geos (http://trac.osgeo.org/geos/) and 
-  gts (http://gts.sourceforge.net/).  However, the python bindings for 
-  these packages are too slow for RBF purposes.
+There are numerous other packages which can perform the same tasks 
+as this module.  For example geos (http://trac.osgeo.org/geos/) and 
+gts (http://gts.sourceforge.net/).  However, the python bindings for 
+these packages are too slow for RBF purposes.
 
 '''
 from __future__ import division
@@ -394,7 +394,7 @@ cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
 
   Note
   ----
-    if there is no intersection then a ValueError is returned.
+  if there is no intersection then a ValueError is returned.
 
   '''
   cdef:
@@ -467,7 +467,7 @@ cdef np.ndarray intersection_point_2d(double[:,:] start_pnts,
 
   Note
   ----
-    if there is no intersection then a ValueError is returned.
+  if there is no intersection then a ValueError is returned.
   '''
   cdef:
     int i
@@ -532,7 +532,7 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
 
   Note
   ----
-    if there is not intersection then a ValueError is returned
+  if there is not intersection then a ValueError is returned
 
   '''
   cdef:
@@ -633,10 +633,10 @@ cdef bint is_intersecting_3d(segment3d seg,
 
   Note
   ----
-    This function determines where the segment intersects the plane
-    containing the triangle and then projects the intersection point
-    and triangle into a 2D plane where the point is then tested if it
-    is within the triangle.
+  This function determines where the segment intersects the plane
+  containing the triangle and then projects the intersection point
+  and triangle into a 2D plane where the point is then tested if it
+  is within the triangle.
 
   '''
   cdef:
@@ -769,7 +769,7 @@ cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
 
   Note
   ----
-    if there is no intersection then a ValueError is returned.
+  if there is no intersection then a ValueError is returned.
 
   '''
 
@@ -851,7 +851,7 @@ cdef np.ndarray intersection_point_3d(double[:,:] start_pnts,
 
   Note
   ----
-    if there is no intersection then a ValueError is returned.
+  if there is no intersection then a ValueError is returned.
 
   '''
   cdef:
@@ -928,7 +928,7 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
 
   Note
   ----
-    if there is no intersection then a ValueError is returned.
+  if there is no intersection then a ValueError is returned.
 
   '''
 
@@ -1038,32 +1038,32 @@ def intersection_point(start_points,end_points,vertices,simplices):
 
   Parameters
   ----------
-    start_points : (N,D) array
-      Vertices describing one end of the line segments. N is the 
-      number of line segments
+  start_points : (N,D) array
+    Vertices describing one end of the line segments. N is the 
+    number of line segments
 
-    end_points : (N,D) array 
-      Vertices describing the other end of the line segments. N is the 
-      number of line segments
+  end_points : (N,D) array 
+    Vertices describing the other end of the line segments. N is the 
+    number of line segments
 
-    vertices : (M,D) array 
-      Vertices within the simplicial complex. M is the number of 
-      vertices
+  vertices : (M,D) array 
+    Vertices within the simplicial complex. M is the number of 
+    vertices
 
-    simplices : (P,D) array
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) array
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (N,D) array
-      intersection points    
+  out : (N,D) array
+    intersection points    
 
-  Note
-  ----
-    This function fails when a intersection is not found for a line 
-    segment. If there are multiple intersections then the intersection 
-    closest to start_point is used.
+  Notes
+  -----
+  This function fails when a intersection is not found for a line 
+  segment. If there are multiple intersections then the intersection 
+  closest to start_point is used.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1103,33 +1103,32 @@ def intersection_normal(start_points,end_points,vertices,simplices):
 
   Parameters
   ----------
-    start_points : (N,D) array
-      Vertices describing one end of the line segments. N is the 
-      number of line segments
+  start_points : (N,D) array
+    Vertices describing one end of the line segments. N is the 
+    number of line segments
 
-    end_points : (N,D) array 
-      Vertices describing the other end of the line segments. N is the 
-      number of line segments
+  end_points : (N,D) array 
+    Vertices describing the other end of the line segments. N is the 
+    number of line segments
 
-    vertices : (M,D) array 
-      Vertices within the simplicial complex. M is the number of 
-      vertices
+  vertices : (M,D) array 
+    Vertices within the simplicial complex. M is the number of 
+    vertices
 
-    simplices : (P,D) array
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) array
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (N,D) array
-      normal vectors
+  out : (N,D) array
+    normal vectors
 
-  Note
-  ----
-    This function fails when a intersection is not found for a line 
-    segment. If there are multiple intersections then the intersection 
-    closest to start_point is used.
-
+  Notes
+  -----
+  This function fails when a intersection is not found for a line 
+  segment. If there are multiple intersections then the intersection 
+  closest to start_point is used.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1169,32 +1168,32 @@ def intersection_index(start_points,end_points,vertices,simplices):
 
   Parameters
   ----------
-    start_points : (N,D) array
-      Vertices describing one end of the line segments. N is the 
-      number of line segments
+  start_points : (N,D) array
+    Vertices describing one end of the line segments. N is the 
+    number of line segments
 
-    end_points : (N,D) array 
-      Vertices describing the other end of the line segments. N is the 
-      number of line segments
+  end_points : (N,D) array 
+    Vertices describing the other end of the line segments. N is the 
+    number of line segments
 
-    vertices : (M,D) array 
-      Vertices within the simplicial complex. M is the number of 
-      vertices
+  vertices : (M,D) array 
+    Vertices within the simplicial complex. M is the number of 
+    vertices
 
-    simplices : (P,D) array
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) array
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (N,) int array
-      simplex indices 
+  out : (N,) int array
+    simplex indices 
 
-  Note
-  ----
-    This function fails when a intersection is not found for a line
-    segment. If there are multiple intersections then the intersection 
-    closest to start_point is used.
+  Notes
+  -----
+  This function fails when a intersection is not found for a line
+  segment. If there are multiple intersections then the intersection 
+  closest to start_point is used.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1246,26 +1245,26 @@ def intersection_count(start_points,end_points,vertices,simplices):
 
   Parameters
   ----------
-    start_points : (N,D) array
-      Vertices describing one end of the line segments. N is the 
-      number of line segments
+  start_points : (N,D) array
+    Vertices describing one end of the line segments. N is the 
+    number of line segments
 
-    end_points : (N,D) array 
-      Vertices describing the other end of the line segments. N is the 
-      number of line segments
+  end_points : (N,D) array 
+    Vertices describing the other end of the line segments. N is the 
+    number of line segments
 
-    vertices : (M,D) array 
-      Vertices within the simplicial complex. M is the number of 
-      vertices
+  vertices : (M,D) array 
+    Vertices within the simplicial complex. M is the number of 
+    vertices
 
-    simplices : (P,D) array
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) array
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (N,) int array
-      intersection counts
+  out : (N,) int array
+    intersection counts
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1306,34 +1305,34 @@ def contains(points,vertices,simplices):
 
   Parameters
   ----------
-    points : (N,D) array
-      Test points
+  points : (N,D) array
+    Test points
 
-    vertices : (M,D) array
-      Vertices within the simplicial complex
+  vertices : (M,D) array
+    Vertices within the simplicial complex
 
-    simplices : (P,D) int array 
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (N,) bool array 
-      indicates which test points are in the simplicial complex
+  out : (N,) bool array 
+    indicates which test points are in the simplicial complex
 
-  Note
-  ----
-    This function does not ensure that the simplicial complex is
-    closed.  If it is not then bogus results will be returned. 
+  Notes
+  -----
+  This function does not ensure that the simplicial complex is
+  closed.  If it is not then bogus results will be returned. 
     
-    This function determines whether a point is contained within the
-    simplicial complex by finding the number of intersections between
-    each point and an arbitrary outside point.  It is possible,
-    although rare, that this function will fail if the line segment
-    intersects a simplex at an edge.
+  This function determines whether a point is contained within the
+  simplicial complex by finding the number of intersections between
+  each point and an arbitrary outside point.  It is possible,
+  although rare, that this function will fail if the line segment
+  intersects a simplex at an edge.
 
-    This function does not require any particular orientation for the 
-    simplices
+  This function does not require any particular orientation for the 
+  simplices
 
   '''
   points = np.asarray(points)
@@ -1369,21 +1368,21 @@ def simplex_normals(vert,smp):
 
   Parameters
   ----------
-    vertices : (M,D) array
-      Vertices within the simplicial complex
+  vertices : (M,D) array
+    Vertices within the simplicial complex
 
-    simplices : (P,D) int array 
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (P,D) array
-      normals vectors
+  out : (P,D) array
+    normals vectors
       
-  Note
-  ----
-    This is only defined for two and three dimensional simplices
+  Notes
+  -----
+  This is only defined for two and three dimensional simplices
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -1414,21 +1413,21 @@ def simplex_outward_normals(vert,smp):
 
   Parameters
   ----------
-    vertices : (M,D) array
-      Vertices within the simplicial complex
+  vertices : (M,D) array
+    Vertices within the simplicial complex
 
-    simplices : (P,D) int array 
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (P,D) array
-      normals vectors
+  out : (P,D) array
+    normals vectors
       
-  Note
-  ----
-    This is only defined for two and three dimensional simplices
+  Notes
+  -----
+  This is only defined for two and three dimensional simplices
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -1451,21 +1450,21 @@ def simplex_upward_normals(vert,smp):
 
   Parameters
   ----------
-    vertices : (M,D) array
-      Vertices within the simplicial complex
+  vertices : (M,D) array
+    Vertices within the simplicial complex
 
-    simplices : (P,D) int array 
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (P,D) array
-      normals vectors
+  out : (P,D) array
+    normals vectors
       
   Note
   ----
-    This is only defined for two and three dimensional simplices
+  This is only defined for two and three dimensional simplices
 
   '''
   vert = np.asarray(vert,dtype=float)
@@ -1489,25 +1488,25 @@ def oriented_simplices(vert,smp):
                                     
   Parameters
   ----------
-    vertices : (M,D) array
-      Vertices within the simplicial complex
+  vertices : (M,D) array
+    Vertices within the simplicial complex
 
-    simplices : (P,D) int array 
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
   Returns
   -------
-    out : (P,D) int array
-      oriented simplices
+  out : (P,D) int array
+    oriented simplices
 
   Note                                
   ----                         
-    If one dimensional simplices are given, then the simplices are
-    returned unaltered.
+  If one dimensional simplices are given, then the simplices are
+  returned unaltered.
 
-    This function does not ensure that the simplicial complex is
-    closed.  If it is not then bogus results will be returned. 
+  This function does not ensure that the simplicial complex is
+  closed.  If it is not then bogus results will be returned. 
   '''
   vert = np.asarray(vert,dtype=float)
   smp = np.array(smp,dtype=int,copy=True)
@@ -1549,29 +1548,29 @@ def enclosure(vert,smp,orient=True):
 
   Parameters
   ----------
-    vertices : (M,D) array
-      Vertices within the simplicial complex
+  vertices : (M,D) array
+    Vertices within the simplicial complex
 
-    simplices : (P,D) int array 
-      Connectivity of the vertices. Each row contains the vertex 
-      indices which form one simplex of the simplicial complex
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
 
-    orient : bool, optional
-      If true, the simplices are reordered with oriented_simplices. 
-      The time for this function increase quadratically with the 
-      number of simplices. Set to false if you are confident that the 
-      simplices are properly oriented. This does nothing for 
-      one-dimensional simplices
+  orient : bool, optional
+    If true, the simplices are reordered with oriented_simplices. 
+    The time for this function increase quadratically with the 
+    number of simplices. Set to false if you are confident that the 
+    simplices are properly oriented. This does nothing for 
+    one-dimensional simplices
 
   Returns
   -------
-    out : float
+  out : float
      
   Note
   ----
-    This function does not ensure that the simplicial complex is 
-    closed and does not intersect itself. If it is not then bogus 
-    results will be returned.
+  This function does not ensure that the simplicial complex is 
+  closed and does not intersect itself. If it is not then bogus 
+  results will be returned.
   '''
   vert = np.array(vert,dtype=float,copy=True)
   smp = np.asarray(smp,dtype=int)

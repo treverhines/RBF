@@ -17,7 +17,7 @@ Features
 * Regularized RBF interpolation for noisy, scattered, data
 * Generation of radial basis function finite difference (RBF-FD) 
   weights
-* RBF-FD Filtering for low-pass filtering **LARGE**, scattered data
+* RBF-FD Filtering for denoising **LARGE**, scattered data
 * Node and stencil generation algorithms for solving PDEs over 
   complicated domains
 * Computational geometry functions for 1, 2, and 3 spatial dimensions
@@ -29,6 +29,7 @@ Table of Contents
 
    basis
    fd
+   geometry
 
 Indices and tables
 ------------------
