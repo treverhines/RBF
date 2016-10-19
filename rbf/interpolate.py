@@ -97,6 +97,7 @@ class RBFInterpolant(object):
   The coefficients are found by solving the linear system of equations
   
   .. math::
+
     (WK(x,x) + pI)a  + WT(x)b &= WY \\
 
                        T(x)^Ta &= 0 
