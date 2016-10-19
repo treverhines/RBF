@@ -41,7 +41,8 @@ Quick Demo
 Smoothing Scattered Data
 ++++++++++++++++++++++++
 Generating synthetic scattered data with added noise and then fitting 
-it with a smoothed interpolant
+it with a smoothed interpolant. See :doc:`filter` for smoothing large 
+data sets.
   
 .. code-block:: python
 

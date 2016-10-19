@@ -134,13 +134,11 @@ def filter(x,u,sigma=None,
            procs=0,
            **kwargs):
   ''' 
-  Filters noisy data in a Bayesian framework by assuming a prior 
-  covariance model for the underlying signal.  The prior covariance is 
-  chosen such that the power spectral density of the mean of the 
-  posterior is effectively zero above a user specified cutoff 
-  frequency. This function can be thought of as a low-pass filter with 
-  the flexibility to handle observations with variable uncertainties 
-  or nonuniformly spaced data in D-dimensional space.
+  Effectively performs a low-pass filter over a noisy, scattered, 
+  multidimensional data set. This function makes use of sparse RBF-FD 
+  differentiation matrices and is ideal for smoothing large data sets.  
+  Details on the theory for this function will be in an upcoming 
+  manuscript.
   
   Parameters
   ----------
