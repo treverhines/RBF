@@ -79,13 +79,10 @@ simplicial complex then the above command returns a ValueError. If
 there are multiple intersections for a single segment then only the 
 first detected intersection will be returned.
 
-Note
-----
 There are numerous other packages which can perform the same tasks 
 as this module.  For example geos (http://trac.osgeo.org/geos/) and 
 gts (http://gts.sourceforge.net/).  However, the python bindings for 
 these packages are too slow for RBF purposes.
-
 '''
 from __future__ import division
 import numpy as np
