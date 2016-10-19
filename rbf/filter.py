@@ -136,8 +136,8 @@ def filter(x,u,sigma=None,
   ''' 
   Effectively performs a low-pass filter over a noisy, scattered, 
   multidimensional data set. This function makes use of sparse RBF-FD 
-  differentiation matrices and is ideal for smoothing large data sets.  
-  Details on the theory for this function will be in an upcoming 
+  differentiation matrices and is ideal for smoothing large data sets. 
+  The details on the theory for this function will be in an upcoming 
   manuscript.
   
   Parameters
@@ -171,7 +171,11 @@ def filter(x,u,sigma=None,
     should be even.
       
   samples : int, optional
-    Number of posterior samples used to estimate the uncertainty
+    The uncertainty on the filtered solution is estimated by finding 
+    the standard deviation of random perturbations to the data vector. 
+    This argument specifies the number of random perturbations to use. 
+    Increasing this value will increase the accuracy of the 
+    uncertainty estimate as well as the computation time.
       
   fill : str, optional
     Indicates how to treat missing data (i.e. data where *sigma* is 
