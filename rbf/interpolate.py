@@ -97,10 +97,10 @@ class RBFInterpolant(object):
   The coefficients are found by solving the linear system of equations
   
   .. math::
+    (WK(x,x) + pI)a  + WT(x)b = WY
 
-    (WK(x,x) + pI)a  + WT(x)b &= WY \\
-
-                       T(x)^Ta &= 0 
+  .. math::
+    T(x)^Ta = 0 
 
   where :math:`W` are the data weights (should be the inverse of the 
   data variance), :math:`Y` are the observations at :math:`x`, and 

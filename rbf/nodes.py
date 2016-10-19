@@ -20,17 +20,18 @@ def nearest_neighbor_argsort(nodes,n=10):
 
   Parameters
   ----------
-    nodes : (N,D) array
+  nodes : (N,D) array
+    node array
 
-    n : int 
-      number of adjacencies to identify for each node. The permutation 
-      array will place adjacent nodes close to eachother in memory.  
-      This should be about equal to the stencil size for RBF-FD 
-      method.
+  n : int 
+    Number of adjacencies to identify for each node. The permutation 
+    array will place adjacent nodes close to eachother in memory.  
+    This should be about equal to the stencil size for RBF-FD 
+    method.
 
   Returns
   -------
-    permutation: (N,) array of sorting indices
+  permutation: (N,) array of sorting indices
   '''
   nodes = np.asarray(nodes,dtype=float)
   n = min(n,nodes.shape[0])
@@ -56,21 +57,22 @@ def check_node_spacing(rho,nodes,tol=0.25):
 
   Parameters
   ----------
-    rho : function
-      callable node density function
+  rho : function
+    Callable node density function
   
-    nodes : (N,D) array
+  nodes : (N,D) array
+    node array
 
-    tol : float
-      if a nodes nearest neighbor deviates by more than this factor 
-      from the expected node density, then the node is identified as 
-      being too close
+  tol : float
+    If a nodes nearest neighbor deviates by more than this factor 
+    from the expected node density, then the node is identified as 
+    being too close
 
   Returns 
   ------- 
-    keep_indices : (N,) int array
-      array of node indices which are consistent with the node density 
-      function
+  keep_indices : (N,) int array
+    array of node indices which are consistent with the node density 
+    function
 
   '''
   logger.debug('verifying node spacing')  
@@ -306,73 +308,74 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   iterations, if a node intersects a boundary then it sticks to the 
   boundary at the intersection point.
 
-  Paramters
-  ---------
-    N : int
-      numbr of nodes
+  Parameters
+  ----------
+  N : int
+    Numbr of nodes
       
-    vert : (P,D) array
-      boundary vertices
+  vert : (P,D) array
+    Boundary vertices
 
-    smp : (Q,D) array
-      describes how the vertices are connected to form the boundary
+  smp : (Q,D) array
+    Describes how the vertices are connected to form the boundary
     
-    rho : function, optional
-      node density function. Takes a (N,D) array of coordinates in D 
-      dimensional space and returns an (N,) array of densities which 
-      have been normalized so that the maximum density in the domain 
-      is 1.0. This function will still work if the maximum value is 
-      normalized to something less than 1.0; however it will be less 
-      efficient.
+  rho : function, optional
+    Node density function. Takes a (N,D) array of coordinates in D 
+    dimensional space and returns an (N,) array of densities which 
+    have been normalized so that the maximum density in the domain 
+    is 1.0. This function will still work if the maximum value is 
+    normalized to something less than 1.0; however it will be less 
+    efficient.
 
-    fix_nodes : (F,D) array, optional
-      nodes which do not move and only provide a repulsion force
+  fix_nodes : (F,D) array, optional
+    Nodes which do not move and only provide a repulsion force
  
-    itr : int, optional
-      number of repulsion iterations. If this number is small then the 
-      nodes will not reach a minimum energy equilibrium.
+  itr : int, optional
+    Number of repulsion iterations. If this number is small then the 
+    nodes will not reach a minimum energy equilibrium.
 
-    neighbors : int, optional
-      Number of neighboring nodes to use when calculating the 
-      repulsion force. When *neighbors* is small, the equilibrium 
-      state tends to be a uniform node distribution (regardless of 
-      *rho*), when *neighbors* is large, nodes tend to get pushed up 
-      against the boundaries.
+  neighbors : int, optional
+    Number of neighboring nodes to use when calculating the 
+    repulsion force. When *neighbors* is small, the equilibrium 
+    state tends to be a uniform node distribution (regardless of 
+    *rho*), when *neighbors* is large, nodes tend to get pushed up 
+    against the boundaries.
 
-    delta : float, optional
-      Scaling factor for the node step size in each iteration. The 
-      step size is equal to *delta* times the distance to the nearest 
-      neighbor.
+  delta : float, optional
+    Scaling factor for the node step size in each iteration. The 
+    step size is equal to *delta* times the distance to the nearest 
+    neighbor.
 
-    sort_nodes : bool, optional
-      If True, nodes that are close in space will also be close in 
-      memory. This is done with the Reverse Cuthill-McKee algorithm
+  sort_nodes : bool, optional
+    If True, nodes that are close in space will also be close in 
+    memory. This is done with the Reverse Cuthill-McKee algorithm
       
-    bound_force : bool, optional
-      If True, then nodes cannot repel other nodes through the domain 
-      boundary. Set to True if the domain has edges that nearly touch 
-      eachother
+  bound_force : bool, optional
+    If True, then nodes cannot repel other nodes through the domain 
+    boundary. Set to True if the domain has edges that nearly touch 
+    eachother. Setting this to True may significantly increase 
+    computation time
 
   Returns
   -------
-    nodes: (N,D) float array 
+  nodes: (N,D) float array 
 
-    smpid: (N,) int array
-      Index of the simplex that each node is on. If a node is not on a 
-      simplex (i.e. it is an interior node) then the simplex index is 
-      -1.
+  smpid: (N,) int array
+    Index of the simplex that each node is on. If a node is not on a 
+    simplex (i.e. it is an interior node) then the simplex index is 
+    -1.
 
-  Note
-  ----
-    It is assumed that *vert* and *smp* define a closed domain. If 
-    this is not the case, then it is likely that an error message will 
-    be raised which says "ValueError: No intersection found for 
-    segment ..."
-    
-    This function tends to fail when adjacent simplices form a sharp 
-    angle.  The error message raised will be "ValueError: No 
-    intersection found for segment ...".  The only solution is to 
-    taper the angle by adding more simplices
+  Notes
+  -----
+  It is assumed that *vert* and *smp* define a closed domain. If 
+  this is not the case, then it is likely that an error message will 
+  be raised which says "ValueError: No intersection found for 
+  segment 
+   
+  This function tends to fail when adjacent simplices form a sharp 
+  angle.  The error message raised will be "ValueError: No 
+  intersection found for segment ...".  The only solution is to 
+  taper the angle by adding more simplices
       
   '''
   max_sample_size = 1000000

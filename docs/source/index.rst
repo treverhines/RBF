@@ -23,10 +23,21 @@ Features
   complicated domains
 * Computational geometry functions for 1, 2, and 3 spatial dimensions
 
+Table of Contents
+-----------------
+.. toctree::
+   :maxdepth: 2
+
+   installation
+   basis
+   interpolate
+   fd
+   filter
+   nodes
+   geometry
 
 Quick Demo
 ----------
-
 Smoothing Scattered Data
 ++++++++++++++++++++++++
 Generating synthetic scattered data with added noise and then fitting 
@@ -111,22 +122,8 @@ nodes as black points and the interpolated solution as the color field
 
 .. image:: ../figures/pde.png
 
-
-Table of Contents
------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   installation
-   basis
-   interpolate
-   fd
-   geometry
-
 Indices and tables
 ------------------
-
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
