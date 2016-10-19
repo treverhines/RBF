@@ -6,7 +6,7 @@ simplicial complexes. A simplicial complex is a collection of
 simplices (e.g. segments, triangles, tetrahedra, etc.).  In this 
 module, simplicial complexes in D-dimenional space are described with 
 an (N,D) array of vertices and and (M,D) array describing the indices 
-of vertcies making up each simplex. As an example, the unit square in 
+of vertices making up each simplex. As an example, the unit square in 
 two dimensions can be described as collection of line segments:
 
 >>> vertices = [[0.0,0.0],

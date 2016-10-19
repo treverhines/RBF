@@ -144,16 +144,20 @@ def weights(x,nodes,diffs,coeffs=None,
     splines are not scale invariant.
     
 
-  Example
+  Returns
   -------
-  
+  out : (N,) array
+    RBF-FD weights
+    
+  Examples
+  --------
   Calculate the weights for a one-dimensional second order derivative.
 
   >>> position = np.array([1.0]) 
   >>> nodes = np.array([[0.0],[1.0],[2.0]]) 
   >>> diff = (2,) 
   >>> weights(position,nodes,diff)
-      array([ 1., -2., 1.])
+  array([ 1., -2., 1.])
     
   Calculate the weights for estimating an x derivative from three 
   points in a two-dimensional plane
@@ -164,7 +168,7 @@ def weights(x,nodes,diffs,coeffs=None,
                         [0.0,1.0]])
   >>> diff = (1,0)
   >>> weights(position,nodes,diff)
-      array([ -1., 1., 0.])
+  array([ -1., 1., 0.])
     
   Notes
   -----
@@ -247,6 +251,16 @@ def poly_weights(x,nodes,diffs,coeffs=None):
   diffs : (D,) int array or (K,D) int array 
   coeffs : (K,) array, optional
         
+  Returns
+  -------
+  out : (N,) array
+    finite difference weights
+
+  Notes
+  -----
+  This function may be removed in future versions because `weights` can 
+  perform the same operation with the appropriate choice of arguments
+
   '''
   x = np.asarray(x,dtype=float)
   nodes = np.asarray(nodes,dtype=float)
@@ -289,8 +303,10 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
                   eps=None,size=None,vert=None,smp=None):
   ''' 
   Returns a weight matrix which maps a functions values at *nodes* to 
-  estimates of that functions derivative at *x*.  The weight matrix is 
-  made with the RBF-FD method.
+  estimates of that functions derivative at *x*.  This is a 
+  convenience function which creates a stencil network and then 
+  computes the RBF-FD weights using `rbf.fd.weights` for each stencil. 
+  The stencil network is created with `rbf.stencil.nearest`.
   
   Parameters
   ----------
@@ -342,19 +358,18 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
   -------
   L : (N,M) csr sparse matrix          
       
-  Example
-  -------
-  
+  Examples
+  --------
   Create a second order differentiation matrix in one-dimensional 
   space
 
   >>> x = np.arange(4.0)[:,None]
   >>> W = weight_matrix(x,x,(2,))
   >>> W.toarray()
-      array([[ 1., -2.,  1.,  0.],
-             [ 1., -2.,  1.,  0.],
-             [ 0.,  1., -2.,  1.],
-             [ 0.,  1., -2.,  1.]])
+  array([[ 1., -2.,  1.,  0.],
+         [ 1., -2.,  1.,  0.],
+         [ 0.,  1., -2.,  1.],
+         [ 0.,  1., -2.,  1.]])
                          
   '''
   logger.debug('building RBF-FD weight matrix...')
@@ -447,19 +462,18 @@ def diff_matrix(x,diffs,coeffs=None,
   -------
   L : (M,M) csr sparse matrix    
       
-  Example
-  -------
-  
+  Examples
+  --------
   Create a second order differentiation matrix in one-dimensional 
   space
 
   >>> x = np.arange(4.0)[:,None]
   >>> diff_mat = diff_matrix(x,(2,))
   >>> diff_mat.toarray()
-      array([[ 1., -2.,  1.,  0.],
-             [ 1., -2.,  1.,  0.],
-             [ 0.,  1., -2.,  1.],
-             [ 0.,  1., -2.,  1.]])
+  array([[ 1., -2.,  1.,  0.],
+         [ 1., -2.,  1.,  0.],
+         [ 0.,  1., -2.,  1.],
+         [ 0.,  1., -2.,  1.]])
                          
   '''
   logger.debug('building RBF-FD differentiation matrix...')
@@ -539,18 +553,18 @@ def diff_matrix_1d(x,diffs,coeffs=None,
   -------
   L : (M,M) csr sparse matrix    
 
-  Example
-  -------
-  
+  Examples
+  -------- 
   Create a second order differentiation matrix in one-dimensional 
   space
+  
   >>> x = np.arange(4.0)[:,None]
-  >>> diff_mat = poly_diff_matrix(x,(2,))
+  >>> diff_mat = diff_matrix_1d(x,(2,))
   >>> diff_mat.toarray()
-      array([[ 1., -2.,  1.,  0.],
-             [ 1., -2.,  1.,  0.],
-             [ 0.,  1., -2.,  1.],
-             [ 0.,  1., -2.,  1.]])
+  array([[ 1., -2.,  1.,  0.],
+         [ 1., -2.,  1.,  0.],
+         [ 0.,  1., -2.,  1.],
+         [ 0.,  1., -2.,  1.]])
 
   '''
   logger.debug('building polynomial differentiation matrix...')

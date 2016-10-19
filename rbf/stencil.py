@@ -1,5 +1,6 @@
 ''' 
-This module creates RBF-FD stencils
+This module creates stencils used for the Radial Basis Function Finite 
+Difference (RBF-FD) method
 '''
 from __future__ import division
 import numpy as np
@@ -53,11 +54,12 @@ def stencils_to_edges(stencils):
   
   Parameters
   ----------
-    stencil : (N,D) int aray
+  stencil : (N,D) int aray
 
   Returns
   -------
-    edges : (K,2) int array
+  edges : (K,2) int array
+
   '''
   N,S = stencils.shape
   node1 = np.arange(N)[:,None].repeat(S,axis=1)
@@ -74,11 +76,12 @@ def is_connected(stencils):
 
   Parameters
   ----------
-    stencil : (N,D) int aray
+  stencil : (N,D) int aray
 
   Returns
   -------
-    out : bool
+  out : bool
+
   '''
   edges = stencils_to_edges(stencils)
   # edges needs to be a list of tuples
@@ -94,11 +97,12 @@ def connectivity(stencils):
 
   Parameters
   ----------
-    stencil : (N,D) int aray
+  stencil : (N,D) int aray
 
   Returns
   -------
-    out : int
+  out : int
+
   '''
   edges = stencils_to_edges(stencils)
   # edges needs to be a list of tuples
@@ -116,32 +120,30 @@ def nearest(query,population,N,vert=None,smp=None):
 
   Parameters
   ----------
-    query: (Q,D) array 
-      query points 
-  
-    population: (P,D) array
-      population points 
+  query : (Q,D) array 
 
-    N : int
-      number of neighbors to find for each query point
- 
-    vert : (N,D) array, optional
+  population : (P,D) array
 
-    smp : (M,D) int array, optional
-      
+  N : int
+
+  vert : (N,D) array, optional
+    boundary vertices
+
+  smp : (M,D) int array, optional
+    boundary simplices
+        
   Returns 
   -------
-    neighbors, dist
+  neighbors : (Q,N) int array
 
-    neighbors : (Q,N) int array
-    
-    dist : (Q,N) array
+  dist : (Q,N) array
 
-  Note
-  ----
-    If a query point lies on the boundary then this function will
-    fail because the query point will be infinitely far from every 
-    other point
+  Notes
+  -----
+  If a query point lies on the boundary then this function will
+  fail because the query point will be infinitely far from every 
+  other point
+
   '''
   query = np.asarray(query,dtype=float)
   population = np.asarray(population,dtype=float)
@@ -209,27 +211,24 @@ def nearest(query,population,N,vert=None,smp=None):
 def stencil_network(nodes,size,vert=None,smp=None):
   ''' 
   Return the indices of *N* nearest neighbors for each element in 
-  *nodes*. If *N* neighbors cannot be found for every element then 
-  then this function attempts to find *N* - 1 nearest neighbors. This 
-  continues until the same number of neighbors can be found for each 
-  element
+  *nodes*
 
   Parameters
   ----------
-    nodes : (M,D) array 
-    
-    size : int
-      stencil size
-      
-    vert : (P,D) array, optional
-      vertices of the boundary that edges cannot cross
+  nodes : (M,D) array 
 
-    smp : (Q,D) array, optional
-      connectivity of the boundary vertices
+  size : int
+    stencil size
+      
+  vert : (P,D) array, optional
+    boundary vertices 
+
+  smp : (Q,D) array, optional
+    boundary simplices
 
   Returns
   -------
-    s : (M,size) int array
+  s : (M,size) int array
     
   '''
   s,dx = nearest(nodes,nodes,size,vert=vert,smp=smp)
@@ -291,31 +290,31 @@ def stencil_network_1d(nodes,size,vert=None,smp=None):
   
   Parameters
   ----------
-    nodes : (M,1) array 
+  nodes : (M,1) array 
 
-    size : int
-      stencil size
+  size : int
+    stencil size
 
-    vert : (P,1) array, optional
-      vertices of the boundary that edges cannot cross
+  vert : (P,1) array, optional
+    boundary vertices
 
-    smp : (Q,1) array, optional
-      connectivity of the boundary vertices
+  smp : (Q,1) array, optional
+    boundary simplices
 
   Returns
   -------
-    out : (M,size) int array
+  out : (M,size) int array
     
   Example
   -------
-    # create a first-order forward finite difference stencil
-    >>> x = np.arange(4.0)[:,None]
-    >>> stencil_network_1d(x,2)
+  Create a first-order forward finite difference stencil
 
-    array([[0, 1],
-           [1, 2],
-           [2, 3],
-           [2, 3]])
+  >>> x = np.arange(4.0)[:,None]
+  >>> stencil_network_1d(x,2)
+  array([[0, 1],
+         [1, 2],
+         [2, 3],
+         [2, 3]])
                          
   '''
   nodes = np.asarray(nodes)

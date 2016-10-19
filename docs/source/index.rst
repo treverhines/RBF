@@ -34,6 +34,7 @@ Table of Contents
    fd
    filter
    nodes
+   stencil
    geometry
 
 Quick Demo
