@@ -41,9 +41,9 @@ Quick Demo
 ----------
 Smoothing Scattered Data
 ++++++++++++++++++++++++
-Generating synthetic scattered data with added noise and then fitting 
-it with a smoothed interpolant. See :doc:`filter` for smoothing large 
-data sets.
+In this example we generate synthetic scattered data with added noise 
+and then fit it with a smoothed interpolant. See :doc:`filter` for 
+smoothing large data sets.
   
 .. code-block:: python
 
@@ -53,9 +53,9 @@ data sets.
   np.random.seed(1)
 
   # create noisy data
-  x_obs = np.random.random((100,2)) # observation points   
+  x_obs = np.random.random((100,2)) # observation points
   u_obs = np.sin(2*np.pi*x_obs[:,0])*np.cos(2*np.pi*x_obs[:,1])
-  u_obs += np.random.normal(0.0,0.1,100)
+  u_obs += np.random.normal(0.0,0.2,100)
 
   # create smoothed interpolant
   I = RBFInterpolant(x_obs,u_obs,penalty=0.001)
@@ -64,11 +64,12 @@ data sets.
   x_itp = np.random.random((10000,2))
   u_itp = I(x_itp)
 
-  plt.tripcolor(x_itp[:,0],x_itp[:,1],u_itp)
-  plt.scatter(x_obs[:,0],x_obs[:,1],s=100,c=u_obs)
+  plt.tripcolor(x_itp[:,0],x_itp[:,1],u_itp,vmin=-1.1,vmax=1.1)
+  plt.scatter(x_obs[:,0],x_obs[:,1],s=100,c=u_obs,vmin=-1.1,vmax=1.1)
   plt.xlim((0.05,0.95))
   plt.ylim((0.05,0.95))
   plt.colorbar()
+  plt.tight_layout()
   plt.show()
 
 The above code will produce this plot, which shows the observations as 
@@ -78,8 +79,8 @@ scatter points and the smoothed interpolant as the color field
 
 Solving PDEs
 ++++++++++++
-Solving the Poisson equation over a circle with the spectral RBF 
-method.
+In this example we solve the Poisson equation with a constant forcing 
+term using the spectral RBF method.
 
 .. code-block:: python
 
@@ -89,12 +90,18 @@ method.
   from rbf.nodes import menodes
   import matplotlib.pyplot as plt
 
-  def forcing(x,y):
-    # an arbitrary forcing function
-    return -1 + np.sqrt(x**2 + y**2)
+  # define the problem domain
+  vert = np.array([[0.762,0.057],[0.492,0.247],[0.225,0.06 ],[0.206,0.056],
+                   [0.204,0.075],[0.292,0.398],[0.043,0.609],[0.036,0.624],
+                   [0.052,0.629],[0.373,0.63 ],[0.479,0.953],[0.49 ,0.966],
+                   [0.503,0.952],[0.611,0.629],[0.934,0.628],[0.95 ,0.622],
+                   [0.941,0.607],[0.692,0.397],[0.781,0.072],[0.779,0.055]])
 
-  vert,smp = circle() # use predefined domain geometry
-  N = 100 # total number of nodes
+  smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
+                  [9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],
+                  [16,17],[17,18],[18,19],[19,0]])
+
+  N = 500 # total number of nodes
   nodes,smpid = menodes(N,vert,smp) # generate nodes
   boundary, = (smpid>=0).nonzero() # identify boundary nodes
   interior, = (smpid==-1).nonzero() # identify interior nodes
@@ -105,22 +112,27 @@ method.
   A[interior] += phs3(nodes[interior],nodes,diff=[0,2])
   A[boundary,:] = phs3(nodes[boundary],nodes)
   d = np.empty(N)
-  d[interior] = forcing(nodes[interior,0],nodes[interior,1])
-  d[boundary] = 0.0                                           
-  
-  # solve the PDE
-  coeff = np.linalg.solve(A,d) # solve for the RBF coefficients
-  itp = menodes(2000,vert,smp)[0] # evaluate the solution at these points
-  soln = phs3(itp,nodes).dot(coeff)                     
+  d[interior] = -100.0
+  d[boundary] = 0.0
 
-  # solution at the interpolation points
-  plt.tripcolor(itp[:,0],itp[:,1],soln)
-  plt.plot(nodes[:,0],nodes[:,1],'ko')
-  plt.colorbar()
+  # Solve the PDE
+  coeff = np.linalg.solve(A,d) # solve for the RBF coefficients
+  itp = menodes(10000,vert,smp)[0] # interpolation points
+  soln = phs3(itp,nodes).dot(coeff) # evaluate at the interp points
+
+  fig,ax = plt.subplots()
+  p = ax.scatter(itp[:,0],itp[:,1],s=20,c=soln,edgecolor='none')
+  ax.set_aspect('equal')
+  ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
+  ax.set_xlim((0.025,0.975))
+  ax.set_ylim((0.03,0.98))
+  plt.colorbar(p,ax=ax)
+  plt.tight_layout()
   plt.show()
+                                                                                                    
 
 The above code will produce this plot, which shows the collocation 
-nodes as black points and the interpolated solution as the color field
+nodes as black points and the interpolated solution as the color field.
 
 .. image:: ../figures/pde.png
 

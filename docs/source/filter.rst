@@ -40,11 +40,10 @@ is set to 40.
   u_obs += np.random.normal(0.0,0.5,N)
 
   # find filtered solution
-  soln,sigma = filter(points_obs,u_obs,
-                      cutoff=40,size=20)
+  soln,sigma = filter(points_obs,u_obs,cutoff=40,size=20)
 
   # plot the observed and filtered results
-  fig,ax = plt.subplots(1,2,figsize=(10,4))
+  fig,ax = plt.subplots(2,1,figsize=(6,10))
   ax[0].set_aspect('equal')
   ax[0].set_xlim((0,1))
   ax[0].set_ylim((0,1))
@@ -55,15 +54,11 @@ is set to 40.
   ax[1].set_ylim((0,1))
   ax[1].set_title(u'Filtered Solution $(\omega_c = 40)$')
   ax[1].grid()
-  # plot the noisy scattered data 
   p1 = ax[0].scatter(points_obs[:,0],points_obs[:,1],s=2,c=u_obs,
-                     edgecolor='none',cmap='Greys_r',
-                     vmin=-0.2,vmax=1.2)
+                     edgecolor='none',cmap='Greys_r',vmin=-0.2,vmax=1.2)
   plt.colorbar(p1,ax=ax[0])
-  # plot the filtered solution
   p2 = ax[1].scatter(points_obs[:,0],points_obs[:,1],s=2,c=soln,
-                     edgecolor='none',cmap='Greys_r',
-                     vmin=-0.2,vmax=1.2)
+                     edgecolor='none',cmap='Greys_r',vmin=-0.2,vmax=1.2)
   plt.colorbar(p2,ax=ax[1])
   plt.tight_layout()
   plt.show()
