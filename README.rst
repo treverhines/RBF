@@ -96,6 +96,21 @@ term using the spectral RBF method.
   d[interior] = -100.0
   d[boundary] = 0.0
 
+  # Solve the PDE
+  coeff = np.linalg.solve(A,d) # solve for the RBF coefficients
+  itp = menodes(10000,vert,smp)[0] # interpolation points
+  soln = phs3(itp,nodes).dot(coeff) # evaluate at the interp points
+
+  fig,ax = plt.subplots()
+  p = ax.scatter(itp[:,0],itp[:,1],s=20,c=soln,edgecolor='none')
+  ax.set_aspect('equal')
+  ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
+  ax.set_xlim((0.025,0.975))
+  ax.set_ylim((0.03,0.98))
+  plt.colorbar(p,ax=ax)
+  plt.tight_layout()
+  plt.show()
+
 The above code will produce this plot, which shows the collocation
 nodes as black points and the interpolated solution as the color field.
 
