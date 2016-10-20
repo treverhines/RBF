@@ -282,11 +282,11 @@ def _stencil_network_1d(P,N):
 
 def stencil_network_1d(nodes,size,vert=None,smp=None):
   ''' 
-  returns a stencil network for 1d nodes where each stencil is 
-  determined by adjacency and not distance.  For each node, its 
-  stencil is comprised of the N//2 nodes to its right and the (N - 
-  N//2 - 1) nodes to its left. This ensures better connectivity than 
-  what rbf.stencil.stencil_network provides
+  Returns a stencil network for 1d nodes where each stencil is 
+  determined by adjacency and not distance. For each node, the stencil 
+  consists of the N//2 nodes to its right and the (N - N//2 - 1) nodes 
+  to its left. This ensures better connectivity than what 
+  rbf.stencil.stencil_network provides
   
   Parameters
   ----------

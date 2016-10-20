@@ -153,13 +153,13 @@ def filter(x,u,sigma=None,
     must have the same shape as u. Any np.inf entries are treated as 
     masked data.  Masked data can either be ignored or filled in 
     depending on the *fill* argument. If *sigma* is not provided 
-    then it defaults to an array of ones.
+    then it defaults to an array of ones
     
   cutoff : float, optional
     Cutoff frequency. Frequencies greater than this value will be 
     damped out. This defaults to a frequency corresponding to a 
     wavelength which is 20 times the average shortest distance 
-    between points in *x*.
+    between points in *x*
       
   order : int, optional
     Smoothness order.  Higher orders will cause the frequency 
@@ -168,14 +168,14 @@ def filter(x,u,sigma=None,
     This should almost always be kept at 2 because higher orders 
     tend to be numerically unstable and can produce undesirable 
     ringing artifacts. Also, if D is 2 or greater then the order 
-    should be even.
+    should be even
       
   samples : int, optional
     The uncertainty on the filtered solution is estimated by finding 
     the standard deviation of random perturbations to the data vector. 
     This argument specifies the number of random perturbations to use. 
     Increasing this value will increase the accuracy of the 
-    uncertainty estimate as well as the computation time.
+    uncertainty estimate as well as the computation time
       
   fill : str, optional
     Indicates how to treat missing data (i.e. data where *sigma* is 
@@ -185,7 +185,7 @@ def filter(x,u,sigma=None,
     np.inf respectively. If *fill* is 'interpolate' then a smoothed 
     solution will be estimated at missing interior observation 
     points (i.e. no extrapolation).  If fill is 'extrapolate' then a 
-    smoothed solution is estimated at every observation point.
+    smoothed solution is estimated at every observation point
 
   diffs : (D,) or (K,D) int array, optional
     If provided then the output will be a derivative of the smoothed 
@@ -195,16 +195,23 @@ def filter(x,u,sigma=None,
     in two-dimensional space, then the second x derivative can be 
     returned by setting *diffs* to [2,0]. A differential operator 
     can be specified with a (K,D) array. For example the Laplacian 
-    can be returned with [[2,0],[0,2]].
+    can be returned with [[2,0],[0,2]]
       
-  procs: int, optional
+  procs : int, optional
     Distribute the tasks among this many subprocesses. This defaults 
     to 0 (i.e. the parent process does all the work).  Each task is 
     to evaluate the filtered solution for one of the (N,) arrays in 
     *u* and *sigma*. So if *u* and *sigma* are (N,) arrays then 
-    using multiple process will not provide any speed improvement.
+    using multiple process will not provide any speed improvement
    
-    
+  **kwargs : optional
+    Additional key word arguments used to construct the RBF-FD 
+    differentiation matrices. There are two differentiation matrices 
+    used in this function: one used to construct the prior for the 
+    underlying signal, and another to differentiate the filtered 
+    solution.  These key word arguments are passed to 
+    `rbf.fd.weight_matrix`
+
   Returns
   -------
   post_mean : (..., N) array
@@ -243,15 +250,8 @@ def filter(x,u,sigma=None,
     # with different masks
     mask = np.asarray(mask,dtype=bool)        
     prior_diffs = order*np.eye(dim,dtype=int)
-    if dim == 1:
-      # if one dimensional, then use adjacency rather than nearest 
-      # neighbors to form stencils
-      L = rbf.fd.diff_matrix_1d(x[~mask],prior_diffs,**kwargs)
-      D = rbf.fd.diff_matrix_1d(x[~mask],diffs,**kwargs)
-    else:
-      L = rbf.fd.diff_matrix(x[~mask],prior_diffs,**kwargs)
-      D = rbf.fd.diff_matrix(x[~mask],diffs,**kwargs)
-
+    L = rbf.fd.weight_matrix(x[~mask],x[~mask],prior_diffs,**kwargs)
+    D = rbf.fd.weight_matrix(x[~mask],x[~mask],diffs,**kwargs)
     return L,D  
                 
   def calculate_posterior(i):

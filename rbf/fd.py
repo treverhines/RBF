@@ -8,6 +8,7 @@ import rbf.poly
 import rbf.stencil
 import scipy.sparse
 import logging
+import warnings
 logger = logging.getLogger(__name__)
 
 def _reshape_diffs(diffs):
@@ -411,9 +412,11 @@ def diff_matrix(x,diffs,coeffs=None,
                 basis=rbf.basis.phs3,order=None,
                 eps=None,size=None,vert=None,smp=None):
   ''' 
-  creates a differentiation matrix which approximates a functions 
-  derivative at *x* using observations of that function at *x*. The 
-  weights are computed using the RBF-FD method.
+  Creates a differentiation matrix which approximates a functions 
+  derivative at *x* using observations of that function at *x*. This 
+  is a convenience function which creates a stencil network and then 
+  computes the RBF-FD weights using `rbf.fd.weights` for each stencil. 
+  The stencil network is created with `rbf.stencil.stencil_network`.
 
   Parameters
   ----------
@@ -513,11 +516,13 @@ def diff_matrix(x,diffs,coeffs=None,
 def diff_matrix_1d(x,diffs,coeffs=None,
                    size=None,vert=None,smp=None):
   ''' 
-  creates a differentiation matrix which approximates a functions 
-  derivative at *x* using observations of that function at *x*. The 
-  weights are computed using the traditional finite difference method. 
-  The stencil is determined by adjacency rather than nearest 
-  neighbors, which results in better network connectivity.  
+  Creates a differentiation matrix which approximates a functions 
+  derivative at *x* using observations of that function at *x*. This 
+  is a convenience function which creates a stencil network and then 
+  computes the RBF-FD weights using `rbf.fd.poly_weights` for each 
+  stencil. The stencil network is created with 
+  `rbf.stencil.stencil_network_1d`. This produces a traditional finite 
+  difference
 
   Parameters
   ----------
