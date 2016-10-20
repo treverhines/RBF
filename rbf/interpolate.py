@@ -215,7 +215,7 @@ class RBFInterpolant(object):
 
   def __call__(self,xitp,diff=None,max_chunk=100000):
     ''' 
-    Returns the interpolant evaluated at xitp
+    Evaluates the interpolant at *xitp*
 
     Parameters 
     ---------- 
@@ -230,6 +230,11 @@ class RBFInterpolant(object):
       interpolant for each chunk.  Smaller values result in 
       decreased memory usage but also decreased speed
 
+    Returns
+    -------
+    out : (N,) array
+      Values of the interpolant at *xitp*
+      
     '''
     n = 0
     xitp = np.asarray(xitp) 
