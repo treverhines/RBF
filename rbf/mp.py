@@ -1,4 +1,6 @@
 ''' 
+MP
+**
 This module provides a parallelized map function 
 '''
 from multiprocessing import Process, Queue, cpu_count

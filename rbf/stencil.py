@@ -1,4 +1,6 @@
 ''' 
+Stencil
+*******
 This module creates stencils used for the Radial Basis Function Finite 
 Difference (RBF-FD) method
 '''

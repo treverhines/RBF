@@ -1,4 +1,6 @@
 ''' 
+Poly
+****
 This module is used for evaluating the monomial basis functions which 
 are commonly added to RBF interpolants
 '''

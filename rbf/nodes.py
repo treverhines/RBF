@@ -1,4 +1,6 @@
 ''' 
+Nodes
+*****
 provides a function for generating a locally quasi-uniform 
 distribution of nodes over an arbitrary domain
 '''

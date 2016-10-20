@@ -1,7 +1,31 @@
 ''' 
-This module defines some of the commonly used radial basis functions. 
-It makes use of the class, *RBF*, which takes a symbolic expression of 
-an RBF and converts it and its derivatives into a numerical function.  
+Basis
+*****
+
+This module defines the commonly used radial basis functions (RBFs) 
+shown in the below table. For each RBF expression,
+:math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter.
+:math:`x` and :math:`c` are the evaluation points and RBF centers, 
+respectively. RBFs which are not defined in this module can be created 
+with the *RBF* class.
+
+=================================  ============  ======================================
+Name                               Abbreviation  Expression
+=================================  ============  ======================================
+Eighth-order polyharmonic spline   phs8          :math:`(\epsilon r)^8\log(\epsilon r)`
+Seventh-order polyharmonic spline  phs7          :math:`(\epsilon r)^7`
+Sixth-order polyharmonic spline    phs6          :math:`(\epsilon r)^6\log(\epsilon r)`
+Fifth-order polyharmonic spline    phs5          :math:`(\epsilon r)^5`
+Fourth-order polyharmonic spline   phs4          :math:`(\epsilon r)^4\log(\epsilon r)`
+Third-order polyharmonic spline    phs3          :math:`(\epsilon r)^3`
+Second-order polyharmonic spline   phs2          :math:`(\epsilon r)^2\log(\epsilon r)`
+First-order polyharmonic spline    phs1          :math:`\epsilon r`
+Multiquadratic                     mq            :math:`(1 + (\epsilon r)^2)^{1/2}`
+Inverse multiquadratic             imq           :math:`(1 + (\epsilon r)^2)^{-1/2}`
+Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1}`
+Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
+=================================  ============  ======================================
+
 ''' 
 from __future__ import division 
 import sympy 
@@ -72,9 +96,9 @@ def set_sym_to_num(package):
   ----------
   package : str
     either 'numpy' or 'cython'. If 'numpy' then the symbolic 
-    expression is converted using sympy.lambdify. If 'cython' then 
+    expression is converted using *sympy.lambdify*. If 'cython' then 
     the expression if converted using 
-    sympy.utilities.autowrap.ufuncify, which converts the expression 
+    *sympy.utilities.autowrap.ufuncify*, which converts the expression 
     to cython code and then compiles it. Note that there is a ~1 
     second overhead to compile the cython code
       
@@ -234,11 +258,6 @@ class RBF(object):
     return self.cache[diff](*args)
     
 _FUNCTION_DOC = ''' 
-
-  where :math:`r = ||x - c||_2`, and :math:`\epsilon` is a shape 
-  parameter. :math:`x` and :math:`c` are the evaluation points and RBF 
-  centers, respectively.
-
   Parameters                                       
   ----------                                         
   x : (N,D) array 
@@ -275,11 +294,7 @@ _FUNCTION_DOC = '''
 _PHS8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
 def phs8(*args,**kwargs):
   ''' 
-  Eighth-order polyharmonic spline (phs8), which is defined as
-
-  .. math:: 
-    (\epsilon r)^8\log(\epsilon r),
-
+  Eighth-order polyharmonic spline 
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -293,11 +308,7 @@ phs8.__doc__ += _FUNCTION_DOC
 _PHS7 = RBF((_EPS*_R)**7)
 def phs7(*args,**kwargs):
   ''' 
-  Seventh-order polyharmonic spline (phs7), which is defined as
-
-  .. math::
-    (\epsilon r)^7
-
+  Seventh-order polyharmonic spline 
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -312,11 +323,7 @@ _PHS6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
 
 def phs6(*args,**kwargs):
   ''' 
-  Sixth-order polyharmonic spline (phs6), which is defined as
-  
-  .. math::
-    (\epsilon r)^6\log(\epsilon r)
-  
+  Sixth-order polyharmonic spline 
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -330,11 +337,7 @@ phs6.__doc__ += _FUNCTION_DOC
 _PHS5 = RBF((_EPS*_R)**5)
 def phs5(*args,**kwargs):
   '''                             
-  Fifth-order polyharmonic spline (phs5), which is defined as
-  
-  .. math::
-    (\epsilon r)^5
-
+  Fifth-order polyharmonic spline
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -348,11 +351,7 @@ phs5.__doc__ += _FUNCTION_DOC
 _PHS4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
 def phs4(*args,**kwargs):
   ''' 
-  Fourth-order polyharmonic spline (phs4), which is defined as
-
-  .. math::
-    (\epsilon r)^4\log(\epsilon r)
-
+  Fourth-order polyharmonic spline 
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -366,11 +365,7 @@ phs4.__doc__ += _FUNCTION_DOC
 _PHS3 = RBF((_EPS*_R)**3)
 def phs3(*args,**kwargs):
   ''' 
-  Third-order polyharmonic spline (phs3), which is defined as
-
-  .. math::
-    (\epsilon r)^3
-
+  Third-order polyharmonic spline
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -384,11 +379,7 @@ phs3.__doc__ += _FUNCTION_DOC
 _PHS2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
 def phs2(*args,**kwargs):
   ''' 
-  Second-order polyharmonic spline (phs2), which is defined as
-
-  .. math::
-    (\epsilon r)^2\log(\epsilon r)
-  
+  Second-order polyharmonic spline
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -402,11 +393,7 @@ phs2.__doc__ += _FUNCTION_DOC
 _PHS1 = RBF(_EPS*_R)
 def phs1(*args,**kwargs):
   ''' 
-  First-order polyharmonic spline (phs1), which is defined as
-
-  .. math::
-    \epsilon r
-
+  First-order polyharmonic spline
   '''
   # division by zero errors may occur for R=0. Ignore warnings and
   # replace nan's with zeros
@@ -420,11 +407,7 @@ phs1.__doc__ += _FUNCTION_DOC
 _IMQ = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
 def imq(*args,**kwargs):
   ''' 
-  Inverse multiquadratic (imq), which is defined as
-
-  .. math::
-    (1 + (\epsilon r)^2)^{-1/2}
-
+  Inverse multiquadratic
   '''
   return _IMQ(*args,**kwargs)
 
@@ -434,11 +417,7 @@ imq.__doc__ += _FUNCTION_DOC
 _IQ = RBF(1/(1+(_EPS*_R)**2))
 def iq(*args,**kwargs):
   '''                             
-  Inverse quadratic (iq), which is defined as
-
-  .. math::
-    (1 + (\epsilon r)^2)^{-1}
-
+  Inverse quadratic
   '''                                                             
   return _IQ(*args,**kwargs)
 
@@ -448,11 +427,7 @@ iq.__doc__ += _FUNCTION_DOC
 _GA = RBF(sympy.exp(-(_EPS*_R)**2))
 def ga(*args,**kwargs):
   '''                        
-  Gaussian, which is defined as
-
-  .. math::
-    \exp(-(\epsilon r)^2)
-
+  Gaussian
   '''
   return _GA(*args,**kwargs)
 
@@ -462,11 +437,7 @@ ga.__doc__ += _FUNCTION_DOC
 _MQ = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
 def mq(*args,**kwargs):
   '''                     
-  Multiquadratic, which is defined as
-
-  .. math::
-    (1 + (\epsilon r)^2)^{1/2}
-
+  Multiquadratic
   '''
   return _MQ(*args,**kwargs)
 

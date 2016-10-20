@@ -1,5 +1,61 @@
 ''' 
-This module provides a class for RBF interpolation
+Interpolate
+***********
+This module provides a class for RBF interpolation, *RBFInterpolant*. 
+This function has numerous features that are lacking in 
+*scipy.interpolate.rbf*. They include:
+  
+* variable weights on the data (when creating a smoothed interpolant)
+* more choices of basis functions (you can also easily make your own)
+* analytical differentiation of the interpolant 
+* added polynomial terms for improved accuracy
+* prevent extrapolation by masking data that is outside of the 
+  convex hull defined by the data points
+
+The RBF interpolant :math:`\mathbf{f(x^*)}` is defined as
+    
+.. math::
+  \mathbf{f(x^*)} = \mathbf{K(x^*,x)a} + \mathbf{T(x^*)b}
+  
+where :math:`\mathbf{K(x^*,x)}` consists of the RBFs with centers at 
+:math:`\mathbf{x}` evaluated at the interpolation points 
+:math:`\mathbf{x^*}`. :math:`\mathbf{T(x^*)}` is a polynomial matrix 
+where each column is a monomial evaluated at the interpolation points. 
+The monomials are those from a Taylor series expansion with a user 
+specified order. :math:`\mathbf{a}` and :math:`\mathbf{b}` are 
+coefficients that need to be estimated. The coefficients are found by 
+solving the linear system of equations
+  
+.. math::
+  (\mathbf{WK(x,x)} + p\mathbf{I})\mathbf{a}  + \mathbf{WT(x)b} = \mathbf{Wy}
+
+.. math::
+  \mathbf{T^T(x)a} = \mathbf{0} 
+
+where :math:`\mathbf{W}` are the data weights (should be the inverse 
+of the data covariance matrix), :math:`\mathbf{y}` are the observations at 
+:math:`\mathbf{x}`, and :math:`p` is a penalty parameter. With :math:`p=0` 
+the observations are fit perfectly by the interpolant.  Increasing
+:math:`p` degrades the fit while improving the smoothness of the 
+interpolant. This formulation closely follows chapter 19.4 of [1] 
+and chapter 13.2.1 of [2].
+    
+With certain choices of basis functions and polynomial orders this 
+interpolant is equivalent to a thin-plate spline.  For example, if the 
+observation space is one-dimensional then a thin-plate spline can be 
+obtained with the arguments *basis* = *rbf.basis.phs3* and *order* = 
+1.  For two-dimensional observation space a thin-plate spline can be 
+obtained with the arguments *basis* = *rbf.basis.phs2* and *order* = 
+1. See [2] for additional details on thin-plate splines.
+
+References
+----------
+[1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World 
+Scientific Publishing Co, 2007.
+    
+[2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
+and Applications. John Wiley & Sons, 2000.
+    
 '''
 import numpy as np
 from numpy.linalg import pinv
@@ -72,53 +128,7 @@ def _in_hull(p, hull):
 
 class RBFInterpolant(object):
   ''' 
-  Regularized radial basis function interpolant
-  
-  This function has numerous features that are lacking in 
-  scipy.interpolate.rbf. They include:
-  
-  * variable weights on the data (when creating a smoothed interpolant)
-  * more choices of basis functions (you can also easily make your own)
-  * analytical differentiation of the interpolant 
-  * added polynomial terms for improved accuracy
-  * prevent extrapolation by masking data that is outside of the 
-    convex hull defined by the data points
-
-  The interpolant :math:`\mathbf{f(x^*)}` is defined as
-    
-   .. math::
-     \mathbf{f(x^*)} = \mathbf{K(x^*,x)a} + \mathbf{T(x^*)b}
-  
-  where :math:`\mathbf{K(x^*,x)}` consists of the RBFs with centers at 
-  :math:`\mathbf{x}` evaluated at the interpolation points 
-  :math:`\mathbf{x^*}`. :math:`\mathbf{T(x^*)}` is a polynomial matrix 
-  where each column is a monomial evaluated at the interpolation 
-  points. The monomials are those from a Taylor series expansion with 
-  a user specified order. :math:`\mathbf{a}` and :math:`\mathbf{b}` are 
-  coefficients that need to be estimated. The coefficients are found 
-  by solving the linear system of equations
-  
-  .. math::
-    (\mathbf{WK(x,x)} + p\mathbf{I})\mathbf{a}  + \mathbf{WT(x)b} = \mathbf{Wy}
-
-  .. math::
-    \mathbf{T^T(x)a} = \mathbf{0} 
-
-  where :math:`\mathbf{W}` are the data weights (should be the inverse 
-  of the data covariance matrix), :math:`\mathbf{y}` are the observations at 
-  :math:`\mathbf{x}`, and :math:`p` is a penalty parameter. With :math:`p=0` 
-  the observations are fit perfectly by the interpolant.  Increasing 
-  :math:`p` degrades the fit while improving the smoothness of the 
-  interpolant. This formulation closely follows chapter 19.4 of [1] 
-  and chapter 13.2.1 of [2].
-    
-  With certain choices of basis functions and polynomial orders this 
-  interpolant is equivalent to a thin-plate spline.  For example, if 
-  the observation space is one-dimensional then a thin-plate spline 
-  can be obtained with the arguments *basis* = *rbf.basis.phs3* and 
-  *order* = 1.  For two-dimensional observation space a thin-plate 
-  spline can be obtained with the arguments *basis* = *rbf.basis.phs2* 
-  and *order* = 1. See [2] for additional details on thin-plate splines.
+  Regularized radial basis function interpolant  
 
   Parameters 
   ---------- 
@@ -157,14 +167,6 @@ class RBFInterpolant(object):
   This function involves solving a dense system of equations, which 
   will be prohibitive for large data sets. See *rbf.filter* for 
   smoothing large data sets.
-    
-  References
-  ----------
-  [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, 
-  World Scientific Publishing Co, 2007.
-    
-  [2] Schimek, M., Smoothing and Regression: Approaches, 
-  Computations, and Applications. John Wiley & Sons, 2000.
     
   '''
   def __init__(self,

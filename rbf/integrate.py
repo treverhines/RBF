@@ -1,4 +1,6 @@
 ''' 
+Integrate
+*********
 This module provides several functions for Monte-Carlo integration
 '''
 from __future__ import division

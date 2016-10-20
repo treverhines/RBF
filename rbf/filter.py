@@ -1,4 +1,6 @@
 ''' 
+Filter
+******
 provides a function for smoothing large, multidimensional, noisy data sets
 '''
 import numpy as np

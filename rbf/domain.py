@@ -1,4 +1,6 @@
 ''' 
+Domain
+******
 contains functions which generate simple domains, such as a unit 
 circle, or cube 
 '''

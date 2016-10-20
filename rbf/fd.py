@@ -1,4 +1,6 @@
 ''' 
+FD (Radial Basis Function Finite Difference)
+********************************************
 This module provides functions for generating RBF-FD weights
 '''
 from __future__ import division
