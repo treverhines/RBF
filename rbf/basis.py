@@ -1,10 +1,7 @@
 ''' 
 This module defines some of the commonly used radial basis functions. 
-It makes use of the class, `RBF`, which takes a symbolic expression of 
+It makes use of the class, *RBF*, which takes a symbolic expression of 
 an RBF and converts it and its derivatives into a numerical function.  
-This allows for the evaluation of any arbitrary derivative of an RBF 
-even though the derivatives are not explicitly written anywhere in 
-this module.
 ''' 
 from __future__ import division 
 import sympy 
@@ -53,7 +50,7 @@ def _replace_nan(x):
 def get_R():
   ''' 
   returns the symbolic variable for :math:`r` which is used to 
-  instantiate an `RBF`
+  instantiate an *RBF*
   '''
   return copy.deepcopy(_R)
 
@@ -61,7 +58,7 @@ def get_R():
 def get_EPS():
   ''' 
   returns the symbolic variable for :math:`\epsilon` which is used to 
-  instantiate an `RBF` 
+  instantiate an *RBF*
   '''
   return copy.deepcopy(_EPS)
 
@@ -92,27 +89,25 @@ def set_sym_to_num(package):
 class RBF(object):
   ''' 
   Stores a symbolic expression of a Radial Basis Function (RBF) and 
-  evaluates the expression numerically when called. The symbolic 
-  expression must be a function of the symbolic variable R, which is 
-  the radial distance to the RBF center.  The expression may 
-  optionally be a function of EPS, which is a shape parameter.  If EPS 
-  is not given then R is substituded with EPS*R upon instantiation. R 
-  and EPS can be obtained with `get_R` and `get_EPS`.
+  evaluates the expression numerically when called. 
   
   Parameters
   ----------
   expr : sympy expression
-    symbolic expression of the RBF
-
+    Symbolic expression of the RBF. This must be a function of the 
+    symbolic variable *R*, which is returned by the function *get_R*. 
+    *R* is the radial distance to the RBF center.  The expression may 
+    optionally be a function of *EPS*, which is a shape parameter 
+    obtained by the function *get_EPS*.  If *EPS* is not provided then 
+    *R* is substituted with *R* * *EPS* .
   
   Examples
   --------
-
   Instantiate an inverse quadratic RBF
 
-  >>> r = get_R()
-  >>> eps = get_EPS()
-  >>> iq_expr = 1/(1 + (eps*r)**2)
+  >>> R = get_R()
+  >>> EPS = get_EPS()
+  >>> iq_expr = 1/(1 + (EPS*R)**2)
   >>> iq = RBF(iq_expr)
   
   Evaluate an inverse quadratic at 10 points ranging from -5 to 5. 
@@ -159,7 +154,7 @@ class RBF(object):
     Returns
     -------
     out : (N,M) array
-      Returns the RBFs with centers `c` evaluated at `x`
+      Returns the RBFs with centers *c* evaluated at *x*
 
     Notes
     -----
@@ -264,7 +259,7 @@ _FUNCTION_DOC = '''
   Returns
   -------
   out : (N,M) array
-    Returns the RBFs with centers `c` evaluated at `x`
+    Returns the RBFs with centers *c* evaluated at *x*
 
   Notes
   -----

@@ -84,39 +84,41 @@ class RBFInterpolant(object):
   * prevent extrapolation by masking data that is outside of the 
     convex hull defined by the data points
 
-  The interpolant, :math:`f(x^*)`, is defined as
+  The interpolant :math:`\mathbf{f(x^*)}` is defined as
     
    .. math::
-     f(x^*) = K(x^*,x)a + T(x^*)b
+     \mathbf{f(x^*)} = \mathbf{K(x^*,x)a} + \mathbf{T(x^*)b}
   
-  where :math:`K(x^*,x)` is a Vandermonde matrix evaluated at the 
-  interpolation points :math:`x^*` for radial basis functions 
-  centered at the observation points :math:`x`. :math:`T(x^*)` is a 
-  polynomial matrix evaluated at the interpolation points, and 
-  :math:`a` and :math:`b` are coefficients that need to be estimated. 
-  The coefficients are found by solving the linear system of equations
+  where :math:`\mathbf{K(x^*,x)}` consists of the RBFs with centers at 
+  :math:`\mathbf{x}` evaluated at the interpolation points 
+  :math:`\mathbf{x^*}`. :math:`\mathbf{T(x^*)}` is a polynomial matrix 
+  where each column is a monomial evaluated at the interpolation 
+  points. The monomials are those from a Taylor series expansion with 
+  a user specified order. :math:`\mathbf{a}` and :math:`\mathbf{b}` are 
+  coefficients that need to be estimated. The coefficients are found 
+  by solving the linear system of equations
   
   .. math::
-    (WK(x,x) + pI)a  + WT(x)b = WY
+    (\mathbf{WK(x,x)} + p\mathbf{I})\mathbf{a}  + \mathbf{WT(x)b} = \mathbf{Wy}
 
   .. math::
-    T(x)^Ta = 0 
+    \mathbf{T^T(x)a} = \mathbf{0} 
 
-  where :math:`W` are the data weights (should be the inverse of the 
-  data variance), :math:`Y` are the observations at :math:`x`, and 
-  :math:`p` is a penalty parameter. With :math:`p=0` the observations 
-  are fit perfectly by the interpolant.  Increasing :math:`p` degrades 
-  the fit while improving the smoothness of the interpolant. This 
-  formulation closely follows chapter 19.4 of [1] and chapter 13.2.1 
-  of [2].
+  where :math:`\mathbf{W}` are the data weights (should be the inverse 
+  of the data covariance matrix), :math:`\mathbf{y}` are the observations at 
+  :math:`\mathbf{x}`, and :math:`p` is a penalty parameter. With :math:`p=0` 
+  the observations are fit perfectly by the interpolant.  Increasing 
+  :math:`p` degrades the fit while improving the smoothness of the 
+  interpolant. This formulation closely follows chapter 19.4 of [1] 
+  and chapter 13.2.1 of [2].
     
   With certain choices of basis functions and polynomial orders this 
   interpolant is equivalent to a thin-plate spline.  For example, if 
   the observation space is one-dimensional then a thin-plate spline 
-  can be obtained with the arguments `basis` = `rbf.basis.phs3` and 
-  `order` = 1.  For two-dimensional observation space a thin-plate 
-  spline can be obtained with the arguments `basis` = `rbf.basis.phs2` 
-  and `order` = 1. See [2] for additional details on thin-plate splines.
+  can be obtained with the arguments *basis* = *rbf.basis.phs3* and 
+  *order* = 1.  For two-dimensional observation space a thin-plate 
+  spline can be obtained with the arguments *basis* = *rbf.basis.phs2* 
+  and *order* = 1. See [2] for additional details on thin-plate splines.
 
   Parameters 
   ---------- 
@@ -153,7 +155,7 @@ class RBFInterpolant(object):
   Notes
   -----
   This function involves solving a dense system of equations, which 
-  will be prohibitive for large data sets. See rbf.filter for 
+  will be prohibitive for large data sets. See *rbf.filter* for 
   smoothing large data sets.
     
   References
