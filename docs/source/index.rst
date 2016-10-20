@@ -39,6 +39,7 @@ Table of Contents
 
 Quick Demo
 ----------
+
 Smoothing Scattered Data
 ++++++++++++++++++++++++
 In this example we generate synthetic scattered data with added noise 

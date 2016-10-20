@@ -45,19 +45,19 @@ is set to 40.
   # plot the observed and filtered results
   fig,ax = plt.subplots(2,1,figsize=(6,10))
   ax[0].set_aspect('equal')
+  ax[0].set_axis_bgcolor('blue')
   ax[0].set_xlim((0,1))
   ax[0].set_ylim((0,1))
   ax[0].set_title('Noisy Data')
-  ax[0].grid()
   ax[1].set_aspect('equal')
+  ax[1].set_axis_bgcolor('blue')
   ax[1].set_xlim((0,1))
   ax[1].set_ylim((0,1))
   ax[1].set_title(u'Filtered Solution $(\omega_c = 40)$')
-  ax[1].grid()
-  p1 = ax[0].scatter(points_obs[:,0],points_obs[:,1],s=2,c=u_obs,
+  p1 = ax[0].scatter(points_obs[:,0],points_obs[:,1],s=4,c=u_obs,
                      edgecolor='none',cmap='Greys_r',vmin=-0.2,vmax=1.2)
   plt.colorbar(p1,ax=ax[0])
-  p2 = ax[1].scatter(points_obs[:,0],points_obs[:,1],s=2,c=soln,
+  p2 = ax[1].scatter(points_obs[:,0],points_obs[:,1],s=4,c=soln,
                      edgecolor='none',cmap='Greys_r',vmin=-0.2,vmax=1.2)
   plt.colorbar(p2,ax=ax[1])
   plt.tight_layout()
