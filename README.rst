@@ -23,7 +23,7 @@ Quick Demo
 Smoothing Scattered Data
 ++++++++++++++++++++++++
 In this example we generate synthetic scattered data with added noise 
-and then fit it with a smoothed interpolant. See rbf.filter for 
+and then fit it with a smoothed interpolant. See `rbf.filter` for 
 smoothing large data sets.
 
 .. code-block:: python
