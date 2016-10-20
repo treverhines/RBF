@@ -73,7 +73,7 @@ smoothing large data sets.
   plt.show()
 
 The above code will produce this plot, which shows the observations as 
-scatter points and the smoothed interpolant as the color field
+scatter points and the smoothed interpolant as the color field.
 
 .. image:: ../figures/interp.png
 
