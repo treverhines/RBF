@@ -29,7 +29,7 @@ values = sinc_rbf(points,centers,eps=eps)
 
 # plot the sum of each RBF
 fig,ax = plt.subplots()
-p = ax.tripcolor(xf,yf,np.sum(values,axis=1),shading='gouraud')
+p = ax.tripcolor(xf,yf,np.sum(values,axis=1),shading='gouraud',cmap='viridis')
 plt.colorbar(p,ax=ax)
 ax.set_xlim((-5,5))
 ax.set_ylim((-5,5))
