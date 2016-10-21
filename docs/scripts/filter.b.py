@@ -26,11 +26,11 @@ samples = 1000
 # find the filtered solution
 u_pred,sigma_pred = filter(t[:,None],u_obs,sigma_obs,
                            samples=samples,size=size,
-                           cutoff=cutoff,fill='none')
+                           cutoff=cutoff)
 # find the derivative of the filtered solution
 udiff_pred,sigmadiff_pred = filter(t[:,None],u_obs,sigma_obs,
                                    samples=samples,size=size,
-                                   cutoff=cutoff,diffs=(1,),fill='none')
+                                   cutoff=cutoff,diffs=(1,))
 
 # plot the results
 fig,ax = plt.subplots(2,1)
