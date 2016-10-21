@@ -1,6 +1,4 @@
 ''' 
-Interpolate
-***********
 This module provides a class for RBF interpolation, *RBFInterpolant*. 
 This function has numerous features that are lacking in 
 *scipy.interpolate.rbf*. They include:

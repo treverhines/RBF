@@ -1,6 +1,4 @@
 ''' 
-Geometry
-********
 Module of cythonized functions for basic computational geometry in 1, 
 2, and 3 dimensions. This modules requires all geometric objects (e.g. 
 volumes, polygons, surfaces, segments, etc.) to be described as 

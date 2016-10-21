@@ -1,6 +1,4 @@
 ''' 
-Halton
-******
 This module defines a function and class for generating halton 
 sequences
 '''

@@ -1,6 +1,12 @@
-#!/usr/bin/env python
-# Use rbf.filer.filter to recover an underlying signal in a large 
-# scattered data set. The underlying signal is the Lena image
+''' 
+The following demonstrates using *rbf.filter.filter* to remove noise 
+from the classic Lena image. The image has been resampled into 100,000 
+data points which are normally distributed about [0.5,0.5] and white 
+noise has been added to each datum. *rbf.filter.filter* acts as a 
+low-pass filter which damps out frequencies which are higher than the 
+user specified cutoff frequency.  In this example the cutoff frequency 
+is set to 40.
+'''
 import numpy as np
 from scipy.misc import lena
 from scipy.interpolate import NearestNDInterpolator
@@ -16,7 +22,7 @@ values /= 255.0 # normalize so that the max is 1.0
 signal = NearestNDInterpolator(points,values)
 
 # interpolate Lena onto new observation points and add noise
-N = 10000
+N = 100000
 points_obs = np.random.normal(0.5,0.25,(N,2))
 u_obs = signal(points_obs)
 u_obs += np.random.normal(0.0,0.5,N)
@@ -43,4 +49,6 @@ p2 = ax[1].scatter(points_obs[:,0],points_obs[:,1],s=4,c=soln,
                    edgecolor='none',cmap='Greys_r',vmin=-0.2,vmax=1.2)
 plt.colorbar(p2,ax=ax[1])
 plt.tight_layout()
+plt.savefig('../figures/filter.a.png')
 plt.show()
+

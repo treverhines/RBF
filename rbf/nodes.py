@@ -1,6 +1,4 @@
 ''' 
-Nodes
-*****
 provides a function for generating a locally quasi-uniform 
 distribution of nodes over an arbitrary domain
 '''
@@ -14,7 +12,8 @@ import logging
 import scipy.sparse
 logger = logging.getLogger(__name__)
 
-def nearest_neighbor_argsort(nodes,n=10):
+
+def _nearest_neighbor_argsort(nodes,n=10):
   ''' 
   Returns a pertumation array that sorts nodes so that neighboring 
   nodes are close together. This is done through use of a KD Tree and 
@@ -49,50 +48,6 @@ def nearest_neighbor_argsort(nodes,n=10):
   permutation = scipy.sparse.csgraph.reverse_cuthill_mckee(M)
 
   return permutation
-
-
-def check_node_spacing(rho,nodes,tol=0.25):
-  ''' 
-  Returns indices of nodes which are consistent with the node density 
-  function rho. Indexing nodes with the output will return a pared 
-  down node set that is consistent with rho
-
-  Parameters
-  ----------
-  rho : function
-    Callable node density function
-  
-  nodes : (N,D) array
-    node array
-
-  tol : float
-    If a nodes nearest neighbor deviates by more than this factor 
-    from the expected node density, then the node is identified as 
-    being too close
-
-  Returns 
-  ------- 
-  keep_indices : (N,) int array
-    array of node indices which are consistent with the node density 
-    function
-
-  '''
-  logger.debug('verifying node spacing')  
-  dim = nodes.shape[1]
-  keep_indices = np.arange(nodes.shape[0],dtype=int)
-  # minimum distance allowed between nodes
-  mindist = tol/(rho(nodes)**(1.0/dim))
-  s,dx = rbf.stencil.nearest(nodes,nodes,2)
-  while np.any(dx[:,1] < mindist):
-    toss = np.argmin(dx[:,1]/mindist)
-    logger.debug('removing node %s for being too close to adjacent node' 
-                % keep_indices[toss])
-    nodes = np.delete(nodes,toss,axis=0)
-    keep_indices = np.delete(keep_indices,toss,axis=0)
-    mindist = tol/(rho(nodes)**(1.0/dim))
-    s,dx = rbf.stencil.nearest(nodes,nodes,2)
-
-  return keep_indices
 
 
 def _repel_step(free_nodes,rho,fix_nodes,
@@ -469,7 +424,7 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
 
   # sort so that nodes that are close in space are also close in memory
   if sort_nodes:
-    idx = nearest_neighbor_argsort(nodes,n=neighbors)
+    idx = _nearest_neighbor_argsort(nodes,n=neighbors)
     nodes = nodes[idx]
     smpid = smpid[idx] 
   

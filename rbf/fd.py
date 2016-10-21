@@ -1,7 +1,6 @@
 ''' 
-FD (Radial Basis Function Finite Difference)
-********************************************
 This module provides functions for generating RBF-FD weights
+
 '''
 from __future__ import division
 import numpy as np
@@ -235,72 +234,6 @@ def weights(x,nodes,diffs,coeffs=None,
   return out
 
 
-def poly_weights(x,nodes,diffs,coeffs=None):
-  ''' 
-  Returns the weights which map a functions values at *nodes* to 
-  estimates of that functions derivative at *x*. The weights are 
-  computed using a polynomial expansion. 
-  
-  For D-dimensional space The number of nodes, N, must be in the set 
-  binom(P+D,D) for P in (0,1,2,...). In other words for 1-dimensional 
-  space N is in (1,2,3,4,5,6,...); for 2-dimensional space N is in 
-  (1,3,6,10,15,21,...); and for 3-dimensional space is N in 
-  (1,4,10,20,35,56,...)  
-  
-  Parameters
-  ----------
-  x : (D,) array
-  nodes : (N,D) array
-  diffs : (D,) int array or (K,D) int array 
-  coeffs : (K,) array, optional
-        
-  Returns
-  -------
-  out : (N,) array
-    finite difference weights
-
-  Notes
-  -----
-  This function may be removed in future versions because `weights` can 
-  perform the same operation with the appropriate choice of arguments
-
-  '''
-  x = np.asarray(x,dtype=float)
-  nodes = np.asarray(nodes,dtype=float)
-  diffs = _reshape_diffs(diffs)
-  N,D = nodes.shape
-
-  if coeffs is None:
-    coeffs = np.ones(diffs.shape[0],dtype=float)
-  else:
-    coeffs = np.asarray(coeffs)
-    if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
-      raise ValueError('coeffs and diffs have incompatible shapes')
-
-  order = _max_poly_order(N,D)
-  monos = rbf.poly.monomial_count(order,D)
-  if N != monos:
-    raise ValueError(
-      'For D-dimensional space the number of nodes must be in the set '
-      'binom(P+D,D) for P in (0,1,2,...)')
-      
-  powers = rbf.poly.monomial_powers(order,D)
-  lhs = rbf.poly.mvmonos(nodes,powers).T
-  rhs = np.zeros(N)
-  for c,d in zip(coeffs,diffs):
-    rhs += c*rbf.poly.mvmonos(x[None,:],powers,diff=d)[0,:]
-  
-  try:
-    out = np.linalg.solve(lhs,rhs)
-
-  except np.linalg.LinAlgError:
-     raise np.linalg.LinAlgError(
-       'cannot compute poly-FD weight for point %s. Make sure that '
-       'the stencil meets the conditions for non-singularity. ' % x)
-
-  return out
-
-
 def weight_matrix(x,nodes,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
                   eps=None,size=None,vert=None,smp=None):
@@ -409,11 +342,84 @@ def weight_matrix(x,nodes,diffs,coeffs=None,
   logger.debug('done')
   return L
                 
+## EVERYTHING BELOW THIS POINT IS DEPRICATED
+#####################################################################
+def poly_weights(x,nodes,diffs,coeffs=None):
+  ''' 
+  DEPRECATED 
+  
+  Returns the weights which map a functions values at *nodes* to 
+  estimates of that functions derivative at *x*. The weights are 
+  computed using a polynomial expansion. 
+  
+  For D-dimensional space The number of nodes, N, must be in the set 
+  binom(P+D,D) for P in (0,1,2,...). In other words for 1-dimensional 
+  space N is in (1,2,3,4,5,6,...); for 2-dimensional space N is in 
+  (1,3,6,10,15,21,...); and for 3-dimensional space is N in 
+  (1,4,10,20,35,56,...)  
+  
+  Parameters
+  ----------
+  x : (D,) array
+  nodes : (N,D) array
+  diffs : (D,) int array or (K,D) int array 
+  coeffs : (K,) array, optional
+        
+  Returns
+  -------
+  out : (N,) array
+    finite difference weights
+
+  Notes
+  -----
+  This function may be removed in future versions because `weights` can 
+  perform the same operation with the appropriate choice of arguments
+
+  '''
+  print('rbf.fd.poly_weights is deprecated. use rbf.fd.weights instead')
+  
+  x = np.asarray(x,dtype=float)
+  nodes = np.asarray(nodes,dtype=float)
+  diffs = _reshape_diffs(diffs)
+  N,D = nodes.shape
+
+  if coeffs is None:
+    coeffs = np.ones(diffs.shape[0],dtype=float)
+  else:
+    coeffs = np.asarray(coeffs)
+    if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
+      raise ValueError('coeffs and diffs have incompatible shapes')
+
+  order = _max_poly_order(N,D)
+  monos = rbf.poly.monomial_count(order,D)
+  if N != monos:
+    raise ValueError(
+      'For D-dimensional space the number of nodes must be in the set '
+      'binom(P+D,D) for P in (0,1,2,...)')
+      
+  powers = rbf.poly.monomial_powers(order,D)
+  lhs = rbf.poly.mvmonos(nodes,powers).T
+  rhs = np.zeros(N)
+  for c,d in zip(coeffs,diffs):
+    rhs += c*rbf.poly.mvmonos(x[None,:],powers,diff=d)[0,:]
+  
+  try:
+    out = np.linalg.solve(lhs,rhs)
+
+  except np.linalg.LinAlgError:
+     raise np.linalg.LinAlgError(
+       'cannot compute poly-FD weight for point %s. Make sure that '
+       'the stencil meets the conditions for non-singularity. ' % x)
+
+  return out
+
 
 def diff_matrix(x,diffs,coeffs=None,
                 basis=rbf.basis.phs3,order=None,
                 eps=None,size=None,vert=None,smp=None):
   ''' 
+  DEPRECATED 
+
   Creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. This 
   is a convenience function which creates a stencil network and then 
@@ -481,6 +487,7 @@ def diff_matrix(x,diffs,coeffs=None,
          [ 0.,  1., -2.,  1.]])
                          
   '''
+  print('rbf.fd.diff_matrix is deprecated. use rbf.fd.weight_matrix instead')
   logger.debug('building RBF-FD differentiation matrix...')
   x = np.asarray(x)
   diffs = _reshape_diffs(diffs)
@@ -518,6 +525,8 @@ def diff_matrix(x,diffs,coeffs=None,
 def diff_matrix_1d(x,diffs,coeffs=None,
                    size=None,vert=None,smp=None):
   ''' 
+  DEPRECATED 
+
   Creates a differentiation matrix which approximates a functions 
   derivative at *x* using observations of that function at *x*. This 
   is a convenience function which creates a stencil network and then 
@@ -574,6 +583,7 @@ def diff_matrix_1d(x,diffs,coeffs=None,
          [ 0.,  1., -2.,  1.]])
 
   '''
+  print('rbf.fd.diff_matrix_1d is deprecated. use rbf.fd.weight_matrix instead')
   logger.debug('building polynomial differentiation matrix...')
   x = np.asarray(x) 
   diffs = _reshape_diffs(diffs)

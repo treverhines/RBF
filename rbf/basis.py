@@ -1,7 +1,4 @@
 ''' 
-Basis
-*****
-
 This module defines the commonly used radial basis functions (RBFs) 
 shown in the below table. For each RBF expression,
 :math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter.

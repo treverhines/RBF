@@ -1,7 +1,11 @@
 ''' 
-Filter
-******
-provides a function for smoothing large, multidimensional, noisy data sets
+This module provides a function for denoising large, scattered,
+multidimensional data sets. The filtered solution returned by this
+function is constrained to resemble the observed data while also
+minimizing its Laplacian. The Laplacian operator is computed with the
+RBF-FD method and it is sparse, making it suitable for large scale
+problems.
+
 '''
 import numpy as np
 import rbf.fd
