@@ -22,20 +22,20 @@ Quick Demo
 
 Smoothing Scattered Data
 ++++++++++++++++++++++++
-.. literalinclude:: /docs/scripts/interpolate.a.py
+.. literalinclude:: docs/scripts/interpolate.a.py
 
 The above code will produce this plot, which shows the observations as
 scatter points and the smoothed interpolant as the color field.
 
-.. image:: /docs/figures/interpolate.a.png
+.. image:: docs/figures/interpolate.a.png
 
 Solving PDEs
 ++++++++++++
-.. literalinclude:: /docs/scripts/basis.a.py
+.. literalinclude:: docs/scripts/basis.a.py
 
 The above code will produce this plot, which shows the collocation
 nodes as black points and the interpolated solution as the color field.
 
-.. image:: /docs/figures/basis.a.png
+.. image:: docs/figures/basis.a.png
 
 
