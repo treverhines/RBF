@@ -303,8 +303,8 @@ def stencil_network_1d(nodes,size,vert=None,smp=None):
   -------
   out : (M,size) int array
     
-  Example
-  -------
+  Examples
+  --------
   Create a first-order forward finite difference stencil
 
   >>> x = np.arange(4.0)[:,None]

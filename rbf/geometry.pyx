@@ -397,8 +397,8 @@ cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
   Returns an array identifying which simplex is intersected by
   start_pnts and end_pnts
 
-  Note
-  ----
+  Notes
+  -----
   if there is no intersection then a ValueError is returned.
 
   '''
@@ -470,8 +470,8 @@ cdef np.ndarray intersection_point_2d(double[:,:] start_pnts,
   Returns an array of intersection points between the line segments, 
   defined in terms of start_pnts and end_pnts, and the simplices.
 
-  Note
-  ----
+  Notes
+  -----
   if there is no intersection then a ValueError is returned.
   '''
   cdef:
@@ -535,8 +535,8 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
   Returns an array of normal vectors to the simplices intersected by
   the line segments 
 
-  Note
-  ----
+  Notes
+  -----
   if there is not intersection then a ValueError is returned
 
   '''
@@ -636,8 +636,8 @@ cdef bint is_intersecting_3d(segment3d seg,
   coplanar and if any part of the segment touches the triangle at an 
   edge or in the interior.
 
-  Note
-  ----
+  Notes
+  -----
   This function determines where the segment intersects the plane
   containing the triangle and then projects the intersection point
   and triangle into a 2D plane where the point is then tested if it
@@ -772,8 +772,8 @@ cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
   Returns an array identifying which simplex is intersected by
   start_pnts and end_pnts. 
 
-  Note
-  ----
+  Notes
+  -----
   if there is no intersection then a ValueError is returned.
 
   '''
@@ -854,8 +854,8 @@ cdef np.ndarray intersection_point_3d(double[:,:] start_pnts,
   Returns the intersection points between the line segments,
   described by start_pnts and end_pnts, and the simplices
 
-  Note
-  ----
+  Notes
+  -----
   if there is no intersection then a ValueError is returned.
 
   '''
@@ -931,8 +931,8 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
   Returns the normal vectors to the simplices intersected by 
   start_pnts and end_pnts
 
-  Note
-  ----
+  Notes
+  -----
   if there is no intersection then a ValueError is returned.
 
   '''
@@ -1468,8 +1468,8 @@ def simplex_upward_normals(vert,smp):
   out : (P,D) array
     normals vectors
       
-  Note
-  ----
+  Notes
+  -----
   This is only defined for two and three dimensional simplices
 
   '''
@@ -1506,8 +1506,8 @@ def oriented_simplices(vert,smp):
   out : (P,D) int array
     oriented simplices
 
-  Note                                
-  ----                         
+  Notes                                
+  -----                        
   If one dimensional simplices are given, then the simplices are
   returned unaltered.
 
@@ -1572,8 +1572,8 @@ def enclosure(vert,smp,orient=True):
   -------
   out : float
      
-  Note
-  ----
+  Notes
+  -----
   This function does not ensure that the simplicial complex is 
   closed and does not intersect itself. If it is not then bogus 
   results will be returned.
