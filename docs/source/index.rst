@@ -26,16 +26,16 @@ Features
 Table of Contents
 -----------------
 .. toctree::
-   :maxdepth: 2
+  :maxdepth: 2
 
-   installation
-   basis
-   interpolate
-   fd
-   filter
-   nodes
-   stencil
-   geometry
+  installation
+  basis
+  interpolate
+  fd
+  filter
+  nodes
+  stencil
+  geometry
 
 Quick Demo
 ----------

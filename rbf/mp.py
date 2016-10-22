@@ -79,8 +79,8 @@ def parmap(f,args,workers=None):
     raise ValueError('number of worker processes must be 0 or greater')
     
   if workers == 0:
-    # use the built-in sequential map 
-    return map(f,args)
+    # perform the map on the parent process
+    return [f(i) for i in args]
 
   # make sure that lower level functions are not running in parallel
   if _HAS_MKL:

@@ -17,6 +17,7 @@ import scipy.sparse.linalg as spla
 from scipy.spatial import cKDTree
 from rbf.interpolate import _in_hull
 import logging
+import code
 logger = logging.getLogger(__name__)
 
 class _IterativeVariance:
@@ -289,7 +290,7 @@ def filter(x,u,sigma=None,
     # compute the posterior standard deviation. This is done through 
     # repeated random perturbations of the data and prior vector. 
     ivar = _IterativeVariance(post_mean[~mask])
-    for j in xrange(samples):
+    for j in range(samples):
       w1 = np.random.normal(0.0,1.0,K)
       w2 = np.random.normal(0.0,1.0,K)
       # generate sample of the posterior
@@ -307,7 +308,7 @@ def filter(x,u,sigma=None,
   # Calculate the posterior for each (N,) array in u and sigma. 
   # This is done in parallel, where *procs* is the number of 
   # subprocesses spawned.
-  post = rbf.mp.parmap(calculate_posterior,xrange(P),workers=procs)
+  post = rbf.mp.parmap(calculate_posterior,range(P),workers=procs)
   post_mean = np.array([k[0] for k in post])
   post_sigma = np.array([k[1] for k in post])
 
