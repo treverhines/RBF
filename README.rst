@@ -36,6 +36,6 @@ Solving PDEs
 The above code will produce this plot, which shows the collocation
 nodes as black points and the interpolated solution as the color field.
 
-.. image:: /docs/scripts/basis.a.png
+.. image:: /docs/figures/basis.a.png
 
 
