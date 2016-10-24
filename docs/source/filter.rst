@@ -10,3 +10,6 @@ Examples
 
 .. literalinclude:: ../scripts/filter.b.py
 .. image:: ../figures/filter.b.png
+
+.. literalinclude:: ../scripts/filter.c.py
+.. image:: ../figures/filter.c.png
