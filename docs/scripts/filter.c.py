@@ -54,7 +54,7 @@ soln = filter(pnts,u,sigma=sigma,cutoff=cutoff,vert=bnd_vert,smp=bnd_smp)
 # plot the results
 fig,axs = plt.subplots(2,1,figsize=(6,10))
 p = axs[0].tripcolor(pnts[:,0],pnts[:,1],soln[0],vmin=-1.0,vmax=1.0,cmap='viridis')
-axs[0].scatter(pnts[:N,0],pnts[:N,1],c=u[:N],s=50,vmin=-1.0,vmax=1.0,cmap='viridis')
+axs[0].scatter(pnts_obs[:,0],pnts_obs[:,1],c=u_obs,s=50,vmin=-1.0,vmax=1.0,cmap='viridis')
 axs[0].plot(bnd_vert[:,0],bnd_vert[:,1],'r-',lw=6)
 axs[0].set_xlim((-4,4))
 axs[0].set_ylim((-4,4))
