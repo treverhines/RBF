@@ -22,11 +22,8 @@ values /= 255.0 # normalize so that the max is 1.0
 signal = NearestNDInterpolator(points,values)
 
 # interpolate Lena onto new observation points and add noise
-N = 100000
-points_obs = np.random.normal(0.5,0.25,(N,2))
-u_obs = signal(points_obs)
-u_obs += np.random.normal(0.0,0.5,N)
-
+points_obs = np.random.normal(0.5,0.25,(100000,2))
+u_obs = signal(points_obs) + np.random.normal(0.0,0.5,100000)
 # find filtered solution
 soln,sigma = filter(points_obs,u_obs,cutoff=40,size=20)
 

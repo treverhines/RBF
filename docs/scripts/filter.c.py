@@ -26,8 +26,8 @@ u_obs = signal(pnts_obs) + np.random.normal(0.0,0.1,N)
 sigma_obs = 0.1*np.ones(N)
 
 # create the interpolation points
-pnts_itp = np.meshgrid(np.linspace(-4,4,100),np.linspace(-4,4,100))
-pnts_itp = np.reshape(pnts_itp,(2,100*100)).T
+vals = np.linspace(-4,4,100) 
+pnts_itp = np.reshape(np.meshgrid(vals,vals),(2,10000)).T
 
 # rbf.filter.filter can be used for interpolation by treating the 
 # interpolation points as observation points with infinite 
@@ -68,6 +68,6 @@ axs[1].set_ylim((-4,4))
 axs[1].set_title('True Signal')
 axs[1].set_aspect('equal')
 plt.colorbar(p,ax=axs[1])
-plt.savefig('../figures/filter.c.png')
+#plt.savefig('../figures/filter.c.png')
 plt.tight_layout()
 plt.show()

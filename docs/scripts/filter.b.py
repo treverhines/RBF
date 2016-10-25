@@ -8,29 +8,17 @@ from rbf.filter import filter
 np.random.seed(1)
 
 t = np.linspace(0.0,5.0,200)
-# true signal
-u_true = np.sin(t)
-udiff_true = np.cos(t)
-
-# observed signal
+u_true,udiff_true = np.sin(t),np.cos(t) # true signal
 sigma_obs = 0.5*np.ones(t.shape)
-u_obs = u_true + np.random.normal(0.0,sigma_obs)
-
-# cutoff frequency
-cutoff = 0.5
-# stencil size
-size = 3
-# number of samples to estimate uncertainty
-samples = 1000
-
+u_obs = u_true + np.random.normal(0.0,sigma_obs) # observed
 # find the filtered solution
 u_pred,sigma_pred = filter(t[:,None],u_obs,sigma_obs,
-                           samples=samples,size=size,
-                           cutoff=cutoff)
+                           samples=1000,size=3,
+                           cutoff=0.5)
 # find the derivative of the filtered solution
 udiff_pred,sigmadiff_pred = filter(t[:,None],u_obs,sigma_obs,
-                                   samples=samples,size=size,
-                                   cutoff=cutoff,diffs=(1,))
+                                   samples=1000,size=3,
+                                   cutoff=0.5,diffs=(1,))
 
 # plot the results
 fig,ax = plt.subplots(2,1)
