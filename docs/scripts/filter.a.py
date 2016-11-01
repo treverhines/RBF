@@ -12,6 +12,7 @@ from scipy.misc import lena
 from scipy.interpolate import NearestNDInterpolator
 import matplotlib.pyplot as plt
 from rbf.filter import filter
+np.random.seed(1)
 
 x = np.linspace(0.0,1.0,512)
 y = np.linspace(1.0,0.0,512)
