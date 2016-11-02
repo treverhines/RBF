@@ -17,8 +17,7 @@ import scipy.sparse.linalg as spla
 from scipy.spatial import cKDTree
 from rbf.interpolate import _in_hull
 import logging
-import code
-logger = logging.getLogger(__name__)
+
 
 class _IterativeVariance:
   ''' 
