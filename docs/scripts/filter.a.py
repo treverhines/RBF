@@ -12,7 +12,7 @@ from scipy.misc import lena
 from scipy.interpolate import NearestNDInterpolator
 import matplotlib.pyplot as plt
 from rbf.filter import filter
-np.random.seed(2)
+np.random.seed(3)
 
 x = np.linspace(0.0,1.0,512)
 y = np.linspace(1.0,0.0,512)
@@ -26,7 +26,7 @@ signal = NearestNDInterpolator(points,values)
 points_obs = np.random.normal(0.5,0.25,(100000,2))
 u_obs = signal(points_obs) + np.random.normal(0.0,0.5,100000)
 # find filtered solution
-soln,sigma = filter(points_obs,u_obs,cutoff=40,size=12)
+soln,sigma = filter(points_obs,u_obs,cutoff=40,size=20)
 
 # plot the observed and filtered results
 fig,ax = plt.subplots(2,1,figsize=(6,10))

@@ -1,5 +1,5 @@
-Filters
--------
+Filter
+------
 .. automodule:: rbf.filter
   :members:
 
