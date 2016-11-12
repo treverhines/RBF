@@ -19,7 +19,6 @@ import numpy as np
 import rbf.basis
 from rbf.nodes import menodes
 from rbf.geometry import simplex_outward_normals
-from rbf.stencil import nearest
 from rbf.fd import weight_matrix
 import matplotlib.pyplot as plt
 import scipy.sparse
@@ -68,7 +67,7 @@ interior, = (smpid==-1).nonzero()
 # do not build stencils which cross this line
 bnd_vert = np.array([[0.0,0.0],[10*np.cos(gap/2.0),10*np.sin(gap/2.0)]])
 bnd_smp = np.array([[0,1]])
-weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp,'size':20}
+weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp,'n':20}
 # build lhs
 # enforce laplacian on interior nodes
 A_interior = weight_matrix(nodes[interior],nodes,[[2,0],[0,2]],

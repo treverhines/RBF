@@ -19,7 +19,7 @@ nodes = np.random.random((100,2))
 
 # find the 10 nearest neighbors for each node which do not cross the 
 # boundary
-sn = stencil_network(nodes,10,vert=bnd_vert,smp=bnd_smp)
+sn = stencil_network(nodes,nodes,10,vert=bnd_vert,smp=bnd_smp)
 
 # plot the first four stencils
 fig,ax = plt.subplots()

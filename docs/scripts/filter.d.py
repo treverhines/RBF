@@ -38,11 +38,11 @@ points_obs = H(50000)
 u_obs = signal(points_obs) #+ np.random.normal(0.0,0.2,40000)
 # find filtered solution
 cutoff1 = 1.0/0.1
-soln1,sigma = filter(points_obs,u_obs,cutoff=cutoff1,size=12)
+soln1,sigma = filter(points_obs,u_obs,cutoff=cutoff1,n=12)
 cutoff2 = 1.0/0.05
-soln2,sigma = filter(points_obs,u_obs,cutoff=cutoff2,size=12)
+soln2,sigma = filter(points_obs,u_obs,cutoff=cutoff2,n=12)
 cutoff3 = 1.0/0.025
-soln3,sigma = filter(points_obs,u_obs,cutoff=cutoff3,size=12)
+soln3,sigma = filter(points_obs,u_obs,cutoff=cutoff3,n=12)
 
 # plot the observed and filtered results
 minorLocator = AutoMinorLocator()

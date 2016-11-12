@@ -72,7 +72,7 @@ def _coefficient_matrix(x,eps,basis,order):
   N,D = x.shape
 
   # powers for the additional polynomials
-  powers = rbf.poly.monomial_powers(order,D)
+  powers = rbf.poly.powers(order,D)
   # number of polynomial terms
   P = powers.shape[0]
   # allocate array 
@@ -94,7 +94,7 @@ def _interpolation_matrix(xitp,x,diff,eps,basis,order):
   # number of observation points
   N = x.shape[0]
   # powers for the additional polynomials
-  powers = rbf.poly.monomial_powers(order,D)
+  powers = rbf.poly.powers(order,D)
   # number of polynomial terms
   P = powers.shape[0]
   # allocate array 
@@ -179,7 +179,7 @@ class RBFInterpolant(object):
     x = np.asarray(x) 
     value = np.asarray(value)
     N,D = x.shape
-    P = rbf.poly.monomial_count(order,D)
+    P = rbf.poly.count(order,D)
 
     if eps is None:
       eps = np.ones(N)
