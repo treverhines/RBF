@@ -233,7 +233,8 @@ def weights(x,s,diffs,coeffs=None,
 
 def weight_matrix(x,p,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
-                  eps=None,n=None,vert=None,smp=None):
+                  eps=None,n=None,vert=None,smp=None,
+                  check_all_edges=False):
   ''' 
   Returns a weight matrix which maps a functions values at *p* to 
   estimates of that functions derivative at *x*.  This is a 
@@ -316,13 +317,13 @@ def weight_matrix(x,p,diffs,coeffs=None,
     while True:
       try:    
         sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp,
-                                         check_all_edges=True)
+                                         check_all_edges=check_all_edges)
         break 
       except rbf.stencil.StencilError as err:
         n -= 1
   else:
     sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp,
-                                     check_all_edges=True)
+                                     check_all_edges=check_all_edges)
   
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
