@@ -25,7 +25,7 @@ sn = stencil_network(nodes,10,vert=bnd_vert,smp=bnd_smp)
 fig,ax = plt.subplots()
 ax.set_aspect('equal')
 ax.plot(nodes[:,0],nodes[:,1],'ko',ms=5,zorder=0)
-for i,s in enumerate(sn[:4]):
+for i,s in enumerate(sn[:]):
   for j in s:
     ax.plot(nodes[[i,j],0],nodes[[i,j],1],'o-',
             c=colors[i%6],ms=6,mec=colors[i%6],zorder=2)
