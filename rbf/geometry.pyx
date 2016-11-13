@@ -41,15 +41,13 @@ of triangles:
                  [4,6,7],
                  [2,3,7],
                  [2,6,7]]
-
+ 
 Although the notation is clumsy, a 1D domains can be described as a 
 collection of vertices in a manner that is consistent with the above 
 two examples:
    
-.. code-block:: python 
-
-  >>> vertices = [[0.0],[1.0]]
-  >>> simplices = [[0],[1]]
+>>> vertices = [[0.0],[1.0]]
+>>> simplices = [[0],[1]]
 
 This module is primarily use to find whether and where line segments 
 intersect a simplicial complex and whether points are contained within 
@@ -58,9 +56,7 @@ collection of points, saved as *points*, are contained within a
 simplicial complex, defined by *vertices* and *simplices* with the 
 command
 
-.. code-block:: python
-
-  >>> contains(points,vertices,simplices)
+>>> contains(points,vertices,simplices)
 
 which returns a boolean array.
 
@@ -68,18 +64,14 @@ One can find the number of times a collection of line segments,
 defined by *start_points* and *end_points*, intersect a simplicial 
 complex with the command
 
-.. code-block:: python
-
-  >> intersection_count(start_points,end_points,vertices,simplices)
+>> intersection_count(start_points,end_points,vertices,simplices)
 
 which returns an array of the number of simplexes intersections for
 each segment. If it is known that a collection of line segments
 intersect a simplicial complex then the intersection point can be
 found with the command
 
-.. code-block:: python
-
-  >> intersection_point(start_points,end_points,vertices,simplices)
+>> intersection_point(start_points,end_points,vertices,simplices)
  
 This returns an (N,D) array of intersection points where N is the 
 number of line segments.  If a line segment does not intersect the 

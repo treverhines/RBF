@@ -7,10 +7,10 @@ RBF
 ***
 Python package containing the tools necessary for radial basis 
 function (RBF) applications.  Applications include 
-interpolating/smoothing scattered data and solving PDEs over 
-complicated domains.  The source code for this project can be found
-`here <http://www.github.com/treverhines/RBF>`_
-
+interpolating/smoothing scattered data and solving PDEs over irregular 
+domains. RBF is developed by Trever Hines (hinest@umich.edu), 
+University of Michigan, and the source code for this project can be 
+found `here <http://www.github.com/treverhines/RBF>`_
 
 Features
 --------
@@ -20,7 +20,7 @@ Features
   weights
 * RBF-FD Filtering for denoising **BIG**, scattered data
 * Node and stencil generation algorithms for solving PDEs over 
-  complicated domains
+  irregular domains
 * Computational geometry functions for 1, 2, and 3 spatial dimensions
 
 Table of Contents

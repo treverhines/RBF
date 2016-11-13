@@ -1,10 +1,10 @@
 RBF
 ***
-Python package containing the tools necessary for radial basis
-function (RBF) applications.  Applications include
-interpolating/smoothing scattered data and solving PDEs over
-complicated domains.  The complete documentation for this package 
-can be found `here <http://rbf.readthedocs.io>`_.
+Python package containing the tools necessary for radial basis 
+function (RBF) applications.  Applications include 
+interpolating/smoothing scattered data and solving PDEs over irregular
+domains.  The complete documentation for this package can be found 
+`here <http://rbf.readthedocs.io>`_.
 
 Features
 --------
@@ -14,7 +14,7 @@ Features
   weights
 * RBF-FD Filtering for denoising **BIG**, scattered data
 * Node and stencil generation algorithms for solving PDEs over
-  complicated domains
+  irregular domains
 * Computational geometry functions for 1, 2, and 3 spatial dimensions
 
 Quick Demo

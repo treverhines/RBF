@@ -21,7 +21,8 @@ import numpy as np
 import rbf.basis
 from rbf.nodes import menodes
 from rbf.geometry import simplex_outward_normals
-from rbf.stencil import nearest
+from scipy.spatial import cKDTree
+from rbf.stencil import stencil_network
 from rbf.fd import weight_matrix
 import matplotlib.pyplot as plt
 import logging
@@ -53,7 +54,7 @@ def make_ghost_nodes(nodes,smpid,idx,vert,smp):
     raise ValueError('cannot make a ghost node for an interior node')
     
   norms = simplex_outward_normals(vert,smp)[sub_smpid]
-  dummy,dx = nearest(sub_nodes,nodes,2,vert=vert,smp=smp)
+  dx,dummy = cKDTree(nodes).query(sub_nodes,2)
   # distance to the nearest neighbors
   dx = dx[:,[1]]
   ghosts = sub_nodes + dx*norms   
@@ -93,7 +94,7 @@ ghost = N + np.arange(len(boundary))
 bnd_vert = np.array([[0.0,0.0],[5.0,0.0]])
 bnd_smp = np.array([[0,1]])
 
-weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp,'size':20,'order':2}
+weight_kwargs = {'vert':bnd_vert,'smp':bnd_smp,'n':20,'order':2}
 
 # build lhs
 # enforce laplacian on interior nodes

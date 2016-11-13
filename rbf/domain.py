@@ -1,8 +1,6 @@
 ''' 
-Domain
-******
-contains functions which generate simple domains, such as a unit 
-circle, or cube 
+Contains functions which generate simple domains, such as a unit 
+circle, or cube
 '''
 import numpy as np
 
