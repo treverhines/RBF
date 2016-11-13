@@ -31,6 +31,7 @@ def stencils_to_edges(stencils):
   edges : (K,2) int array
 
   '''
+  stencils = np.asarray(stencils)
   N,S = stencils.shape
   node1 = np.arange(N)[:,None].repeat(S,axis=1)
   node2 = np.array(stencils,copy=True)
@@ -93,8 +94,8 @@ def _argsort_closest(c,x):
 def _has_edge_intersections(c,x,vert,smp,check_all_edges):
   ''' 
   Check if any of the edges (*c*,*x[i]*) intersect the boundary 
-  defined by *vert* and *smp*. If *all_edges* is True then the edges 
-  (*x[i]*,*x[j]*) are also tested.
+  defined by *vert* and *smp*. If *check_all_edges* is True then the 
+  edges (*x[i]*,*x[j]*) are also tested.
   '''
   N = len(x)
   cext = np.repeat(c[None,:],N,axis=0)
@@ -171,10 +172,10 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
     Stencil size
 
   vert : (P,D) array, optional
-    vertices making up the boundary which stencils cannot intersect
+    Vertices making up the boundary which stencils cannot intersect
 
   smp : (Q,D) array, optional
-    connectivity of vertices in *vert*
+    Connectivity of vertices in *vert*
 
   check_all_edges : bool, optional
     If False then a stencil centered on *x[i]* will not contain any 
@@ -206,3 +207,37 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
 
   return sn
 
+
+def nearest(x,p,n,vert=None,smp=None):
+  ''' 
+  Returns the *n* nearest points in *p* for each point in *x*. Nearest 
+  neighbors cannot extend across the boundary defined by *vert* and 
+  *smp*
+  
+  Parameters
+  ----------
+  x : (N,D) array
+    Query points.
+
+  p : (M,D) array
+    Population points.
+
+  vert : (P,D) array, optional     
+    Vertices making up a boundary 
+
+  smp : (Q,D) array, optional  
+    Connectivity of vertices in *vert*
+    
+  Returns
+  -------
+  idx : (N,D) array
+    Indices of nearest points in *p*
+
+  dist : (N,D) array
+    Distance to the nearest points in *p*  
+
+  '''
+  idx = stencil_network(x,p,n,vert=vert,smp=smp,check_all_edges=False)
+  dist = np.sqrt(np.sum((x[:,None,:] - p[idx])**2,axis=2))
+  return idx,dist
+  

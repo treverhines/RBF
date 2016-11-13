@@ -54,7 +54,7 @@ def make_ghost_nodes(nodes,smpid,idx,vert,smp):
     raise ValueError('cannot make a ghost node for an interior node')
     
   norms = simplex_outward_normals(vert,smp)[sub_smpid]
-  dx,dummy = cKDTree(nodes).query(sub_nodes,2)
+  dummy,dx = rbf.stencil.nearest(sub_nodes,nodes,2,vert=vert,smp=smp)
   # distance to the nearest neighbors
   dx = dx[:,[1]]
   ghosts = sub_nodes + dx*norms   

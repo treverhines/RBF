@@ -37,7 +37,7 @@ def _nearest_neighbor_argsort(nodes,n=10):
   n = min(n,nodes.shape[0])
 
   # find the indices of the nearest N nodes for each node
-  idx = rbf.stencil.stencil_network(nodes,nodes,n)
+  idx,dist = rbf.stencil.nearest(nodes,nodes,n)
 
   # efficiently form adjacency matrix
   col = idx.flatten()
@@ -68,8 +68,7 @@ def _repel_step(free_nodes,rho,fix_nodes,
   nodes = np.vstack((free_nodes,fix_nodes))
 
   # find index and distance to nearest nodes
-  i = rbf.stencil.stencil_network(free_nodes,nodes,n,vert,smp,check_all_edges=False)
-  d = np.sqrt(np.sum((free_nodes[:,None,:] - nodes[i])**2,axis=2))
+  i,d = rbf.stencil.nearest(free_nodes,nodes,n,vert=vert,smp=smp)
 
   # dont consider a node to be one of its own nearest neighbors
   i = i[:,1:]
