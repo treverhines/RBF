@@ -52,10 +52,6 @@ class Test(unittest.TestCase):
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
     w = rbf.fd.weights(x,nodes,(1,0),
-                       basis=rbf.basis.phs5)
-    self.assertTrue(np.isclose(u.dot(w),2.0))
-
-    w = rbf.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
