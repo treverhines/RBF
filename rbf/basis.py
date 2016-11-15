@@ -51,7 +51,7 @@ def _check_lambdified_output(fin):
     x = args[0]
     eps = args[-1]
     if np.isscalar(out):
-      arr = np.empty((x.shape[0],eps.shape[0]))
+      arr = np.empty((x.shape[0],eps.shape[0]),dtype=float)
       arr[...] = out
       out = arr
 
@@ -189,7 +189,7 @@ class RBF(object):
     x = np.asarray(x,dtype=float)
     c = np.asarray(c,dtype=float)
     if eps is None:
-      eps = np.ones(c.shape[0])   
+      eps = np.ones(c.shape[0],dtype=float)   
     else:  
       eps = np.asarray(eps,dtype=float)
 
@@ -207,10 +207,6 @@ class RBF(object):
     if not (x.shape[1] == c.shape[1]):
       raise ValueError(
         'x and c must have the same number of spatial dimensions')
-
-    if x.shape[1] == 0:
-      raise ValueError(
-        'spatial dimensions of x and c must be at least one')
 
     if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
       raise ValueError(
