@@ -7,13 +7,27 @@ import rbf.basis
 import rbf.poly
 import rbf.stencil
 import scipy.sparse
-import warnings
+from scipy.linalg.lapack import dgetrf,dgetrs
+
+def _lapack_solve(A,b):
+  ''' 
+  Solves the system of equations Ax=b, using the lapack LU routines. 
+  This is faster than np.linalg.solve because it does fewer checks. A 
+  and b must be double precision numpy arrays 
+  '''
+  lu,piv,info = dgetrf(A,overwrite_a=True)
+  if info != 0:
+    raise np.linalg.LinAlgError('LAPACK routine dgetrf exited with error code %s' % info)
+  x,info = dgetrs(lu,piv,b,overwrite_b=True)
+  if info != 0:
+    raise np.linalg.LinAlgError('LAPACK routine dgetrs exited with error code %s' % info)
+
+  return x
 
 def _reshape_diffs(diffs):
   ''' 
   turns diffs into a 2D array
   '''
-  diffs = np.asarray(diffs)
   if diffs.ndim > 2:
     raise ValueError('diffs can only be a 1 or 2 dimensional array')
   D = diffs.shape[-1]
@@ -48,12 +62,6 @@ def _max_poly_order(size,dim):
   Returns the maximum polynomial order allowed for the given stencil 
   size and number of dimensions
   '''
-  if not (size >= 0):
-    raise ValueError('stencil size must be 0 or greater')
-
-  if not (dim >= 1):
-    raise ValueError('number of dimensions must be 1 or greater')
-
   order = -1
   while (rbf.poly.count(order+1,dim) <= size):
     order += 1
@@ -72,7 +80,7 @@ def _lhs(s,eps,powers,basis):
   Np = powers.shape[0]
   # deriviative orders
   diff = np.zeros(Ndim,dtype=int)
-  A = np.zeros((Ns+Np,Ns+Np))
+  A = np.zeros((Ns+Np,Ns+Np),dtype=float)
   A[:Ns,:Ns] = basis(s,s,eps=eps,diff=diff).T
   Ap = rbf.poly.mvmonos(s,powers,diff=diff)
   A[Ns:,:Ns] = Ap.T
@@ -89,7 +97,7 @@ def _rhs(x,s,eps,powers,diff,basis):
   Ns,Ndim = s.shape
   # number of monomial terms
   Np = powers.shape[0]
-  d = np.empty(Ns+Np)
+  d = np.empty(Ns+Np,dtype=float)
   d[:Ns] = basis(x,s,eps,diff=diff)[0,:]
   d[Ns:] = rbf.poly.mvmonos(x,powers,diff=diff)[0,:]
   return d
@@ -188,6 +196,7 @@ def weights(x,s,diffs,coeffs=None,
   '''
   x = np.asarray(x,dtype=float)
   s = np.asarray(s,dtype=float)
+  diffs = np.asarray(diffs,dtype=int)
   diffs = _reshape_diffs(diffs)
   # stencil size and number of dimensions
   N,D = s.shape
@@ -195,12 +204,12 @@ def weights(x,s,diffs,coeffs=None,
   if coeffs is None:
     coeffs = np.ones(diffs.shape[0],dtype=float)
   else:
-    coeffs = np.asarray(coeffs)
+    coeffs = np.asarray(coeffs,dtype=float)
     if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
       raise ValueError('coeffs and diffs have incompatible shapes')
       
   if eps is None:
-    eps = np.ones(N)
+    eps = np.ones(N,dtype=float)
   else:
     eps = np.asarray(eps,dtype=float)
 
@@ -216,12 +225,14 @@ def weights(x,s,diffs,coeffs=None,
   powers = rbf.poly.powers(order,D)
   # left hand side
   lhs = _lhs(s,eps,powers,basis)
-  rhs = np.zeros(s.shape[0] + powers.shape[0])
+  rhs = np.zeros(s.shape[0] + powers.shape[0],dtype=float)
   for c,d in zip(coeffs,diffs):
     rhs += c*_rhs(x,s,eps,powers,d,basis)
 
   try:
-    out = np.linalg.solve(lhs,rhs)[:N]
+    out = _lapack_solve(lhs,rhs)[:N]
+    #out = np.linalg.solve(lhs,rhs)[:N]
+    
   except np.linalg.LinAlgError:
      raise np.linalg.LinAlgError(
        'Cannot compute RBF-FD weight for point %s. Make sure that the '
