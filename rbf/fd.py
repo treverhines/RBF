@@ -318,6 +318,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
   '''
   x = np.asarray(x)
   p = np.asarray(p)
+  diffs = np.asarray(diffs,dtype=int)
   diffs = _reshape_diffs(diffs)
   
   if n is None:
