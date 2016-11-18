@@ -136,7 +136,7 @@ def _stencil(c,x,n,vert,smp,check_all_edges):
   if len(stencil_idx) == n:
     return np.array(stencil_idx,dtype=int)
   else: 
-    raise StencilError('could not form a stencil with size %s' % n)
+    raise StencilError('cannot not form a stencil with size %s' % n)
 
 
 def _stencil_network_no_boundary(x,p,n):
@@ -190,9 +190,13 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
     indices of points in *p* which form a stencil for each point in *x*
     
   '''
-  N = len(x)
+  Nx = len(x)
+  Np = len(p)
   x = np.asarray(x)
   p = np.asarray(p)
+  if n > Np:
+    raise StencilError('cannot form a stencil with size %s from %s nodes' % (n,Np))
+    
   if (vert is None) | (smp is None):
     vert = np.zeros((0,x.shape[1]),dtype=float)
     smp = np.zeros((0,x.shape[1]),dtype=int)
@@ -201,7 +205,7 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
   if smp.shape[0] == 0:
     return sn
 
-  for i in range(N):
+  for i in range(Nx):
     if _has_edge_intersections(x[i],p[sn[i]],vert,smp,check_all_edges):
       sn[i,:] = _stencil(x[i],p,n,vert,smp,check_all_edges)
 

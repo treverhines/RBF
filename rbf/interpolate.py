@@ -38,14 +38,6 @@ the observations are fit perfectly by the interpolant.  Increasing
 interpolant. This formulation closely follows chapter 19.4 of [1] 
 and chapter 13.2.1 of [2].
     
-With certain choices of basis functions and polynomial orders this 
-interpolant is equivalent to a thin-plate spline.  For example, if the 
-observation space is one-dimensional then a thin-plate spline can be 
-obtained with the arguments *basis* = *rbf.basis.phs3* and *order* = 
-1.  For two-dimensional observation space a thin-plate spline can be 
-obtained with the arguments *basis* = *rbf.basis.phs2* and *order* = 
-1. See [2] for additional details on thin-plate splines.
-
 References
 ----------
 [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World 
@@ -164,8 +156,23 @@ class RBFInterpolant(object):
   -----
   This function involves solving a dense system of equations, which 
   will be prohibitive for large data sets. See *rbf.filter* for 
-  smoothing large data sets.
+  smoothing large data sets. 
     
+  With certain choices of basis functions and polynomial orders this 
+  interpolant is equivalent to a thin-plate spline.  For example, if the 
+  observation space is one-dimensional then a thin-plate spline can be 
+  obtained with the arguments *basis* = *rbf.basis.phs3* and *order* = 
+  1.  For two-dimensional observation space a thin-plate spline can be 
+  obtained with the arguments *basis* = *rbf.basis.phs2* and *order* = 
+  1. See [2] for additional details on thin-plate splines.
+
+  References
+  ----------
+  [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World 
+  Scientific Publishing Co, 2007.
+    
+  [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
+  and Applications. John Wiley & Sons, 2000.
   '''
   def __init__(self,
                x,
@@ -198,7 +205,7 @@ class RBFInterpolant(object):
     A[:N,:] *= weight[:,None]
     value = value*weight
     # add smoothing along diagonals
-    A[range(N),range(N)] += penalty
+    A[range(N),range(N)] += penalty**2
     # add zeros to the RHS for the polynomial constraints
     value = np.concatenate((value,np.zeros(P)))
     # find the radial basis function coefficients

@@ -313,7 +313,6 @@ def filter(x,u,sigma=None,
 
   post_mean = post_mean.reshape(input_u_shape)
   post_sigma = post_sigma.reshape(input_u_shape)
-  return post_mean,post_sigma
-  
+  return post_mean,post_sigma  
 
-          
+
