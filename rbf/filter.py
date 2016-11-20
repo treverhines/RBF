@@ -316,3 +316,27 @@ def filter(x,u,sigma=None,
   return post_mean,post_sigma  
 
 
+def filter_eig(x,u,sigma=None,
+               cutoff=None, 
+               order=2,
+               **kwargs):
+  ''' 
+  Returns the eigenvectors and eigenvalues for the RBF-FD filter
+  
+  '''                 
+  x = np.asarray(x)
+  u = np.asarray(u)  
+  N,dim = x.shape
+  if sigma is None:
+    sigma = np.ones(u.shape)
+
+  if cutoff is None:
+    cutoff = _default_cutoff(x)
+    
+  prior_diffs = order*np.eye(dim,dtype=int)
+  p = _penalty(cutoff,order,sigma)
+  L = rbf.fd.weight_matrix(x,x,prior_diffs,**kwargs)
+  W = _diag(1.0/sigma)
+
+  lhs = W.T.dot(W) + L.T.dot(L)/p**2
+  rhs = W.T.dot(W).dot(u[i,~mask])
