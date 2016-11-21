@@ -1082,12 +1082,17 @@ def intersection_point(start_points,end_points,vertices,simplices):
     vert = vertices[simplices[:,0]]
     out = vert[crossed_idx]
 
-  if dim == 2:
+  elif dim == 2:
     out = intersection_point_2d(start_points,end_points,vertices,simplices)
 
-  if dim == 3:
+  elif dim == 3:
     out = intersection_point_3d(start_points,end_points,vertices,simplices)
 
+  else:
+    raise ValueError(
+      'intersections can only be found for a 1, 2, or 3 dimensional '
+      'simplicial complex')
+      
   return out
 
 
@@ -1149,11 +1154,16 @@ def intersection_normal(start_points,end_points,vertices,simplices):
     crossed_vert = vert[crossed_idx]
     out[crossed_vert < start_points] = -1.0
 
-  if dim == 2:
+  elif dim == 2:
     out = cross_normals_2d(start_points,end_points,vertices,simplices)
 
-  if dim == 3:
+  elif dim == 3:
     out = cross_normals_3d(start_points,end_points,vertices,simplices)
+
+  else:
+    raise ValueError(
+      'intersections can only be found for a 1, 2, or 3 dimensional '
+      'simplicial complex')
 
   return out
 
@@ -1226,11 +1236,16 @@ def intersection_index(start_points,end_points,vertices,simplices):
       idx = np.argmin(proj1i/(proj1i-proj2i))
       out[i] = crossed_idx[idx]
 
-  if dim == 2:
+  elif dim == 2:
     out = intersection_index_2d(start_points,end_points,vertices,simplices)
 
-  if dim == 3:
+  elif dim == 3:
     out = intersection_index_3d(start_points,end_points,vertices,simplices)
+
+  else:
+    raise ValueError(
+      'intersections can only be found for a 1, 2, or 3 dimensional '
+      'simplicial complex')
 
   return out
 
@@ -1285,11 +1300,16 @@ def intersection_count(start_points,end_points,vertices,simplices):
     crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
     out = np.sum(crossed_bool,axis=1)
 
-  if dim == 2:
+  elif dim == 2:
     out = intersection_count_2d(start_points,end_points,vertices,simplices)
 
-  if dim == 3:
+  elif dim == 3:
     out = intersection_count_3d(start_points,end_points,vertices,simplices)
+
+  else:
+    raise ValueError(
+      'intersections can only be found for a 1, 2, or 3 dimensional '
+      'simplicial complex')
 
   return out
 
@@ -1350,11 +1370,16 @@ def contains(points,vertices,simplices):
     crossed_count = np.sum(crossed_bool,axis=1)
     out = np.array(crossed_count%2,dtype=bool)
 
-  if dim == 2:
+  elif dim == 2:
     out = contains_2d(points,vertices,simplices)
 
-  if dim == 3:
+  elif dim == 3:
     out = contains_3d(points,vertices,simplices)
+
+  else:
+    raise ValueError(
+      'point in polygon tests can only be done for a 1, 2, or 3 '
+      'dimensional simplicial complex')
 
   return out
 
@@ -1390,7 +1415,7 @@ def simplex_normals(vert,smp):
   dim = vert.shape[1]
   
   if (dim != 2) & (dim != 3):
-    raise ValueError('simplices must have two or three spatial dimensions')
+    raise ValueError('simplicial complex must be 2 or 3 dimensional')
 
   # Create a N by D-1 by D matrix    
   M = vert[smp[:,1:]] - vert[smp[:,[0]]]
@@ -1435,7 +1460,7 @@ def simplex_outward_normals(vert,smp):
   dim = vert.shape[1]
   
   if (dim != 2) & (dim != 3):
-    raise ValueError('simplices must have two or three spatial dimensions')
+    raise ValueError('simplicial complex must be 2 or 3 dimensional')
 
   smp = oriented_simplices(vert,smp)
   return simplex_normals(vert,smp)
@@ -1472,7 +1497,7 @@ def simplex_upward_normals(vert,smp):
   dim = vert.shape[1]
   
   if (dim != 2) & (dim != 3):
-    raise ValueError('simplices must have two or three spatial dimensions')
+    raise ValueError('simplicial complex must be 2 or 3 dimensional')
 
   out = simplex_normals(vert,smp)
   out[out[:,-1]<0] *= -1
@@ -1542,7 +1567,7 @@ def oriented_simplices(vert,smp):
 def enclosure(vert,smp,orient=True):
   ''' 
   Returns the volume of a polyhedra, area of a polygon, or length of
-  a segment enclosed by the simplices
+  a segment enclosed by the simplicial complex
 
   Parameters
   ----------

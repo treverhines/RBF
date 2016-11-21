@@ -304,17 +304,18 @@ def weight_matrix(x,p,diffs,coeffs=None,
     Stencil size
     
   vert : (P,D) array, optional
-    Verticies of boundaries which stencils cannot cross
+    Vertices of the boundary which stencils cannot intersect
    
   smp : (Q,D) int array, optional
-    Connectivity of the vertices to form boundaries
+    Connectivity of the vertices to form the boundary
 
   check_all_edges : bool, optional
     Used to determine how strictly the boundaries are enforced. If 
-    False, then the stencil for *x[i]* will consist of the nearest 
-    nodes which do not form a segment with *x[i]* that intersects the 
-    boundary. If True then, in addition, no two nodes in the stencil 
-    will form a segment that intersects the boundary.
+    False then a stencil centered on *x[i]* will not contain any 
+    points in *p* which form an edge with *x[i]* that intersects the 
+    boundary.  If True then, additionally, no stencils will contain 
+    two points from *p* which form an edge that intersects the 
+    boundary. 
     
   use_pinv : bool, optional
     Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 

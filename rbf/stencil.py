@@ -161,26 +161,27 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
   Parameters
   ----------
   x : (N,D) array
-    Estimation points. A stencil will be made for each point in *x*
+    Approximation points. A stencil will be made for each point in *x*
 
   p : (M,D) array
-    observation points. The stencils will be made up of points from *p*    
+    Observation points. The stencils will be made up of points from *p*    
 
   n : int
     Stencil size
 
   vert : (P,D) array, optional
-    Vertices making up the boundary which stencils cannot intersect
+    Vertices of the boundary which stencils cannot intersect
 
   smp : (Q,D) array, optional
-    Connectivity of vertices in *vert*
+    Connectivity of the vertices to form the boundary
 
   check_all_edges : bool, optional
-    If False then a stencil centered on *x[i]* will not contain any 
+    Used to determine how strictly the boundaries are enforced. If 
+    False then a stencil centered on *x[i]* will not contain any 
     points in *p* which form an edge with *x[i]* that intersects the 
     boundary.  If True then, additionally, no stencils will contain 
     two points from *p* which form an edge that intersects the 
-    boundary. 
+    boundary.
     
   Returns
   -------
@@ -199,6 +200,10 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
     vert = np.zeros((0,x.shape[1]),dtype=float)
     smp = np.zeros((0,x.shape[1]),dtype=int)
   
+  else:
+    vert = np.asarray(vert,dtype=float)
+    smp = np.asarray(smp,dtype=int)
+    
   sn = _stencil_network_no_boundary(x,p,n)
   if smp.shape[0] == 0:
     return sn
@@ -225,10 +230,10 @@ def nearest(x,p,n,vert=None,smp=None):
     Population points.
 
   vert : (P,D) array, optional     
-    Vertices making up a boundary 
+    Vertices of the boundary 
 
   smp : (Q,D) array, optional  
-    Connectivity of vertices in *vert*
+    Connectivity of vertices to form the boundary
     
   Returns
   -------

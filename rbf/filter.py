@@ -140,41 +140,45 @@ def filter(x,u,sigma=None,
            procs=0,
            **kwargs):
   ''' 
-  Effectively performs a low-pass filter over a noisy, scattered, 
-  multidimensional data set. This function makes use of sparse RBF-FD 
-  differentiation matrices and is ideal for smoothing large data sets. 
-  The details on the theory for this function will be in an upcoming 
-  manuscript.
+  This function emulates a low-pass filter and is generalized to 
+  multidimensional, irregularly spaced data with variable uncertainty. 
+  This function makes use of sparse RBF-FD differentiation matrices 
+  and is ideal for smoothing large data sets. The details on the 
+  theory for this function will be in an upcoming manuscript.
   
   Parameters
   ----------
   x : (N,D) array
-    Observation locations
+    Observation points.
     
   u : (..., N) array, 
-    data values at x
+    Data values at *x*.
     
   sigma : (..., N) array, optional
     One standard deviation uncertainty on the observations. This 
     must have the same shape as u. Any np.inf entries are treated as 
-    masked data.  Masked data can either be ignored or filled in 
+    missing data.  Missing data can either be ignored or filled in 
     depending on the *fill* argument. If *sigma* is not provided 
     then it defaults to an array of ones
     
   cutoff : float, optional
-    Cutoff frequency. Frequencies greater than this value will be 
-    damped out. This defaults to a frequency corresponding to a 
-    wavelength which is 20 times the average shortest distance 
-    between points in *x*
-      
+    Approximate cutoff frequency. The smoothed solution returned by 
+    this function is intended to not have any features with wavelength 
+    smaller than 1/*cutoff*. In most cases, the smoothed solution is 
+    consistent with the chosen *cutoff*. The frequency content of the 
+    smoothed solution tends to deviate from *cutoff* at the domain 
+    boundaries and when there are a wide range of values in *sigma*. 
+    *cutoff* defaults to a frequency corresponding to a wavelength 
+    which is 20 times the average shortest distance between points in 
+    *x*.
+          
   order : int, optional
-    Smoothness order.  Higher orders will cause the frequency 
-    response to be more box-like, while lower orders have a 
-    frequency response that is tapered across the cutoff frequency.  
-    This should almost always be kept at 2 because higher orders 
-    tend to be numerically unstable and can produce undesirable 
-    ringing artifacts. Also, if D is 2 or greater then the order 
-    should be even
+    Smoothness order. Higher orders will cause the frequency response 
+    to be more box-like, while lower orders have a frequency response 
+    that is tapered across the cutoff frequency.  This should almost 
+    always be kept at 2 because higher orders tend to be numerically 
+    unstable and can produce undesirable ringing artifacts. Also, if D 
+    is 2 or greater then the order should be even
       
   samples : int, optional
     The uncertainty on the filtered solution is estimated by finding 
@@ -185,13 +189,13 @@ def filter(x,u,sigma=None,
       
   fill : str, optional
     Indicates how to treat missing data (i.e. data where *sigma* is 
-    np.inf).  Either 'none', 'interpolate', or 'extrapolate'. If 
-    'none' then missing data is ignored and the returned mean and 
-    uncertainty at those observation points will be np.nan and 
-    np.inf respectively. If *fill* is 'interpolate' then a smoothed 
-    solution will be estimated at missing interior observation 
-    points (i.e. no extrapolation).  If fill is 'extrapolate' then a 
-    smoothed solution is estimated at every observation point
+    np.inf).  This can be either 'none', 'interpolate', or 
+    'extrapolate'. If 'none' then missing data is ignored and the 
+    returned mean and uncertainty at those observation points will be 
+    np.nan and np.inf, respectively. If 'interpolate' then a smoothed 
+    solution will be estimated at missing interior points (i.e. no 
+    extrapolation).  If fill is 'extrapolate' then a smoothed solution 
+    is estimated at every observation point.
 
   diffs : (D,) or (K,D) int array, optional
     If provided then the output will be a derivative of the smoothed 
@@ -216,7 +220,7 @@ def filter(x,u,sigma=None,
     used in this function: one used to construct the prior for the 
     underlying signal, and another to differentiate the filtered 
     solution.  These key word arguments are passed to 
-    `rbf.fd.weight_matrix`
+    *rbf.fd.weight_matrix*
 
   Returns
   -------
@@ -314,29 +318,3 @@ def filter(x,u,sigma=None,
   post_mean = post_mean.reshape(input_u_shape)
   post_sigma = post_sigma.reshape(input_u_shape)
   return post_mean,post_sigma  
-
-
-def filter_eig(x,u,sigma=None,
-               cutoff=None, 
-               order=2,
-               **kwargs):
-  ''' 
-  Returns the eigenvectors and eigenvalues for the RBF-FD filter
-  
-  '''                 
-  x = np.asarray(x)
-  u = np.asarray(u)  
-  N,dim = x.shape
-  if sigma is None:
-    sigma = np.ones(u.shape)
-
-  if cutoff is None:
-    cutoff = _default_cutoff(x)
-    
-  prior_diffs = order*np.eye(dim,dtype=int)
-  p = _penalty(cutoff,order,sigma)
-  L = rbf.fd.weight_matrix(x,x,prior_diffs,**kwargs)
-  W = _diag(1.0/sigma)
-
-  lhs = W.T.dot(W) + L.T.dot(L)/p**2
-  rhs = W.T.dot(W).dot(u[i,~mask])
