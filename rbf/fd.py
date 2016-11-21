@@ -107,19 +107,20 @@ def weights(x,s,diffs,coeffs=None,
             basis=rbf.basis.phs3,order=None,
             eps=None,use_pinv=False):
   ''' 
-  Returns the weights which map a functions values at *s* to 
-  an estimate of that functions derivative at *x*. The weights are 
-  computed using the RBF-FD method described in [1].  In this function 
-  *x* is a single point in D-dimensional space. Use weight_matrix to 
+  Returns the weights which map a functions values at *s* to an 
+  approximation of that functions derivative at *x*. The weights are 
+  computed using the RBF-FD method described in [1]. In this function 
+  *x* is a single point in D-dimensional space. Use *weight_matrix* to 
   compute the weights for multiple point.
 
   Parameters
   ----------
   x : (D,) array
-    Estimation point
+    Approximation point.
 
   s : (N,D) array
-    Observation points
+    Observation points. The interpolant used in creating the returned 
+    weights will contain RBFs centered on *s*.
 
   diffs : (D,) int array or (K,D) int array 
     Derivative orders for each spatial variable. For example [2,0] 
@@ -136,8 +137,8 @@ def weights(x,s,diffs,coeffs=None,
     array.
 
   basis : rbf.basis.RBF, optional
-    Type of radial basis function. Select from those available in 
-    rbf.basis or create your own.
+    Type of RBF. Select from those available in rbf.basis or create 
+    your own.
  
   order : int, optional
     Order of the added polynomial. This defaults to the highest 
@@ -145,9 +146,9 @@ def weights(x,s,diffs,coeffs=None,
     order is set to 2. 
 
   eps : (N,) array, optional
-    Shape parameter for each radial basis function. This only makes 
-    a difference when using RBFs that are not scale invariant.  All 
-    the predefined RBFs except for the odd order polyharmonic 
+    Shape parameter for each RBF, which have centers *s*. This only 
+    makes a difference when using RBFs that are not scale invariant. 
+    All the predefined RBFs except for the odd order polyharmonic 
     splines are not scale invariant.
 
   use_pinv : bool, optional
@@ -257,18 +258,18 @@ def weight_matrix(x,p,diffs,coeffs=None,
                   eps=None,n=None,vert=None,smp=None,
                   check_all_edges=False,use_pinv=False):
   ''' 
-  Returns a weight matrix which maps a functions values at *p* to 
-  estimates of that functions derivative at *x*.  This is a 
+  Returns a weight matrix which maps a functions values at *p* to an 
+  approximation of that functions derivative at *x*.  This is a 
   convenience function which first creates a stencil network and then 
   computed the RBF-FD weights for each stencil.
   
   Parameters
   ----------
   x : (N,D) array
-    Estimation points
+    Approximation point. 
 
   p : (M,D) array
-    Observation points
+    Observation points.
 
   diffs : (D,) int array or (K,D) int array 
     Derivative orders for each spatial variable. For example [2,0] 
@@ -285,8 +286,8 @@ def weight_matrix(x,p,diffs,coeffs=None,
     array.
 
   basis : rbf.basis.RBF, optional
-    Type of radial basis function. Select from those available in 
-    rbf.basis or create your own.
+    Type of RBF. Select from those available in rbf.basis or create 
+    your own.
 
   order : int, optional
     Order of the added polynomial. This defaults to the highest 
@@ -294,9 +295,9 @@ def weight_matrix(x,p,diffs,coeffs=None,
     order is set to 2. 
 
   eps : (M,) array, optional
-    shape parameter for each radial basis function. This only makes 
-    a difference when using RBFs that are not scale invariant.  All 
-    the predefined RBFs except for the odd order polyharmonic 
+    shape parameter for each RBF, which have centers *p*. This only 
+    makes a difference when using RBFs that are not scale invariant.  
+    All the predefined RBFs except for the odd order polyharmonic 
     splines are not scale invariant.
 
   n : int, optional
@@ -308,6 +309,13 @@ def weight_matrix(x,p,diffs,coeffs=None,
   smp : (Q,D) int array, optional
     Connectivity of the vertices to form boundaries
 
+  check_all_edges : bool, optional
+    Used to determine how strictly the boundaries are enforced. If 
+    False, then the stencil for *x[i]* will consist of the nearest 
+    nodes which do not form a segment with *x[i]* that intersects the 
+    boundary. If True then, in addition, no two nodes in the stencil 
+    will form a segment that intersects the boundary.
+    
   use_pinv : bool, optional
     Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 
     weights. This should be used for stencils where the weights cannot 
@@ -335,6 +343,8 @@ def weight_matrix(x,p,diffs,coeffs=None,
   p = np.asarray(p)
   diffs = np.asarray(diffs,dtype=int)
   diffs = _reshape_diffs(diffs)
+  if eps is None:
+    eps = np.ones(p.shape[0],dtype=float)
   
   if n is None:
     # if stencil size is not given then use the default stencil size. 
@@ -356,7 +366,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
   data = np.zeros(sn.shape,dtype=float)
   for i,si in enumerate(sn):
     data[i,:] = weights(x[i],p[si],diffs,
-                        coeffs=coeffs,eps=eps,
+                        coeffs=coeffs,eps=eps[si],
                         basis=basis,order=order,
                         use_pinv=use_pinv)
 
