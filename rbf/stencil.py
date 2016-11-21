@@ -9,8 +9,6 @@ from scipy.spatial import cKDTree
 from rbf.geometry import intersection_count
 from itertools import combinations
 import networkx
-import logging
-logger = logging.getLogger(__name__)
 
 class StencilError(Exception):
   ''' 

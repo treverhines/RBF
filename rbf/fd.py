@@ -105,7 +105,7 @@ def _rhs(x,s,eps,powers,diff,basis):
 
 def weights(x,s,diffs,coeffs=None,
             basis=rbf.basis.phs3,order=None,
-            eps=None,pinv_on_error=True):
+            eps=None,use_pinv=False):
   ''' 
   Returns the weights which map a functions values at *s* to 
   an estimate of that functions derivative at *x*. The weights are 
@@ -150,9 +150,10 @@ def weights(x,s,diffs,coeffs=None,
     the predefined RBFs except for the odd order polyharmonic 
     splines are not scale invariant.
 
-  pinv_on_error : bool, optional
+  use_pinv : bool, optional
     Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 
-    weights if they cannot otherwise be uniquely resolved.
+    weights. This should be used for stencils where the weights cannot 
+    be uniquely resolved (e.g. when there are duplicate nodes).
 
   Returns
   -------
@@ -232,24 +233,21 @@ def weights(x,s,diffs,coeffs=None,
   for c,d in zip(coeffs,diffs):
     rhs += c*_rhs(x,s,eps,powers,d,basis)
 
-  try:
-    out = _lapack_solve(lhs,rhs)[:N]
-    #out = np.linalg.solve(lhs,rhs)[:N]
+  if use_pinv:
+    out = np.linalg.pinv(lhs).dot(rhs)[:N]
+
+  else:  
+    try:
+      out = _lapack_solve(lhs,rhs)[:N]
     
-  except np.linalg.LinAlgError:
-     if pinv_on_error:
-       print('Cannot uniquely solve for the RBF-FD weights for point %s.'
-             'The weights will instead be calculated with a pseudo-inversion' % x)             
-       out = np.linalg.pinv(lhs).dot(rhs)[:N]
-       
-     else:
-       raise np.linalg.LinAlgError(
-         'Cannot uniquely solve for the RBF-FD weights for point %s. Make sure '
-         'that the stencil meets the conditions for non-singularity. '
-         'This error may also be due to numerically flat basis '
-         'functions. To ignore this error and solve for the weights '
-         'with a pseudo-inversion, set *pinv_on_error* to True.\n\nThe '
-         'stencil contains the following nodes:\n%s' % (x,s))
+    except np.linalg.LinAlgError:
+      raise np.linalg.LinAlgError(
+        'Cannot uniquely solve for the RBF-FD weights for point %s. '
+        'Make sure that the stencil meets the conditions for '
+        'non-singularity. This error may also be due to numerically '
+        'flat basis functions. To ignore this error and solve for '
+        'the weights with a pseudo-inversion, set *use_pinv* to True.'
+        '\n\nThe stencil contains the following nodes:\n%s' % (x,s))
 
   return out
 
@@ -257,7 +255,7 @@ def weights(x,s,diffs,coeffs=None,
 def weight_matrix(x,p,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
                   eps=None,n=None,vert=None,smp=None,
-                  check_all_edges=False,pinv_on_error=True):
+                  check_all_edges=False,use_pinv=False):
   ''' 
   Returns a weight matrix which maps a functions values at *p* to 
   estimates of that functions derivative at *x*.  This is a 
@@ -310,9 +308,10 @@ def weight_matrix(x,p,diffs,coeffs=None,
   smp : (Q,D) int array, optional
     Connectivity of the vertices to form boundaries
 
-  pinv_on_error : bool, optional
+  use_pinv : bool, optional
     Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 
-    weights if they cannot otherwise be uniquely resolved.
+    weights. This should be used for stencils where the weights cannot 
+    be uniquely resolved (e.g. when there are duplicate nodes).
 
   Returns
   -------
@@ -359,7 +358,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
     data[i,:] = weights(x[i],p[si],diffs,
                         coeffs=coeffs,eps=eps,
                         basis=basis,order=order,
-                        pinv_on_error=pinv_on_error)
+                        use_pinv=use_pinv)
 
   rows = np.repeat(range(data.shape[0]),data.shape[1])
   cols = sn.ravel()
