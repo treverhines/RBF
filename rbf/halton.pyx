@@ -79,7 +79,7 @@ cpdef np.ndarray halton(long N,
   start : int, optional
     Starting index in the halton sequence. defaults to 0
       
-  skip: int, optional
+  skip : int, optional
     Increment by this amount. defaults to 1
       
   prime_index : int, optional

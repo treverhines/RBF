@@ -14,13 +14,16 @@ found `here <http://www.github.com/treverhines/RBF>`_
 
 Features
 --------
-* Efficient evaluation of RBFs and their analytically derived derivatives
-* Regularized RBF interpolation for noisy, scattered, data
-* Generation of radial basis function finite difference (RBF-FD) 
-  weights
+* Efficient functions to evaluate RBFs and their analytically derived 
+  derivatives
+* Regularized RBF interpolants (including smoothing splines) for
+  noisy, scattered, data
+* An algorithm for generating Radial Basis Function Finite Difference 
+  (RBF-FD) weights
 * RBF-FD Filtering for denoising **BIG**, scattered data
-* Node and stencil generation algorithms for solving PDEs over 
+* Node and stencil generation algorithms for solving PDEs over
   irregular domains
+* Halton sequence generator
 * Computational geometry functions for 1, 2, and 3 spatial dimensions
 
 Table of Contents
@@ -36,6 +39,7 @@ Table of Contents
   nodes
   stencil
   geometry
+  halton
 
 Quick Demo
 ----------
