@@ -161,10 +161,10 @@ def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
   Parameters
   ----------
   x : (N,D) array
-    Approximation points. A stencil will be made for each point in *x*
+    Target points. A stencil will be made for each point in *x*
 
   p : (M,D) array
-    Observation points. The stencils will be made up of points from *p*    
+    Source points. The stencils will be made up of points from *p*    
 
   n : int
     Stencil size
@@ -224,10 +224,10 @@ def nearest(x,p,n,vert=None,smp=None):
   Parameters
   ----------
   x : (N,D) array
-    Query points.
+    Target points.
 
   p : (M,D) array
-    Population points.
+    Source points.
 
   vert : (P,D) array, optional     
     Vertices of the boundary 

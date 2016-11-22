@@ -123,20 +123,20 @@ class RBFInterpolant(object):
   Parameters 
   ---------- 
   x : (N,D) array
-    Observation points which make up the rbf centers
+    Source points.
 
   value : (N,) array
-    Function values at the observation points
+    Function values at the source points.
 
   sigma : (N,) array, optional
-    One standard deviation uncertainty on each observation point
+    One standard deviation uncertainty on each observation point.
         
   eps : (N,) array, optional
     Shape parameters for each RBF. this has no effect for odd
-    order polyharmonic splines
+    order polyharmonic splines.
 
   basis : rbf.basis.RBF instance, optional
-    Radial basis function to use
+    Radial basis function to use.
  
   extrapolate : bool, optional
     Whether to allows points to be extrapolated outside of a 
@@ -144,7 +144,7 @@ class RBFInterpolant(object):
     outside points.
 
   order : int, optional
-    Order of added polynomial terms
+    Order of added polynomial terms.
         
   penalty : float, optional
     The smoothing parameter. This decreases the size of the RBF 
@@ -225,15 +225,15 @@ class RBFInterpolant(object):
     Parameters 
     ---------- 
     xitp : (N,D) array
-      Points where the interpolant is to be evaluated
+      Target points.
 
     diff : (D,) int array, optional
-      Derivative order for each spatial dimension
+      Derivative order for each spatial dimension.
         
     max_chunk : int, optional  
-      Break xitp into chunks with this size and evaluate the 
+      Break *xitp* into chunks with this size and evaluate the 
       interpolant for each chunk.  Smaller values result in 
-      decreased memory usage but also decreased speed
+      decreased memory usage but also decreased speed.
 
     Returns
     -------

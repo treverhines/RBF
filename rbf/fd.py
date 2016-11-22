@@ -116,10 +116,10 @@ def weights(x,s,diffs,coeffs=None,
   Parameters
   ----------
   x : (D,) array
-    Approximation point.
+    Target point.
 
   s : (N,D) array
-    Observation points. The interpolant used in creating the returned 
+    Source points. The interpolant used in creating the returned 
     weights will contain RBFs centered on *s*.
 
   diffs : (D,) int array or (K,D) int array 
@@ -266,10 +266,10 @@ def weight_matrix(x,p,diffs,coeffs=None,
   Parameters
   ----------
   x : (N,D) array
-    Approximation point. 
+    Target points. 
 
   p : (M,D) array
-    Observation points.
+    Source points.
 
   diffs : (D,) int array or (K,D) int array 
     Derivative orders for each spatial variable. For example [2,0] 
