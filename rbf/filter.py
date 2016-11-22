@@ -167,7 +167,7 @@ def filter(x,u,sigma=None,
     smaller than 1/*cutoff*. In most cases, the smoothed solution is 
     consistent with the chosen *cutoff*. The frequency content of the 
     smoothed solution tends to deviate from *cutoff* at the domain 
-    boundaries and when there are a wide range of values in *sigma*. 
+    boundaries and when *sigma* spans several orders of magnitude. 
     *cutoff* defaults to a frequency corresponding to a wavelength 
     which is 20 times the average shortest distance between points in 
     *x*.

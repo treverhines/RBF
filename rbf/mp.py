@@ -54,25 +54,27 @@ def parmap(f,args,workers=None):
   than one then the parent process spawns that many worker processes to 
   evaluate the map. 
   
+  Parameters
+  ----------
+  f : callable
+
+  a : list
+    list of arguments to *f*
+    
+  workers : int, optional
+    number of subprocess to spawn. Defaults to half the available 
+    cores plus one
+
+  NOTES
+  -----
   If the *mkl* package is installed then this function first sets the 
   maximum number of allowed threads per process to 1. This is to help 
   prevents spawned subprocesses from using multiple cores. The number 
   of allowed threads is reset after all subprocesses have finished.
-  
-  Parameters
-  ----------
-    f : callable
-
-    a : list
-      list of arguments to *f*
     
-    workers : int, optional
-      number of subprocess to spawn. Defaults to half the available 
-      cores plus one
   '''
   if workers is None:
-    # starting_threads is a good estimate for the number of processes 
-    # that can be simultaneously running
+    # default number of processes to have simultaneously running
     workers = cpu_count()//2 + 1
 
   if workers < 0:
@@ -82,7 +84,7 @@ def parmap(f,args,workers=None):
     # perform the map on the parent process
     return [f(i) for i in args]
 
-  # make sure that lower level functions are not running in parallel
+  # attempt to prevent lower level functions from running in parallel
   if _HAS_MKL:
     starting_threads = mkl.get_max_threads()
     mkl.set_num_threads(1)
