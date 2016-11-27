@@ -138,6 +138,7 @@ def filter(x,u,sigma=None,
            samples=100,
            diffs=None,
            procs=0,
+           exact=False,
            **kwargs):
   ''' 
   This function emulates a low-pass filter and is generalized to 
@@ -155,22 +156,20 @@ def filter(x,u,sigma=None,
     Data values at *x*.
     
   sigma : (..., N) array, optional
-    One standard deviation uncertainty on the observations. This 
-    must have the same shape as u. Any np.inf entries are treated as 
+    One standard deviation uncertainty on the observations. This must 
+    have the same shape as *u*. Any np.inf entries are treated as 
     missing data.  Missing data can either be ignored or filled in 
-    depending on the *fill* argument. If *sigma* is not provided 
-    then it defaults to an array of ones
+    depending on the *fill* argument. If *sigma* is not provided then 
+    it defaults to an array of ones
     
   cutoff : float, optional
     Approximate cutoff frequency. The smoothed solution returned by 
     this function is intended to not have any features with wavelength 
-    smaller than 1/*cutoff*. In most cases, the smoothed solution is 
-    consistent with the chosen *cutoff*. The frequency content of the 
-    smoothed solution tends to deviate from *cutoff* at the domain 
-    boundaries and when *sigma* spans several orders of magnitude. 
-    *cutoff* defaults to a frequency corresponding to a wavelength 
-    which is 20 times the average shortest distance between points in 
-    *x*.
+    smaller than 1/*cutoff*.  The frequency content of the smoothed 
+    solution tends to deviate from *cutoff* at the domain boundaries 
+    and when *sigma* spans several orders of magnitude. *cutoff* 
+    defaults to a frequency corresponding to a wavelength which is 20 
+    times the average shortest distance between points in *x*.
           
   order : int, optional
     Smoothness order. Higher orders will cause the frequency response 
@@ -185,7 +184,8 @@ def filter(x,u,sigma=None,
     the standard deviation of random perturbations to the data vector. 
     This argument specifies the number of random perturbations to use. 
     Increasing this value will increase the accuracy of the 
-    uncertainty estimate as well as the computation time
+    uncertainty estimate as well as the computation time. If an exact 
+    solution is desired then set *exact_uncertainty* to True.
       
   fill : str, optional
     Indicates how to treat missing data (i.e. data where *sigma* is 
@@ -206,6 +206,12 @@ def filter(x,u,sigma=None,
     returned by setting *diffs* to [2,0]. A differential operator 
     can be specified with a (K,D) array. For example the Laplacian 
     can be returned with [[2,0],[0,2]]
+      
+  exact : bool, optional
+    If True, then the solution uncertainty is computed exactly, as 
+    opposed to iteratively. The value for *samples* will be ignored. 
+    This will significantly increase memory consumption for large data 
+    sets.
       
   procs : int, optional
     Distribute the tasks among this many subprocesses. This defaults 
@@ -269,7 +275,6 @@ def filter(x,u,sigma=None,
     # sigma[i,:]. Note: this function makes use of variables which are 
     # outside of its scope.
     logger.debug('evaluating the filtered solution for data set %s ...' % i)
-
     # identify observation points where we do not want to estimate the 
     # filtered solution
     mask = _get_mask(x,sigma[i],fill)
@@ -290,21 +295,29 @@ def filter(x,u,sigma=None,
     post_mean = np.empty((N,))
     post_mean[~mask] = D.dot(lu.solve(rhs))
     post_mean[mask] = np.nan
-    # compute the posterior standard deviation. This is done through 
-    # repeated random perturbations of the data and prior vector. 
-    ivar = _IterativeVariance(post_mean[~mask])
-    for j in range(samples):
-      w1 = np.random.normal(0.0,1.0,K)
-      w2 = np.random.normal(0.0,1.0,K)
-      # generate sample of the posterior
-      post_sample = lu.solve(rhs + W.T.dot(w1) + L.T.dot(w2)/p)
-      # differentiate the sample
-      post_sample = D.dot(post_sample)
-      ivar.add_sample(post_sample)
+    # compute the posterior standard deviation. 
+    if exact:
+      cov = D.dot(spla.inv(lhs)).dot(D.T)
+      var = np.diag(cov.toarray())
+    else:  
+      # compute uncertainty through repeated random perturbations of 
+      # the data and prior vector.
+      ivar = _IterativeVariance(post_mean[~mask])
+      for j in range(samples):
+        w1 = np.random.normal(0.0,1.0,K)
+        w2 = np.random.normal(0.0,1.0,K)
+        # generate sample of the posterior
+        post_sample = lu.solve(rhs + W.T.dot(w1) + L.T.dot(w2)/p)
+        # differentiate the sample
+        post_sample = D.dot(post_sample)
+        ivar.add_sample(post_sample)
     
+      var = ivar.get_variance() 
+
     post_sigma = np.empty((N,))
-    post_sigma[~mask] = np.sqrt(ivar.get_variance())
+    post_sigma[~mask] = np.sqrt(var)
     post_sigma[mask] = np.inf
+      
     logger.debug('done')
     return post_mean,post_sigma
     
