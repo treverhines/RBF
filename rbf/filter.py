@@ -134,7 +134,7 @@ def _diag(diag):
 def filter(x,u,sigma=None,
            cutoff=None, 
            fill='extrapolate',
-           order=2,
+           p=2,
            samples=100,
            diffs=None,
            procs=0,
@@ -171,7 +171,7 @@ def filter(x,u,sigma=None,
     defaults to a frequency corresponding to a wavelength which is 20 
     times the average shortest distance between points in *x*.
           
-  order : int, optional
+  p : int, optional
     Smoothness order. Higher orders will cause the frequency response 
     to be more box-like, while lower orders have a frequency response 
     that is tapered across the cutoff frequency.  This should almost 
