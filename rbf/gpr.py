@@ -125,7 +125,7 @@ class GaussianProcess(object):
     out = GaussianProcess(mean_func,cov_func,d,self)
     return out
   
-  def posterior(self,obs_x,obs_mu,obs_sigma=None,obs_diff=None):
+  def posterior(self,obs_x,obs_mu,obs_sigma=None,obs_diff=None,order=-1):
     obs_x = np.asarray(obs_x)
     obs_mu = np.asarray(obs_mu)
     if obs_diff is None:
@@ -136,26 +136,53 @@ class GaussianProcess(object):
     else:
       obs_sigma = np.asarray(obs_sigma)
 
-    def mean_func(x,diff,obs_x,obs_mu,obs_sigma,obs_diff,gp):
+    def mean_func(x,diff,obs_x,obs_mu,obs_sigma,
+                  obs_diff,order,gp):
       res = obs_mu - gp.mean(obs_x,diff=obs_diff)
       Cd = np.diag(obs_sigma**2)
       K = gp.covariance(obs_x,obs_x,diff1=obs_diff,diff2=obs_diff) + Cd
       Kinv = np.linalg.inv(K)
       Ki = gp.covariance(x,obs_x,diff1=diff,diff2=obs_diff)
-      out = gp.mean(x,diff=diff) + Ki.dot(Kinv.dot(res))
+      mean1 = gp.mean(x,diff=diff) + Ki.dot(Kinv.dot(res))
+      
+      # account for unconstrained monomial basis functions
+      powers = rbf.poly.powers(order,x.shape[1]) 
+      H = rbf.poly.mvmonos(obs_x,powers,diff=obs_diff)
+      Hi = rbf.poly.mvmonos(x,powers,diff=diff)
+      R = Hi - Ki.dot(Kinv).dot(H)
+      Cb = np.linalg.inv(H.T.dot(Kinv).dot(H))
+      b = Cb.dot(H.T.dot(Kinv.dot(res)))
+      mean2 = R.dot(b)
+      
+      out = mean1 + mean2
       return out
 
-    def cov_func(x1,x2,diff1,diff2,obs_x,obs_mu,obs_sigma,obs_diff,gp):
+    def cov_func(x1,x2,diff1,diff2,obs_x,obs_mu,obs_sigma,
+                 obs_diff,order,gp):
       Cd = np.diag(obs_sigma**2)
       K = gp.covariance(obs_x,obs_x,diff1=obs_diff,diff2=obs_diff) + Cd
       Kinv = np.linalg.inv(K)
       Ki = gp.covariance(x1,obs_x,diff1=diff1,diff2=obs_diff)
-      Kj = gp.covariance(obs_x,x2,diff1=obs_diff,diff2=diff2)
+      Kj = gp.covariance(x2,obs_x,diff1=diff2,diff2=obs_diff)
       Kij = gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
-      out = Kij - Ki.dot(Kinv).dot(Kj)        
+      cov1 = Kij - Ki.dot(Kinv).dot(Kj.T)        
+
+      # account for unconstrained monomial basis functions
+      powers = rbf.poly.powers(order,x.shape[1]) 
+      H = rbf.poly.mvmonos(obs_x,powers,diff=obs_diff)
+      Hi = rbf.poly.mvmonos(x1,powers,diff=diff1)
+      Hj = rbf.poly.mvmonos(x2,powers,diff=diff2)
+      Ri = Hi - Ki.dot(Kinv).dot(H)
+      Rj = Hj - Kj.dot(Kinv).dot(H)
+
+      Cb = np.linalg.inv(H.T.dot(Kinv).dot(H))
+      cov2 = Ri.dot(Cb).dot(Rj.T)
+             
+      out = cov1 + cov2
       return out
 
-    out = GaussianProcess(mean_func,cov_func,obs_x,obs_mu,obs_sigma,obs_diff,self)
+    out = GaussianProcess(mean_func,cov_func,obs_x,obs_mu,obs_sigma,
+                          obs_diff,order,self)
     return out
 
   # convert _mean_func to a class method
@@ -215,30 +242,29 @@ def squared_exp_prior(mu,sigma,cls):
   out = GaussianProcess(_se_mean_func,_se_cov_func,mu,sigma,cls)
   return out
 
-
 if __name__ == '__main__':
-  N = 300
+  N = 100
   Nitp = 1000
   x = np.linspace(0.0,10.0,N)[:,None]
   xitp = np.linspace(0.0,10.0,Nitp)[:,None]
-  prior_mu = 0.0
-  prior_sigma = 1.0
-  prior_cls = 0.5
+  prior_mu = 10.0
+  prior_sigma = 10.0
+  prior_cls = 1.0
 
   obs_sigma = 0.1*np.ones(N)
-  obs_mu = np.cos(x[:,0]) + np.random.normal(0.0,obs_sigma)
-  obs_mu2 = np.sin(x[:,0]) + np.random.normal(0.0,obs_sigma[:])
+  obs_mu1 = 0.5*np.sin(x[:,0]) + np.random.normal(0.0,obs_sigma)
+  obs_mu2 = 0.5*np.cos(x[:,0]) + np.random.normal(0.0,obs_sigma)
 
   gp = squared_exp_prior(prior_mu,prior_sigma,prior_cls)
-  gp = gp.posterior(x,obs_mu,obs_sigma,obs_diff=(1,))
-  gp = gp.posterior(x[::5],obs_mu2[::5],obs_sigma[::5],obs_diff=(0,))
+  gp = gp.posterior(x,obs_mu1,obs_sigma,order=1,obs_diff=(0,))
+  gp = gp.posterior(x,obs_mu2,obs_sigma,obs_diff=(1,))
   mean,cov = gp(xitp,diff=(0,))
   std = np.sqrt(np.diag(cov))
 
-  plt.errorbar(x,obs_mu,obs_sigma,fmt='ko')
-  plt.errorbar(x[::5],obs_mu2[::5],obs_sigma[::5],fmt='go')
+  plt.errorbar(x,obs_mu1,obs_sigma,fmt='ko')
+  plt.errorbar(x,obs_mu2,obs_sigma,fmt='ro')
   plt.plot(xitp,mean,'r-')
-  plt.plot(xitp,np.sin(xitp[:,0]),'b-')
+  plt.plot(xitp,0.5*np.sin(xitp[:,0]),'b-')
   plt.fill_between(xitp[:,0],mean-std,mean+std,color='r',alpha=0.2)
   plt.show()
   quit()
