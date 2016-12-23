@@ -21,6 +21,7 @@ Multiquadratic                     mq            :math:`(1 + (\epsilon r)^2)^{1/
 Inverse multiquadratic             imq           :math:`(1 + (\epsilon r)^2)^{-1/2}`
 Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1}`
 Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
+Exponential                        exp           :math:`\exp(-(\epsilon r))`
 =================================  ============  ======================================
 
 ''' 
@@ -425,6 +426,15 @@ def ga(*args,**kwargs):
   return _GA(*args,**kwargs)
 
 ga.__doc__ += _FUNCTION_DOC
+
+_EXP = RBF(sympy.exp(-(_EPS*_R)))
+def exp(*args,**kwargs):
+  '''                        
+  Exponential
+  '''
+  return _EXP(*args,**kwargs)
+
+exp.__doc__ += _FUNCTION_DOC
 
 
 _MQ = RBF(sympy.sqrt(1 + (_EPS*_R)**2))

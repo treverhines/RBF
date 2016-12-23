@@ -1,16 +1,14 @@
 ''' 
 Module for Gaussian process regression.
 '''
-
 import numpy as np
-import matplotlib.pyplot as plt
 import rbf.fd
 import rbf.poly
 import rbf.basis
 from functools import wraps
 
 def _block_if_null_space_exists(fin):
-  @wraps
+  @wraps(fin)
   def fout(self,*args,**kwargs):
     if self._order != -1: 
       raise ValueError(
@@ -81,28 +79,71 @@ class GaussianProcess(object):
   
   @_block_if_null_space_exists
   def __call__(self,x,diff=None):
+    ''' 
+    Returns the mean and covariance evaluated at *x*
+    
+    Parameters
+    ----------
+    x : (N,D) array
+      Evaluation points
+      
+    diff : (D,) tuple, optional
+      Derivative specification
+    
+    
+    Returns
+    -------
+    mean : (N,) array
+    
+    cov : (N,N) array  
+      
+    '''    
     mean = self.mean(x,diff=diff)
     cov = self.covariance(x,x,diff1=diff,diff2=diff)
     return mean,cov
 
   @_block_if_null_space_exists
   def __add__(self,other):
+    ''' 
+    gp1 + gp2 <==> gp1.sum(gp2)
+    '''
     return self.sum(other)
 
   @_block_if_null_space_exists
   def __sub__(self,other):
+    ''' 
+    gp1 - gp2 <==> gp1.difference(gp2)
+    '''
     return self.difference(other)
 
   @_block_if_null_space_exists
   def __mul__(self,c):
+    ''' 
+    c*gp  <==> gp.scale(c)
+    '''
     return self.scale(c)
 
   @_block_if_null_space_exists
   def __rmul__(self,c):
+    ''' 
+    gp*c  <==> gp.scale(c)
+    '''
     return self.__mul__(c)
 
   @_block_if_null_space_exists
   def sum(self,other):
+    ''' 
+    Adds two Gaussian processes
+    
+    Parameters
+    ----------
+    other : GuassianProcess 
+      
+    Returns
+    -------
+    out : GaussianProcess 
+      
+    ''' 
     def mean_func(x,diff,gp1,gp2):
       out = gp1.mean(x,diff=diff) + gp2.mean(x,diff=diff)
       return out       
@@ -118,6 +159,18 @@ class GaussianProcess(object):
 
   @_block_if_null_space_exists
   def difference(self,other):
+    ''' 
+    Subtracts two Gaussian processes
+    
+    Parameters
+    ----------
+    other : GuassianProcess 
+      
+    Returns
+    -------
+    out : GaussianProcess 
+      
+    ''' 
     def mean_func(x,diff,gp1,gp2):
       out = gp1.mean(x,diff=diff) - gp2.mean(x,diff=diff)
       return out
@@ -133,12 +186,24 @@ class GaussianProcess(object):
     
   @_block_if_null_space_exists
   def scale(self,c):
-    def mean_func(x,diff,c,gp):
-      out = c*gp.mean(x,diff=diff)
+    ''' 
+    Scales a Gaussian process 
+    
+    Parameters
+    ----------
+    c : float
+      
+    Returns
+    -------
+    out : GaussianProcess 
+      
+    ''' 
+    def mean_func(x,diff,c_,gp):
+      out = c_*gp.mean(x,diff=diff)
       return out
 
-    def cov_func(x1,x2,diff1,diff2,c,gp):
-      out = c**2*gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
+    def cov_func(x1,x2,diff1,diff2,c_,gp):
+      out = c_**2*gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
       return out
       
     out = GaussianProcess(mean_func,cov_func,
@@ -148,15 +213,25 @@ class GaussianProcess(object):
   @_block_if_null_space_exists
   def derivative(self,d):
     ''' 
-    returns a derivative of the Gaussian process
+    Returns the derivative of a Gaussian process
+    
+    Parameters
+    ----------
+    d : (D,) tuple
+      Derivative specification
+      
+    Returns
+    -------
+    out : GaussianProcess       
+
     '''
     d = np.asarray(d,dtype=int)
-    def mean_func(x,diff,d,gp):
-      out = gp.mean(x,diff=d+diff)
+    def mean_func(x,diff,d_,gp):
+      out = gp.mean(x,diff=d_+diff)
       return out 
 
-    def cov_func(x1,x2,diff1,diff2,d,gp):
-      out = gp.covariance(x1,x2,diff1=d+diff1,diff2=d+diff2)
+    def cov_func(x1,x2,diff1,diff2,d_,gp):
+      out = gp.covariance(x1,x2,diff1=d_+diff1,diff2=d_+diff2)
       return out
       
     out = GaussianProcess(mean_func,cov_func,
@@ -165,6 +240,32 @@ class GaussianProcess(object):
     return out
   
   def posterior(self,obs_x,obs_mu,obs_sigma=None,obs_diff=None):
+    ''' 
+    Returns a conditional Gaussian process which incorporates the 
+    observed data.
+    
+    Parameters
+    ----------
+    obs_x : (N,D) array
+      Observation points
+    
+    obs_mu : (N,) array
+      Mean value of the observations  
+      
+    obs_sigma : (N,) array, optional
+      Standard deviation of the observations. This defaults to zeros 
+      (i.e. the data are assumed to be known perfectly).
+
+    obs_diff : (D,) tuple, optional
+      Derivative of Gaussian process which the observations constrain. 
+      For example, use (1,) if the observations constrain the slope of 
+      a 1-D Gaussian process.
+      
+    Returns
+    -------
+    out : GaussianProcess
+      
+    '''
     obs_x = np.asarray(obs_x)
     obs_mu = np.asarray(obs_mu)
     if obs_diff is None:
@@ -175,29 +276,29 @@ class GaussianProcess(object):
     else:
       obs_sigma = np.asarray(obs_sigma)
 
-    def mean_func(x,diff,obs_x,obs_mu,obs_sigma,
-                  obs_diff,gp):
+    def mean_func(x,diff,obs_x_,obs_mu_,obs_sigma_,
+                  obs_diff_,gp):
       order = gp._order
       gp._order = -1
       try:
-        N,D = obs_x.shape
+        N,D = obs_x_.shape
         I = x.shape[0]
         powers = rbf.poly.powers(order,D) 
         P = powers.shape[0]
 
         res = np.zeros(N+P)
-        res[:N] = obs_mu - gp.mean(obs_x,diff=obs_diff)
+        res[:N] = obs_mu_ - gp.mean(obs_x_,diff=obs_diff_)
       
+        Cd = np.diag(obs_sigma_**2)
+        K = gp.covariance(obs_x_,obs_x_,diff1=obs_diff_,diff2=obs_diff_)
+        H = rbf.poly.mvmonos(obs_x_,powers,diff=obs_diff_)
         A = np.zeros((N+P,N+P))
-        Cd = np.diag(obs_sigma**2)
-        K = gp.covariance(obs_x,obs_x,diff1=obs_diff,diff2=obs_diff)
-        H = rbf.poly.mvmonos(obs_x,powers,diff=obs_diff)
         A[:N,:N] = K + Cd
         A[:N,N:] = H
         A[N:,:N] = H.T
         Ainv = np.linalg.inv(A)
       
-        Ki = gp.covariance(x,obs_x,diff1=diff,diff2=obs_diff)
+        Ki = gp.covariance(x,obs_x_,diff1=diff,diff2=obs_diff_)
         Hi = rbf.poly.mvmonos(x,powers,diff=diff)
         Ai = np.zeros((I,N+P))
         Ai[:,:N] = Ki
@@ -216,20 +317,20 @@ class GaussianProcess(object):
 
       return out
 
-    def cov_func(x1,x2,diff1,diff2,obs_x,obs_mu,obs_sigma,
-                 obs_diff,gp):
+    def cov_func(x1,x2,diff1,diff2,obs_x_,obs_mu_,obs_sigma_,
+                 obs_diff_,gp):
       order = gp._order
       gp._order = -1
       try:
-        N,D = obs_x.shape
+        N,D = obs_x_.shape
         I = x1.shape[0]
         J = x2.shape[0]
         powers = rbf.poly.powers(order,D) 
         P = powers.shape[0]
       
-        Cd = np.diag(obs_sigma**2)
-        K = gp.covariance(obs_x,obs_x,diff1=obs_diff,diff2=obs_diff)
-        H = rbf.poly.mvmonos(obs_x,powers,diff=obs_diff)
+        Cd = np.diag(obs_sigma_**2)
+        K = gp.covariance(obs_x_,obs_x_,diff1=obs_diff_,diff2=obs_diff_)
+        H = rbf.poly.mvmonos(obs_x_,powers,diff=obs_diff_)
         A = np.zeros((N+P,N+P))
         A[:N,:N] = K + Cd
         A[:N,N:] = H
@@ -238,13 +339,13 @@ class GaussianProcess(object):
       
         Kii = gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
 
-        Ki = gp.covariance(x1,obs_x,diff1=diff1,diff2=obs_diff)
+        Ki = gp.covariance(x1,obs_x_,diff1=diff1,diff2=obs_diff_)
         Hi = rbf.poly.mvmonos(x1,powers,diff=diff1)
         Ai = np.zeros((I,N+P))
         Ai[:,:N] = Ki
         Ai[:,N:] = Hi
 
-        Kj = gp.covariance(x2,obs_x,diff1=diff2,diff2=obs_diff)
+        Kj = gp.covariance(x2,obs_x_,diff1=diff2,diff2=obs_diff_)
         Hj = rbf.poly.mvmonos(x2,powers,diff=diff2)
         Aj = np.zeros((J,N+P))
         Aj[:,:N] = Kj
@@ -271,6 +372,21 @@ class GaussianProcess(object):
   # convert _mean_func to a class method
   @_block_if_null_space_exists
   def mean(self,x,diff=None):
+    ''' 
+    Returns the mean of the Gaussian process at *x*
+    
+    Parameters
+    ----------
+    x : (N,D) array
+      Observation points
+        
+    diff : (D,) tuple
+      Derivative specification    
+      
+    Returns
+    -------
+    out : (N,) array  
+    '''
     x = np.asarray(x)
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
@@ -294,9 +410,28 @@ class GaussianProcess(object):
   # convert _cov_func to a class method
   @_block_if_null_space_exists
   def covariance(self,x1,x2,diff1=None,diff2=None):
-    x1 = np.asarray(x1)
-    x2 = np.asarray(x2)
-    if diff1 is None:  
+    ''' 
+    Returns the covariance of the Gaussian process between *x1* and *x2*
+    
+    Parameters
+    ----------
+    x1,x2 : (N,D) array
+      Observation points
+        
+    diff1,diff2 : (D,) tuple
+      Derivative specification. For example, if *diff1* is (0,) and 
+      *diff2* is (1,), then the returned covariance matrix will indicate 
+      how the Gaussian process at *x1* covaries with the derivative of 
+      the Gaussian process at *x2*.
+
+    Returns
+    -------
+    out : (N,N) array    
+    
+    ''' 
+    x1 = np.asarray(x1) 
+    x2 = np.asarray(x2) 
+    if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
     else:
       diff1 = np.asarray(diff1,dtype=int)
@@ -332,6 +467,31 @@ class GaussianProcess(object):
     
   @_block_if_null_space_exists
   def draw_sample(self,x,diff=None):  
+    '''  
+    Draws a random sample from the Gaussian process
+    
+    Parameters
+    ----------
+    x : (N,D) array
+      Evaluation points
+      
+    diff : (D,) tuple
+      Derivative specification
+      
+    Returns
+    -------
+    out : (N,) array      
+    
+    Notes
+    -----
+    This function may raise a warning saying that the covariance 
+    matrix is not positive definite. This may be due to numerical 
+    rounding error and, if so, the warning can be ignored.  Consider 
+    generating a covariance matrix with the *covariance* method and 
+    ensuring that its eigenvalues are all positive or effectively zero 
+    to within some tolerance.
+        
+    '''
     mean,cov = self(x,diff=diff)
     return np.random.multivariate_normal(mean,cov)
     
@@ -340,96 +500,162 @@ class GaussianProcess(object):
 # Define prior models
 #####################################################################
 
-def _squared_exp_mean_func(x,diff,mu,sigma,cls):
+# Exponential
+#####################################################################
+def _exponential_mean(x,diff,mu,sigma,cls):
   if sum(diff) == 0:
     return mu*np.ones(x.shape[0])       
   else:
     return np.zeros(x.shape[0])  
 
-def _squared_exp_cov_func(x1,x2,diff1,diff2,mu,sigma,cls):
+def _exponential_cov(x1,x2,diff1,diff2,mu,sigma,cls):
+  eps = np.ones(x2.shape[0])/cls
+  coeff = (-1)**sum(diff2)*sigma**2
+  diff = diff1 + diff2
+  if sum(diff) > 0:
+    raise ValueError(
+      'The prior model is not sufficiently differentiable')
+  
+  K = coeff*rbf.basis.exp(x1,x2,eps=eps,diff=diff)
+  return K
+
+def exponential(mu,sigma,cls,order=-1):
+  ''' 
+  Creates a GaussianProcess instance, where the spatial covariance is 
+  described with a squared exponential model. 
+  
+  Parameters
+  ----------
+  mu : float
+    Expected value of the Gaussian process
+      
+  sigma : float
+    Standard deviation of the Gaussian process. This controls the 
+    amplitude of realizations.
+    
+  cls : float
+    Characteristic length scale of the Gaussian process.
+   
+   Returns
+   -------
+   out : GaussianProcess    
+
+  '''
+  out = GaussianProcess(_exponential_mean,
+                        _exponential_cov,
+                        func_args=(mu,sigma,cls),
+                        order=order)
+  return out
+
+# Squared exponential
+#####################################################################
+def _squared_exponential_mean(x,diff,mu,sigma,cls):
+  if sum(diff) == 0:
+    return mu*np.ones(x.shape[0])       
+  else:
+    return np.zeros(x.shape[0])  
+
+def _squared_exponential_cov(x1,x2,diff1,diff2,mu,sigma,cls):
   eps = np.ones(x2.shape[0])/(np.sqrt(2)*cls)
   coeff = (-1)**sum(diff2)*sigma**2
   diff = diff1 + diff2
   K = coeff*rbf.basis.ga(x1,x2,eps=eps,diff=diff)
   return K
 
-def squared_exp_prior(mu,sigma,cls):
-  out = GaussianProcess(_squared_exp_mean_func,
-                        _squared_exp_cov_func,
-                        func_args=(mu,sigma,cls))
+def squared_exponential(mu,sigma,cls,order=-1):
+  ''' 
+  Creates a GaussianProcess instance, where the spatial covariance is 
+  described with a squared exponential model. 
+  
+  Parameters
+  ----------
+  mu : float
+    Expected value of the Gaussian process
+      
+  sigma : float
+    Standard deviation of the Gaussian process. This controls the 
+    amplitude of realizations.
+    
+  cls : float
+    Characteristic length scale of the Gaussian process.
+   
+   Returns
+   -------
+   out : GaussianProcess    
+
+  '''
+  out = GaussianProcess(_squared_exponential_mean,
+                        _squared_exponential_cov,
+                        func_args=(mu,sigma,cls),
+                        order=order)
   return out
 
 
-def _spline1d_mean_func(x,diff,p):
+# 1-D Thin plate spline
+#####################################################################
+def _spline1d_mean(x,diff,p):
   return np.zeros(x.shape[0])  
 
-def _spline1d_cov_func(x1,x2,diff1,diff2,p):
-  eps = np.ones(x2.shape[0])/p
-  coeff = (-1)**sum(diff2)
+def _spline1d_cov(x1,x2,diff1,diff2,p):
+  coeff = (-1)**sum(diff2)/p**2
   diff = diff1 + diff2
   if sum(diff) > 3:
     raise ValueError(
       'The prior model is not sufficiently differentiable')
   
-  K = coeff*rbf.basis.phs3(x1,x2,eps=eps,diff=diff)
+  K = coeff*rbf.basis.phs3(x1,x2,diff=diff)
   return K
 
-def spline1d_prior(p):
-  out = GaussianProcess(_spline1d_mean_func,
-                        _spline1d_cov_func,
+def spline1d(p):
+  ''' 
+  Creates a GaussianProcess where the mean of the conditioned 
+  GuassianProcess is equivalent to a one-dimensional thin plate 
+  spline.
+
+  Parameters
+  ----------
+  p : penalty parameter
+  
+  Returns
+  -------
+  out : GaussianProcess
+
+  '''
+  out = GaussianProcess(_spline1d_mean,
+                        _spline1d_cov,
                         func_args=(p,),
                         dim=1,order=1)
   return out
 
 
-def _spline2d_mean_func(x,diff,p):
+# 2-D Thin plate spline
+#####################################################################
+def _spline2d_mean(x,diff,p):
   return np.zeros(x.shape[0])  
 
-def _spline2d_cov_func(x1,x2,diff1,diff2,p):
-  eps = np.ones(x2.shape[0])/p
-  coeff = (-1)**sum(diff2)
+def _spline2d_cov(x1,x2,diff1,diff2,p):
+  coeff = (-1)**sum(diff2)/p**2
   diff = diff1 + diff2
-  K = coeff*rbf.basis.phs2(x1,x2,eps=eps,diff=diff)
+  K = coeff*rbf.basis.phs2(x1,x2,diff=diff)
   return K
 
-def spline2d_prior(p):
-  out = GaussianProcess(_spline2d_mean_func,
-                        _spline2d_cov_func,
+def spline2d(p):
+  ''' 
+  Creates a GaussianProcess where the mean of the conditioned 
+  GuassianProcess is equivalent to a two-dimensional thin plate 
+  spline.
+
+  Parameters
+  ----------
+  p : penalty parameter
+  
+  Returns
+  -------
+  out : GaussianProcess
+  
+  '''
+  out = GaussianProcess(_spline2d_mean,
+                        _spline2d_cov,
                         func_args=(p,),
                         dim=2,order=1)
   return out
-  
-  
-
-if __name__ == '__main__':
-  N = 10
-  Nitp = 1000
-  #x = np.linspace(0.0,1.0,N)[:,None]
-  x = np.sort(np.random.uniform(0.0,1.0,N))[:,None]
-  xitp = np.linspace(0.0,1.0,Nitp)[:,None]
-  prior_mu = 0.0
-  prior_sigma = 0.1
-  prior_cls = 0.1
-
-  obs_sigma = 0.1*np.ones(N)
-  obs_mu = 5*np.sin(x[:,0]) + np.random.normal(0.0,obs_sigma)
-
-  gp = spline1d_prior(0.4)
-  gp = gp.posterior(x[:5],obs_mu[:5],obs_sigma[:5],obs_diff=(1,))
-  gp = gp.posterior(x[5:],obs_mu[5:],obs_sigma[5:])
-  gp = gp.derivative((1,))
-  #print(gp.order)
-  #gp = gp2
-  
-  mean,cov = gp(xitp)
-  val,vec = np.linalg.eig(cov)
-  print(np.min(val))
-  std = np.sqrt(np.diag(cov))
-
-  plt.errorbar(x,obs_mu,obs_sigma,fmt='ko')
-  plt.plot(xitp,mean,'r-')
-  for i in range(3): plt.plot(xitp,gp.draw_sample(xitp),'r--')
-  plt.fill_between(xitp[:,0],mean-std,mean+std,color='r',alpha=0.2)
-  plt.show()
-  quit()
-
