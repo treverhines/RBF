@@ -25,15 +25,15 @@ coefficients that need to be estimated. The coefficients are found by
 solving the linear system of equations
   
 .. math::
-  (\mathbf{WK(x,x)} + p\mathbf{I})\mathbf{a}  + \mathbf{WT(x)b} = \mathbf{Wy}
+  (\mathbf{K(x,x)} + p\mathbf{Cd})\mathbf{a}  + \mathbf{T(x)b} = \mathbf{y}
 
 .. math::
   \mathbf{T^T(x)a} = \mathbf{0} 
 
-where :math:`\mathbf{W}` are the data weights (should be the inverse 
-of the data covariance matrix), :math:`\mathbf{y}` are the observations at 
-:math:`\mathbf{x}`, and :math:`p` is a penalty parameter. With :math:`p=0` 
-the observations are fit perfectly by the interpolant.  Increasing
+where :math:`\mathbf{Cd}` is the data covariance matrix, 
+:math:`\mathbf{y}` are the observations at :math:`\mathbf{x}`, 
+and :math:`p` is a penalty parameter. With :math:`p=0` the 
+observations are fit perfectly by the interpolant.  Increasing
 :math:`p` degrades the fit while improving the smoothness of the 
 interpolant. This formulation closely follows chapter 19.4 of [1] 
 and chapter 13.2.1 of [2].
@@ -48,14 +48,13 @@ and Applications. John Wiley & Sons, 2000.
     
 '''
 import numpy as np
-from numpy.linalg import pinv
 import scipy.optimize
 import scipy.spatial
 import rbf.basis
 import rbf.poly
 import rbf.geometry
 
-def _coefficient_matrix(x,eps,basis,order):
+def _coefficient_matrix(x,eps,sigma,basis,order):
   ''' 
   returns the matrix used to compute the radial basis function 
   coefficients
@@ -67,9 +66,11 @@ def _coefficient_matrix(x,eps,basis,order):
   powers = rbf.poly.powers(order,D)
   # number of polynomial terms
   P = powers.shape[0]
+  # data covariance matrix
+  Cd = np.diag(sigma**2)
   # allocate array 
   A = np.zeros((N+P,N+P))
-  A[:N,:N] = basis(x,x,eps=eps)
+  A[:N,:N] = basis(x,x,eps=eps) + Cd
   Ap = rbf.poly.mvmonos(x,powers)
   A[N:,:N] = Ap.T
   A[:N,N:] = Ap
@@ -125,11 +126,11 @@ class RBFInterpolant(object):
   x : (N,D) array
     Source points.
 
-  value : (N,) array
-    Function values at the source points.
+  mu : (N,) array
+    Values at the source points.
 
   sigma : (N,) array, optional
-    One standard deviation uncertainty on each observation point.
+    One standard deviation uncertainty on *mu*.
         
   eps : (N,) array, optional
     Shape parameters for each RBF. this has no effect for odd
@@ -147,10 +148,11 @@ class RBFInterpolant(object):
     Order of added polynomial terms.
         
   penalty : float, optional
-    The smoothing parameter. This decreases the size of the RBF 
-    coefficients while leaving the polynomial terms undamped. Thus 
-    the endmember for a large penalty parameter will be equivalent 
-    to polynomial regression.
+    The smoothing parameter. This parameter merely scales *sigma*. 
+    Increasing this values will decrease the size of the RBF 
+    coefficients and leave the polynomial terms undamped. Thus the 
+    endmember for a large penalty parameter will be equivalent to 
+    polynomial regression. 
 
   Notes
   -----
@@ -174,17 +176,10 @@ class RBFInterpolant(object):
   [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
   and Applications. John Wiley & Sons, 2000.
   '''
-  def __init__(self,
-               x,
-               value, 
-               sigma=None,
-               eps=None, 
-               basis=rbf.basis.phs3,
-               order=1,  
-               extrapolate=True,
-               penalty=0.0):
+  def __init__(self,x,mu,sigma=None,eps=None,basis=rbf.basis.phs3,
+               order=1,extrapolate=True,penalty=0.0):
     x = np.asarray(x) 
-    value = np.asarray(value)
+    mu = np.asarray(mu)
     N,D = x.shape
     P = rbf.poly.count(order,D)
 
@@ -199,17 +194,11 @@ class RBFInterpolant(object):
       sigma = np.asarray(sigma)
       
     # form matrix for the LHS
-    A = _coefficient_matrix(x,eps,basis,order)
-    # scale RHS and LHS by weight
-    weight = 1.0/sigma**2
-    A[:N,:] *= weight[:,None]
-    value = value*weight
-    # add smoothing along diagonals
-    A[range(N),range(N)] += penalty**2
+    A = _coefficient_matrix(x,eps,penalty*sigma,basis,order)
     # add zeros to the RHS for the polynomial constraints
-    value = np.concatenate((value,np.zeros(P)))
+    d = np.concatenate((mu,np.zeros(P)))
     # find the radial basis function coefficients
-    coeff = np.linalg.solve(A,value)
+    coeff = np.linalg.solve(A,d)
 
     self.x = x
     self.coeff = coeff
