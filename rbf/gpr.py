@@ -23,54 +23,62 @@ def _block_if_null_space_exists(fin):
   return fout
   
 class GaussianProcess(object):
+  ''' 
+  A GaussianProcess instance represents a stochastic process which is 
+  defined in terms of its mean and covariance function. This class 
+  allows for basic operations on Gaussian processes which includes 
+  addition, subtraction, scaling, differentiation, sampling, and 
+  conditioning.
+    
+  This class does not check whether the specified covariance function 
+  is positive definite, making it easy construct an invalid 
+  GaussianProcess instance. For this reason, a GaussianProcess should 
+  not be constructed with the *__init__* method. Instead, one of the 
+  prior functions should be used (e.g. squared_exponential)
+    
+  Parameters
+  ----------
+  mean_func : function
+    Evaluates the mean function for the Gaussian process at *x*, 
+    where *x* is a two-dimensional array of positions. This function 
+    should also be able to return the spatial derivatives of the 
+    mean function, which is specified with *diff*.  The positional 
+    arguments for this function must be *x*, *diff*, and the 
+    elements of *func_args*.
+
+  cov_func : function
+    Evaluates the covariance function for the Gaussian process at 
+    *x1* and *x2*.  This function should also be able to return the 
+    covariance of the spatial derivatives of *x1* and *x2*, which 
+    are specified with *diff1* and *diff2*. The positional arguments 
+    for this function must be *x1*, *x2*, *diff1*, *diff2*, and the 
+    elements of *func_args*.
+
+  func_args : tuple, optional
+    Additional positional arguments passed to *mean_func* and 
+    *cov_func*.
+    
+  order : int, optional
+    Order of the polynomial which spans the null space of the 
+    Gaussian process. If this is -1 then the Gaussian process 
+    contains no null space. If this is 0 then the likelihood of a 
+    realization is unchanged by adding a constant. If this is 1 then 
+    the likelihood of a realization is unchanged by adding a 
+    constant and linear term, etc. This should be used if the data 
+    contains trends that are well described by a polynomial.
+    
+  dim : int, optional  
+    Specifies the spatial dimensions of the Gaussian process. An 
+    error will be raised if the arguments to the *mean* or 
+    *covariance* methods conflict with *dim*.
+    
+  Examples
+  --------
+  Create a squared exponential Gaussian process
+  
+  
+  '''
   def __init__(self,mean_func,cov_func,func_args=(),order=-1,dim=None):
-    ''' 
-    A GaussianProcess instance represents a stochastic process which 
-    is defined in terms of its mean and covariance function.  This 
-    class allows for basic operations on Gaussian processes which 
-    includes addition, subtraction, scaling, differentiation, 
-    sampling, and conditioning.
-    
-    A Gaussian process should be instantiated with one of the prior 
-    function, (e.g. squared_exp_prior).
-    
-    Parameters
-    ----------
-    mean_func : function
-      Evaluates the mean function for the Gaussian process at *x*, 
-      where *x* is a two-dimensional array of positions. This function 
-      should also be able to return the spatial derivatives of the 
-      mean function, which is specified with *diff*.  The positional 
-      arguments for this function must be *x*, *diff*, and the 
-      elements of *func_args*.
-
-    cov_func : function
-      Evaluates the covariance function for the Gaussian process at 
-      *x1* and *x2*.  This function should also be able to return the 
-      covariance of the spatial derivatives of *x1* and *x2*, which 
-      are specified with *diff1* and *diff2*. The positional arguments 
-      for this function must be *x1*, *x2*, *diff1*, *diff2*, and the 
-      elements of *func_args*.
-
-    func_args : tuple, optional
-      Additional positional arguments passed to *mean_func* and 
-      *cov_func*.
-    
-    order : int, optional
-      Order of the polynomial which spans the null space of the 
-      Gaussian process. If this is -1 then the Gaussian process 
-      contains no null space. If this is 0 then the likelihood of a 
-      realization is unchanged by adding a constant. If this is 1 then 
-      the likelihood of a realization is unchanged by adding a 
-      constant and linear term, etc. This should be used if the data 
-      contains trends that are well described by a polynomial.
-    
-    dim : int, optional  
-      Specifies the spatial dimensions of the Gaussian process. An 
-      error will be raised if the arguments to the *mean* or 
-      *covariance* methods conflict with *dim*.
-      
-    '''
     self._mean_func = mean_func
     self._cov_func = cov_func
     self._func_args = func_args
@@ -89,7 +97,6 @@ class GaussianProcess(object):
       
     diff : (D,) tuple, optional
       Derivative specification
-    
     
     Returns
     -------
@@ -211,13 +218,13 @@ class GaussianProcess(object):
     return out
 
   @_block_if_null_space_exists
-  def derivative(self,d):
+  def derivative(self,diff):
     ''' 
     Returns the derivative of a Gaussian process
     
     Parameters
     ----------
-    d : (D,) tuple
+    diff : (D,) tuple
       Derivative specification
       
     Returns
@@ -225,38 +232,40 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    d = np.asarray(d,dtype=int)
-    def mean_func(x,diff,d_,gp):
-      out = gp.mean(x,diff=d_+diff)
+    out_diff = np.asarray(diff,dtype=int)
+    def mean_func(x,diff,out_diff_,gp):
+      out = gp.mean(x,diff=out_diff_+diff)
       return out 
 
-    def cov_func(x1,x2,diff1,diff2,d_,gp):
-      out = gp.covariance(x1,x2,diff1=d_+diff1,diff2=d_+diff2)
+    def cov_func(x1,x2,diff1,diff2,out_diff_,gp):
+      out = gp.covariance(x1,x2,
+                          diff1=out_diff_+diff1,
+                          diff2=out_diff_+diff2)
       return out
       
     out = GaussianProcess(mean_func,cov_func,
-                          func_args=(d,self),
-                          dim=d.shape[0])
+                          func_args=(out_diff,self),
+                          dim=out_diff.shape[0])
     return out
   
-  def posterior(self,obs_x,obs_mu,obs_sigma=None,obs_diff=None):
+  def posterior(self,x,mu,sigma=None,diff=None):
     ''' 
     Returns a conditional Gaussian process which incorporates the 
     observed data.
     
     Parameters
     ----------
-    obs_x : (N,D) array
+    x : (N,D) array
       Observation points
     
-    obs_mu : (N,) array
+    mu : (N,) array
       Mean value of the observations  
       
-    obs_sigma : (N,) array, optional
+    sigma : (N,) array, optional
       Standard deviation of the observations. This defaults to zeros 
       (i.e. the data are assumed to be known perfectly).
 
-    obs_diff : (D,) tuple, optional
+    diff : (D,) tuple, optional
       Derivative of Gaussian process which the observations constrain. 
       For example, use (1,) if the observations constrain the slope of 
       a 1-D Gaussian process.
@@ -266,40 +275,52 @@ class GaussianProcess(object):
     out : GaussianProcess
       
     '''
-    obs_x = np.asarray(obs_x)
-    obs_mu = np.asarray(obs_mu)
-    if obs_diff is None:
+    obs_x = np.asarray(x)
+    obs_mu = np.asarray(mu)
+    if diff is None:
       obs_diff = np.zeros(obs_x.shape[1],dtype=int)
-      
-    if obs_sigma is None:
+    else:
+      obs_diff = np.asarray(diff,dtype=int)
+    
+    if sigma is None:
       obs_sigma = np.zeros(obs_x.shape[0])      
     else:
-      obs_sigma = np.asarray(obs_sigma)
+      obs_sigma = np.asarray(sigma)
 
     def mean_func(x,diff,obs_x_,obs_mu_,obs_sigma_,
                   obs_diff_,gp):
+      # the mean and covariance of the prior cannot be evaluated 
+      # unless the null space order is set to -1.  
       order = gp._order
       gp._order = -1
       try:
         N,D = obs_x_.shape
         I = x.shape[0]
+        # determine the powers for each monomial spanning the null 
+        # space
         powers = rbf.poly.powers(order,D) 
         P = powers.shape[0]
-
+        # difference between the prior mean and the observations
         res = np.zeros(N+P)
         res[:N] = obs_mu_ - gp.mean(obs_x_,diff=obs_diff_)
-      
+        # data covariance matrix
         Cd = np.diag(obs_sigma_**2)
+        # prior covariance between observations
         K = gp.covariance(obs_x_,obs_x_,diff1=obs_diff_,diff2=obs_diff_)
+        # polynomial matrix evaluated at the observation points 
         H = rbf.poly.mvmonos(obs_x_,powers,diff=obs_diff_)
+        # combine the covariances and the polynomial matrices 
         A = np.zeros((N+P,N+P))
         A[:N,:N] = K + Cd
         A[:N,N:] = H
         A[N:,:N] = H.T
         Ainv = np.linalg.inv(A)
-      
+        # covariance between the interpolation points and the 
+        # observation points
         Ki = gp.covariance(x,obs_x_,diff1=diff,diff2=obs_diff_)
+        # polynomial evaluated at the interpolation points
         Hi = rbf.poly.mvmonos(x,powers,diff=diff)
+        # form the interpolation matrix
         Ai = np.zeros((I,N+P))
         Ai[:,:N] = Ki
         Ai[:,N:] = Hi
@@ -313,40 +334,54 @@ class GaussianProcess(object):
           'space in the prior')
           
       finally:
+        # make sure the null space order is returned to the original 
+        # value
         gp._order = order
 
       return out
 
     def cov_func(x1,x2,diff1,diff2,obs_x_,obs_mu_,obs_sigma_,
                  obs_diff_,gp):
+      # the mean and covariance of the prior cannot be evaluated 
+      # unless the null space order is set to -1.  
       order = gp._order
       gp._order = -1
       try:
         N,D = obs_x_.shape
+        # I and J will be the dimensions of the output covariance 
+        # matrix
         I = x1.shape[0]
         J = x2.shape[0]
+        # powers for each monomial spanning the null space
         powers = rbf.poly.powers(order,D) 
         P = powers.shape[0]
-      
+        # data covariance matrix      
         Cd = np.diag(obs_sigma_**2)
+        # prior covariance between observation points
         K = gp.covariance(obs_x_,obs_x_,diff1=obs_diff_,diff2=obs_diff_)
+        # polynomial matrix evaluated at the observation points   
         H = rbf.poly.mvmonos(obs_x_,powers,diff=obs_diff_)
+        # combine the covariance and the polynomial matrices
         A = np.zeros((N+P,N+P))
         A[:N,:N] = K + Cd
         A[:N,N:] = H
         A[N:,:N] = H.T
         Ainv = np.linalg.inv(A)
-      
+        # covariance between the interpolation points      
         Kii = gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
-
+        # covariance between x1 and the observation points
         Ki = gp.covariance(x1,obs_x_,diff1=diff1,diff2=obs_diff_)
+        # polynomial matrix evaluated at x1
         Hi = rbf.poly.mvmonos(x1,powers,diff=diff1)
+        # interpolation matrix for x1
         Ai = np.zeros((I,N+P))
         Ai[:,:N] = Ki
         Ai[:,N:] = Hi
-
+        # covariance between x2 and the observation points
         Kj = gp.covariance(x2,obs_x_,diff1=diff2,diff2=obs_diff_)
+        # polynomial matrix evaluated at x2
         Hj = rbf.poly.mvmonos(x2,powers,diff=diff2)
+        # interpolation matrix for x2
         Aj = np.zeros((J,N+P))
         Aj[:,:N] = Kj
         Aj[:,N:] = Hj
@@ -360,6 +395,7 @@ class GaussianProcess(object):
           'null space in the prior.')
 
       finally:
+        # make sure the order is reset
         gp._order = order
         
       return out
@@ -373,12 +409,12 @@ class GaussianProcess(object):
   @_block_if_null_space_exists
   def mean(self,x,diff=None):
     ''' 
-    Returns the mean of the Gaussian process at *x*
+    Returns the mean of the Gaussian process 
     
     Parameters
     ----------
     x : (N,D) array
-      Observation points
+      Evaluation points
         
     diff : (D,) tuple
       Derivative specification    
@@ -411,12 +447,12 @@ class GaussianProcess(object):
   @_block_if_null_space_exists
   def covariance(self,x1,x2,diff1=None,diff2=None):
     ''' 
-    Returns the covariance of the Gaussian process between *x1* and *x2*
+    Returns the covariance of the Gaussian process 
     
     Parameters
     ----------
     x1,x2 : (N,D) array
-      Observation points
+      Evaluation points
         
     diff1,diff2 : (D,) tuple
       Derivative specification. For example, if *diff1* is (0,) and 
