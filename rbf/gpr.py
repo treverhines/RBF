@@ -24,17 +24,17 @@ def _block_if_null_space_exists(fin):
   
 class GaussianProcess(object):
   ''' 
-  A GaussianProcess instance represents a stochastic process which is 
-  defined in terms of its mean and covariance function. This class 
+  A *GaussianProcess* instance represents a stochastic process which 
+  is defined in terms of its mean and covariance function. This class 
   allows for basic operations on Gaussian processes which includes 
   addition, subtraction, scaling, differentiation, sampling, and 
   conditioning.
     
   This class does not check whether the specified covariance function 
   is positive definite, making it easy construct an invalid 
-  GaussianProcess instance. For this reason, a GaussianProcess should 
-  not be constructed with the *__init__* method. Instead, one of the 
-  prior functions should be used (e.g. squared_exponential)
+  GaussianProcess instance. For this reason, this class should not be 
+  directly instantiated by the user.  Instead, create a 
+  GaussianProcess with the subclass *PriorGaussianProcess*.
     
   Parameters
   ----------
@@ -72,11 +72,6 @@ class GaussianProcess(object):
     error will be raised if the arguments to the *mean* or 
     *covariance* methods conflict with *dim*.
     
-  Examples
-  --------
-  Create a squared exponential Gaussian process
-  
-  
   '''
   def __init__(self,mean_func,cov_func,func_args=(),order=-1,dim=None):
     self._mean_func = mean_func
@@ -104,7 +99,7 @@ class GaussianProcess(object):
     
     cov : (N,N) array  
       
-    '''    
+    '''
     mean = self.mean(x,diff=diff)
     cov = self.covariance(x,x,diff1=diff,diff2=diff)
     return mean,cov
@@ -150,7 +145,7 @@ class GaussianProcess(object):
     -------
     out : GaussianProcess 
       
-    ''' 
+    '''
     def mean_func(x,diff,gp1,gp2):
       out = gp1.mean(x,diff=diff) + gp2.mean(x,diff=diff)
       return out       
@@ -166,7 +161,7 @@ class GaussianProcess(object):
 
   @_block_if_null_space_exists
   def difference(self,other):
-    ''' 
+    '''  
     Subtracts two Gaussian processes
     
     Parameters
@@ -177,7 +172,7 @@ class GaussianProcess(object):
     -------
     out : GaussianProcess 
       
-    ''' 
+    '''
     def mean_func(x,diff,gp1,gp2):
       out = gp1.mean(x,diff=diff) - gp2.mean(x,diff=diff)
       return out
@@ -204,7 +199,7 @@ class GaussianProcess(object):
     -------
     out : GaussianProcess 
       
-    ''' 
+    '''
     def mean_func(x,diff,c_,gp):
       out = c_*gp.mean(x,diff=diff)
       return out
@@ -266,9 +261,8 @@ class GaussianProcess(object):
       (i.e. the data are assumed to be known perfectly).
 
     diff : (D,) tuple, optional
-      Derivative of Gaussian process which the observations constrain. 
-      For example, use (1,) if the observations constrain the slope of 
-      a 1-D Gaussian process.
+      Derivative of the observations. For example, use (1,) if the 
+      observations constrain the slope of a 1-D Gaussian process.
       
     Returns
     -------
@@ -422,6 +416,7 @@ class GaussianProcess(object):
     Returns
     -------
     out : (N,) array  
+
     '''
     x = np.asarray(x)
     if diff is None:  
@@ -464,7 +459,7 @@ class GaussianProcess(object):
     -------
     out : (N,N) array    
     
-    ''' 
+    '''
     x1 = np.asarray(x1) 
     x2 = np.asarray(x2) 
     if diff1 is None:
@@ -532,166 +527,101 @@ class GaussianProcess(object):
     return np.random.multivariate_normal(mean,cov)
     
     
-#####################################################################
-# Define prior models
-#####################################################################
-
-# Exponential
-#####################################################################
-def _exponential_mean(x,diff,mu,sigma,cls):
-  if sum(diff) == 0:
-    return mu*np.ones(x.shape[0])       
-  else:
-    return np.zeros(x.shape[0])  
-
-def _exponential_cov(x1,x2,diff1,diff2,mu,sigma,cls):
-  if np.any(diff1 > 0) | np.any(diff2 > 0):
-    raise ValueError(
-      'The prior model is not sufficiently differentiable')
-
-  eps = np.ones(x2.shape[0])/cls
-  coeff = sigma**2
-  
-  K = coeff*rbf.basis.exp(x1,x2,eps=eps)
-  return K
-
-def exponential(mu,sigma,cls,order=-1):
+class PriorGaussianProcess(GaussianProcess):
   ''' 
-  Creates a GaussianProcess instance, where the spatial covariance is 
-  described with a squared exponential model. 
+  A *PriorGaussianProcess* instance represents a stationary Gaussian 
+  process process which has a constant mean and a covariance function 
+  described by a radial basis function, *f*.  Specifically, the 
+  Gaussian process, *u*, has a mean and covariance described as
   
-  Parameters
-  ----------
-  mu : float
-    Expected value of the Gaussian process
-      
-  sigma : float
-    Standard deviation of the Gaussian process. This controls the 
-    amplitude of realizations.
+    mean(u(x)) = b
     
-  cls : float
-    Characteristic length scale of the Gaussian process.
-   
-   Returns
-   -------
-   out : GaussianProcess    
-
-  '''
-  out = GaussianProcess(_exponential_mean,
-                        _exponential_cov,
-                        func_args=(mu,sigma,cls),
-                        order=order)
-  return out
-
-# Squared exponential
-#####################################################################
-def _squared_exponential_mean(x,diff,mu,sigma,cls):
-  if sum(diff) == 0:
-    return mu*np.ones(x.shape[0])       
-  else:
-    return np.zeros(x.shape[0])  
-
-def _squared_exponential_cov(x1,x2,diff1,diff2,mu,sigma,cls):
-  eps = np.ones(x2.shape[0])/(np.sqrt(2)*cls)
-  coeff = (-1)**sum(diff2)*sigma**2
-  diff = diff1 + diff2
-  K = coeff*rbf.basis.ga(x1,x2,eps=eps,diff=diff)
-  return K
-
-def squared_exponential(mu,sigma,cls,order=-1):
-  ''' 
-  Creates a GaussianProcess instance, where the spatial covariance is 
-  described with a squared exponential model. 
-  
-  Parameters
-  ----------
-  mu : float
-    Expected value of the Gaussian process
-      
-  sigma : float
-    Standard deviation of the Gaussian process. This controls the 
-    amplitude of realizations.
+    cov(u(x1),u(x2)) = a*f(||x1 - x2||/c),
     
-  cls : float
-    Characteristic length scale of the Gaussian process.
-   
-   Returns
-   -------
-   out : GaussianProcess    
-
-  '''
-  out = GaussianProcess(_squared_exponential_mean,
-                        _squared_exponential_cov,
-                        func_args=(mu,sigma,cls),
-                        order=order)
-  return out
-
-
-# 1-D Thin plate spline
-#####################################################################
-def _spline1d_mean(x,diff,p):
-  return np.zeros(x.shape[0])  
-
-def _spline1d_cov(x1,x2,diff1,diff2,p):
-  coeff = (-1)**sum(diff2)/p**2
-  diff = diff1 + diff2
-  if sum(diff) > 3:
-    raise ValueError(
-      'The prior model is not sufficiently differentiable')
+  where ||*|| denotes the L2 norm, and a, b, and c are user defined 
+  parameters. 
   
-  K = coeff*rbf.basis.phs3(x1,x2,diff=diff)
-  return K
-
-def spline1d(p):
-  ''' 
-  Creates a GaussianProcess where the mean of the conditioned 
-  GuassianProcess is equivalent to a one-dimensional thin plate 
-  spline.
-
+  The prior can also be given a null space containing all polynomials 
+  of order *order*.  If *order* is -1, which is the default, then the 
+  prior is given no null space.  If *order* is 0 then the likelihood 
+  of a realization of u is invariant to the addition of a constant. If 
+  *order* is 1 then the likelihood of a realization of u is invariant 
+  to the addition of a constant and linear term, etc.
+  
   Parameters
   ----------
-  p : penalty parameter
+  basis : RBF instance
+    Radial basis function describing the covariance function
+    
+  coeff : 3-tuple  
+    Tuple of three distribution coefficients, *a*, *b*, and *c*. *a* 
+    scales the variance of the Gaussian process, *b* is the mean, 
+    and *c* is the characteristic length scale (see above). 
+      
+  order : int, optional
+    Order of the polynomial spanning the null space. Defaults to -1, 
+    which means that there is no null space.
   
-  Returns
-  -------
-  out : GaussianProcess
+  Examples
+  --------
+  Instantiate a PriorGaussianProcess where the basis is a squared 
+  exponential function with variance = 1, mean = 0, and characteristic 
+  length scale = 2.
+  
+  >>> from rbf.basis import ga
+  >>> gp = PriorGaussianProcess(ga,(1,0,2))
+  
+  Instantiate a PriorGaussianProcess which is equivalent to a 1-D thin 
+  plate spline with penalty parameter 0.01. Then find the conditional 
+  mean and covariance of the Gaussian process after incorporating 
+  observations
+  
+  >>> gp = rbf.gpr.PriorGaussianProcess(phs3,(0.01,0,1.0),order=1)
+  >>> x = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
+  >>> u = np.array([0.5,1.5,1.25,1.75,1.0])
+  >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
+  >>> gp = gp.posterior(x,u,sigma)
+  >>> x_interp = np.linspace(0.0,2.0,100)[:,None]
+  >>> mean,cov = gp(x_interp)
+  
+  Notes
+  -----
+  If *order* >= 0, then *b* has no effect on the resulting Gaussian 
+  process.
+  
+  If *basis* is scale invariant, such as for odd order polyharmonic 
+  splines, then *a* and *c* have inverse effects on the resulting 
+  Gaussian process and thus only one of them needs to be chosen while 
+  the other can be fixed at an arbitary value.
+  
+  Not all radial basis functions are positive definite.  Care must be 
+  taken to ensure that the choice of *basis* and *order* are 
+  meaningful. 
 
   '''
-  out = GaussianProcess(_spline1d_mean,
-                        _spline1d_cov,
-                        func_args=(p,),
-                        dim=1,order=1)
-  return out
+  def __init__(self,basis,coeff,order=-1):
+    def mean_func(x,diff,basis_,coeff_,order_):
+      if sum(diff) == 0:
+        out = coeff_[1]*np.ones(x.shape[0])
+      else:  
+        out = np.zeros(x.shape[0])
 
+      return out
+      
+    def cov_func(x1,x2,diff1,diff2,basis_,coeff_,order_):
+      eps = np.ones(x2.shape[0])/coeff_[2]
+      a = (-1)**sum(diff2)*coeff_[0]
+      diff = diff1 + diff2
+      out = a*basis_(x1,x2,eps=eps,diff=diff)
+      if np.any(~np.isfinite(out)):
+        raise ValueError(
+          'Encountered a non-finite covariance. This is likely '
+          'because the prior basis function is not sufficiently '
+          'differentiable.')
 
-# 2-D Thin plate spline
-#####################################################################
-def _spline2d_mean(x,diff,p):
-  return np.zeros(x.shape[0])  
+      return out
+      
+    GaussianProcess.__init__(self,mean_func,cov_func,
+                             func_args=(basis,coeff,order),
+                             order=order)
 
-def _spline2d_cov(x1,x2,diff1,diff2,p):
-  coeff = (-1)**sum(diff2)/p**2
-  diff = diff1 + diff2
-  K = coeff*rbf.basis.phs2(x1,x2,diff=diff)
-  return K
-
-def spline2d(p):
-  ''' 
-  Creates a GaussianProcess where the mean of the conditioned 
-  GuassianProcess is equivalent to a two-dimensional thin plate 
-  spline.
-
-  Parameters
-  ----------
-  p : penalty parameter
-  
-  Returns
-  -------
-  out : GaussianProcess
-  
-  '''
-  out = GaussianProcess(_spline2d_mean,
-                        _spline2d_cov,
-                        func_args=(p,),
-                        dim=2,order=1)
-  return out
