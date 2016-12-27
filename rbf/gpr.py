@@ -600,7 +600,7 @@ class PriorGaussianProcess(GaussianProcess):
 
   '''
   def __init__(self,basis,coeff,order=-1):
-    def mean_func(x,diff,basis_,coeff_,order_):
+    def mean_func(x,diff,basis_,coeff_):
       if sum(diff) == 0:
         out = coeff_[1]*np.ones(x.shape[0])
       else:  
@@ -608,7 +608,7 @@ class PriorGaussianProcess(GaussianProcess):
 
       return out
       
-    def cov_func(x1,x2,diff1,diff2,basis_,coeff_,order_):
+    def cov_func(x1,x2,diff1,diff2,basis_,coeff_):
       eps = np.ones(x2.shape[0])/coeff_[2]
       a = (-1)**sum(diff2)*coeff_[0]
       diff = diff1 + diff2
@@ -622,6 +622,6 @@ class PriorGaussianProcess(GaussianProcess):
       return out
       
     GaussianProcess.__init__(self,mean_func,cov_func,
-                             func_args=(basis,coeff,order),
+                             func_args=(basis,coeff),
                              order=order)
 
