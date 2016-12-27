@@ -7,6 +7,30 @@ import rbf.poly
 import rbf.basis
 from functools import wraps
 
+
+def _draw_sample(mean,cov,tol=1e-10):
+  mean = np.asarray(mean)
+  cov = np.asarray(cov)
+  val,vec = np.linalg.eig(cov)
+  # make sure that all the eigenvalues are real and positive to within 
+  # tolerance
+  if np.any(val.real < -tol):
+    raise ValueError('covariance matrix is not positive definite')
+  if np.any(np.abs(val.imag) > tol):
+    raise ValueError('covariance matrix is not positive definite')
+
+  # set any slightly negative or slightly imaginary numbers to be real 
+  # and nonnegative
+  val.real[val.real < 0.0] = 0.0    
+  val = val.real
+  vec = vec.real
+
+  sample = np.zeros(mean.shape[0])
+  sample[val>0.0] = np.random.normal(0.0,np.sqrt(val[val>0.0]))
+  sample = mean + vec.dot(sample)
+  return sample
+
+
 def _block_if_null_space_exists(fin):
   @wraps(fin)
   def fout(self,*args,**kwargs):
@@ -22,6 +46,7 @@ def _block_if_null_space_exists(fin):
 
   return fout
   
+
 class GaussianProcess(object):
   ''' 
   A *GaussianProcess* instance represents a stochastic process which 
@@ -497,7 +522,7 @@ class GaussianProcess(object):
     return out
     
   @_block_if_null_space_exists
-  def draw_sample(self,x,diff=None):  
+  def draw_sample(self,x,diff=None,tol=1e-10):  
     '''  
     Draws a random sample from the Gaussian process
     
@@ -524,7 +549,7 @@ class GaussianProcess(object):
         
     '''
     mean,cov = self(x,diff=diff)
-    return np.random.multivariate_normal(mean,cov)
+    return _draw_sample(mean,cov,tol=tol)
     
     
 class PriorGaussianProcess(GaussianProcess):
