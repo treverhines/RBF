@@ -29,14 +29,11 @@ from __future__ import division
 import sympy 
 from sympy.utilities.autowrap import ufuncify 
 import numpy as np 
-import warnings 
 import copy
 
 # define global symbolic variables
 _R = sympy.symbols('R')
 _EPS = sympy.symbols('EPS')
-_SYM_TO_NUM = 'cython'
-
 
 def _check_lambdified_output(fin):
   ''' 
@@ -61,14 +58,6 @@ def _check_lambdified_output(fin):
   return fout  
 
 
-def _replace_nan(x):
-  ''' 
-  this is orders of magnitude faster than np.nan_to_num
-  '''
-  x[np.isnan(x)] = 0.0
-  return x
-
-
 def get_R():
   ''' 
   returns the symbolic variable for :math:`r` which is used to 
@@ -85,29 +74,6 @@ def get_EPS():
   return copy.deepcopy(_EPS)
 
 
-def set_sym_to_num(package):
-  ''' 
-  controls how the RBF class converts the symbolic expressions to 
-  numerical expressions
-  
-  Parameters
-  ----------
-  package : str
-    either 'numpy' or 'cython'. If 'numpy' then the symbolic 
-    expression is converted using *sympy.lambdify*. If 'cython' then 
-    the expression if converted using 
-    *sympy.utilities.autowrap.ufuncify*, which converts the expression 
-    to cython code and then compiles it. Note that there is a ~1 
-    second overhead to compile the cython code
-      
-  '''
-  global _SYM_TO_NUM 
-  if package in ['cython','numpy']:
-    _SYM_TO_NUM = package
-  else:
-    raise ValueError('package must either be "cython" or "numpy" ')  
-  
-
 class RBF(object):
   ''' 
   Stores a symbolic expression of a Radial Basis Function (RBF) and 
@@ -121,7 +87,24 @@ class RBF(object):
     *R* is the radial distance to the RBF center.  The expression may 
     optionally be a function of *EPS*, which is a shape parameter 
     obtained by the function *get_EPS*.  If *EPS* is not provided then 
-    *R* is substituted with *R* * *EPS* .
+    *R* is substituted with *R* * *EPS*.
+  
+  package : string, optional  
+    Controls how the symbolic expressions are converted into numerical 
+    functions. This can be either 'numpy' or 'cython'. If 'numpy' then 
+    the symbolic expression is converted using *sympy.lambdify*. If 
+    'cython' then the expression if converted using 
+    *sympy.utilities.autowrap.ufuncify*, which converts the expression 
+    to cython code and then compiles it. Note that there is a ~1 
+    second overhead to compile the cython code.
+  
+  tol : float, optional  
+    If an evaluation point, *x*, is within *tol* of an RBF center, 
+    *c*, then *x* is considered equal to *c*. The returned value is 
+    then the RBF at the symbolically evaluated limit of *x*=*c*. This 
+    is only useful when there is a removable singularity at *c*, such 
+    as for polyharmonic splines. If *tol* is not provided then there 
+    will be no special treatment for when *x*=*c*.
   
   Examples
   --------
@@ -141,7 +124,7 @@ class RBF(object):
   >>> values = iq(x,center)
     
   '''
-  def __init__(self,expr):    
+  def __init__(self,expr,package='cython',tol=None):    
     if not expr.has(_R):
       raise ValueError('RBF expression must be a function of rbf.basis.R')
     
@@ -150,7 +133,9 @@ class RBF(object):
       expr = expr.subs(_R,_EPS*_R)
       
     self.expr = expr
-    self.cache = {}
+    self.set_package(package)
+    self.set_tol(tol)
+    self.clear_cache()
 
   def __call__(self,x,c,eps=None,diff=None):
     ''' 
@@ -203,21 +188,21 @@ class RBF(object):
     # make sure the input arguments have the proper dimensions
     if not ((x.ndim == 2) & (c.ndim == 2)):
       raise ValueError(
-        'x and c must be two-dimensional arrays')
+        '*x* and *c* must be two-dimensional arrays')
 
     if not (x.shape[1] == c.shape[1]):
       raise ValueError(
-        'x and c must have the same number of spatial dimensions')
+        '*x* and *c* must have the same number of spatial dimensions')
 
     if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
       raise ValueError(
-        'eps must be a one-dimensional array with length equal to '
-        'the number of rows in c')
+        '*eps* must be a one-dimensional array with length equal to '
+        'the number of rows in *c*')
     
     if not (len(diff) == x.shape[1]):
       raise ValueError(
-        'diff must have the same length as the number of spatial '
-        'dimensions in x and c')
+        '*diff* must have the same length as the number of spatial '
+        'dimensions in *x* and *c*')
 
     # expand to allow for broadcasting
     x = x[:,None,:]
@@ -232,218 +217,70 @@ class RBF(object):
       dim = len(diff)
       c_sym = sympy.symbols('c:%s' % dim)
       x_sym = sympy.symbols('x:%s' % dim)    
-      r_sym = sympy.sqrt(sum((x_sym[i]-c_sym[i])**2 for i in range(dim)))
+      r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
+      # differentiate the RBF 
       expr = self.expr.subs(_R,r_sym)            
-      for direction,order in enumerate(diff):
+      for xi,order in zip(x_sym,diff):
         if order == 0:
           continue
-        expr = expr.diff(*(x_sym[direction],)*order)
+        expr = expr.diff(*(xi,)*order)
 
-      if _SYM_TO_NUM == 'numpy':
+      if self.tol is not None:
+        # find the limit of the differentiated expression as x->c. This 
+        # is necessary for polyharmonic splines, which have removable 
+        # singularities. NOTE: this finds the limit from only one 
+        # direction and the limit may change when using a different 
+        # direction.
+        center_expr = expr
+        for xi,ci in zip(x_sym,c_sym):
+          center_expr = center_expr.limit(xi,ci)
+
+        # create a piecewise symbolic function which is center_expr when 
+        # _R<tol and expr otherwise
+        expr = sympy.Piecewise((center_expr,r_sym<self.tol),
+                               (expr,True)) 
+      
+      if self.package == 'numpy':
         func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
         func = _check_lambdified_output(func)
         self.cache[diff] = func
 
-      elif _SYM_TO_NUM == 'cython':        
+      elif self.package == 'cython':        
         func = ufuncify(x_sym+c_sym+(_EPS,),expr)
         self.cache[diff] = func
  
     args = (tuple(x)+tuple(c)+(eps,))    
     return self.cache[diff](*args)
+
+  def set_tol(self,tol):
+    self.tol = tol
     
-_FUNCTION_DOC = ''' 
-  Parameters                                       
-  ----------                                         
-  x : (N,D) array 
-    evaluation points
-                                                                       
-  c : (M,D) array 
-    RBF centers 
+  def set_package(self,package):
+    if package in ['cython','numpy']:
+      self.package = package
+    else:
+      raise ValueError('package must either be "cython" or "numpy" ')  
+  
+  def clear_cache(self):
+    ''' 
+    Deletes entries stored in the cache.
+    '''
+    self.cache = {}
         
-  eps : (M,) array, optional
-    shape parameters for each RBF. Defaults to 1.0
-                                                                           
-  diff : (D,) int array, optional
-    Tuple indicating the derivative order for each spatial dimension. 
-    For example, if there are three spatial dimensions then providing 
-    (2,0,1) would return the RBF after differentiating it twice along 
-    the first axis and once along the third axis.
 
-  Returns
-  -------
-  out : (N,M) array
-    Returns the RBFs with centers *c* evaluated at *x*
-
-  Notes
-  -----
-  This function evaluates the RBF and its derivatives symbolically 
-  using sympy and then the symbolic expression is converted to a 
-  numerical function. The numerical function is cached and then reused 
-  when this function is called multiple times with the same derivative 
-  specification.
-
-'''
-
-
-_PHS8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
-def phs8(*args,**kwargs):
-  ''' 
-  Eighth-order polyharmonic spline 
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS8(*args,**kwargs))
-
-phs8.__doc__ += _FUNCTION_DOC 
-
-
-_PHS7 = RBF((_EPS*_R)**7)
-def phs7(*args,**kwargs):
-  ''' 
-  Seventh-order polyharmonic spline 
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS7(*args,**kwargs))
-
-phs7.__doc__ += _FUNCTION_DOC
-
-
-_PHS6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
-
-def phs6(*args,**kwargs):
-  ''' 
-  Sixth-order polyharmonic spline 
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS6(*args,**kwargs))
-
-phs6.__doc__ += _FUNCTION_DOC
-
-
-_PHS5 = RBF((_EPS*_R)**5)
-def phs5(*args,**kwargs):
-  '''                             
-  Fifth-order polyharmonic spline
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS5(*args,**kwargs))
-
-phs5.__doc__ += _FUNCTION_DOC
-
-
-_PHS4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
-def phs4(*args,**kwargs):
-  ''' 
-  Fourth-order polyharmonic spline 
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS4(*args,**kwargs))
-
-phs4.__doc__ += _FUNCTION_DOC
-
-
-_PHS3 = RBF((_EPS*_R)**3)
-def phs3(*args,**kwargs):
-  ''' 
-  Third-order polyharmonic spline
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS3(*args,**kwargs))
-
-phs3.__doc__ += _FUNCTION_DOC
-
-
-_PHS2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
-def phs2(*args,**kwargs):
-  ''' 
-  Second-order polyharmonic spline
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS2(*args,**kwargs))
-
-phs2.__doc__ += _FUNCTION_DOC
-
-
-_PHS1 = RBF(_EPS*_R)
-def phs1(*args,**kwargs):
-  ''' 
-  First-order polyharmonic spline
-  '''
-  # division by zero errors may occur for R=0. Ignore warnings and
-  # replace nan's with zeros
-  with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    return _replace_nan(_PHS1(*args,**kwargs))
-
-phs1.__doc__ += _FUNCTION_DOC
-
-
-_IMQ = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
-def imq(*args,**kwargs):
-  ''' 
-  Inverse multiquadratic
-  '''
-  return _IMQ(*args,**kwargs)
-
-imq.__doc__ += _FUNCTION_DOC
-
-
-_IQ = RBF(1/(1+(_EPS*_R)**2))
-def iq(*args,**kwargs):
-  '''                             
-  Inverse quadratic
-  '''                                                             
-  return _IQ(*args,**kwargs)
-
-iq.__doc__ += _FUNCTION_DOC
-
-
-_GA = RBF(sympy.exp(-(_EPS*_R)**2))
-def ga(*args,**kwargs):
-  '''                        
-  Gaussian
-  '''
-  return _GA(*args,**kwargs)
-
-ga.__doc__ += _FUNCTION_DOC
-
-_EXP = RBF(sympy.exp(-(_EPS*_R)))
-def exp(*args,**kwargs):
-  '''                        
-  Exponential
-  '''
-  return _EXP(*args,**kwargs)
-
-exp.__doc__ += _FUNCTION_DOC
-
-
-_MQ = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
-def mq(*args,**kwargs):
-  '''                     
-  Multiquadratic
-  '''
-  return _MQ(*args,**kwargs)
-
-mq.__doc__ += _FUNCTION_DOC
+# Instantiate some common RBFs
+phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython',tol=1e-16)
+phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),package='cython',tol=1e-16)
+phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),package='cython',tol=1e-16)
+phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),package='cython',tol=1e-16)
+phs7 = RBF((_EPS*_R)**7,package='cython',tol=1e-16)
+phs5 = RBF((_EPS*_R)**5,package='cython',tol=1e-16)
+phs3 = RBF((_EPS*_R)**3,package='cython',tol=1e-16)
+phs1 = RBF(_EPS*_R,package='cython',tol=1e-16)
+exp = RBF(sympy.exp(-(_EPS*_R)),package='cython',tol=1e-16)
+imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2),package='cython')
+iq = RBF(1/(1+(_EPS*_R)**2),package='cython')
+ga = RBF(sympy.exp(-(_EPS*_R)**2),package='cython')
+mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2),package='cython')
 
 

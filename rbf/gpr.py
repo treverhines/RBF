@@ -545,14 +545,14 @@ def _exponential_mean(x,diff,mu,sigma,cls):
     return np.zeros(x.shape[0])  
 
 def _exponential_cov(x1,x2,diff1,diff2,mu,sigma,cls):
-  eps = np.ones(x2.shape[0])/cls
-  coeff = (-1)**sum(diff2)*sigma**2
-  diff = diff1 + diff2
-  if sum(diff) > 0:
+  if np.any(diff1 > 0) | np.any(diff2 > 0):
     raise ValueError(
       'The prior model is not sufficiently differentiable')
+
+  eps = np.ones(x2.shape[0])/cls
+  coeff = sigma**2
   
-  K = coeff*rbf.basis.exp(x1,x2,eps=eps,diff=diff)
+  K = coeff*rbf.basis.exp(x1,x2,eps=eps)
   return K
 
 def exponential(mu,sigma,cls,order=-1):

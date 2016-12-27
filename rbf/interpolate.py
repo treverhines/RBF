@@ -25,12 +25,12 @@ coefficients that need to be estimated. The coefficients are found by
 solving the linear system of equations
   
 .. math::
-  (\mathbf{K(x,x)} + p\mathbf{Cd})\mathbf{a}  + \mathbf{T(x)b} = \mathbf{y}
+  (\mathbf{K(x,x)} + p\mathbf{C_d})\mathbf{a}  + \mathbf{T(x)b} = \mathbf{y}
 
 .. math::
   \mathbf{T^T(x)a} = \mathbf{0} 
 
-where :math:`\mathbf{Cd}` is the data covariance matrix, 
+where :math:`\mathbf{C_d}` is the data covariance matrix, 
 :math:`\mathbf{y}` are the observations at :math:`\mathbf{x}`, 
 and :math:`p` is a penalty parameter. With :math:`p=0` the 
 observations are fit perfectly by the interpolant.  Increasing

@@ -4,7 +4,6 @@ import rbf.fd
 import rbf.basis
 import rbf.halton
 import unittest
-rbf.basis.set_sym_to_num('numpy')
 
 def test_func2d(x):
   return np.sin(2*np.pi*x[...,0])*np.cos(2*np.pi*x[...,1])

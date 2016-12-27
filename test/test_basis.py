@@ -104,34 +104,5 @@ class Test(unittest.TestCase):
     check = np.all(np.isclose(out1,out2))
     self.assertTrue(check)
 
-  def test_sym_to_num(self):
-    # test 5, make sure output is the same regardless of sym_to_num 
-    # package
-    R = rbf.basis.get_R()
-    x = np.array([[1.5],[2.0]])
-    c = np.array([[1.0]])
-
-    f1 = rbf.basis.RBF(R)
-    f2 = rbf.basis.RBF(R)
-    rbf.basis.set_sym_to_num('cython')
-    out1 = f1(x,c,diff=(0,))
-    rbf.basis.set_sym_to_num('numpy')
-    out2 = f2(x,c,diff=(0,))
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
-
-    rbf.basis.set_sym_to_num('cython')
-    out1 = f1(x,c,diff=(1,))
-    rbf.basis.set_sym_to_num('numpy')
-    out2 = f2(x,c,diff=(1,))
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
-
-    rbf.basis.set_sym_to_num('cython')
-    out1 = f1(x,c,diff=(2,))
-    rbf.basis.set_sym_to_num('numpy')
-    out2 = f2(x,c,diff=(2,))
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
 
 #unittest.main()
