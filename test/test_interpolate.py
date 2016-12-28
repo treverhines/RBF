@@ -54,10 +54,10 @@ class Test(unittest.TestCase):
     valitp4 = I(itp,max_chunk=33)
     valitp5 = I(itp,max_chunk=1)
     
-    self.assertTrue(np.all(valitp1==valitp2))
-    self.assertTrue(np.all(valitp1==valitp3))
-    self.assertTrue(np.all(valitp1==valitp4))
-    self.assertTrue(np.all(valitp1==valitp5))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp2)))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp3)))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp4)))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp5)))
 
   def test_interp_diffx(self):
     N = 1000

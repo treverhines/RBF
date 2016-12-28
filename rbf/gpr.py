@@ -7,8 +7,21 @@ import rbf.poly
 import rbf.basis
 from functools import wraps
 
+def _test_positive_definite(A,tol=1e-10):
+  val,vec = np.linalg.eig(A)
+  if np.any(val.real < -tol):
+    return False
+
+  if np.any(np.abs(val.imag) > tol):
+    return False
+
+  return True  
 
 def _draw_sample(mean,cov,tol=1e-10):
+  ''' 
+  Draws a random sample from the gaussian process with the specified 
+  mean and covariance.
+  '''
   mean = np.asarray(mean)
   cov = np.asarray(cov)
   val,vec = np.linalg.eig(cov)
@@ -19,15 +32,16 @@ def _draw_sample(mean,cov,tol=1e-10):
   if np.any(np.abs(val.imag) > tol):
     raise ValueError('covariance matrix is not positive definite')
 
-  # set any slightly negative or slightly imaginary numbers to be real 
-  # and nonnegative
-  val.real[val.real < 0.0] = 0.0    
+  # ignore any slightly imaginary components
   val = val.real
   vec = vec.real
-
-  sample = np.zeros(mean.shape[0])
-  sample[val>0.0] = np.random.normal(0.0,np.sqrt(val[val>0.0]))
-  sample = mean + vec.dot(sample)
+  # indices of positive eigenvalues
+  idx = val > 0.0
+  # generate independent normal random numbers with variance equal to 
+  # the eigenvalues
+  sample = np.random.normal(0.0,np.sqrt(val[idx]))
+  # map with the eigenvectors and add the mean
+  sample = mean + vec[:,idx].dot(sample)
   return sample
 
 
@@ -268,6 +282,7 @@ class GaussianProcess(object):
                           dim=out_diff.shape[0])
     return out
   
+
   def posterior(self,x,mu,sigma=None,diff=None):
     ''' 
     Returns a conditional Gaussian process which incorporates the 
@@ -550,6 +565,41 @@ class GaussianProcess(object):
     '''
     mean,cov = self(x,diff=diff)
     return _draw_sample(mean,cov,tol=tol)
+
+    
+  def is_positive_definite(self,x,tol=1e-10):
+    '''     
+    Tests if the covariance matrix, which is the covariance function 
+    evaluated at *x*, is positive definite by checking if all the 
+    eigenvalues are real and positive. The results of this test do not 
+    necessarily indicate whether the covariance function is positive 
+    definite.
+    
+    Parameters
+    ----------
+    x : (N,D) array
+      Evaluation points
+    
+    tol : float, optional
+      A matrix which should be positive definite may still have 
+      slightly negative or slightly imaginary eigenvalues because of 
+      numerical rounding error. This arguments sets the tolerance for 
+      negative or imaginary eigenvalues.
+
+    Returns
+    -------
+    out : bool
+
+    '''
+    order = self._order
+    self._order = -1
+    try:
+      cov = self.covariance(x,x)    
+    finally:
+      self._order = order
+
+    out = _test_positive_definite(cov,tol)
+    return out  
     
     
 class PriorGaussianProcess(GaussianProcess):
@@ -561,7 +611,7 @@ class PriorGaussianProcess(GaussianProcess):
   
     mean(u(x)) = b
     
-    cov(u(x1),u(x2)) = a*f(||x1 - x2||/c),
+    cov(u(x),u(x')) = a*f(||x - x'||/c),
     
   where ||*|| denotes the L2 norm, and a, b, and c are user defined 
   parameters. 
@@ -586,6 +636,9 @@ class PriorGaussianProcess(GaussianProcess):
   order : int, optional
     Order of the polynomial spanning the null space. Defaults to -1, 
     which means that there is no null space.
+    
+  dim : int, optional
+    Fixes the spatial dimensions of the Gaussian process.   
   
   Examples
   --------
@@ -619,12 +672,15 @@ class PriorGaussianProcess(GaussianProcess):
   Gaussian process and thus only one of them needs to be chosen while 
   the other can be fixed at an arbitary value.
   
-  Not all radial basis functions are positive definite.  Care must be 
-  taken to ensure that the choice of *basis* and *order* are 
-  meaningful. 
+  Not all radial basis functions are positive definite, which means 
+  that there may not be a valid covariance function describing the 
+  Gaussian process. The squared exponential basis function, 
+  rbf.basis.exp, is positive definite for all spatial dimensions and 
+  it is infinitely differentiable. For this reason it is a generally 
+  safe choice for *basis*.
 
   '''
-  def __init__(self,basis,coeff,order=-1):
+  def __init__(self,basis,coeff,order=-1,dim=None):
     def mean_func(x,diff,basis_,coeff_):
       if sum(diff) == 0:
         out = coeff_[1]*np.ones(x.shape[0])
@@ -648,5 +704,5 @@ class PriorGaussianProcess(GaussianProcess):
       
     GaussianProcess.__init__(self,mean_func,cov_func,
                              func_args=(basis,coeff),
-                             order=order)
+                             order=order,dim=dim)
 

@@ -30,10 +30,20 @@ import sympy
 from sympy.utilities.autowrap import ufuncify 
 import numpy as np 
 import copy
+import warnings
 
 # define global symbolic variables
 _R = sympy.symbols('R')
 _EPS = sympy.symbols('EPS')
+
+
+def _replace_nan(x):
+  ''' 
+  this is orders of magnitude faster than np.nan_to_num
+  '''
+  x[np.isnan(x)] = 0.0
+  return x
+
 
 def _check_lambdified_output(fin):
   ''' 
@@ -101,10 +111,11 @@ class RBF(object):
   tol : float, optional  
     If an evaluation point, *x*, is within *tol* of an RBF center, 
     *c*, then *x* is considered equal to *c*. The returned value is 
-    then the RBF at the symbolically evaluated limit of *x*=*c*. This 
+    then the RBF at the symbolically evaluated limit as *x*->*c*. This 
     is only useful when there is a removable singularity at *c*, such 
     as for polyharmonic splines. If *tol* is not provided then there 
-    will be no special treatment for when *x*=*c*.
+    will be no special treatment for when *x* is close to *c*. Note 
+    that computing the limit as *x*->*c* can be very time intensive.
   
   Examples
   --------
@@ -132,7 +143,7 @@ class RBF(object):
       # if EPS is not in the expression then substitute EPS*R for R
       expr = expr.subs(_R,_EPS*_R)
       
-    self.expr = expr
+    self._expr = expr
     self.set_package(package)
     self.set_tol(tol)
     self.clear_cache()
@@ -153,10 +164,11 @@ class RBF(object):
       shape parameters for each RBF. Defaults to 1.0
                                                                            
     diff : (D,) int array, optional
-      Tuple indicating the derivative order for each spatial dimension. 
-      For example, if there are three spatial dimensions then providing 
-      (2,0,1) would return the RBF after differentiating it twice along 
-      the first axis and once along the third axis.
+      Tuple indicating the derivative order for each spatial 
+      dimension. For example, if there are three spatial dimensions 
+      then providing (2,0,1) would return the RBF after 
+      differentiating it twice along the first axis and once along the 
+      third axis.
 
     Returns
     -------
@@ -167,10 +179,17 @@ class RBF(object):
     -----
     This function evaluates the RBF and its derivatives symbolically 
     using sympy and then the symbolic expression is converted to a 
-    numerical function. The numerical function is cached and then reused 
-    when this function is called multiple times with the same derivative 
+    numerical function. The numerical function is cached and then 
+    reused when this function is called again with the same derivative 
     specification.
 
+    All NaNs are replaced with zeros and divide by zero warnings are 
+    suppressed. This is an ad-hoc, but fast, way to handle the 
+    removable singularity with polyharmonic splines, and it does not 
+    require symbolically calculating the limit at the singularity. 
+    This is not guaranteed to produce the correct result at the 
+    singularity, and one may prefer to handle the singularity 
+    separately by setting a value for *tol*.
     '''
     x = np.asarray(x,dtype=float)
     c = np.asarray(c,dtype=float)
@@ -207,77 +226,101 @@ class RBF(object):
     # expand to allow for broadcasting
     x = x[:,None,:]
     c = c[None,:,:]
-
     # this does the same thing as np.rollaxis(x,-1) but is much faster
     x = np.einsum('ijk->kij',x)
     c = np.einsum('ijk->kij',c)
-
     # add function to cache if not already
-    if diff not in self.cache:
-      dim = len(diff)
-      c_sym = sympy.symbols('c:%s' % dim)
-      x_sym = sympy.symbols('x:%s' % dim)    
-      r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
-      # differentiate the RBF 
-      expr = self.expr.subs(_R,r_sym)            
-      for xi,order in zip(x_sym,diff):
-        if order == 0:
-          continue
-        expr = expr.diff(*(xi,)*order)
-
-      if self.tol is not None:
-        # find the limit of the differentiated expression as x->c. This 
-        # is necessary for polyharmonic splines, which have removable 
-        # singularities. NOTE: this finds the limit from only one 
-        # direction and the limit may change when using a different 
-        # direction.
-        center_expr = expr
-        for xi,ci in zip(x_sym,c_sym):
-          center_expr = center_expr.limit(xi,ci)
-
-        # create a piecewise symbolic function which is center_expr when 
-        # _R<tol and expr otherwise
-        expr = sympy.Piecewise((center_expr,r_sym<self.tol),
-                               (expr,True)) 
-      
-      if self.package == 'numpy':
-        func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
-        func = _check_lambdified_output(func)
-        self.cache[diff] = func
-
-      elif self.package == 'cython':        
-        func = ufuncify(x_sym+c_sym+(_EPS,),expr)
-        self.cache[diff] = func
+    if diff not in self._cache:
+      self.add_to_cache(diff)
  
     args = (tuple(x)+tuple(c)+(eps,))    
-    return self.cache[diff](*args)
+    # ignore divide by zero warnings and then replace nans with zeros. 
+    # This is an ad-hoc (but fast!) way of handling the removable 
+    # singularity in polyharmonic splines. A more appropriate way to 
+    # handle the singularity is by specifying *tol*.
+    with warnings.catch_warnings():
+      warnings.simplefilter("ignore")
+      out = self._cache[diff](*args)
+      out = _replace_nan(out)
+
+    return out
 
   def set_tol(self,tol):
-    self.tol = tol
+    self._tol = tol
     
   def set_package(self,package):
     if package in ['cython','numpy']:
-      self.package = package
+      self._package = package
     else:
       raise ValueError('package must either be "cython" or "numpy" ')  
   
+  def add_to_cache(self,diff):
+    '''     
+    Symbolically evaluates the specified derivative and then compiles 
+    it to a function which can be evaluated numerically. The numerical 
+    function is cached for later use. It is not necessary to use this 
+    method directly because it is called as needed by the *__call__* 
+    method.
+    
+    Parameters
+    ----------
+    diff : (D,) int array
+      Derivative specification
+        
+    '''   
+    diff = tuple(diff)
+    dim = len(diff)
+    c_sym = sympy.symbols('c:%s' % dim)
+    x_sym = sympy.symbols('x:%s' % dim)    
+    r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
+    # differentiate the RBF 
+    expr = self._expr.subs(_R,r_sym)            
+    for xi,order in zip(x_sym,diff):
+      if order == 0:
+        continue
+      expr = expr.diff(*(xi,)*order)
+
+    if self._tol is not None:
+      # find the limit of the differentiated expression as x->c. This 
+      # is necessary for polyharmonic splines, which have removable 
+      # singularities. NOTE: this finds the limit from only one 
+      # direction and the limit may change when using a different 
+      # direction.
+      center_expr = expr
+      for xi,ci in zip(x_sym,c_sym):
+        center_expr = center_expr.limit(xi,ci)
+
+      # create a piecewise symbolic function which is center_expr when 
+      # _R<tol and expr otherwise
+      expr = sympy.Piecewise((center_expr,r_sym<self._tol),
+                             (expr,True)) 
+      
+    if self._package == 'numpy':
+      func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
+      func = _check_lambdified_output(func)
+      self._cache[diff] = func
+
+    elif self._package == 'cython':        
+      func = ufuncify(x_sym+c_sym+(_EPS,),expr)
+      self._cache[diff] = func
+    
   def clear_cache(self):
     ''' 
     Deletes entries stored in the cache.
     '''
-    self.cache = {}
+    self._cache = {}
         
 
 # Instantiate some common RBFs
-phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython',tol=1e-16)
-phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),package='cython',tol=1e-16)
-phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),package='cython',tol=1e-16)
-phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),package='cython',tol=1e-16)
-phs7 = RBF((_EPS*_R)**7,package='cython',tol=1e-16)
-phs5 = RBF((_EPS*_R)**5,package='cython',tol=1e-16)
-phs3 = RBF((_EPS*_R)**3,package='cython',tol=1e-16)
-phs1 = RBF(_EPS*_R,package='cython',tol=1e-16)
-exp = RBF(sympy.exp(-(_EPS*_R)),package='cython',tol=1e-16)
+phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython')
+phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),package='cython')
+phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),package='cython')
+phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),package='cython')
+phs7 = RBF((_EPS*_R)**7,package='cython')
+phs5 = RBF((_EPS*_R)**5,package='cython')
+phs3 = RBF((_EPS*_R)**3,package='cython')
+phs1 = RBF(_EPS*_R,package='cython')
+exp = RBF(sympy.exp(-(_EPS*_R)),package='cython')
 imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2),package='cython')
 iq = RBF(1/(1+(_EPS*_R)**2),package='cython')
 ga = RBF(sympy.exp(-(_EPS*_R)**2),package='cython')

@@ -17,7 +17,7 @@ The RBF interpolant :math:`\mathbf{f(x^*)}` is defined as
   
 where :math:`\mathbf{K(x^*,x)}` consists of the RBFs with centers at 
 :math:`\mathbf{x}` evaluated at the interpolation points 
-:math:`\mathbf{x^*}`. :math:`\mathbf{T(x^*)}` is a polynomial matrix 
+:math:`\mathbf{x^*}`. :math:`\mathbf{T(x^*)}` is a polynomial matrix
 where each column is a monomial evaluated at the interpolation points. 
 The monomials are those from a Taylor series expansion with a user 
 specified order. :math:`\mathbf{a}` and :math:`\mathbf{b}` are 
@@ -200,12 +200,12 @@ class RBFInterpolant(object):
     # find the radial basis function coefficients
     coeff = np.linalg.solve(A,d)
 
-    self.x = x
-    self.coeff = coeff
-    self.basis = basis
-    self.order = order 
-    self.eps = eps
-    self.extrapolate = extrapolate
+    self._x = x
+    self._coeff = coeff
+    self._basis = basis
+    self._order = order 
+    self._eps = eps
+    self._extrapolate = extrapolate
 
   def __call__(self,xitp,diff=None,max_chunk=100000):
     ''' 
@@ -232,23 +232,22 @@ class RBFInterpolant(object):
     '''
     n = 0
     xitp = np.asarray(xitp) 
-    #xitp = self.norm(xitp)
     Nitp = xitp.shape[0]
     # allocate output array
     out = np.zeros(Nitp)
     while n < Nitp:
       # xitp indices for this chunk
       idx = range(n,min(n+max_chunk,Nitp))
-      A = _interpolation_matrix(xitp[idx],self.x,
-                                diff,self.eps,
-                                self.basis,self.order)
-      out[idx] = np.einsum('ij,j...->i...',A,self.coeff)
+      A = _interpolation_matrix(xitp[idx],self._x,
+                                diff,self._eps,
+                                self._basis,self._order)
+      out[idx] = A.dot(self._coeff) 
       n += max_chunk
 
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
-    if not self.extrapolate:
-      out[~_in_hull(xitp,self.x)] = np.nan
+    if not self._extrapolate:
+      out[~_in_hull(xitp,self._x)] = np.nan
 
     return out
 
