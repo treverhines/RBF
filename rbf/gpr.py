@@ -6,6 +6,7 @@ import rbf.fd
 import rbf.poly
 import rbf.basis
 from functools import wraps
+import warnings
 
 def _test_positive_definite(A,tol=1e-10):
   val,vec = np.linalg.eig(A)
@@ -45,18 +46,18 @@ def _draw_sample(mean,cov,tol=1e-10):
   return sample
 
 
-def _block_if_null_space_exists(fin):
+def _warn_if_null_space_exists(fin):
   @wraps(fin)
   def fout(self,*args,**kwargs):
-    if self._order != -1: 
-      raise ValueError(
-        'The method *%s* cannot be used for a GaussianProcess with a '
-        'null space. Use the *posterior* method to construct a new '
-        'GaussianProcess where the null space has been removed by '
-        'data constraints.' 
+    quiet = kwargs.pop('quiet',False)
+    if (self._order != -1) & (not quiet): 
+      warnings.warn(
+        'The method *%s* has been called for a GaussianProcess with a '
+        'polynomial null space. The output is for a conditional '
+        'GaussianProcesss where the null space has been fixed at zero.' 
         % fin.__name__)
-    else:
-      return fin(self,*args,**kwargs)    
+
+    return fin(self,*args,**kwargs)    
 
   return fout
   
@@ -119,7 +120,6 @@ class GaussianProcess(object):
     self._order = order
     self._dim = dim
   
-  @_block_if_null_space_exists
   def __call__(self,x,diff=None):
     ''' 
     Returns the mean and covariance evaluated at *x*
@@ -143,35 +143,30 @@ class GaussianProcess(object):
     cov = self.covariance(x,x,diff1=diff,diff2=diff)
     return mean,cov
 
-  @_block_if_null_space_exists
   def __add__(self,other):
     ''' 
     gp1 + gp2 <==> gp1.sum(gp2)
     '''
     return self.sum(other)
 
-  @_block_if_null_space_exists
   def __sub__(self,other):
     ''' 
     gp1 - gp2 <==> gp1.difference(gp2)
     '''
     return self.difference(other)
 
-  @_block_if_null_space_exists
   def __mul__(self,c):
     ''' 
     c*gp  <==> gp.scale(c)
     '''
     return self.scale(c)
 
-  @_block_if_null_space_exists
   def __rmul__(self,c):
     ''' 
     gp*c  <==> gp.scale(c)
     '''
     return self.__mul__(c)
 
-  @_block_if_null_space_exists
   def sum(self,other):
     ''' 
     Adds two Gaussian processes
@@ -183,22 +178,27 @@ class GaussianProcess(object):
     Returns
     -------
     out : GaussianProcess 
-      
+
+    Notes
+    -----
+    The order for the null space in the resulting Gaussian process is 
+    set to the larger of the two null space orders for the input 
+    Gaussian processes.
+
     '''
-    def mean_func(x,diff,gp1,gp2):
-      out = gp1.mean(x,diff=diff) + gp2.mean(x,diff=diff)
+    def mean_func(x,diff):
+      out = self.mean(x,diff=diff) + other.mean(x,diff=diff)
       return out       
 
-    def cov_func(x1,x2,diff1,diff2,gp1,gp2):
-      out = (gp1.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
-             gp2.covariance(x1,x2,diff1=diff1,diff2=diff2))
+    def cov_func(x1,x2,diff1,diff2):
+      out = (self.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
+             other.covariance(x1,x2,diff1=diff1,diff2=diff2))
       return out
             
-    out = GaussianProcess(mean_func,cov_func,
-                          func_args=(self,other))
+    order = max(self._order,other._order)
+    out = GaussianProcess(mean_func,cov_func,order=order)
     return out
 
-  @_block_if_null_space_exists
   def difference(self,other):
     '''  
     Subtracts two Gaussian processes
@@ -212,20 +212,19 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    def mean_func(x,diff,gp1,gp2):
-      out = gp1.mean(x,diff=diff) - gp2.mean(x,diff=diff)
+    def mean_func(x,diff):
+      out = self.mean(x,diff=diff) - other.mean(x,diff=diff)
       return out
       
-    def cov_func(x1,x2,diff1,diff2,gp1,gp2):
-      out = (gp1.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
-             gp2.covariance(x1,x2,diff1=diff1,diff2=diff2))
+    def cov_func(x1,x2,diff1,diff2):
+      out = (self.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
+             other.covariance(x1,x2,diff1=diff1,diff2=diff2))
       return out       
             
-    out = GaussianProcess(mean_func,cov_func,
-                          func_args=(self,other))
+    order = max(self._order,other._order)
+    out = GaussianProcess(mean_func,cov_func,order=order)
     return out
     
-  @_block_if_null_space_exists
   def scale(self,c):
     ''' 
     Scales a Gaussian process 
@@ -239,19 +238,18 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    def mean_func(x,diff,c_,gp):
-      out = c_*gp.mean(x,diff=diff)
+    def mean_func(x,diff):
+      out = c*self.mean(x,diff=diff)
       return out
 
-    def cov_func(x1,x2,diff1,diff2,c_,gp):
-      out = c_**2*gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
+    def cov_func(x1,x2,diff1,diff2):
+      out = c**2*self.covariance(x1,x2,diff1=diff1,diff2=diff2)
       return out
       
-    out = GaussianProcess(mean_func,cov_func,
-                          func_args=(c,self))
+    order = self._order
+    out = GaussianProcess(mean_func,cov_func,order=order)
     return out
 
-  @_block_if_null_space_exists
   def derivative(self,diff):
     ''' 
     Returns the derivative of a Gaussian process
@@ -266,22 +264,21 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    out_diff = np.asarray(diff,dtype=int)
-    def mean_func(x,diff,out_diff_,gp):
-      out = gp.mean(x,diff=out_diff_+diff)
+    dim = len(diff)
+    diff_ = np.asarray(diff,dtype=int)
+    def mean_func(x,diff):
+      out = self.mean(x,diff=diff+diff_)
       return out 
 
-    def cov_func(x1,x2,diff1,diff2,out_diff_,gp):
-      out = gp.covariance(x1,x2,
-                          diff1=out_diff_+diff1,
-                          diff2=out_diff_+diff2)
+    def cov_func(x1,x2,diff1,diff2):
+      out = self.covariance(x1,x2,
+                            diff1=diff1+diff_,
+                            diff2=diff2+diff_)
       return out
       
-    out = GaussianProcess(mean_func,cov_func,
-                          func_args=(out_diff,self),
-                          dim=out_diff.shape[0])
-    return out
-  
+    order = max(self._order - sum(diff_),-1)
+    out = GaussianProcess(mean_func,cov_func,dim=dim,order=order)
+    return out  
 
   def posterior(self,x,mu,sigma=None,diff=None):
     ''' 
@@ -309,138 +306,62 @@ class GaussianProcess(object):
     out : GaussianProcess
       
     '''
-    obs_x = np.asarray(x)
-    obs_mu = np.asarray(mu)
+    x_ = np.asarray(x)
+    mu = np.asarray(mu)
+    n,dim = x_.shape
     if diff is None:
-      obs_diff = np.zeros(obs_x.shape[1],dtype=int)
+      diff_ = np.zeros(dim,dtype=int)
     else:
-      obs_diff = np.asarray(diff,dtype=int)
+      diff_ = np.asarray(diff,dtype=int)
     
     if sigma is None:
-      obs_sigma = np.zeros(obs_x.shape[0])      
+      sigma = np.zeros(n)      
     else:
-      obs_sigma = np.asarray(sigma)
+      sigma = np.asarray(sigma)
 
-    def mean_func(x,diff,obs_x_,obs_mu_,obs_sigma_,
-                  obs_diff_,gp):
-      # the mean and covariance of the prior cannot be evaluated 
-      # unless the null space order is set to -1.  
-      order = gp._order
-      gp._order = -1
-      try:
-        N,D = obs_x_.shape
-        I = x.shape[0]
-        # determine the powers for each monomial spanning the null 
-        # space
-        powers = rbf.poly.powers(order,D) 
-        P = powers.shape[0]
-        # difference between the prior mean and the observations
-        res = np.zeros(N+P)
-        res[:N] = obs_mu_ - gp.mean(obs_x_,diff=obs_diff_)
-        # data covariance matrix
-        Cd = np.diag(obs_sigma_**2)
-        # prior covariance between observations
-        K = gp.covariance(obs_x_,obs_x_,diff1=obs_diff_,diff2=obs_diff_)
-        # polynomial matrix evaluated at the observation points 
-        H = rbf.poly.mvmonos(obs_x_,powers,diff=obs_diff_)
-        # combine the covariances and the polynomial matrices 
-        A = np.zeros((N+P,N+P))
-        A[:N,:N] = K + Cd
-        A[:N,N:] = H
-        A[N:,:N] = H.T
-        Ainv = np.linalg.inv(A)
-        # covariance between the interpolation points and the 
-        # observation points
-        Ki = gp.covariance(x,obs_x_,diff1=diff,diff2=obs_diff_)
-        # polynomial evaluated at the interpolation points
-        Hi = rbf.poly.mvmonos(x,powers,diff=diff)
-        # form the interpolation matrix
-        Ai = np.zeros((I,N+P))
-        Ai[:,:N] = Ki
-        Ai[:,N:] = Hi
-      
-        out = gp.mean(x,diff=diff) + Ai.dot(Ainv.dot(res))
-      
-      except np.linalg.LinAlgError:
-        raise np.linalg.LinAlgError(
-          'Failed to compute the posterior mean. This is likely '
-          'because there is not enough data to constrain a null '
-          'space in the prior')
-          
-      finally:
-        # make sure the null space order is returned to the original 
-        # value
-        gp._order = order
-
-      return out
-
-    def cov_func(x1,x2,diff1,diff2,obs_x_,obs_mu_,obs_sigma_,
-                 obs_diff_,gp):
-      # the mean and covariance of the prior cannot be evaluated 
-      # unless the null space order is set to -1.  
-      order = gp._order
-      gp._order = -1
-      try:
-        N,D = obs_x_.shape
-        # I and J will be the dimensions of the output covariance 
-        # matrix
-        I = x1.shape[0]
-        J = x2.shape[0]
-        # powers for each monomial spanning the null space
-        powers = rbf.poly.powers(order,D) 
-        P = powers.shape[0]
-        # data covariance matrix      
-        Cd = np.diag(obs_sigma_**2)
-        # prior covariance between observation points
-        K = gp.covariance(obs_x_,obs_x_,diff1=obs_diff_,diff2=obs_diff_)
-        # polynomial matrix evaluated at the observation points   
-        H = rbf.poly.mvmonos(obs_x_,powers,diff=obs_diff_)
-        # combine the covariance and the polynomial matrices
-        A = np.zeros((N+P,N+P))
-        A[:N,:N] = K + Cd
-        A[:N,N:] = H
-        A[N:,:N] = H.T
-        Ainv = np.linalg.inv(A)
-        # covariance between the interpolation points      
-        Kii = gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
-        # covariance between x1 and the observation points
-        Ki = gp.covariance(x1,obs_x_,diff1=diff1,diff2=obs_diff_)
-        # polynomial matrix evaluated at x1
-        Hi = rbf.poly.mvmonos(x1,powers,diff=diff1)
-        # interpolation matrix for x1
-        Ai = np.zeros((I,N+P))
-        Ai[:,:N] = Ki
-        Ai[:,N:] = Hi
-        # covariance between x2 and the observation points
-        Kj = gp.covariance(x2,obs_x_,diff1=diff2,diff2=obs_diff_)
-        # polynomial matrix evaluated at x2
-        Hj = rbf.poly.mvmonos(x2,powers,diff=diff2)
-        # interpolation matrix for x2
-        Aj = np.zeros((J,N+P))
-        Aj[:,:N] = Kj
-        Aj[:,N:] = Hj
-
-        out = Kii - Ai.dot(Ainv).dot(Aj.T) 
-
-      except np.linalg.LinAlgError:
-        raise np.linalg.LinAlgError(
-          'Failed to compute the posterior covariance. This is '
+    powers = rbf.poly.powers(self._order,dim) 
+    p = powers.shape[0]
+    K = self.covariance(x_,x_,diff1=diff_,diff2=diff_)
+    H = rbf.poly.mvmonos(x_,powers,diff=diff_)
+    Cd = np.diag(sigma**2)
+    A = np.zeros((n+p,n+p))
+    A[:n,:n] = K + Cd
+    A[:n,n:] = H
+    A[n:,:n] = H.T
+    try:
+      Ainv = np.linalg.inv(A)
+    except np.linalg.LinAlgError:
+      raise np.linalg.LinAlgError(
+          'Failed to compute the inverse covariance matrix. This is '
           'likely because there is not enough data to constrain a '
-          'null space in the prior.')
+          'null space in the prior')
 
-      finally:
-        # make sure the order is reset
-        gp._order = order
-        
+    # compute residuals
+    res = np.zeros(n+p)
+    res[:n] = mu - self.mean(x_,diff=diff_)
+    
+    def mean_func(x,diff):
+      Ki = self.covariance(x,x_,diff1=diff,diff2=diff_)
+      Hi = rbf.poly.mvmonos(x,powers,diff=diff)
+      Ai = np.hstack((Ki,Hi))
+      out = self.mean(x,diff=diff) + Ai.dot(Ainv.dot(res))
       return out
 
-    out = GaussianProcess(mean_func,cov_func,
-                          func_args=(obs_x,obs_mu,obs_sigma,obs_diff,self),
-                          dim=obs_x.shape[1])
+    def cov_func(x1,x2,diff1,diff2):
+      Kii = self.covariance(x1,x2,diff1=diff1,diff2=diff2)
+      Ki  = self.covariance(x1,x_,diff1=diff1,diff2=diff_)
+      Kj  = self.covariance(x2,x_,diff1=diff2,diff2=diff_)
+      Hi = rbf.poly.mvmonos(x1,powers,diff=diff1)
+      Hj = rbf.poly.mvmonos(x2,powers,diff=diff2)
+      Ai = np.hstack((Ki,Hi))
+      Aj = np.hstack((Kj,Hj))
+      out = Kii - Ai.dot(Ainv).dot(Aj.T) 
+      return out
+
+    out = GaussianProcess(mean_func,cov_func,dim=dim,order=-1)
     return out
 
   # convert _mean_func to a class method
-  @_block_if_null_space_exists
   def mean(self,x,diff=None):
     ''' 
     Returns the mean of the Gaussian process 
@@ -479,7 +400,6 @@ class GaussianProcess(object):
     return out
 
   # convert _cov_func to a class method
-  @_block_if_null_space_exists
   def covariance(self,x1,x2,diff1=None,diff2=None):
     ''' 
     Returns the covariance of the Gaussian process 
@@ -508,7 +428,7 @@ class GaussianProcess(object):
       diff1 = np.asarray(diff1,dtype=int)
 
     if diff2 is None:  
-      diff2 = np.zeros(x1.shape[1],dtype=int)
+      diff2 = np.zeros(x2.shape[1],dtype=int)
     else:
       diff2 = np.asarray(diff2,dtype=int)
 
@@ -536,7 +456,6 @@ class GaussianProcess(object):
     out = self._cov_func(x1,x2,diff1,diff2,*self._func_args)
     return out
     
-  @_block_if_null_space_exists
   def draw_sample(self,x,diff=None,tol=1e-10):  
     '''  
     Draws a random sample from the Gaussian process
@@ -565,7 +484,6 @@ class GaussianProcess(object):
     '''
     mean,cov = self(x,diff=diff)
     return _draw_sample(mean,cov,tol=tol)
-
     
   def is_positive_definite(self,x,tol=1e-10):
     '''     
@@ -591,13 +509,7 @@ class GaussianProcess(object):
     out : bool
 
     '''
-    order = self._order
-    self._order = -1
-    try:
-      cov = self.covariance(x,x)    
-    finally:
-      self._order = order
-
+    cov = self.covariance(x,x)    
     out = _test_positive_definite(cov,tol)
     return out  
     
@@ -681,19 +593,19 @@ class PriorGaussianProcess(GaussianProcess):
 
   '''
   def __init__(self,basis,coeff,order=-1,dim=None):
-    def mean_func(x,diff,basis_,coeff_):
+    def mean_func(x,diff):
       if sum(diff) == 0:
-        out = coeff_[1]*np.ones(x.shape[0])
+        out = coeff[1]*np.ones(x.shape[0])
       else:  
         out = np.zeros(x.shape[0])
 
       return out
       
-    def cov_func(x1,x2,diff1,diff2,basis_,coeff_):
-      eps = np.ones(x2.shape[0])/coeff_[2]
-      a = (-1)**sum(diff2)*coeff_[0]
+    def cov_func(x1,x2,diff1,diff2):
+      eps = np.ones(x2.shape[0])/coeff[2]
+      a = (-1)**sum(diff2)*coeff[0]
       diff = diff1 + diff2
-      out = a*basis_(x1,x2,eps=eps,diff=diff)
+      out = a*basis(x1,x2,eps=eps,diff=diff)
       if np.any(~np.isfinite(out)):
         raise ValueError(
           'Encountered a non-finite covariance. This is likely '
@@ -703,6 +615,5 @@ class PriorGaussianProcess(GaussianProcess):
       return out
       
     GaussianProcess.__init__(self,mean_func,cov_func,
-                             func_args=(basis,coeff),
                              order=order,dim=dim)
 
