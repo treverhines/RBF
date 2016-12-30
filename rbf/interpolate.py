@@ -10,25 +10,27 @@ This function has numerous features that are lacking in
 * prevent extrapolation by masking data that is outside of the 
   convex hull defined by the data points
 
+RBF Interpolation
+-----------------
 The RBF interpolant :math:`\mathbf{f(x^*)}` is defined as
     
 .. math::
-  \mathbf{f(x^*)} = \mathbf{K(x^*,x)a} + \mathbf{T(x^*)b}
+  \mathbf{f(x^*)} = \mathbf{K(x^*,x)a} + \mathbf{P(x^*)b}
   
 where :math:`\mathbf{K(x^*,x)}` consists of the RBFs with centers at 
 :math:`\mathbf{x}` evaluated at the interpolation points 
-:math:`\mathbf{x^*}`. :math:`\mathbf{T(x^*)}` is a polynomial matrix
-where each column is a monomial evaluated at the interpolation points. 
-The monomials are those from a Taylor series expansion with a user 
-specified order. :math:`\mathbf{a}` and :math:`\mathbf{b}` are 
-coefficients that need to be estimated. The coefficients are found by 
-solving the linear system of equations
+:math:`\mathbf{x^*}`. :math:`\mathbf{P(x^*)}` is a polynomial matrix
+where each column is a monomial basis function evaluated at the 
+interpolation points. The monomial basis functions span the space of 
+all polynomials with a user specified order. :math:`\mathbf{a}` and 
+:math:`\mathbf{b}` are coefficients that need to be estimated. The 
+coefficients are found by solving the linear system of equations
   
 .. math::
-  (\mathbf{K(x,x)} + p\mathbf{C_d})\mathbf{a}  + \mathbf{T(x)b} = \mathbf{y}
+  (\mathbf{K(x,x)} + p\mathbf{C_d})\mathbf{a}  + \mathbf{P(x)b} = \mathbf{y}
 
 .. math::
-  \mathbf{T^T(x)a} = \mathbf{0} 
+  \mathbf{P^T(x)a} = \mathbf{0} 
 
 where :math:`\mathbf{C_d}` is the data covariance matrix, 
 :math:`\mathbf{y}` are the observations at :math:`\mathbf{x}`, 
@@ -40,7 +42,7 @@ and chapter 13.2.1 of [2].
     
 References
 ----------
-[1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World 
+[1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World 
 Scientific Publishing Co, 2007.
     
 [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 

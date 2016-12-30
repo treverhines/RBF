@@ -3,22 +3,26 @@ This module defines a class, *GaussianProcess*, which is an
 abstraction that allows one to easily work with Gaussian processes. 
 The *GaussianProcess* class is primarily intended for Gaussian process 
 regression (GPR), which is performed with the *condition* method. GPR 
-is a method for constructing a continuous function from discrete and 
-potentially noisy observations.  This documentation describes Gaussian 
-processes and the operations (methods), which they are endowed with. 
-Details on the classes *GaussianProcess* and *PriorGaussianProcess* 
-can be found in their doc strings.
+is a technique for constructing a continuous function from discrete 
+and potentially noisy observations. This documentation describes 
+Gaussian processes and the operations (methods), which they are 
+endowed with. Details on the classes *GaussianProcess* and 
+*PriorGaussianProcess* can be found in their doc strings.
 
 Gaussian Processes
-++++++++++++++++++
+==================
 A Gaussian process is a stochastic process, :math:`u(x)`, which has a 
 domain in :math:`\mathbb{R}^n` and we define it in terms of a mean 
-function, :math:`\\bar{u}(x)`, a covariance function, 
-:math:`C_u(x,x')`, and a null space which is the span of all monomial 
-basis functions in :math:`\mathbb{R}^n` which have degree up to and 
-including :math:`d_u`. These monomials are denoted as 
+function, :math:`\\bar{u}(x)`, a covariance function,
+:math:`C_u(x,x')`, and the order of the polynomial null space, 
+:math:`d_u`. The null space is the span of all monomial
+basis functions in :math:`\mathbb{R}^n` which have order up to and 
+including :math:`d_u`. These monomials are denoted as
 :math:`\mathbf{p}_u(x) = [p_i(x)]_{i=1}^{m_u}`, where :math:`m_u = 
-{{n+d_u}\choose{n}}`. We can write the Gaussian process as
+{{n+d_u}\choose{n}}`. It is not necessary for a Gaussian process to 
+have a null space. If there is no null space then we say 
+:math:`d_u=-1`, which is a programmatic and notational convenience. We 
+express the Gaussian process as
   
 .. math::
   u = u_o + \sum_{i=1}^{m_u} c_i p_i,
@@ -34,23 +38,29 @@ substraction, scaling, differentiation, and conditioning. Each
 operation produces another Gaussian process which possesses the same 
 five operations. These operations are described below.
 
-Operations
-==========
+Operations on Gaussian Processes
+================================
 
 Addition
 --------
 Two uncorrelated Gaussian processes, :math:`u` and :math:`v`, can be 
-added together as
+added as
 
 .. math::
-  u + v = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+  u + v = z
 
-where 
+where the mean, covariance, and null space order for :math:`z` are
 
 .. math::
-  z_o \sim \mathcal{N}\\big(\\bar{u} + \\bar{v}, C_u + C_{v}\\big),
+  \\bar{z} = \\bar{u} + \\bar{v},
 
-and :math:`d_z = \max(d_u,d_v).`
+.. math::
+  C_z = C_u + C_v,
+  
+and 
+
+.. math::
+  d_z = \max(d_u,d_v).
 
 Subtraction
 -----------
@@ -58,29 +68,45 @@ A Gaussian process can be subtracted from another Gaussian processes
 as
 
 .. math::
-  u - v = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+  u - v = z 
 
 where 
 
 .. math::
-  z_o \sim \mathcal{N}\\big(\\bar{u} - \\bar{v}, C_u + C_{v}\\big),
-                   
-and :math:`d_z = \max(d_u,d_v).`
+  \\bar{z} = \\bar{u} - \\bar{v},
+
+.. math::
+  C_z = C_u + C_v,
+  
+and 
+
+.. math::
+  d_z = \max(d_u,d_v).
+
 
 Scaling
 -------
 A Gaussian process can be scaled by a constant as 
 
 .. math::
-  cu = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+  cu = z 
 
 where 
 
 .. math::
-  z_o \sim \mathcal{N}\\big(c\\bar{u},c^2C_u\\big),
+  \\bar{z} = c\\bar{u},
 
-and :math:`d_z = d_u` if :math:`c \\neq 0`. If :math:`c=0` then there 
-is no null space in :math:`z`, which we denote as :math:`d_z=-1`.
+.. math::
+  C_z = c^2C_u,
+
+and 
+
+.. math::
+  d_z = 
+  \\begin{cases}
+  d_u, &\\text{if  } c\\neq 0   \\\\  
+  -1, &\mathrm{otherwise}  \\\\
+  \\end{cases}.
 
 Differentiation
 ---------------
@@ -95,30 +121,35 @@ operator,
 as 
 
 .. math::
-  Du = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+  Du = z 
 
 where 
 
 .. math::
-  z_o \sim 
-  \mathcal{N}\\big(D\\bar{u},DC_uD^H\\big),
+  \\bar{z} = D\\bar{u},
+  
+.. math::
+  C_z = DC_uD^H,
+  
+.. math::
+  d_z = \max(d_u - d_D,-1),
 
-and :math:`d_z = \max(d_u - d_D,-1)`, where :math:`d_D = a_1 + a_2 + 
-\dots + a_n`. In the expression for the covariance function, the 
-differential operator is differentiating :math:`C_u(x,x')` with 
-respect to :math:`x`, and the adjoint differential operator, 
-:math:`D^H`, is differentiating :math:`C_u(x,x')` with respect to 
-:math:`x'`.
+and :math:`d_D = a_1 + a_2 + \dots + a_n`. In the expression for the 
+covariance function, the differential operator is differentiating
+:math:`C_u(x,x')` with respect to :math:`x`, and the adjoint 
+differential operator, :math:`D^H`, is differentiating 
+:math:`C_u(x,x')` with respect to :math:`x'`.
 
 Conditioning
 ------------
-A Gaussian process can be conditioned with noisy observations of
-:math:`u(x)` which have been made at locations :math:`\mathbf{y}`. 
-These observations are referred to as :math:`\mathbf{d}` and they have 
-zero-mean noise with covariance :math:`\mathbf{C_d}`. 
+A Gaussian process can be conditioned with :math:`q` noisy 
+observations of :math:`u(x)`, :math:`\mathbf{d}=\{d_i\}_{i=1}^q`, 
+which have been made at locations :math:`\mathbf{y}=\{y_i\}_{i=1}^q`. 
+These observations have noise with zero mean and covariance described 
+by :math:`\mathbf{C_d}`. The conditioned Gaussian process is 
 
 .. math::
-  u | \mathbf{d} = z \sim \mathcal{N}\\big(\\bar{z},C_{z}\\big),
+  u | \mathbf{d} = z 
   
 where
   
@@ -128,22 +159,25 @@ where
                 \mathbf{K}(\mathbf{y})^{-1}
                 \mathbf{r}^*,
 
-and 
-
 .. math::
   C_{z}(x,x') = C_u(x,x') - 
                 \mathbf{k}(x,\mathbf{y}) 
                 \mathbf{K}(\mathbf{y})^{-1}
-                \mathbf{k}(x',\mathbf{y})^H.
+                \mathbf{k}(x',\mathbf{y})^H,                
+
+and
+
+.. math::
+  d_z = -1.
 
 In the above equations we use the augmented covariance matrices, 
 :math:`\mathbf{k}` and :math:`\mathbf{K}`, which are defined as
 
 .. math::
-  \mathbf{k}(x,\mathbf{x}) = 
+  \mathbf{k}(x,\mathbf{y}) = 
   \\left[
   \\begin{array}{cc}
-    \\left[C_u(x,x_i)\\right]_{x_i \in \mathbf{x}} 
+    \\left[C_u(x,y_i)\\right]_{y_i \in \mathbf{y}} 
     & \mathbf{p}_u(x) \\\\
   \\end{array}  
   \\right]
@@ -151,13 +185,13 @@ In the above equations we use the augmented covariance matrices,
 and      
            
 .. math::
-  \mathbf{K}(\mathbf{x}) = 
+  \mathbf{K}(\mathbf{y}) = 
   \\left[
   \\begin{array}{cc}
-    \mathbf{C_d} + \\left[C_u(x_i,x_j)\\right]_
-    {x_i,x_j \in \mathbf{x}\\times\mathbf{x}} 
-    & [\mathbf{p}_u(x_i)]_{x_i \in \mathbf{x}} \\\\
-    [\mathbf{p}_u(x_i)]^H_{x_i \in \mathbf{x}}   
+    \mathbf{C_d} + \\left[C_u(y_i,y_j)\\right]_
+    {y_i,y_j \in \mathbf{y}\\times\mathbf{y}} 
+    & [\mathbf{p}_u(y_i)]_{y_i \in \mathbf{y}} \\\\
+    [\mathbf{p}_u(y_i)]^H_{y_i \in \mathbf{y}}   
     & \mathbf{0}    \\\\
   \\end{array}  
   \\right].
@@ -165,14 +199,16 @@ and
 We define the residual vector as
 
 .. math::
-  \mathbf{r} = [d(y_i) - \\bar{u}(y_i)]_{y_i \in \mathbf{y}}^H
+  \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^H
   
 and :math:`\mathbf{r}^*` is the residual vector which has been 
 suitably padded with zeros. Note that there is no null space in
 :math:`z` because it is assumed that there is enough data in 
 :math:`\mathbf{d}` to constrain the null spaces in :math:`u`. If 
 :math:`\mathbf{d}` is not sufficiently informative then 
-:math:`\mathbf{K}(\mathbf{y})` will not be invertible.
+:math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but 
+not sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be 
+invertible is that :math:`q \geq m_u`.
 
 Prior Gaussian Processes
 ========================
@@ -194,13 +230,18 @@ coefficients. The literature on radial basis functions and Gaussian
 process regression often refers to :math:`c` as the shape parameter or 
 the characteristic length scale. :math:`\phi` is a user specified 
 positive definite radial function. One common choice for :math:`\phi` 
-is the squared exponential function
+is the squared exponential function,
 
 .. math::
-  \phi(r) = \exp(-r^2)
+  \phi(r) = \exp(-r^2),
 
 which has the benefit of being infinitely differentiable. See [1] for 
 an exhaustive list of positive definite radial functions.
+
+References
+==========
+[1] Rasmussen, C., and Williams, C., Gaussian Processes for Machine 
+Learning. The MIT Press, 2006.
 
 '''
 import numpy as np
