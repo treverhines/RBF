@@ -34,6 +34,7 @@ Table of Contents
   installation
   basis
   interpolate
+  gpr
   fd
   filter
   nodes

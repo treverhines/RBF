@@ -1,5 +1,207 @@
 ''' 
-Module for Gaussian process regression.
+This module defines a class, *GaussianProcess*, which is an 
+abstraction that allows one to easily work with Gaussian processes. 
+The *GaussianProcess* class is primarily intended for Gaussian process 
+regression (GPR), which is performed with the *condition* method. GPR 
+is a method for constructing a continuous function from discrete and 
+potentially noisy observations.  This documentation describes Gaussian 
+processes and the operations (methods), which they are endowed with. 
+Details on the classes *GaussianProcess* and *PriorGaussianProcess* 
+can be found in their doc strings.
+
+Gaussian Processes
+++++++++++++++++++
+A Gaussian process is a stochastic process, :math:`u(x)`, which has a 
+domain in :math:`\mathbb{R}^n` and we define it in terms of a mean 
+function, :math:`\\bar{u}(x)`, a covariance function, 
+:math:`C_u(x,x')`, and a null space which is the span of all monomial 
+basis functions in :math:`\mathbb{R}^n` which have degree up to and 
+including :math:`d_u`. These monomials are denoted as 
+:math:`\mathbf{p}_u(x) = [p_i(x)]_{i=1}^{m_u}`, where :math:`m_u = 
+{{n+d_u}\choose{n}}`. We can write the Gaussian process as
+  
+.. math::
+  u = u_o + \sum_{i=1}^{m_u} c_i p_i,
+
+where :math:`\{c_i\}_{i=1}^{m_u}` are uncorrelated random variables 
+with infinite variance and
+
+.. math::
+  u_o \\sim \\mathcal{N}\\big(\\bar{u},C_u\\big).
+
+We endow the Gaussian process with five operations: addition, 
+substraction, scaling, differentiation, and conditioning. Each 
+operation produces another Gaussian process which possesses the same 
+five operations. These operations are described below.
+
+Operations
+==========
+
+Addition
+--------
+Two uncorrelated Gaussian processes, :math:`u` and :math:`v`, can be 
+added together as
+
+.. math::
+  u + v = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+
+where 
+
+.. math::
+  z_o \sim \mathcal{N}\\big(\\bar{u} + \\bar{v}, C_u + C_{v}\\big),
+
+and :math:`d_z = \max(d_u,d_v).`
+
+Subtraction
+-----------
+A Gaussian process can be subtracted from another Gaussian processes 
+as
+
+.. math::
+  u - v = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+
+where 
+
+.. math::
+  z_o \sim \mathcal{N}\\big(\\bar{u} - \\bar{v}, C_u + C_{v}\\big),
+                   
+and :math:`d_z = \max(d_u,d_v).`
+
+Scaling
+-------
+A Gaussian process can be scaled by a constant as 
+
+.. math::
+  cu = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+
+where 
+
+.. math::
+  z_o \sim \mathcal{N}\\big(c\\bar{u},c^2C_u\\big),
+
+and :math:`d_z = d_u` if :math:`c \\neq 0`. If :math:`c=0` then there 
+is no null space in :math:`z`, which we denote as :math:`d_z=-1`.
+
+Differentiation
+---------------
+A Gaussian process can be differentiated with the differential 
+operator,
+
+.. math::
+  D = \\frac{\partial^{a_1 + a_2 + \dots + a_n}}
+            {\partial x_1^{a_1} \partial x_2^{a_2} \dots 
+            \partial x_n^{a_n}},
+
+as 
+
+.. math::
+  Du = z = z_o + \sum_{i=1}^{m_z} c_i p_i,
+
+where 
+
+.. math::
+  z_o \sim 
+  \mathcal{N}\\big(D\\bar{u},DC_uD^H\\big),
+
+and :math:`d_z = \max(d_u - d_D,-1)`, where :math:`d_D = a_1 + a_2 + 
+\dots + a_n`. In the expression for the covariance function, the 
+differential operator is differentiating :math:`C_u(x,x')` with 
+respect to :math:`x`, and the adjoint differential operator, 
+:math:`D^H`, is differentiating :math:`C_u(x,x')` with respect to 
+:math:`x'`.
+
+Conditioning
+------------
+A Gaussian process can be conditioned with noisy observations of
+:math:`u(x)` which have been made at locations :math:`\mathbf{y}`. 
+These observations are referred to as :math:`\mathbf{d}` and they have 
+zero-mean noise with covariance :math:`\mathbf{C_d}`. 
+
+.. math::
+  u | \mathbf{d} = z \sim \mathcal{N}\\big(\\bar{z},C_{z}\\big),
+  
+where
+  
+.. math::
+  \\bar{z}(x) = \\bar{u}(x) + 
+                \mathbf{k}(x,\mathbf{y})
+                \mathbf{K}(\mathbf{y})^{-1}
+                \mathbf{r}^*,
+
+and 
+
+.. math::
+  C_{z}(x,x') = C_u(x,x') - 
+                \mathbf{k}(x,\mathbf{y}) 
+                \mathbf{K}(\mathbf{y})^{-1}
+                \mathbf{k}(x',\mathbf{y})^H.
+
+In the above equations we use the augmented covariance matrices, 
+:math:`\mathbf{k}` and :math:`\mathbf{K}`, which are defined as
+
+.. math::
+  \mathbf{k}(x,\mathbf{x}) = 
+  \\left[
+  \\begin{array}{cc}
+    \\left[C_u(x,x_i)\\right]_{x_i \in \mathbf{x}} 
+    & \mathbf{p}_u(x) \\\\
+  \\end{array}  
+  \\right]
+
+and      
+           
+.. math::
+  \mathbf{K}(\mathbf{x}) = 
+  \\left[
+  \\begin{array}{cc}
+    \mathbf{C_d} + \\left[C_u(x_i,x_j)\\right]_
+    {x_i,x_j \in \mathbf{x}\\times\mathbf{x}} 
+    & [\mathbf{p}_u(x_i)]_{x_i \in \mathbf{x}} \\\\
+    [\mathbf{p}_u(x_i)]^H_{x_i \in \mathbf{x}}   
+    & \mathbf{0}    \\\\
+  \\end{array}  
+  \\right].
+
+We define the residual vector as
+
+.. math::
+  \mathbf{r} = [d(y_i) - \\bar{u}(y_i)]_{y_i \in \mathbf{y}}^H
+  
+and :math:`\mathbf{r}^*` is the residual vector which has been 
+suitably padded with zeros. Note that there is no null space in
+:math:`z` because it is assumed that there is enough data in 
+:math:`\mathbf{d}` to constrain the null spaces in :math:`u`. If 
+:math:`\mathbf{d}` is not sufficiently informative then 
+:math:`\mathbf{K}(\mathbf{y})` will not be invertible.
+
+Prior Gaussian Processes
+========================
+We begin Gaussian process regression by assuming a prior Gaussian 
+process which describes what we believe the underlying function looks 
+like. In this module, the mean and covariance for prior Gaussian 
+processes can be described as
+  
+.. math::
+  \\bar{u}(x) = b,
+  
+and
+
+.. math::
+  C_u(x,x') = a\phi\\left(\\frac{||x - x'||_2}{c}\\right), 
+  
+where :math:`a`, :math:`b`, and :math:`c` are user specified 
+coefficients. The literature on radial basis functions and Gaussian 
+process regression often refers to :math:`c` as the shape parameter or 
+the characteristic length scale. :math:`\phi` is a user specified 
+positive definite radial function. One common choice for :math:`\phi` 
+is the squared exponential function
+
+.. math::
+  \phi(r) = \exp(-r^2)
+
+which has the benefit of being infinitely differentiable. See [1] for 
+an exhaustive list of positive definite radial functions.
+
 '''
 import numpy as np
 import rbf.fd
@@ -8,12 +210,23 @@ import rbf.basis
 from functools import wraps
 import warnings
 
-def _test_positive_definite(A,tol=1e-10):
-  val,vec = np.linalg.eig(A)
-  if np.any(val.real < -tol):
+def _is_positive_definite(A,tol=1e-10):
+  ''' 
+  Tests if *A* is a positive definite matrix. This function returns 
+  True if *A* is symmetric and all of its eigenvalues are real and 
+  positive.  
+  '''
+  # test if A is symmetric
+  if np.any(np.abs(A - A.T) > tol):
     return False
-
+    
+  val,_ = np.linalg.eig(A)
+  # test if all the eigenvalues are real 
   if np.any(np.abs(val.imag) > tol):
+    return False
+    
+  # test if all the eigenvalues are positive
+  if np.any(val.real < -tol):
     return False
 
   return True  
@@ -26,13 +239,6 @@ def _draw_sample(mean,cov,tol=1e-10):
   mean = np.asarray(mean)
   cov = np.asarray(cov)
   val,vec = np.linalg.eig(cov)
-  # make sure that all the eigenvalues are real and positive to within 
-  # tolerance
-  if np.any(val.real < -tol):
-    raise ValueError('covariance matrix is not positive definite')
-  if np.any(np.abs(val.imag) > tol):
-    raise ValueError('covariance matrix is not positive definite')
-
   # ignore any slightly imaginary components
   val = val.real
   vec = vec.real
@@ -64,11 +270,11 @@ def _warn_if_null_space_exists(fin):
 
 class GaussianProcess(object):
   ''' 
-  A *GaussianProcess* instance represents a stochastic process which 
-  is defined in terms of its mean and covariance function. This class 
-  allows for basic operations on Gaussian processes which includes 
-  addition, subtraction, scaling, differentiation, sampling, and 
-  conditioning.
+  A *GaussianProcess* instance represents a stochastic process, which 
+  is defined in terms of its mean function, and covariance function, 
+  and its polynomial null space. This clas allows for basic operations 
+  on Gaussian processes which includes addition, subtraction, scaling, 
+  differentiation, sampling, and conditioning.
     
   This class does not check whether the specified covariance function 
   is positive definite, making it easy construct an invalid 
@@ -99,13 +305,12 @@ class GaussianProcess(object):
     *cov_func*.
     
   order : int, optional
-    Order of the polynomial which spans the null space of the 
-    Gaussian process. If this is -1 then the Gaussian process 
-    contains no null space. If this is 0 then the likelihood of a 
-    realization is unchanged by adding a constant. If this is 1 then 
-    the likelihood of a realization is unchanged by adding a 
-    constant and linear term, etc. This should be used if the data 
-    contains trends that are well described by a polynomial.
+    Order of the polynomial null space. If this is -1 then the 
+    Gaussian process contains no null space. If this is 0 then the 
+    likelihood of a realization is unchanged by adding a constant. If 
+    this is 1 then the likelihood of a realization is unchanged by 
+    adding a constant and linear term, etc. This should be used if the 
+    data contains trends that are well described by a polynomial.
     
   dim : int, optional  
     Specifies the spatial dimensions of the Gaussian process. An 
@@ -178,12 +383,6 @@ class GaussianProcess(object):
     Returns
     -------
     out : GaussianProcess 
-
-    Notes
-    -----
-    The order for the null space in the resulting Gaussian process is 
-    set to the larger of the two null space orders for the input 
-    Gaussian processes.
 
     '''
     def mean_func(x,diff):
@@ -399,7 +598,6 @@ class GaussianProcess(object):
     out = self._mean_func(x,diff,*self._func_args)
     return out
 
-  # convert _cov_func to a class method
   def covariance(self,x1,x2,diff1=None,diff2=None):
     ''' 
     Returns the covariance of the Gaussian process 
@@ -489,9 +687,9 @@ class GaussianProcess(object):
     '''     
     Tests if the covariance matrix, which is the covariance function 
     evaluated at *x*, is positive definite by checking if all the 
-    eigenvalues are real and positive. The results of this test do not 
-    necessarily indicate whether the covariance function is positive 
-    definite.
+    eigenvalues are real and positive. An affirmative result from this 
+    test is necessary but insufficient to ensure that the covariance 
+    function is positive definite.
     
     Parameters
     ----------
@@ -510,7 +708,7 @@ class GaussianProcess(object):
 
     '''
     cov = self.covariance(x,x)    
-    out = _test_positive_definite(cov,tol)
+    out = _is_positive_definite(cov,tol)
     return out  
     
     
@@ -518,23 +716,9 @@ class PriorGaussianProcess(GaussianProcess):
   ''' 
   A *PriorGaussianProcess* instance represents a stationary Gaussian 
   process process which has a constant mean and a covariance function 
-  described by a radial basis function, *f*.  Specifically, the 
-  Gaussian process, *u*, has a mean and covariance described as
-  
-    mean(u(x)) = b
-    
-    cov(u(x),u(x')) = a*f(||x - x'||/c),
-    
-  where ||*|| denotes the L2 norm, and a, b, and c are user defined 
-  parameters. 
-  
-  The prior can also be given a null space containing all polynomials 
-  of order *order*.  If *order* is -1, which is the default, then the 
-  prior is given no null space.  If *order* is 0 then the likelihood 
-  of a realization of u is invariant to the addition of a constant. If 
-  *order* is 1 then the likelihood of a realization of u is invariant 
-  to the addition of a constant and linear term, etc.
-  
+  described by a radial basis function. The prior can also be given a 
+  null space containing all polynomials of order *order*.  
+
   Parameters
   ----------
   basis : RBF instance
