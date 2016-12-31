@@ -12,8 +12,9 @@ Features
   derivatives
 * Regularized RBF interpolants (including smoothing splines) for 
   noisy, scattered, data sets
-* An abstraction for Gaussian processes, which is primarily used for 
-  Gaussian process regression (GPR)
+* An abstraction for Gaussian processes. Gaussian processes are
+  primarily used here for Gaussian process regression (GPR), which is 
+  a nonparametric Bayesian interpolation/smoothing method.
 * An algorithm for generating Radial Basis Function Finite Difference 
   (RBF-FD) weights
 * RBF-FD Filtering for denoising large, scattered data sets
