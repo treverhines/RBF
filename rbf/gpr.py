@@ -14,15 +14,14 @@ well developed and contain a great deal of functionilty which is
 absent here. For example, this module does not contain any routines 
 for optimizing hyperparameters. However, this module is not a stripped 
 down rewrite of existing packages. Instead, this module approaches GPR 
-from a new object oriented perspective. I treat GPR as a method of a 
-*GaussianProcess* and it returns a new *GaussianProcess* which can 
-itself be used as a prior for further GPR. *GaussianProcess* instances 
-also have methods for addition, subtraction, scaling, and 
+from an object oriented perspective. GPR is treated as a method of a 
+*GaussianProcess* and the method returns a new *GaussianProcess* which 
+can itself be used as a prior for further GPR. *GaussianProcess* 
+instances also have methods for addition, subtraction, scaling, and 
 differentiation, which each return a *GaussianProcess* possessing the 
-same methods. I find this object oriented approach for Gaussian 
-processes to be extensible and it has allowed me to tackle a wider 
-range of problems in my research which I could not have accomplished 
-with existing software.
+same methods. This object oriented approach is intended to give the 
+user the flexibility necessary for data analysis with Gaussian 
+processes.
 
 Gaussian Processes
 ==================
@@ -382,31 +381,31 @@ class GaussianProcess(object):
   
   def __call__(self,*args,**kwargs):
     ''' 
-    gp(*args,**kwargs) <==> gp.mean_and_uncertainty(*args,**kwargs)
+    equivalent to calling *mean_and_uncertainty*
     '''
     return self.mean_and_uncertainty(*args,**kwargs)
 
   def __add__(self,other):
     ''' 
-    gp1 + gp2 <==> gp1.sum(gp2)
+    equivalent to calling *add*
     '''
     return self.add(other)
 
   def __sub__(self,other):
     ''' 
-    gp1 - gp2 <==> gp1.difference(gp2)
+    equivalent to calling *subtract*
     '''
     return self.subtract(other)
 
   def __mul__(self,c):
     ''' 
-    c*gp  <==> gp.scale(c)
+    equivalent to calling *scale*
     '''
     return self.scale(c)
 
   def __rmul__(self,c):
     ''' 
-    gp*c  <==> gp.scale(c)
+    equivalent to calling *scale*
     '''
     return self.__mul__(c)
 
@@ -839,7 +838,7 @@ class PriorGaussianProcess(GaussianProcess):
   exponential function with variance = 1, mean = 0, and characteristic 
   length scale = 2.
   
-  >>> from rbf.basis import ga
+  >>> from rbf.basis import ga,phs3
   >>> gp = PriorGaussianProcess(ga,(1,0,2))
   
   Instantiate a PriorGaussianProcess which is equivalent to a 1-D thin 
@@ -847,7 +846,7 @@ class PriorGaussianProcess(GaussianProcess):
   mean and uncertainty of the Gaussian process after incorporating 
   observations
   
-  >>> gp = rbf.gpr.PriorGaussianProcess(phs3,(0.01,0,1.0),order=1)
+  >>> gp = PriorGaussianProcess(phs3,(0.01,0,1.0),order=1)
   >>> y = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
   >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
   >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])

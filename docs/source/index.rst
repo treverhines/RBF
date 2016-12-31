@@ -17,10 +17,12 @@ Features
 * Efficient functions to evaluate RBFs and their analytically derived 
   derivatives
 * Regularized RBF interpolants (including smoothing splines) for
-  noisy, scattered, data
+  noisy, scattered, data sets
+* An abstraction for Gaussian processes, which is primarily used for 
+  Gaussian process regression (GPR)
 * An algorithm for generating Radial Basis Function Finite Difference 
   (RBF-FD) weights
-* RBF-FD Filtering for denoising **BIG**, scattered data
+* RBF-FD Filtering for denoising large, scattered data sets
 * Node and stencil generation algorithms for solving PDEs over
   irregular domains
 * Halton sequence generator
