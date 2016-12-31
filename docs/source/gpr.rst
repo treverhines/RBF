@@ -1,5 +1,5 @@
 GPR (Gaussian Process Regression)
----------------------------------
+=================================
 .. automodule:: rbf.gpr
 
 .. autoclass:: rbf.gpr.GaussianProcess
@@ -12,4 +12,8 @@ GPR (Gaussian Process Regression)
   :members: __init__, add, substract, scale, differentiate, condition, 
             draw_sample, is_positive_definite,
             __add__, __sub__, __mul__, __rmul__, __call__
-
+            
+Examples
+--------
+.. literalinclude:: ../scripts/gpr.a.py
+.. image:: ../figures/gpr.a.png

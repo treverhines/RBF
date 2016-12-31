@@ -1,11 +1,11 @@
 Basis 
------
+=====
 .. automodule:: rbf.basis
   :members:
   :special-members:
   
 Examples
-++++++++
+--------
 .. literalinclude:: ../scripts/basis.a.py
 .. image:: ../figures/basis.a.png
 
