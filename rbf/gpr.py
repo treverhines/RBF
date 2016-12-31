@@ -9,6 +9,21 @@ Gaussian processes and the operations (methods), which they are
 endowed with. Details on the classes *GaussianProcess* and 
 *PriorGaussianProcess* can be found in their doc strings.
 
+There are several existing python packages for GPR. Some packages are 
+well developed and contain a great deal of functionilty which is 
+absent here. For example, this module does not contain any routines 
+for optimizing hyperparameters. However, this module is not a stripped 
+down rewrite of existing packages. Instead, this module approaches GPR 
+from a new object oriented perspective. I treat GPR as a method of a 
+*GaussianProcess* and it returns a new *GaussianProcess* which can 
+itself be used as a prior for further GPR. *GaussianProcess* instances 
+also have methods for addition, subtraction, scaling, and 
+differentiation, which each return a *GaussianProcess* possessing the 
+same methods. I find this object oriented approach for Gaussian 
+processes to be extensible and it has allowed me to tackle a wider 
+range of problems in my research which I could not have accomplished 
+with existing software.
+
 Gaussian Processes
 ==================
 A Gaussian process is a stochastic process, :math:`u(x)`, which has a 
@@ -34,7 +49,7 @@ with infinite variance and
   u_o \\sim \\mathcal{N}\\big(\\bar{u},C_u\\big).
 
 We endow the Gaussian process with five operations: addition, 
-substraction, scaling, differentiation, and conditioning. Each 
+subtraction, scaling, differentiation, and conditioning. Each 
 operation produces another Gaussian process which possesses the same 
 five operations. These operations are described below.
 
@@ -297,7 +312,7 @@ def _warn_if_null_space_exists(fin):
   @wraps(fin)
   def fout(self,*args,**kwargs):
     quiet = kwargs.pop('quiet',False)
-    if (self._order != -1) & (not quiet): 
+    if (self.order != -1) & (not quiet): 
       warnings.warn(
         'The method *%s* has been called for a GaussianProcess with a '
         'polynomial null space. The output is for a conditional '
@@ -357,34 +372,19 @@ class GaussianProcess(object):
     
   '''
   def __init__(self,mean_func,cov_func,func_args=(),order=-1,dim=None):
-    self._mean_func = mean_func
+    # these functions are hidden because *mean* and *covariance* 
+    # should be preferred
+    self._mean_func = mean_func 
     self._cov_func = cov_func
     self._func_args = func_args
-    self._order = order
-    self._dim = dim
+    self.order = order
+    self.dim = dim
   
-  def __call__(self,x,diff=None):
+  def __call__(self,*args,**kwargs):
     ''' 
-    Returns the mean and covariance evaluated at *x*
-    
-    Parameters
-    ----------
-    x : (N,D) array
-      Evaluation points
-      
-    diff : (D,) tuple, optional
-      Derivative specification
-    
-    Returns
-    -------
-    mean : (N,) array
-    
-    cov : (N,N) array  
-      
+    gp(*args,**kwargs) <==> gp.mean_and_uncertainty(*args,**kwargs)
     '''
-    mean = self.mean(x,diff=diff)
-    cov = self.covariance(x,x,diff1=diff,diff2=diff)
-    return mean,cov
+    return self.mean_and_uncertainty(*args,**kwargs)
 
   def __add__(self,other):
     ''' 
@@ -432,7 +432,7 @@ class GaussianProcess(object):
              other.covariance(x1,x2,diff1=diff1,diff2=diff2))
       return out
             
-    order = max(self._order,other._order)
+    order = max(self.order,other.order)
     out = GaussianProcess(mean_func,cov_func,order=order)
     return out
 
@@ -458,7 +458,7 @@ class GaussianProcess(object):
              other.covariance(x1,x2,diff1=diff1,diff2=diff2))
       return out       
             
-    order = max(self._order,other._order)
+    order = max(self.order,other.order)
     out = GaussianProcess(mean_func,cov_func,order=order)
     return out
     
@@ -484,7 +484,7 @@ class GaussianProcess(object):
       return out
       
     if c != 0.0:
-      order = self._order
+      order = self.order
     else:
       order = -1
         
@@ -517,7 +517,7 @@ class GaussianProcess(object):
                             diff2=diff2+d)
       return out
       
-    order = max(self._order - sum(d),-1)
+    order = max(self.order - sum(d),-1)
     out = GaussianProcess(mean_func,cov_func,dim=dim,order=order)
     return out  
 
@@ -561,7 +561,7 @@ class GaussianProcess(object):
     else:
       sigma = np.asarray(sigma)
 
-    powers = rbf.poly.powers(self._order,dim) 
+    powers = rbf.poly.powers(self.order,dim) 
     m = powers.shape[0]
     Cu_yy = self.covariance(y,y,diff1=obs_diff,diff2=obs_diff)
     Cd = np.diag(sigma**2)
@@ -603,7 +603,6 @@ class GaussianProcess(object):
     out = GaussianProcess(mean_func,cov_func,dim=dim,order=-1)
     return out
 
-  # convert _mean_func to a class method
   def mean(self,x,diff=None):
     ''' 
     Returns the mean of the Gaussian process 
@@ -627,13 +626,13 @@ class GaussianProcess(object):
     else:
       diff = np.asarray(diff,dtype=int)
 
-    if self._dim is not None:
-      if x.shape[1] != self._dim:
+    if self.dim is not None:
+      if x.shape[1] != self.dim:
         raise ValueError(
           'The number of spatial dimensions for *x* is inconsistent with '
           'the GaussianProcess.')
 
-      if diff.shape[0] != self._dim:
+      if diff.shape[0] != self.dim:
         raise ValueError(
           'The number of spatial dimensions for *diff* is inconsistent with '
           'the GaussianProcess.')
@@ -673,23 +672,23 @@ class GaussianProcess(object):
     else:
       diff2 = np.asarray(diff2,dtype=int)
 
-    if self._dim is not None:
-      if x1.shape[1] != self._dim:
+    if self.dim is not None:
+      if x1.shape[1] != self.dim:
         raise ValueError(
           'The number of spatial dimensions for *x1* is inconsistent with '
           'the GaussianProcess.')
 
-      if x2.shape[1] != self._dim:
+      if x2.shape[1] != self.dim:
         raise ValueError(
           'The number of spatial dimensions for *x2* is inconsistent with '
           'the GaussianProcess.')
 
-      if diff1.shape[0] != self._dim:
+      if diff1.shape[0] != self.dim:
         raise ValueError(
           'The number of spatial dimensions for *diff1* is inconsistent with '
           'the GaussianProcess.')
 
-      if diff2.shape[0] != self._dim:
+      if diff2.shape[0] != self.dim:
         raise ValueError(
           'The number of spatial dimensions for *diff2* is inconsistent with '
           'the GaussianProcess.')
@@ -697,6 +696,49 @@ class GaussianProcess(object):
     out = self._cov_func(x1,x2,diff1,diff2,*self._func_args)
     return out
     
+  def mean_and_uncertainty(self,x,diff=None,max_chunk=100):
+    ''' 
+    Returns the mean and uncertainty at *x*. This does not return the 
+    full covariance matrix, making it appropriate for evaluating the 
+    Gaussian process at many interpolation points.
+    
+    Parameters
+    ----------
+    x : (N,D) array
+      Evaluation points
+      
+    diff : (D,) tuple, optional
+      Derivative specification
+      
+    max_chunk : int, optional  
+      Break *x* into chunks with this size and evaluate the Gaussian 
+      process for each chunk. Smaller values result in decreased 
+      memory usage but also decrease speed.
+    
+    Returns
+    -------
+    out_mean : (N,) array
+      Mean of the Gaussian process at *x*.
+    
+    out_sigma : (N,) array  
+      One standard deviation uncertainty of the Gaussian process at 
+      *x*.
+      
+    '''
+    count = 0
+    x = np.asarray(x)
+    q = x.shape[0]
+    out_mean = np.zeros(q)
+    out_sigma = np.zeros(q)
+    while count < q:
+      idx = range(count,min(count+max_chunk,q))
+      out_mean[idx] = self.mean(x[idx],diff=diff)
+      cov = self.covariance(x[idx],x[idx],diff1=diff,diff2=diff)
+      out_sigma[idx] = np.sqrt(np.diag(cov))
+      count = idx[-1] + 1
+    
+    return out_mean,out_sigma
+
   def draw_sample(self,x,diff=None,tol=1e-10):  
     '''  
     Draws a random sample from the Gaussian process
@@ -715,15 +757,23 @@ class GaussianProcess(object):
     
     Notes
     -----
-    This function may raise a warning saying that the covariance 
-    matrix is not positive definite. This may be due to numerical 
-    rounding error and, if so, the warning can be ignored.  Consider 
-    generating a covariance matrix with the *covariance* method and 
-    ensuring that its eigenvalues are all positive or effectively zero 
-    to within some tolerance.
-        
+    This function does not check if the covariance function at *x* is 
+    positive definite. If it is not, then the covariance function is 
+    invalid and then the returned sample will be meaningless. If you 
+    are not confident that the covariance function is positive 
+    definite then call the *is_positive_definite* method with argument 
+    *x*. 
+
     '''
-    mean,cov = self(x,diff=diff)
+    if self.order != -1:
+      warnings.warn(
+        'Cannot sample a *GaussianProcess* with a polynomial null '
+        'space. The sample will instead be generated from a '
+        'conditional *GaussianProcesss* where the null space has '
+        'been removed.')
+
+    mean = self.mean(x,diff=diff)
+    cov = self.covariance(x,x,diff1=diff,diff2=diff)
     return _draw_sample(mean,cov,tol=tol)
     
   def is_positive_definite(self,x,tol=1e-10):
@@ -733,6 +783,10 @@ class GaussianProcess(object):
     eigenvalues are real and positive. An affirmative result from this 
     test is necessary but insufficient to ensure that the covariance 
     function is positive definite.
+    
+    If this function returns a False then there was likely an 
+    inappropriate choice for *basis* in the *PriorGaussianProcess*. 
+    Perhaps the chosen basis is not sufficiently differentiable. 
     
     Parameters
     ----------

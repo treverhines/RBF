@@ -12,14 +12,14 @@ This function has numerous features that are lacking in
 
 RBF Interpolation
 -----------------
-The RBF interpolant :math:`\mathbf{f(x^*)}` is defined as
+The RBF interpolant :math:`\mathbf{f(x)}` is defined as
     
 .. math::
-  \mathbf{f(x^*)} = \mathbf{K(x^*,x)a} + \mathbf{P(x^*)b}
+  \mathbf{f(x)} = \mathbf{K(x,y)a} + \mathbf{P(x)b}
   
-where :math:`\mathbf{K(x^*,x)}` consists of the RBFs with centers at 
-:math:`\mathbf{x}` evaluated at the interpolation points 
-:math:`\mathbf{x^*}`. :math:`\mathbf{P(x^*)}` is a polynomial matrix
+where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at 
+:math:`\mathbf{y}` evaluated at the interpolation points 
+:math:`\mathbf{x}`. :math:`\mathbf{P(x)}` is a polynomial matrix
 where each column is a monomial basis function evaluated at the 
 interpolation points. The monomial basis functions span the space of 
 all polynomials with a user specified order. :math:`\mathbf{a}` and 
@@ -27,13 +27,14 @@ all polynomials with a user specified order. :math:`\mathbf{a}` and
 coefficients are found by solving the linear system of equations
   
 .. math::
-  (\mathbf{K(x,x)} + p\mathbf{C_d})\mathbf{a}  + \mathbf{P(x)b} = \mathbf{y}
+  (\mathbf{K(y,y)} + p\mathbf{C_d})\mathbf{a}  
+  + \mathbf{P(y)b} = \mathbf{d}
 
 .. math::
-  \mathbf{P^T(x)a} = \mathbf{0} 
+  \mathbf{P^T(y)a} = \mathbf{0} 
 
 where :math:`\mathbf{C_d}` is the data covariance matrix, 
-:math:`\mathbf{y}` are the observations at :math:`\mathbf{x}`, 
+:math:`\mathbf{d}` are the observations at :math:`\mathbf{y}`, 
 and :math:`p` is a penalty parameter. With :math:`p=0` the 
 observations are fit perfectly by the interpolant.  Increasing
 :math:`p` degrades the fit while improving the smoothness of the 
@@ -125,14 +126,15 @@ class RBFInterpolant(object):
 
   Parameters 
   ---------- 
-  x : (N,D) array
-    Source points.
+  y : (N,D) array
+    Observation points.
 
-  mu : (N,) array
-    Values at the source points.
+  d : (N,) array
+    Observed values at *y*.
 
   sigma : (N,) array, optional
-    One standard deviation uncertainty on *mu*.
+    One standard deviation uncertainty on the observations. This 
+    defaults to ones.
         
   eps : (N,) array, optional
     Shape parameters for each RBF. this has no effect for odd
@@ -142,9 +144,9 @@ class RBFInterpolant(object):
     Radial basis function to use.
  
   extrapolate : bool, optional
-    Whether to allows points to be extrapolated outside of a 
-    convex hull formed by x. If False, then np.nan is returned for 
-    outside points.
+    Whether to allows points to be extrapolated outside of a convex 
+    hull formed by *y*. If False, then np.nan is returned for outside 
+    points.
 
   order : int, optional
     Order of added polynomial terms.
@@ -161,6 +163,10 @@ class RBFInterpolant(object):
   This function involves solving a dense system of equations, which 
   will be prohibitive for large data sets. See *rbf.filter* for 
   smoothing large data sets. 
+  
+  This function does not make any estimates of the uncertainties on 
+  the interpolated values.  See *rbf.gpr* for interpolation with 
+  uncertainties.
     
   With certain choices of basis functions and polynomial orders this 
   interpolant is equivalent to a thin-plate spline.  For example, if the 
@@ -178,78 +184,78 @@ class RBFInterpolant(object):
   [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
   and Applications. John Wiley & Sons, 2000.
   '''
-  def __init__(self,x,mu,sigma=None,eps=None,basis=rbf.basis.phs3,
+  def __init__(self,y,d,sigma=None,eps=None,basis=rbf.basis.phs3,
                order=1,extrapolate=True,penalty=0.0):
-    x = np.asarray(x) 
-    mu = np.asarray(mu)
-    N,D = x.shape
-    P = rbf.poly.count(order,D)
+    y = np.asarray(y) 
+    d = np.asarray(d)
+    q,dim = y.shape
+    p = rbf.poly.count(order,dim)
 
     if eps is None:
-      eps = np.ones(N)
+      eps = np.ones(q)
     else:
       eps = np.asarray(eps)
 
     if sigma is None:
-      sigma = np.ones(N)
+      sigma = np.ones(q)
     else:
       sigma = np.asarray(sigma)
       
     # form matrix for the LHS
-    A = _coefficient_matrix(x,eps,penalty*sigma,basis,order)
+    A = _coefficient_matrix(y,eps,penalty*sigma,basis,order)
     # add zeros to the RHS for the polynomial constraints
-    d = np.concatenate((mu,np.zeros(P)))
+    d = np.concatenate((d,np.zeros(p)))
     # find the radial basis function coefficients
     coeff = np.linalg.solve(A,d)
 
-    self._x = x
-    self._coeff = coeff
-    self._basis = basis
-    self._order = order 
-    self._eps = eps
-    self._extrapolate = extrapolate
+    self.y = y
+    self.coeff = coeff
+    self.basis = basis
+    self.order = order 
+    self.eps = eps
+    self.extrapolate = extrapolate
 
-  def __call__(self,xitp,diff=None,max_chunk=100000):
+  def __call__(self,x,diff=None,max_chunk=100000):
     ''' 
-    Evaluates the interpolant at *xitp*
+    Evaluates the interpolant at *x*
 
     Parameters 
     ---------- 
-    xitp : (N,D) array
+    x : (N,D) array
       Target points.
 
     diff : (D,) int array, optional
       Derivative order for each spatial dimension.
         
     max_chunk : int, optional  
-      Break *xitp* into chunks with this size and evaluate the 
-      interpolant for each chunk.  Smaller values result in 
-      decreased memory usage but also decreased speed.
+      Break *x* into chunks with this size and evaluate the 
+      interpolant for each chunk.  Smaller values result in decreased 
+      memory usage but also decreased speed.
 
     Returns
     -------
     out : (N,) array
-      Values of the interpolant at *xitp*
+      Values of the interpolant at *x*
       
     '''
     n = 0
-    xitp = np.asarray(xitp) 
-    Nitp = xitp.shape[0]
+    x = np.asarray(x) 
+    q = x.shape[0]
     # allocate output array
-    out = np.zeros(Nitp)
-    while n < Nitp:
+    out = np.zeros(q)
+    while n < q:
       # xitp indices for this chunk
-      idx = range(n,min(n+max_chunk,Nitp))
-      A = _interpolation_matrix(xitp[idx],self._x,
-                                diff,self._eps,
-                                self._basis,self._order)
-      out[idx] = A.dot(self._coeff) 
+      idx = range(n,min(n+max_chunk,q))
+      A = _interpolation_matrix(x[idx],self.y,
+                                diff,self.eps,
+                                self.basis,self.order)
+      out[idx] = A.dot(self.coeff) 
       n += max_chunk
 
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
-    if not self._extrapolate:
-      out[~_in_hull(xitp,self._x)] = np.nan
+    if not self.extrapolate:
+      out[~_in_hull(x,self.y)] = np.nan
 
     return out
 

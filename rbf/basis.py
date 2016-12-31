@@ -111,11 +111,11 @@ class RBF(object):
   tol : float, optional  
     If an evaluation point, *x*, is within *tol* of an RBF center, 
     *c*, then *x* is considered equal to *c*. The returned value is 
-    then the RBF at the symbolically evaluated limit as *x*->*c*. This 
+    then the RBF at the symbolically evaluated limit as *x* -> *c*. This 
     is only useful when there is a removable singularity at *c*, such 
     as for polyharmonic splines. If *tol* is not provided then there 
     will be no special treatment for when *x* is close to *c*. Note 
-    that computing the limit as *x*->*c* can be very time intensive.
+    that computing the limit as *x* -> *c* can be very time intensive.
   
   Examples
   --------
