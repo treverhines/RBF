@@ -794,10 +794,10 @@ class PriorGaussianProcess(GaussianProcess):
   observations
   
   >>> gp = rbf.gpr.PriorGaussianProcess(phs3,(0.01,0,1.0),order=1)
-  >>> x = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
-  >>> u = np.array([0.5,1.5,1.25,1.75,1.0])
+  >>> y = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
+  >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
   >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
-  >>> gp = gp.posterior(x,u,sigma)
+  >>> gp = gp.condition(y,d,sigma)
   >>> x_interp = np.linspace(0.0,2.0,100)[:,None]
   >>> mean,cov = gp(x_interp)
   
