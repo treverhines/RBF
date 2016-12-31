@@ -844,7 +844,7 @@ class PriorGaussianProcess(GaussianProcess):
   
   Instantiate a PriorGaussianProcess which is equivalent to a 1-D thin 
   plate spline with penalty parameter 0.01. Then find the conditional 
-  mean and covariance of the Gaussian process after incorporating 
+  mean and uncertainty of the Gaussian process after incorporating 
   observations
   
   >>> gp = rbf.gpr.PriorGaussianProcess(phs3,(0.01,0,1.0),order=1)
@@ -852,8 +852,8 @@ class PriorGaussianProcess(GaussianProcess):
   >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
   >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
   >>> gp = gp.condition(y,d,sigma)
-  >>> x_interp = np.linspace(0.0,2.0,100)[:,None]
-  >>> mean,cov = gp(x_interp)
+  >>> x = np.linspace(0.0,2.0,100)[:,None]
+  >>> mean,sigma = gp(x)
   
   Notes
   -----
