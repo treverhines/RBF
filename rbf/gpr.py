@@ -262,7 +262,6 @@ import numpy as np
 import rbf.fd
 import rbf.poly
 import rbf.basis
-from functools import wraps
 import warnings
 
 def _is_positive_definite(A,tol=1e-10):
@@ -307,21 +306,149 @@ def _draw_sample(mean,cov,tol=1e-10):
   return sample
 
 
-def _warn_if_null_space_exists(fin):
-  @wraps(fin)
-  def fout(self,*args,**kwargs):
-    quiet = kwargs.pop('quiet',False)
-    if (self.order != -1) & (not quiet): 
-      warnings.warn(
-        'The method *%s* has been called for a GaussianProcess with a '
-        'polynomial null space. The output is for a conditional '
-        'GaussianProcesss where the null space has been fixed at zero.' 
-        % fin.__name__)
+def _add_factory(gp1,gp2):
+  '''   
+  Factory function which returns the mean and covariance functions for 
+  two added *GaussianProcesses*.
+  '''
+  def mean_func(x,diff):
+    out = gp1.mean(x,diff=diff) + gp2.mean(x,diff=diff)
+    return out       
 
-    return fin(self,*args,**kwargs)    
-
-  return fout
+  def cov_func(x1,x2,diff1,diff2):
+    out = (gp1.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
+           gp2.covariance(x1,x2,diff1=diff1,diff2=diff2))
+    return out
+            
+  return mean_func,cov_func
   
+
+def _subtract_factory(gp1,gp2):
+  '''   
+  Factory function which returns the mean and covariance functions for 
+  a *GaussianProcess* which has been subtracted from another 
+  *GaussianProcess*.
+  '''
+  def mean_func(x,diff):
+    out = gp1.mean(x,diff=diff) - gp2.mean(x,diff=diff)
+    return out
+      
+  def cov_func(x1,x2,diff1,diff2):
+    out = (gp1.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
+           gp2.covariance(x1,x2,diff1=diff1,diff2=diff2))
+    return out       
+            
+  return mean_func,cov_func
+
+
+def _scale_factory(gp,c):
+  '''   
+  Factory function which returns the mean and covariance functions for 
+  a scaled *GaussianProcess*.
+  '''
+  def mean_func(x,diff):
+    out = c*gp.mean(x,diff=diff)
+    return out
+
+  def cov_func(x1,x2,diff1,diff2):
+    out = c**2*gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
+    return out
+      
+  return mean_func,cov_func
+
+
+def _differentiate_factory(gp,d):
+  '''   
+  Factory function which returns the mean and covariance functions for 
+  a differentiated *GaussianProcess*.
+  '''
+  def mean_func(x,diff):
+    out = gp.mean(x,diff=diff+d)
+    return out 
+
+  def cov_func(x1,x2,diff1,diff2):
+    out = gp.covariance(x1,x2,diff1=diff1+d,diff2=diff2+d)
+    return out
+      
+  return mean_func,cov_func
+
+
+def _condition_factory(gp,y,d,sigma,obs_diff):
+  '''   
+  Factory function which returns the mean and covariance functions for 
+  a conditioned *GaussianProcess*.
+  '''
+  q,dim = y.shape
+  powers = rbf.poly.powers(gp.order,dim) 
+  m = powers.shape[0]
+  Cu_yy = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff)
+  Cd = np.diag(sigma**2)
+  p_y = rbf.poly.mvmonos(y,powers,diff=obs_diff)
+  K_y = np.zeros((q+m,q+m))
+  K_y[:q,:q] = Cu_yy + Cd
+  K_y[:q,q:] = p_y
+  K_y[q:,:q] = p_y.T
+  try:
+    K_y_inv = np.linalg.inv(K_y)
+  except np.linalg.LinAlgError:
+    raise np.linalg.LinAlgError(
+        'Failed to compute the inverse of K. This is likely '
+        'because there is not enough data to constrain a null '
+        'space in the prior')
+
+  # compute residuals
+  r = np.zeros(q+m)
+  r[:q] = d - gp.mean(y,diff=obs_diff)
+    
+  def mean_func(x,diff):
+    Cu_xy = gp.covariance(x,y,diff1=diff,diff2=obs_diff)
+    p_x   = rbf.poly.mvmonos(x,powers,diff=diff)
+    k_xy  = np.hstack((Cu_xy,p_x))
+    out = gp.mean(x,diff=diff) + k_xy.dot(K_y_inv.dot(r))
+    return out
+
+  def cov_func(x1,x2,diff1,diff2):
+    Cu_x1x2 = gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
+    Cu_x1y  = gp.covariance(x1,y,diff1=diff1,diff2=obs_diff)
+    Cu_x2y  = gp.covariance(x2,y,diff1=diff2,diff2=obs_diff)
+    p_x1  = rbf.poly.mvmonos(x1,powers,diff=diff1)
+    p_x2  = rbf.poly.mvmonos(x2,powers,diff=diff2)
+    k_x1y = np.hstack((Cu_x1y,p_x1))
+    k_x2y = np.hstack((Cu_x2y,p_x2))
+    out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
+    return out
+
+  return mean_func,cov_func
+
+
+def _prior_factory(basis,coeff,order):
+  ''' 
+  Factory function which returns the mean and covariance functions for 
+  a *PriorGaussianProcess*.
+  '''
+  def mean_func(x,diff):
+    if sum(diff) == 0:
+      out = coeff[1]*np.ones(x.shape[0])
+    else:  
+      out = np.zeros(x.shape[0])
+
+    return out
+      
+  def cov_func(x1,x2,diff1,diff2):
+    eps = np.ones(x2.shape[0])/coeff[2]
+    a = (-1)**sum(diff2)*coeff[0]
+    diff = diff1 + diff2
+    out = a*basis(x1,x2,eps=eps,diff=diff)
+    if np.any(~np.isfinite(out)):
+      raise ValueError(
+        'Encountered a non-finite covariance. This is likely '
+        'because the prior basis function is not sufficiently '
+        'differentiable.')
+
+    return out
+
+  return mean_func,cov_func
+
 
 class GaussianProcess(object):
   ''' 
@@ -422,15 +549,7 @@ class GaussianProcess(object):
     out : GaussianProcess 
 
     '''
-    def mean_func(x,diff):
-      out = self.mean(x,diff=diff) + other.mean(x,diff=diff)
-      return out       
-
-    def cov_func(x1,x2,diff1,diff2):
-      out = (self.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
-             other.covariance(x1,x2,diff1=diff1,diff2=diff2))
-      return out
-            
+    mean_func,cov_func = _add_factory(self,other)
     order = max(self.order,other.order)
     out = GaussianProcess(mean_func,cov_func,order=order)
     return out
@@ -448,15 +567,7 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    def mean_func(x,diff):
-      out = self.mean(x,diff=diff) - other.mean(x,diff=diff)
-      return out
-      
-    def cov_func(x1,x2,diff1,diff2):
-      out = (self.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
-             other.covariance(x1,x2,diff1=diff1,diff2=diff2))
-      return out       
-            
+    mean_func,cov_func = _subtract_factory(self,other)
     order = max(self.order,other.order)
     out = GaussianProcess(mean_func,cov_func,order=order)
     return out
@@ -474,14 +585,7 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    def mean_func(x,diff):
-      out = c*self.mean(x,diff=diff)
-      return out
-
-    def cov_func(x1,x2,diff1,diff2):
-      out = c**2*self.covariance(x1,x2,diff1=diff1,diff2=diff2)
-      return out
-      
+    mean_func,cov_func = _scale_factory(self,c)
     if c != 0.0:
       order = self.order
     else:
@@ -504,18 +608,9 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    dim = len(d)
     d = np.asarray(d,dtype=int)
-    def mean_func(x,diff):
-      out = self.mean(x,diff=diff+d)
-      return out 
-
-    def cov_func(x1,x2,diff1,diff2):
-      out = self.covariance(x1,x2,
-                            diff1=diff1+d,
-                            diff2=diff2+d)
-      return out
-      
+    dim = d.shape[0]
+    mean_func,cov_func = _differentiate_factory(self,d)
     order = max(self.order - sum(d),-1)
     out = GaussianProcess(mean_func,cov_func,dim=dim,order=order)
     return out  
@@ -560,45 +655,7 @@ class GaussianProcess(object):
     else:
       sigma = np.asarray(sigma)
 
-    powers = rbf.poly.powers(self.order,dim) 
-    m = powers.shape[0]
-    Cu_yy = self.covariance(y,y,diff1=obs_diff,diff2=obs_diff)
-    Cd = np.diag(sigma**2)
-    p_y = rbf.poly.mvmonos(y,powers,diff=obs_diff)
-    K_y = np.zeros((q+m,q+m))
-    K_y[:q,:q] = Cu_yy + Cd
-    K_y[:q,q:] = p_y
-    K_y[q:,:q] = p_y.T
-    try:
-      K_y_inv = np.linalg.inv(K_y)
-    except np.linalg.LinAlgError:
-      raise np.linalg.LinAlgError(
-          'Failed to compute the inverse of K. This is likely '
-          'because there is not enough data to constrain a null '
-          'space in the prior')
-
-    # compute residuals
-    r = np.zeros(q+m)
-    r[:q] = d - self.mean(y,diff=obs_diff)
-    
-    def mean_func(x,diff):
-      Cu_xy = self.covariance(x,y,diff1=diff,diff2=obs_diff)
-      p_x   = rbf.poly.mvmonos(x,powers,diff=diff)
-      k_xy  = np.hstack((Cu_xy,p_x))
-      out = self.mean(x,diff=diff) + k_xy.dot(K_y_inv.dot(r))
-      return out
-
-    def cov_func(x1,x2,diff1,diff2):
-      Cu_x1x2 = self.covariance(x1,x2,diff1=diff1,diff2=diff2)
-      Cu_x1y  = self.covariance(x1,y,diff1=diff1,diff2=obs_diff)
-      Cu_x2y  = self.covariance(x2,y,diff1=diff2,diff2=obs_diff)
-      p_x1  = rbf.poly.mvmonos(x1,powers,diff=diff1)
-      p_x2  = rbf.poly.mvmonos(x2,powers,diff=diff2)
-      k_x1y = np.hstack((Cu_x1y,p_x1))
-      k_x2y = np.hstack((Cu_x2y,p_x2))
-      out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
-      return out
-
+    mean_func,cov_func = _condition_factory(self,y,d,sigma,obs_diff)
     out = GaussianProcess(mean_func,cov_func,dim=dim,order=-1)
     return out
 
@@ -773,7 +830,8 @@ class GaussianProcess(object):
 
     mean = self.mean(x,diff=diff)
     cov = self.covariance(x,x,diff1=diff,diff2=diff)
-    return _draw_sample(mean,cov,tol=tol)
+    out = _draw_sample(mean,cov,tol=tol)
+    return out
     
   def is_positive_definite(self,x,tol=1e-10):
     '''     
@@ -873,27 +931,7 @@ class PriorGaussianProcess(GaussianProcess):
 
   '''
   def __init__(self,basis,coeff,order=-1,dim=None):
-    def mean_func(x,diff):
-      if sum(diff) == 0:
-        out = coeff[1]*np.ones(x.shape[0])
-      else:  
-        out = np.zeros(x.shape[0])
-
-      return out
-      
-    def cov_func(x1,x2,diff1,diff2):
-      eps = np.ones(x2.shape[0])/coeff[2]
-      a = (-1)**sum(diff2)*coeff[0]
-      diff = diff1 + diff2
-      out = a*basis(x1,x2,eps=eps,diff=diff)
-      if np.any(~np.isfinite(out)):
-        raise ValueError(
-          'Encountered a non-finite covariance. This is likely '
-          'because the prior basis function is not sufficiently '
-          'differentiable.')
-
-      return out
-      
+    mean_func,cov_func = _prior_factory(basis,coeff,order)
     GaussianProcess.__init__(self,mean_func,cov_func,
                              order=order,dim=dim)
 
