@@ -242,7 +242,7 @@ def filter(x,u,sigma=None,
   Q = int(np.prod(u.shape[:-1])) 
   if sigma is None:
     sigma = np.ones(u.shape)
-
+ 
   if cutoff is None:
     cutoff = _default_cutoff(x)
     

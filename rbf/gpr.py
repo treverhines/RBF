@@ -259,10 +259,10 @@ Learning. The MIT Press, 2006.
 
 '''
 import numpy as np
-import rbf.fd
 import rbf.poly
 import rbf.basis
 import warnings
+import rbf.mp
 
 def _is_positive_definite(A,tol=1e-10):
   ''' 
@@ -935,3 +935,90 @@ class PriorGaussianProcess(GaussianProcess):
     GaussianProcess.__init__(self,mean_func,cov_func,
                              order=order,dim=dim)
 
+
+def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
+        diff=None,procs=0):
+  '''     
+  Performs Guassian process regression on the observed data. This is a 
+  convenience function which initiates a *PriorGaussianProcess*, 
+  conditions it with the observations, differentiates it (if 
+  specified), and then evaluates the resulting *GaussianProcess* at 
+  *x*. 
+  
+  Parameters
+  ----------
+  y : (N,D) array
+    Observation points
+
+  d : (...,N) array
+    Observed data at *y*  
+  
+  sigma : (...,N) array
+    Data uncertainty
+  
+  coeff : 3-tuple
+    variance, mean, and characteristic length scale for the prior 
+    Gaussian process
+  
+  x : (M,D) array, optional
+    Evaluation points, defaults to *y*   
+  
+  basis : RBF instance, optional      
+    Radial basis function which describes the prior covariance 
+    structure. Defaults to rbf.basis.ga.
+    
+  order : int, optional
+    Order of the prior null space
+
+  diff : (D,), optional         
+    Specifies the derivative of the returned values. 
+
+  procs : int, optional
+    Distribute the tasks among this many subprocesses. This defaults 
+    to 0 (i.e. the parent process does all the work).  Each task is to 
+    perform Gaussian process regression for one of the (N,) arrays in 
+    *d* and *sigma*. So if *d* and *sigma* are (N,) arrays then using 
+    multiple process will not provide any speed improvement
+  
+  Returns
+  -------
+  out_mean : (...,M) array  
+    mean of the posterior at *x*
+      
+  out_sigma : (...,M) array  
+    one standard deviation of the posterior at *x*
+      
+  '''
+  y = np.asarray(y)
+  d = np.asarray(d)
+  sigma = np.asarray(sigma)
+  if x is None:
+    x = y
+
+  if diff is None:   
+    diff = np.zeros(y.shape[1],dtype=int)
+
+  bcast_shape = d.shape[:-1]
+  q = int(np.prod(bcast_shape))
+  n = y.shape[0]
+  m = x.shape[0]
+  d = d.reshape((q,n))
+  sigma = sigma.reshape((q,n))
+
+  def doit(i):
+    gp = PriorGaussianProcess(basis,coeff,order=order)
+    gp = gp.condition(y,d[i],sigma=sigma[i])
+    gp = gp.differentiate(diff)
+    out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
+    return out_mean_i,out_sigma_i
+
+  out = rbf.mp.parmap(doit,range(q),workers=procs)   
+  out_mean = np.array([k[0] for k in out])
+  out_sigma = np.array([k[1] for k in out])
+  out_mean = out_mean.reshape(bcast_shape + (m,))
+  out_sigma = out_sigma.reshape(bcast_shape + (m,))
+  return out_mean,out_sigma
+
+  
+
+  
