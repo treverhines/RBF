@@ -39,13 +39,13 @@ have a null space. If there is no null space then we say
 express the Gaussian process as
   
 .. math::
-  u = u_o + \sum_{i=1}^{m_u} c_i p_i,
+  u(x) = u_o(x) + \sum_{i=1}^{m_u} c_i p_i(x),
 
 where :math:`\{c_i\}_{i=1}^{m_u}` are uncorrelated random variables 
 with infinite variance and
 
 .. math::
-  u_o \\sim \\mathcal{N}\\big(\\bar{u},C_u\\big).
+  u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
 
 We endow the Gaussian process with five operations: addition, 
 subtraction, scaling, differentiation, and conditioning. Each 
@@ -61,15 +61,15 @@ Two uncorrelated Gaussian processes, :math:`u` and :math:`v`, can be
 added as
 
 .. math::
-  u + v = z
+  u(x) + v(x) = z(x)
 
 where the mean, covariance, and null space order for :math:`z` are
 
 .. math::
-  \\bar{z} = \\bar{u} + \\bar{v},
+  \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
 
 .. math::
-  C_z = C_u + C_v,
+  C_z(x,x') = C_u(x,x') + C_v(x,x'),
   
 and 
 
@@ -82,15 +82,15 @@ A Gaussian process can be subtracted from another Gaussian processes
 as
 
 .. math::
-  u - v = z 
+  u(x) - v(x) = z(x) 
 
 where 
 
 .. math::
-  \\bar{z} = \\bar{u} - \\bar{v},
+  \\bar{z}(x) = \\bar{u}(x) - \\bar{v}(x),
 
 .. math::
-  C_z = C_u + C_v,
+  C_z(x,x') = C_u(x,x') + C_v(x,x'),
   
 and 
 
@@ -103,15 +103,15 @@ Scaling
 A Gaussian process can be scaled by a constant as 
 
 .. math::
-  cu = z 
+  cu(x) = z(x) 
 
 where 
 
 .. math::
-  \\bar{z} = c\\bar{u},
+  \\bar{z}(x) = c\\bar{u}(x),
 
 .. math::
-  C_z = c^2C_u,
+  C_z(x,x') = c^2C_u(x,x'),
 
 and 
 
@@ -128,31 +128,28 @@ A Gaussian process can be differentiated with the differential
 operator,
 
 .. math::
-  D = \\frac{\partial^{a_1 + a_2 + \dots + a_n}}
-            {\partial x_1^{a_1} \partial x_2^{a_2} \dots 
-            \partial x_n^{a_n}},
+  D_x = \\frac{\partial^{a_1 + a_2 + \dots + a_n}}
+              {\partial x_1^{a_1} \partial x_2^{a_2} \dots 
+              \partial x_n^{a_n}},
 
-as 
+where :math:`\{x_i\}_{i=1}^n` are the basis vectors of 
+:math:`\mathbb{R}^n`, as
 
 .. math::
-  Du = z 
+  D_xu(x) = z(x) 
 
 where 
 
 .. math::
-  \\bar{z} = D\\bar{u},
+  \\bar{z}(x) = D_x\\bar{u}(x),
   
 .. math::
-  C_z = DC_uD^H,
+  C_z(x,x') = D_xD_{x'}C_u(x,x'),
   
 .. math::
   d_z = \max(d_u - d_D,-1),
 
-and :math:`d_D = a_1 + a_2 + \dots + a_n`. In the expression for the 
-covariance function, the differential operator is differentiating
-:math:`C_u(x,x')` with respect to :math:`x`, and the adjoint 
-differential operator, :math:`D^H`, is differentiating 
-:math:`C_u(x,x')` with respect to :math:`x'`.
+and :math:`d_D = a_1 + a_2 + \dots + a_n`. 
 
 Conditioning
 ------------
@@ -163,7 +160,7 @@ These observations have noise with zero mean and covariance described
 by :math:`\mathbf{C_d}`. The conditioned Gaussian process is 
 
 .. math::
-  u | \mathbf{d} = z 
+  u(x) | \mathbf{d} = z(x) 
   
 where
   
