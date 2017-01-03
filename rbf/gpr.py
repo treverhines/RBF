@@ -751,7 +751,7 @@ class GaussianProcess(object):
     out = self._cov_func(x1,x2,diff1,diff2,*self._func_args)
     return out
     
-  def mean_and_uncertainty(self,x,diff=None,max_chunk=100):
+  def mean_and_uncertainty(self,x,max_chunk=100):
     ''' 
     Returns the mean and uncertainty at *x*. This does not return the 
     full covariance matrix, making it appropriate for evaluating the 
@@ -761,9 +761,6 @@ class GaussianProcess(object):
     ----------
     x : (N,D) array
       Evaluation points
-      
-    diff : (D,) tuple, optional
-      Derivative specification
       
     max_chunk : int, optional  
       Break *x* into chunks with this size and evaluate the Gaussian 
@@ -787,14 +784,14 @@ class GaussianProcess(object):
     out_sigma = np.zeros(q)
     while count < q:
       idx = range(count,min(count+max_chunk,q))
-      out_mean[idx] = self.mean(x[idx],diff=diff)
-      cov = self.covariance(x[idx],x[idx],diff1=diff,diff2=diff)
+      out_mean[idx] = self.mean(x[idx])
+      cov = self.covariance(x[idx],x[idx])
       out_sigma[idx] = np.sqrt(np.diag(cov))
       count = idx[-1] + 1
     
     return out_mean,out_sigma
 
-  def draw_sample(self,x,diff=None,tol=1e-10):  
+  def draw_sample(self,x,tol=1e-10):  
     '''  
     Draws a random sample from the Gaussian process
     
@@ -802,9 +799,6 @@ class GaussianProcess(object):
     ----------
     x : (N,D) array
       Evaluation points
-      
-    diff : (D,) tuple
-      Derivative specification
       
     Returns
     -------
@@ -827,8 +821,8 @@ class GaussianProcess(object):
         'conditional *GaussianProcesss* where the null space has '
         'been removed.')
 
-    mean = self.mean(x,diff=diff)
-    cov = self.covariance(x,x,diff1=diff,diff2=diff)
+    mean = self.mean(x)
+    cov = self.covariance(x,x)
     out = _draw_sample(mean,cov,tol=tol)
     return out
     
