@@ -35,8 +35,7 @@ including :math:`d_u`. These monomials are denoted as
 :math:`\mathbf{p}_u(x) = [p_i(x)]_{i=1}^{m_u}`, where :math:`m_u = 
 {{n+d_u}\choose{n}}`. It is not necessary for a Gaussian process to 
 have a null space. If there is no null space then we say 
-:math:`d_u=-1`, which is a programmatic and notational convenience. We 
-express the Gaussian process as
+:math:`d_u=-1`. We express the Gaussian process as
   
 .. math::
   u(x) = u_o(x) + \sum_{i=1}^{m_u} c_i p_i(x),
@@ -47,7 +46,7 @@ with infinite variance and
 .. math::
   u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
 
-We endow the Gaussian process with five operations: addition, 
+We consider five operations on Gaussian processes: addition, 
 subtraction, scaling, differentiation, and conditioning. Each 
 operation produces another Gaussian process which possesses the same 
 five operations. These operations are described below.
@@ -125,7 +124,7 @@ and
 Differentiation
 ---------------
 A Gaussian process can be differentiated with the differential 
-operator,
+operator
 
 .. math::
   D_x = \\frac{\partial^{a_1 + a_2 + \dots + a_n}}
@@ -174,7 +173,7 @@ where
   C_{z}(x,x') = C_u(x,x') - 
                 \mathbf{k}(x,\mathbf{y}) 
                 \mathbf{K}(\mathbf{y})^{-1}
-                \mathbf{k}(x',\mathbf{y})^H,                
+                \mathbf{k}(x',\mathbf{y})^T,                
 
 and
 
@@ -202,7 +201,7 @@ and
     \mathbf{C_d} + \\left[C_u(y_i,y_j)\\right]_
     {y_i,y_j \in \mathbf{y}\\times\mathbf{y}} 
     & [\mathbf{p}_u(y_i)]_{y_i \in \mathbf{y}} \\\\
-    [\mathbf{p}_u(y_i)]^H_{y_i \in \mathbf{y}}   
+    [\mathbf{p}_u(y_i)]^T_{y_i \in \mathbf{y}}   
     & \mathbf{0}    \\\\
   \\end{array}  
   \\right].
@@ -210,7 +209,7 @@ and
 We define the residual vector as
 
 .. math::
-  \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^H
+  \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
   
 and :math:`\mathbf{r}^*` is the residual vector which has been 
 suitably padded with zeros. Note that there is no null space in
@@ -223,10 +222,12 @@ invertible is that :math:`q \geq m_u`.
 
 Prior Gaussian Processes
 ========================
-We begin Gaussian process regression by assuming a prior Gaussian 
-process which describes what we believe the underlying function looks 
-like. In this module, the mean and covariance for prior Gaussian 
-processes can be described as
+
+This module is primarily intended for Gaussian process regression 
+(GPR) and we begin a GPR problem by assuming a prior stochastic model 
+for the underlying signal which we are trying to uncover. In this 
+module, priors are stationary Gaussian processes which have mean and 
+covariance functions described as
   
 .. math::
   \\bar{u}(x) = b,
@@ -247,7 +248,7 @@ is the squared exponential function,
   \phi(r) = \exp(-r^2),
 
 which has the benefit of being infinitely differentiable. See [1] for 
-an exhaustive list of positive definite radial functions.
+a list of commonly used basis exhaustive list of positive definite radial functions.
 
 References
 ==========
