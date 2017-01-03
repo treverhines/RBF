@@ -262,6 +262,33 @@ import rbf.poly
 import rbf.basis
 import warnings
 import rbf.mp
+from functools import wraps
+
+def _memoize(fin):
+  ''' 
+  Decorator used to memoize the hidden mean and covariance functions
+  '''
+  cache = {}
+  def fout(*args):
+    # args is assumed to be a tuple of read-only arrays
+    hash = tuple(a.data for a in args)
+    if hash not in cache:
+      cache[hash] = fin(*args)
+      
+    return cache[hash]  
+    
+  fout.__name__ = fin.__name__
+  return fout  
+
+
+def _read_only_array(x,**kwargs):
+  ''' 
+  returns a read-only copy of x
+  '''
+  out = np.array(x,copy=True,**kwargs)
+  out.setflags(write=False)
+  return out
+
 
 def _is_positive_definite(A,tol=1e-10):
   ''' 
@@ -310,16 +337,18 @@ def _add_factory(gp1,gp2):
   Factory function which returns the mean and covariance functions for 
   two added *GaussianProcesses*.
   '''
-  def mean_func(x,diff):
-    out = gp1.mean(x,diff=diff) + gp2.mean(x,diff=diff)
+  @_memoize
+  def mean(x,diff):
+    out = gp1._mean(x,diff) + gp2._mean(x,diff)
     return out       
 
-  def cov_func(x1,x2,diff1,diff2):
-    out = (gp1.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
-           gp2.covariance(x1,x2,diff1=diff1,diff2=diff2))
+  @_memoize
+  def covariance(x1,x2,diff1,diff2):
+    out = (gp1._covariance(x1,x2,diff1,diff2) + 
+           gp2._covariance(x1,x2,diff1,diff2))
     return out
             
-  return mean_func,cov_func
+  return mean,covariance
   
 
 def _subtract_factory(gp1,gp2):
@@ -328,16 +357,18 @@ def _subtract_factory(gp1,gp2):
   a *GaussianProcess* which has been subtracted from another 
   *GaussianProcess*.
   '''
-  def mean_func(x,diff):
-    out = gp1.mean(x,diff=diff) - gp2.mean(x,diff=diff)
+  @_memoize
+  def mean(x,diff):
+    out = gp1._mean(x,diff) - gp2._mean(x,diff)
     return out
       
-  def cov_func(x1,x2,diff1,diff2):
-    out = (gp1.covariance(x1,x2,diff1=diff1,diff2=diff2) + 
-           gp2.covariance(x1,x2,diff1=diff1,diff2=diff2))
+  @_memoize
+  def covariance(x1,x2,diff1,diff2):
+    out = (gp1._covariance(x1,x2,diff1,diff2) + 
+           gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
-  return mean_func,cov_func
+  return mean,covariance
 
 
 def _scale_factory(gp,c):
@@ -345,15 +376,17 @@ def _scale_factory(gp,c):
   Factory function which returns the mean and covariance functions for 
   a scaled *GaussianProcess*.
   '''
-  def mean_func(x,diff):
-    out = c*gp.mean(x,diff=diff)
+  @_memoize
+  def mean(x,diff):
+    out = c*gp._mean(x,diff)
     return out
 
-  def cov_func(x1,x2,diff1,diff2):
-    out = c**2*gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
+  @_memoize
+  def covariance(x1,x2,diff1,diff2):
+    out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
-  return mean_func,cov_func
+  return mean,covariance
 
 
 def _differentiate_factory(gp,d):
@@ -361,15 +394,20 @@ def _differentiate_factory(gp,d):
   Factory function which returns the mean and covariance functions for 
   a differentiated *GaussianProcess*.
   '''
-  def mean_func(x,diff):
-    out = gp.mean(x,diff=diff+d)
+  @_memoize
+  def mean(x,diff):
+    new_diff = _read_only_array(diff+d)
+    out = gp._mean(x,new_diff)
     return out 
 
-  def cov_func(x1,x2,diff1,diff2):
-    out = gp.covariance(x1,x2,diff1=diff1+d,diff2=diff2+d)
+  @_memoize
+  def covariance(x1,x2,diff1,diff2):
+    new_diff1 = _read_only_array(diff1+d)
+    new_diff2 = _read_only_array(diff2+d)
+    out = gp._covariance(x1,x2,new_diff1,new_diff2)
     return out
       
-  return mean_func,cov_func
+  return mean,covariance
 
 
 def _condition_factory(gp,y,d,sigma,obs_diff):
@@ -380,9 +418,9 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   q,dim = y.shape
   powers = rbf.poly.powers(gp.order,dim) 
   m = powers.shape[0]
-  Cu_yy = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff)
   Cd = np.diag(sigma**2)
-  p_y = rbf.poly.mvmonos(y,powers,diff=obs_diff)
+  Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
+  p_y = rbf.poly.mvmonos(y,powers,obs_diff)
   K_y = np.zeros((q+m,q+m))
   K_y[:q,:q] = Cu_yy + Cd
   K_y[:q,q:] = p_y
@@ -397,27 +435,28 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
 
   # compute residuals
   r = np.zeros(q+m)
-  r[:q] = d - gp.mean(y,diff=obs_diff)
-    
-  def mean_func(x,diff):
-    Cu_xy = gp.covariance(x,y,diff1=diff,diff2=obs_diff)
-    p_x   = rbf.poly.mvmonos(x,powers,diff=diff)
+  r[:q] = d - gp._mean(y,obs_diff)
+  @_memoize
+  def mean(x,diff):
+    Cu_xy = gp._covariance(x,y,diff,obs_diff)
+    p_x   = rbf.poly.mvmonos(x,powers,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
-    out = gp.mean(x,diff=diff) + k_xy.dot(K_y_inv.dot(r))
+    out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
-  def cov_func(x1,x2,diff1,diff2):
-    Cu_x1x2 = gp.covariance(x1,x2,diff1=diff1,diff2=diff2)
-    Cu_x1y  = gp.covariance(x1,y,diff1=diff1,diff2=obs_diff)
-    Cu_x2y  = gp.covariance(x2,y,diff1=diff2,diff2=obs_diff)
-    p_x1  = rbf.poly.mvmonos(x1,powers,diff=diff1)
-    p_x2  = rbf.poly.mvmonos(x2,powers,diff=diff2)
+  @_memoize
+  def covariance(x1,x2,diff1,diff2):
+    Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
+    Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
+    Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
+    p_x1  = rbf.poly.mvmonos(x1,powers,diff1)
+    p_x2  = rbf.poly.mvmonos(x2,powers,diff2)
     k_x1y = np.hstack((Cu_x1y,p_x1))
     k_x2y = np.hstack((Cu_x2y,p_x2))
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
-  return mean_func,cov_func
+  return mean,covariance
 
 
 def _prior_factory(basis,coeff,order):
@@ -425,7 +464,8 @@ def _prior_factory(basis,coeff,order):
   Factory function which returns the mean and covariance functions for 
   a *PriorGaussianProcess*.
   '''
-  def mean_func(x,diff):
+  @_memoize
+  def mean(x,diff):
     if sum(diff) == 0:
       out = coeff[1]*np.ones(x.shape[0])
     else:  
@@ -433,7 +473,8 @@ def _prior_factory(basis,coeff,order):
 
     return out
       
-  def cov_func(x1,x2,diff1,diff2):
+  @_memoize
+  def covariance(x1,x2,diff1,diff2):
     eps = np.ones(x2.shape[0])/coeff[2]
     a = (-1)**sum(diff2)*coeff[0]
     diff = diff1 + diff2
@@ -446,8 +487,8 @@ def _prior_factory(basis,coeff,order):
 
     return out
 
-  return mean_func,cov_func
-
+  return mean,covariance
+  
 
 class GaussianProcess(object):
   ''' 
@@ -465,26 +506,16 @@ class GaussianProcess(object):
     
   Parameters
   ----------
-  mean_func : function
-    Evaluates the mean function for the Gaussian process at *x*, 
-    where *x* is a two-dimensional array of positions. This function 
-    should also be able to return the spatial derivatives of the 
-    mean function, which is specified with *diff*.  The positional 
-    arguments for this function must be *x*, *diff*, and the 
-    elements of *func_args*.
+  mean : function with arguments (*x*,*diff*) 
+    Function that returns the *diff* derivative of the mean at *x*. 
+    *x* is a (N,D) float array of positions and *diff* is a (D,) 
+    integer array indicating the derivative order along each 
+    dimension.
 
-  cov_func : function
-    Evaluates the covariance function for the Gaussian process at 
-    *x1* and *x2*.  This function should also be able to return the 
-    covariance of the spatial derivatives of *x1* and *x2*, which 
-    are specified with *diff1* and *diff2*. The positional arguments 
-    for this function must be *x1*, *x2*, *diff1*, *diff2*, and the 
-    elements of *func_args*.
+  covariance : function with arguments (*x1*,*x2*,*diff1*,*diff2*)
+    Function that returns the covariance between the *diff1* 
+    derivative at *x1* and the *diff2* derivative at *x2*.
 
-  func_args : tuple, optional
-    Additional positional arguments passed to *mean_func* and 
-    *cov_func*.
-    
   order : int, optional
     Order of the polynomial null space. If this is -1 then the 
     Gaussian process contains no null space. This should be used if 
@@ -496,12 +527,12 @@ class GaussianProcess(object):
     *covariance* methods conflict with *dim*.
     
   '''
-  def __init__(self,mean_func,cov_func,func_args=(),order=-1,dim=None):
-    # these functions are hidden because *mean* and *covariance* 
-    # should be preferred
-    self._mean_func = mean_func 
-    self._cov_func = cov_func
-    self._func_args = func_args
+  def __init__(self,mean,covariance,order=-1,dim=None):
+    # the mean and covariance functions are hidden and the mean and 
+    # covariance methods should be preferred because the methods 
+    # performs necessary argument checks
+    self._mean = mean
+    self._covariance = covariance
     self.order = order
     self.dim = dim
   
@@ -548,9 +579,17 @@ class GaussianProcess(object):
     out : GaussianProcess 
 
     '''
-    mean_func,cov_func = _add_factory(self,other)
+    # make sure the dimensions of the GaussianProcess instances dont 
+    # conflict
+    if (self.dim is not None) & (other.dim is not None):
+      if self.dim != other.dim:
+        raise ValueError(
+          'The number of spatial dimensions for the '
+          'GaussianProcesses are inconsistent')
+        
+    mean,covariance = _add_factory(self,other)
     order = max(self.order,other.order)
-    out = GaussianProcess(mean_func,cov_func,order=order)
+    out = GaussianProcess(mean,covariance,order=order)
     return out
 
   def subtract(self,other):
@@ -566,9 +605,17 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    mean_func,cov_func = _subtract_factory(self,other)
+    # make sure the dimensions of the GaussianProcess instances dont 
+    # conflict
+    if (self.dim is not None) & (other.dim is not None):
+      if self.dim != other.dim:
+        raise ValueError(
+          'The number of spatial dimensions for the '
+          'GaussianProcesses are inconsistent')
+
+    mean,covariance = _subtract_factory(self,other)
     order = max(self.order,other.order)
-    out = GaussianProcess(mean_func,cov_func,order=order)
+    out = GaussianProcess(mean,covariance,order=order)
     return out
     
   def scale(self,c):
@@ -584,13 +631,14 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    mean_func,cov_func = _scale_factory(self,c)
+    c = float(c)
+    mean,covariance = _scale_factory(self,c)
     if c != 0.0:
       order = self.order
     else:
       order = -1
         
-    out = GaussianProcess(mean_func,cov_func,order=order)
+    out = GaussianProcess(mean,covariance,order=order)
     return out
 
   def differentiate(self,d):
@@ -607,11 +655,19 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    d = np.asarray(d,dtype=int)
+    d = _read_only_array(d)
     dim = d.shape[0]
-    mean_func,cov_func = _differentiate_factory(self,d)
+    # if the GaussianProcess already has dim specified then make sure 
+    # the derivative specification is consistent
+    if self.dim is not None:
+      if self.dim != dim:
+        raise ValueError(
+          'The number of spatial dimensions for *d* is inconsistent with '
+          'the GaussianProcess.')
+          
+    mean,covariance = _differentiate_factory(self,d)
     order = max(self.order - sum(d),-1)
-    out = GaussianProcess(mean_func,cov_func,dim=dim,order=order)
+    out = GaussianProcess(mean,covariance,dim=dim,order=order)
     return out  
 
   def condition(self,y,d,sigma=None,obs_diff=None):
@@ -641,21 +697,32 @@ class GaussianProcess(object):
     out : GaussianProcess
       
     '''
-    y = np.asarray(y)
-    d = np.asarray(d)
+    y = _read_only_array(y,dtype=float)
+    d = _read_only_array(d,dtype=float)
     q,dim = y.shape
+    # if the GaussianProcess already has dim specified then make sure 
+    # the data dim is the same
+    if self.dim is not None:
+      if self.dim != dim:
+        raise ValueError(
+          'The number of spatial dimensions for *y* is inconsistent '
+          'with the GaussianProcess.')
+
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
-    else:
-      obs_diff = np.asarray(obs_diff,dtype=int)
+
+    obs_diff = _read_only_array(obs_diff,dtype=int)
+    if obs_diff.shape[0] != dim:
+      raise ValueError(
+        'The number of spatial dimensions for *obs_diff* is '
+        'inconsistent with *y*')
     
     if sigma is None:
-      sigma = np.zeros(q)      
-    else:
-      sigma = np.asarray(sigma)
-
-    mean_func,cov_func = _condition_factory(self,y,d,sigma,obs_diff)
-    out = GaussianProcess(mean_func,cov_func,dim=dim,order=-1)
+      sigma = np.zeros(q,dtype=float)      
+    
+    sigma = _read_only_array(sigma,dtype=float)
+    mean,covariance = _condition_factory(self,y,d,sigma,obs_diff)
+    out = GaussianProcess(mean,covariance,dim=dim,order=-1)
     return out
 
   def mean(self,x,diff=None):
@@ -675,12 +742,11 @@ class GaussianProcess(object):
     out : (N,) array  
 
     '''
-    x = np.asarray(x)
+    x = _read_only_array(x,dtype=float)
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
-    else:
-      diff = np.asarray(diff,dtype=int)
 
+    diff = _read_only_array(diff,dtype=int)
     if self.dim is not None:
       if x.shape[1] != self.dim:
         raise ValueError(
@@ -692,7 +758,7 @@ class GaussianProcess(object):
           'The number of spatial dimensions for *diff* is inconsistent with '
           'the GaussianProcess.')
       
-    out = self._mean_func(x,diff,*self._func_args)
+    out = self._mean(x,diff)
     return out
 
   def covariance(self,x1,x2,diff1=None,diff2=None):
@@ -715,18 +781,16 @@ class GaussianProcess(object):
     out : (N,N) array    
     
     '''
-    x1 = np.asarray(x1) 
-    x2 = np.asarray(x2) 
+    x1 = _read_only_array(x1,dtype=float)
+    x2 = _read_only_array(x2,dtype=float)
     if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
-    else:
-      diff1 = np.asarray(diff1,dtype=int)
 
+    diff1 = _read_only_array(diff1,dtype=int)
     if diff2 is None:  
       diff2 = np.zeros(x2.shape[1],dtype=int)
-    else:
-      diff2 = np.asarray(diff2,dtype=int)
 
+    diff2 = _read_only_array(diff2,dtype=int)
     if self.dim is not None:
       if x1.shape[1] != self.dim:
         raise ValueError(
@@ -748,7 +812,7 @@ class GaussianProcess(object):
           'The number of spatial dimensions for *diff2* is inconsistent with '
           'the GaussianProcess.')
 
-    out = self._cov_func(x1,x2,diff1,diff2,*self._func_args)
+    out = self._covariance(x1,x2,diff1,diff2)
     return out
     
   def mean_and_uncertainty(self,x,max_chunk=100):
