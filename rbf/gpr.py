@@ -453,7 +453,7 @@ class GaussianProcess(object):
   ''' 
   A *GaussianProcess* instance represents a stochastic process, which 
   is defined in terms of its mean function, covariance function, and 
-  polynomial null space. This clas allows for basic operations on 
+  polynomial null space. This class allows for basic operations on 
   Gaussian processes which includes addition, subtraction, scaling, 
   differentiation, sampling, and conditioning.
     
