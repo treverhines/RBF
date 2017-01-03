@@ -248,7 +248,8 @@ is the squared exponential function,
   \phi(r) = \exp(-r^2),
 
 which has the benefit of being infinitely differentiable. See [1] for 
-a list of commonly used basis exhaustive list of positive definite radial functions.
+a list of commonly used radial functions as well as for more 
+information on Gaussian processes.
 
 References
 ==========
