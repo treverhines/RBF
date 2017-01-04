@@ -739,7 +739,7 @@ class GaussianProcess(object):
     return out
 
   def recursive_condition(self,y,d,sigma=None,obs_diff=None,
-                          max_chunk=1000):
+                          max_chunk=None):                           
     ''' 
     Returns a conditional Gaussian process which incorporates the 
     observed data. The data is broken into chunks and the returned 
@@ -747,7 +747,9 @@ class GaussianProcess(object):
     depth corresponds to a different chunk. The *GaussianProcess* 
     returned by this function should be equivalent (to within 
     numerical precision) to the *GaussianProcess* returned by the 
-    *condition* method.
+    *condition* method. This function should be preferred over the 
+    *condition* method for large (>1000) data sets because it can be 
+    faster and use less memory
     
     Parameters
     ----------
@@ -767,7 +769,7 @@ class GaussianProcess(object):
       observations constrain the slope of a 1-D Gaussian process.
       
     max_chunks : int, optional
-      Maximum size of the data chunks.
+      Maximum size of the data chunks. Defaults to *max(1000,N/10)*.
       
     Returns
     -------
@@ -782,6 +784,9 @@ class GaussianProcess(object):
     else:
       sigma = np.asarray(sigma,dtype=float)
 
+    if max_chunk is None:
+      max_chunk = max(1000,q//10)
+    
     out = self    
     count = 0        
     while count < q:
@@ -1139,7 +1144,7 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
 
   def doit(i):
     gp = PriorGaussianProcess(basis,coeff,order=order)
-    gp = gp.condition(y,d[i],sigma=sigma[i])
+    gp = gp.recursive_condition(y,d[i],sigma=sigma[i])
     gp = gp.differentiate(diff)
     out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
     return out_mean_i,out_sigma_i
