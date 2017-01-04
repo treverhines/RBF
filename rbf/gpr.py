@@ -335,7 +335,7 @@ def _draw_sample(mean,cov,tol=1e-10):
   '''
   mean = np.asarray(mean)
   cov = np.asarray(cov)
-  val,vec = np.linalg.eig(cov)
+  val,vec = np.linalg.eigh(cov)
   # ignore any slightly imaginary components
   val = val.real
   vec = vec.real

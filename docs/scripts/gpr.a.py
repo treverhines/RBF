@@ -4,7 +4,7 @@ import rbf
 np.random.seed(1)
 
 y = np.linspace(-7.5,7.5,20) # observation points
-x = np.linspace(-7.5,7.5,500) # interpolation points
+x = np.linspace(-7.5,7.5,1000) # interpolation points
 u_true = np.exp(-0.3*np.abs(x))*np.sin(x)  # true signal
 sigma = 0.1*np.ones(20) # observation uncertainty
 # noisy observations of the signal
