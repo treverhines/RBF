@@ -510,21 +510,15 @@ class GaussianProcess(object):
   Gaussian processes which includes addition, subtraction, scaling, 
   differentiation, sampling, and conditioning.
     
-  This class does not check whether the specified covariance function 
-  is positive definite, making it easy construct an invalid 
-  *GaussianProcess* instance. For this reason, this class should not 
-  be directly instantiated by the user. Instead, create a 
-  *GaussianProcess* with the subclass *PriorGaussianProcess*.
-    
   Parameters
   ----------
-  mean : function with arguments (*x*,*diff*) 
+  mean : function with arguments (*x*, *diff*) 
     Function that returns the *diff* derivative of the mean at *x*. 
     *x* is a (N,D) float array of positions and *diff* is a (D,) 
     integer array indicating the derivative order along each 
     dimension.
 
-  covariance : function with arguments (*x1*,*x2*,*diff1*,*diff2*)
+  covariance : function with arguments (*x1*, *x2* ,*diff1*, *diff2*)
     Function that returns the covariance between the *diff1* 
     derivative at *x1* and the *diff2* derivative at *x2*.
 
@@ -538,6 +532,24 @@ class GaussianProcess(object):
     error will be raised if the arguments to the *mean* or 
     *covariance* methods conflict with *dim*.
     
+  Notes
+  -----
+  This class does not check whether the specified covariance function 
+  is positive definite, making it easy construct an invalid 
+  *GaussianProcess* instance. For this reason, this class should not 
+  be directly instantiated by the user. Instead, create a 
+  *GaussianProcess* with the subclass *PriorGaussianProcess*.
+  
+  The *mean* and *covariance* methods of a *GaussianProcess* are 
+  recursive function which call the *mean* and *covariance* functions 
+  of the parent *GaussianProcess*es. For example, if *gp1* and *gp2* 
+  are *GaussianProcess*es then *gp_sum = gp1 + gp2* is another 
+  *GaussianProcess* whose *mean* and *covariance* functions make calls 
+  to the *mean* and *covariance* functions from its parents, *gp1* and 
+  *gp2*. Due to this recursive implementation, the number of the 
+  generations of children (for lack of a better term) is limited by 
+  the maximum recursion depth. 
+
   '''
   def __init__(self,mean,covariance,order=-1,dim=None):
     # the mean and covariance functions are hidden and the mean and 
