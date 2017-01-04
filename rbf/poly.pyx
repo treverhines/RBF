@@ -74,16 +74,12 @@ def mvmonos(x,powers,diff=None):
          [ 1.,  3.,  4.]])
                   
   '''
-  # The input arrays should be able to be read-only, which makes it 
-  # possible to write a memoized wrapper for this function. However, 
-  # cython requires writeable arrays as input. I must therefor make
-  # writeable copies of the input arrays.
-  x = np.array(x,dtype=float,copy=True)
-  powers = np.array(powers,dtype=int,copy=True)
+  x = np.asarray(x,dtype=float)
+  powers = np.asarray(powers,dtype=int)
   if diff is None:
     diff = np.zeros(x.shape[1],dtype=int)
   else:
-    diff = np.array(diff,dtype=int,copy=True)
+    diff = np.asarray(diff,dtype=int)
 
   if x.shape[1] != powers.shape[1]:
     raise ValueError('x and powers have different number of spatial dimensions')
@@ -95,7 +91,7 @@ def mvmonos(x,powers,diff=None):
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
+cpdef np.ndarray _mvmonos(double[:,:] x,long[:,:] powers,long[:] diff):
   ''' 
   cython evaluation of mvmonos
   '''

@@ -270,24 +270,27 @@ def _memoize(fin):
   '''
   cache = {}
   def fout(*args):
-    # args is assumed to be a tuple of read-only arrays
-    hash = tuple(a.data for a in args)
+    # it is assumed that all the arguments are numpy arrays
+    hash = tuple(a.tobytes() for a in args)
     if hash not in cache:
-      cache[hash] = fin(*args)
-      
-    return cache[hash]  
-    
-  fout.__name__ = fin.__name__
-  return fout  
+      output = fin(*args)
+      # make output read-only. This prevents the end-user from 
+      # inadvertently modifying the entries in the cache
+      output.flags['WRITEABLE'] = False
+      cache[hash] = output
+
+    return cache[hash]
+
+  return fout
 
 
-def _read_only_array(x,**kwargs):
+@_memoize
+def _mvmonos(*args,**kwargs):
   ''' 
-  returns a read-only copy of x
+  Memoized function which returns the matrix of monomials spanning the 
+  null space
   '''
-  out = np.array(x,copy=True,**kwargs)
-  out.setflags(write=False)
-  return out
+  return rbf.poly.mvmonos(*args,**kwargs)
 
 
 def _is_positive_definite(A,tol=1e-10):
@@ -310,6 +313,7 @@ def _is_positive_definite(A,tol=1e-10):
     return False
 
   return True  
+
 
 def _draw_sample(mean,cov,tol=1e-10):
   ''' 
@@ -396,15 +400,12 @@ def _differentiate_factory(gp,d):
   '''
   @_memoize
   def mean(x,diff):
-    new_diff = _read_only_array(diff+d)
-    out = gp._mean(x,new_diff)
+    out = gp._mean(x,diff + d)
     return out 
 
   @_memoize
   def covariance(x1,x2,diff1,diff2):
-    new_diff1 = _read_only_array(diff1+d)
-    new_diff2 = _read_only_array(diff2+d)
-    out = gp._covariance(x1,x2,new_diff1,new_diff2)
+    out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
   return mean,covariance
@@ -415,12 +416,11 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   Factory function which returns the mean and covariance functions for 
   a conditioned *GaussianProcess*.
   '''
-  q,dim = y.shape
-  powers = rbf.poly.powers(gp.order,dim) 
-  m = powers.shape[0]
+  powers = rbf.poly.powers(gp.order,y.shape[1]) 
+  q,m = y.shape[0],powers.shape[0]
   Cd = np.diag(sigma**2)
   Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-  p_y = rbf.poly.mvmonos(y,powers,obs_diff)
+  p_y = _mvmonos(y,powers,obs_diff)
   K_y = np.zeros((q+m,q+m))
   K_y[:q,:q] = Cu_yy + Cd
   K_y[:q,q:] = p_y
@@ -439,7 +439,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   @_memoize
   def mean(x,diff):
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
-    p_x   = rbf.poly.mvmonos(x,powers,diff)
+    p_x   = _mvmonos(x,powers,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
     out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
@@ -449,8 +449,8 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
-    p_x1  = rbf.poly.mvmonos(x1,powers,diff1)
-    p_x2  = rbf.poly.mvmonos(x2,powers,diff2)
+    p_x1  = _mvmonos(x1,powers,diff1)
+    p_x2  = _mvmonos(x2,powers,diff2)
     k_x1y = np.hstack((Cu_x1y,p_x1))
     k_x2y = np.hstack((Cu_x2y,p_x2))
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
@@ -466,10 +466,9 @@ def _prior_factory(basis,coeff,order):
   '''
   @_memoize
   def mean(x,diff):
+    out = np.zeros(x.shape[0])
     if sum(diff) == 0:
-      out = coeff[1]*np.ones(x.shape[0])
-    else:  
-      out = np.zeros(x.shape[0])
+      out[:] = coeff[1]
 
     return out
       
@@ -655,7 +654,7 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    d = _read_only_array(d)
+    d = np.asarray(d,dtype=int)
     dim = d.shape[0]
     # if the GaussianProcess already has dim specified then make sure 
     # the derivative specification is consistent
@@ -697,8 +696,8 @@ class GaussianProcess(object):
     out : GaussianProcess
       
     '''
-    y = _read_only_array(y,dtype=float)
-    d = _read_only_array(d,dtype=float)
+    y = np.asarray(y,dtype=float)
+    d = np.asarray(d,dtype=float)
     q,dim = y.shape
     # if the GaussianProcess already has dim specified then make sure 
     # the data dim is the same
@@ -710,17 +709,18 @@ class GaussianProcess(object):
 
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
-
-    obs_diff = _read_only_array(obs_diff,dtype=int)
-    if obs_diff.shape[0] != dim:
-      raise ValueError(
-        'The number of spatial dimensions for *obs_diff* is '
-        'inconsistent with *y*')
+    else:
+      obs_diff = np.asarray(obs_diff,dtype=int)
+      if obs_diff.shape[0] != dim:
+        raise ValueError(
+          'The number of spatial dimensions for *obs_diff* is '
+          'inconsistent with *y*')
     
     if sigma is None:
       sigma = np.zeros(q,dtype=float)      
+    else:
+      sigma = np.asarray(sigma,dtype=float)
     
-    sigma = _read_only_array(sigma,dtype=float)
     mean,covariance = _condition_factory(self,y,d,sigma,obs_diff)
     out = GaussianProcess(mean,covariance,dim=dim,order=-1)
     return out
@@ -742,11 +742,12 @@ class GaussianProcess(object):
     out : (N,) array  
 
     '''
-    x = _read_only_array(x,dtype=float)
+    x = np.asarray(x,dtype=float)
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
-
-    diff = _read_only_array(diff,dtype=int)
+    else:
+      diff = np.asarray(diff,dtype=int)
+      
     if self.dim is not None:
       if x.shape[1] != self.dim:
         raise ValueError(
@@ -759,6 +760,8 @@ class GaussianProcess(object):
           'the GaussianProcess.')
       
     out = self._mean(x,diff)
+    # out is read-only and I am returning a writeable copy 
+    out = np.array(out,copy=True)
     return out
 
   def covariance(self,x1,x2,diff1=None,diff2=None):
@@ -781,16 +784,18 @@ class GaussianProcess(object):
     out : (N,N) array    
     
     '''
-    x1 = _read_only_array(x1,dtype=float)
-    x2 = _read_only_array(x2,dtype=float)
+    x1 = np.asarray(x1,dtype=float)
+    x2 = np.asarray(x2,dtype=float)
     if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
+    else:
+      diff1 = np.asarray(diff1,dtype=int)
 
-    diff1 = _read_only_array(diff1,dtype=int)
     if diff2 is None:  
       diff2 = np.zeros(x2.shape[1],dtype=int)
-
-    diff2 = _read_only_array(diff2,dtype=int)
+    else:
+      diff2 = np.asarray(diff2,dtype=int)
+      
     if self.dim is not None:
       if x1.shape[1] != self.dim:
         raise ValueError(
@@ -813,6 +818,8 @@ class GaussianProcess(object):
           'the GaussianProcess.')
 
     out = self._covariance(x1,x2,diff1,diff2)
+    # out is read-only and I am returning a writeable copy 
+    out = np.array(out,copy=True)
     return out
     
   def mean_and_uncertainty(self,x,max_chunk=100):
