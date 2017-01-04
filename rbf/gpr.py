@@ -267,11 +267,13 @@ from functools import wraps
 
 
 class _Memoize:
+  ''' 
+  Memoizing decorator
+  '''
   def __init__(self,fin):
     self.cache = OrderedDict()
-    self.links = []
     self.fin = fin
-    self.cache_size = 1000
+    self.max_cache_size = 500
 
   def __call__(self,*args):
     ''' 
@@ -286,62 +288,14 @@ class _Memoize:
       # make output read-only. This prevents the end-user from 
       # inadvertently modifying the entries in the cache.
       output.flags['WRITEABLE'] = False
-      if len(self.cache) == self.cache_size:
-        # if the cache is at the maximum size then pop the oldest 
-        # entry 
+      # make sure there is room for the new entry
+      while len(self.cache) >= self.max_cache_size:
         self.cache.popitem(0)
-        return output
-
+        
       self.cache[key] = output
  
     return self.cache[key]
 
-  def set_cache_size(self,val):
-    self.cache_size = val
-    # if the cache is too big then pop items until it is the desired 
-    # size
-    while len(self.cache) > self.cache_size:
-      self.cache.popitem(0)
-      
-    
-  def link_functions(self,*args):
-    '''     
-    Links memoized functions to this *Memoize* instance. If the 
-    *clear_cache* method is called in this instance then the 
-    *clear_cache* method will be called in the linked functions. If an 
-    arguments to this method does not contain a *clear_cache* method 
-    then it will be ignored.
-    '''
-    for a in args:
-      if hasattr(a,'clear_cache'):
-        self.links += [a] 
-
-  def clear_cache(self):
-    self.cache = {}
-    for a in self.links:
-      a.clear_cache()
-
-
-
-#def _memoize(fin):
-#  ''' 
-#  Decorator used to memoize the hidden mean and covariance functions
-#  '''
-#  cache = {}
-#  def fout(*args):
-#    # it is assumed that all the arguments are numpy arrays
-#    hash = tuple(a.tobytes() for a in args)
-#    if hash not in cache:
-#      output = fin(*args)
-#      # make output read-only. This prevents the end-user from 
-#      # inadvertently modifying the entries in the cache
-#      output.flags['WRITEABLE'] = False
-#      cache[hash] = output
-#
-#    return cache[hash]
-#
-#  return fout
-#
 
 @_Memoize
 def _mvmonos(*args,**kwargs):
@@ -783,6 +737,61 @@ class GaussianProcess(object):
     mean,covariance = _condition_factory(self,y,d,sigma,obs_diff)
     out = GaussianProcess(mean,covariance,dim=dim,order=-1)
     return out
+
+  def recursive_condition(self,y,d,sigma=None,obs_diff=None,
+                          max_chunk=1000):
+    ''' 
+    Returns a conditional Gaussian process which incorporates the 
+    observed data. The data is broken into chunks and the returned 
+    *GaussianProcess* is computed recursively, where each recursion 
+    depth corresponds to a different chunk. The *GaussianProcess* 
+    returned by this function should be equivalent (to within 
+    numerical precision) to the *GaussianProcess* returned by the 
+    *condition* method.
+    
+    Parameters
+    ----------
+    y : (N,D) array
+      Observation points
+    
+    d : (N,) array
+      Observed values at *y*
+      
+    sigma : (N,) array, optional
+      One standard deviation uncertainty on the observations. This 
+      defaults to zeros (i.e. the data are assumed to be known 
+      perfectly).
+
+    obs_diff : (D,) tuple, optional
+      Derivative of the observations. For example, use (1,) if the 
+      observations constrain the slope of a 1-D Gaussian process.
+      
+    max_chunks : int, optional
+      Maximum size of the data chunks.
+      
+    Returns
+    -------
+    out : GaussianProcess
+      
+    '''  
+    y = np.asarray(y,dtype=float)
+    d = np.asarray(d,dtype=float)
+    q = y.shape[0]
+    if sigma is None:
+      sigma = np.zeros(q,dtype=float)      
+    else:
+      sigma = np.asarray(sigma,dtype=float)
+
+    out = self    
+    count = 0        
+    while count < q:
+      idx = range(count,min(count+max_chunk,q))
+      out = out.condition(y[idx],d[idx],sigma=sigma[idx],
+                          obs_diff=obs_diff)
+      count = idx[-1] + 1
+      
+    return out    
+    
 
   def mean(self,x,diff=None):
     ''' 
