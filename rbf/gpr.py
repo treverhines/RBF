@@ -298,12 +298,12 @@ class _Memoize:
 
 
 @_Memoize
-def _mvmonos(*args,**kwargs):
+def _mvmonos(x,powers,diff):
   ''' 
   Memoized function which returns the matrix of monomials spanning the 
   null space
   '''
-  return rbf.poly.mvmonos(*args,**kwargs)
+  return rbf.poly.mvmonos(x,powers,diff)
 
 
 def _is_positive_definite(A,tol=1e-10):
@@ -518,7 +518,7 @@ class GaussianProcess(object):
     integer array indicating the derivative order along each 
     dimension.
 
-  covariance : function with arguments (*x1*, *x2* ,*diff1*, *diff2*)
+  covariance : function with arguments (*x1*, *x2*, *diff1*, *diff2*)
     Function that returns the covariance between the *diff1* 
     derivative at *x1* and the *diff2* derivative at *x2*.
 
@@ -540,15 +540,16 @@ class GaussianProcess(object):
   be directly instantiated by the user. Instead, create a 
   *GaussianProcess* with the subclass *PriorGaussianProcess*.
   
-  The *mean* and *covariance* methods of a *GaussianProcess* are 
-  recursive function which call the *mean* and *covariance* functions 
-  of the parent *GaussianProcess*es. For example, if *gp1* and *gp2* 
-  are *GaussianProcess*es then *gp_sum = gp1 + gp2* is another 
-  *GaussianProcess* whose *mean* and *covariance* functions make calls 
-  to the *mean* and *covariance* functions from its parents, *gp1* and 
-  *gp2*. Due to this recursive implementation, the number of the 
-  generations of children (for lack of a better term) is limited by 
-  the maximum recursion depth. 
+  A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
+  *differentiate*, and *condition* has a *mean* and *covariance* 
+  function which calls the *mean* and *covariance* functions of its 
+  parents. For example, if *gp1* and *gp2* are *GaussianProcess* 
+  instances then *gp_sum = gp1 + gp2* is another *GaussianProcess* 
+  whose *mean* and *covariance* functions make calls to the *mean* and 
+  *covariance* functions from its parents, *gp1* and *gp2*. Due to 
+  this recursive implementation, the number of the generations of 
+  children (for lack of a better term) is limited by the maximum 
+  recursion depth.
 
   '''
   def __init__(self,mean,covariance,order=-1,dim=None):
@@ -761,7 +762,7 @@ class GaussianProcess(object):
     numerical precision) to the *GaussianProcess* returned by the 
     *condition* method. This function should be preferred over the 
     *condition* method for large (>1000) data sets because it can be 
-    faster and use less memory
+    faster and use less memory.
     
     Parameters
     ----------
