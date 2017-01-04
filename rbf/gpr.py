@@ -547,9 +547,9 @@ class GaussianProcess(object):
   instances then *gp_sum = gp1 + gp2* is another *GaussianProcess* 
   whose *mean* and *covariance* functions make calls to the *mean* and 
   *covariance* functions from its parents, *gp1* and *gp2*. Due to 
-  this recursive implementation, the number of the generations of 
-  children (for lack of a better term) is limited by the maximum 
-  recursion depth.
+  this recursive implementation, the number of generations of children 
+  (for lack of a better term) is limited by the maximum recursion 
+  depth.
 
   '''
   def __init__(self,mean,covariance,order=-1,dim=None):
