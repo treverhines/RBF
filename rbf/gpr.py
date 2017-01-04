@@ -262,29 +262,88 @@ import rbf.poly
 import rbf.basis
 import warnings
 import rbf.mp
+from collections import OrderedDict
 from functools import wraps
 
-def _memoize(fin):
-  ''' 
-  Decorator used to memoize the hidden mean and covariance functions
-  '''
-  cache = {}
-  def fout(*args):
+
+class _Memoize:
+  def __init__(self,fin):
+    self.cache = OrderedDict()
+    self.links = []
+    self.fin = fin
+    self.cache_size = 1000
+
+  def __call__(self,*args):
+    ''' 
+    Calls *fin* if *fin(*args)* is not stored in the cache. If 
+    *fin(*args)* is in the cache then return it without evaluating 
+    *fin*.
+    '''
     # it is assumed that all the arguments are numpy arrays
-    hash = tuple(a.tobytes() for a in args)
-    if hash not in cache:
-      output = fin(*args)
+    key = tuple(a.tobytes() for a in args)
+    if key not in self.cache:
+      output = self.fin(*args)
       # make output read-only. This prevents the end-user from 
-      # inadvertently modifying the entries in the cache
+      # inadvertently modifying the entries in the cache.
       output.flags['WRITEABLE'] = False
-      cache[hash] = output
+      if len(self.cache) == self.cache_size:
+        # if the cache is at the maximum size then pop the oldest 
+        # entry 
+        self.cache.popitem(0)
+        return output
 
-    return cache[hash]
+      self.cache[key] = output
+ 
+    return self.cache[key]
 
-  return fout
+  def set_cache_size(self,val):
+    self.cache_size = val
+    # if the cache is too big then pop items until it is the desired 
+    # size
+    while len(self.cache) > self.cache_size:
+      self.cache.popitem(0)
+      
+    
+  def link_functions(self,*args):
+    '''     
+    Links memoized functions to this *Memoize* instance. If the 
+    *clear_cache* method is called in this instance then the 
+    *clear_cache* method will be called in the linked functions. If an 
+    arguments to this method does not contain a *clear_cache* method 
+    then it will be ignored.
+    '''
+    for a in args:
+      if hasattr(a,'clear_cache'):
+        self.links += [a] 
+
+  def clear_cache(self):
+    self.cache = {}
+    for a in self.links:
+      a.clear_cache()
 
 
-@_memoize
+
+#def _memoize(fin):
+#  ''' 
+#  Decorator used to memoize the hidden mean and covariance functions
+#  '''
+#  cache = {}
+#  def fout(*args):
+#    # it is assumed that all the arguments are numpy arrays
+#    hash = tuple(a.tobytes() for a in args)
+#    if hash not in cache:
+#      output = fin(*args)
+#      # make output read-only. This prevents the end-user from 
+#      # inadvertently modifying the entries in the cache
+#      output.flags['WRITEABLE'] = False
+#      cache[hash] = output
+#
+#    return cache[hash]
+#
+#  return fout
+#
+
+@_Memoize
 def _mvmonos(*args,**kwargs):
   ''' 
   Memoized function which returns the matrix of monomials spanning the 
@@ -341,12 +400,12 @@ def _add_factory(gp1,gp2):
   Factory function which returns the mean and covariance functions for 
   two added *GaussianProcesses*.
   '''
-  @_memoize
+  @_Memoize
   def mean(x,diff):
     out = gp1._mean(x,diff) + gp2._mean(x,diff)
     return out       
 
-  @_memoize
+  @_Memoize
   def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
@@ -361,12 +420,12 @@ def _subtract_factory(gp1,gp2):
   a *GaussianProcess* which has been subtracted from another 
   *GaussianProcess*.
   '''
-  @_memoize
+  @_Memoize
   def mean(x,diff):
     out = gp1._mean(x,diff) - gp2._mean(x,diff)
     return out
       
-  @_memoize
+  @_Memoize
   def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
@@ -380,12 +439,12 @@ def _scale_factory(gp,c):
   Factory function which returns the mean and covariance functions for 
   a scaled *GaussianProcess*.
   '''
-  @_memoize
+  @_Memoize
   def mean(x,diff):
     out = c*gp._mean(x,diff)
     return out
 
-  @_memoize
+  @_Memoize
   def covariance(x1,x2,diff1,diff2):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
@@ -398,12 +457,12 @@ def _differentiate_factory(gp,d):
   Factory function which returns the mean and covariance functions for 
   a differentiated *GaussianProcess*.
   '''
-  @_memoize
+  @_Memoize
   def mean(x,diff):
     out = gp._mean(x,diff + d)
     return out 
 
-  @_memoize
+  @_Memoize
   def covariance(x1,x2,diff1,diff2):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
@@ -436,7 +495,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   # compute residuals
   r = np.zeros(q+m)
   r[:q] = d - gp._mean(y,obs_diff)
-  @_memoize
+  @_Memoize
   def mean(x,diff):
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
     p_x   = _mvmonos(x,powers,diff)
@@ -444,7 +503,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
-  @_memoize
+  @_Memoize
   def covariance(x1,x2,diff1,diff2):
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
@@ -464,7 +523,7 @@ def _prior_factory(basis,coeff,order):
   Factory function which returns the mean and covariance functions for 
   a *PriorGaussianProcess*.
   '''
-  @_memoize
+  @_Memoize
   def mean(x,diff):
     out = np.zeros(x.shape[0])
     if sum(diff) == 0:
@@ -472,7 +531,7 @@ def _prior_factory(basis,coeff,order):
 
     return out
       
-  @_memoize
+  @_Memoize
   def covariance(x1,x2,diff1,diff2):
     eps = np.ones(x2.shape[0])/coeff[2]
     a = (-1)**sum(diff2)*coeff[0]
@@ -760,7 +819,7 @@ class GaussianProcess(object):
           'the GaussianProcess.')
       
     out = self._mean(x,diff)
-    # out is read-only and I am returning a writeable copy 
+    # out may be read-only and I am returning a writeable copy 
     out = np.array(out,copy=True)
     return out
 
@@ -818,7 +877,7 @@ class GaussianProcess(object):
           'the GaussianProcess.')
 
     out = self._covariance(x1,x2,diff1,diff2)
-    # out is read-only and I am returning a writeable copy 
+    # out may be read-only and I am returning a writeable copy 
     out = np.array(out,copy=True)
     return out
     
