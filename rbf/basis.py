@@ -143,7 +143,7 @@ class RBF(object):
       # if EPS is not in the expression then substitute EPS*R for R
       expr = expr.subs(_R,_EPS*_R)
       
-    self._expr = expr
+    self.expr = expr
     self.set_package(package)
     self.set_tol(tol)
     self.clear_cache()
@@ -230,7 +230,7 @@ class RBF(object):
     x = np.einsum('ijk->kij',x)
     c = np.einsum('ijk->kij',c)
     # add function to cache if not already
-    if diff not in self._cache:
+    if diff not in self.cache:
       self.add_to_cache(diff)
  
     args = (tuple(x)+tuple(c)+(eps,))    
@@ -240,17 +240,21 @@ class RBF(object):
     # handle the singularity is by specifying *tol*.
     with warnings.catch_warnings():
       warnings.simplefilter("ignore")
-      out = self._cache[diff](*args)
+      out = self.cache[diff](*args)
       out = _replace_nan(out)
 
     return out
 
+  def __repr__(self):
+    out = '<RBF : %s>' % str(self.expr)
+    return out
+     
   def set_tol(self,tol):
-    self._tol = tol
+    self.tol = tol
     
   def set_package(self,package):
     if package in ['cython','numpy']:
-      self._package = package
+      self.package = package
     else:
       raise ValueError('package must either be "cython" or "numpy" ')  
   
@@ -274,13 +278,13 @@ class RBF(object):
     x_sym = sympy.symbols('x:%s' % dim)    
     r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
     # differentiate the RBF 
-    expr = self._expr.subs(_R,r_sym)            
+    expr = self.expr.subs(_R,r_sym)            
     for xi,order in zip(x_sym,diff):
       if order == 0:
         continue
       expr = expr.diff(*(xi,)*order)
 
-    if self._tol is not None:
+    if self.tol is not None:
       # find the limit of the differentiated expression as x->c. This 
       # is necessary for polyharmonic splines, which have removable 
       # singularities. NOTE: this finds the limit from only one 
@@ -292,23 +296,23 @@ class RBF(object):
 
       # create a piecewise symbolic function which is center_expr when 
       # _R<tol and expr otherwise
-      expr = sympy.Piecewise((center_expr,r_sym<self._tol),
+      expr = sympy.Piecewise((center_expr,r_sym<self.tol),
                              (expr,True)) 
       
-    if self._package == 'numpy':
+    if self.package == 'numpy':
       func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
       func = _check_lambdified_output(func)
-      self._cache[diff] = func
+      self.cache[diff] = func
 
-    elif self._package == 'cython':        
+    elif self.package == 'cython':        
       func = ufuncify(x_sym+c_sym+(_EPS,),expr)
-      self._cache[diff] = func
+      self.cache[diff] = func
     
   def clear_cache(self):
     ''' 
     Deletes entries stored in the cache.
     '''
-    self._cache = {}
+    self.cache = {}
         
 
 # Instantiate some common RBFs

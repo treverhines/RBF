@@ -265,7 +265,6 @@ import rbf.mp
 from collections import OrderedDict
 from functools import wraps
 
-
 class _Memoize:
   ''' 
   Memoizing decorator
@@ -1081,11 +1080,13 @@ class PriorGaussianProcess(GaussianProcess):
 
   '''
   def __init__(self,basis,coeff,order=-1,dim=None):
+    self.basis = basis
+    self.coeff = coeff
     mean_func,cov_func = _prior_factory(basis,coeff,order)
     GaussianProcess.__init__(self,mean_func,cov_func,
                              order=order,dim=dim)
 
-
+        
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
         diff=None,procs=0):
   '''     
@@ -1157,7 +1158,11 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
 
   def doit(i):
     gp = PriorGaussianProcess(basis,coeff,order=order)
-    gp = gp.recursive_condition(y,d[i],sigma=sigma[i])
+    # do not condition the Gaussian process with data that has 
+    # infinite uncertainty.
+    is_finite = np.isfinite(sigma[i])
+    gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
+                                sigma=sigma[i,is_finite])
     gp = gp.differentiate(diff)
     out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
     return out_mean_i,out_sigma_i
