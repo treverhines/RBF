@@ -230,12 +230,12 @@ module, priors are stationary Gaussian processes which have mean and
 covariance functions described as
   
 .. math::
-  \\bar{u}(x) = b,
+  \\bar{u}(x) = a,
   
 and
 
 .. math::
-  C_u(x,x') = a\phi\\left(\\frac{||x - x'||_2}{c}\\right), 
+  C_u(x,x') = b\phi\\left(\\frac{||x - x'||_2}{c}\\right), 
   
 where :math:`a`, :math:`b`, and :math:`c` are user specified 
 coefficients. The literature on radial basis functions and Gaussian 
@@ -264,8 +264,26 @@ import warnings
 import rbf.mp
 from collections import OrderedDict
 from functools import wraps
+import sympy
 
-class _Memoize:
+
+def _sigfigs(val,n):
+  ''' 
+  Returns *val* rounded to *n* significant figures. This is just for 
+  display purposes.
+  '''
+  if val == 0.0:
+    return 0.0
+  
+  if ~np.isfinite(val):
+    return val
+    
+  d = -np.int(np.log10(np.abs(val))) + n - 1 
+  out = np.round(val,d)
+  return out
+    
+
+class _Memoize(object):
   ''' 
   Memoizing decorator
   '''
@@ -295,6 +313,9 @@ class _Memoize:
  
     return self.cache[key]
 
+  def __repr__(self):
+    return self.fin.__repr__()
+    
 
 @_Memoize
 def _mvmonos(x,powers,diff):
@@ -354,17 +375,17 @@ def _add_factory(gp1,gp2):
   two added *GaussianProcesses*.
   '''
   @_Memoize
-  def mean(x,diff):
+  def add_mean(x,diff):
     out = gp1._mean(x,diff) + gp2._mean(x,diff)
     return out       
 
   @_Memoize
-  def covariance(x1,x2,diff1,diff2):
+  def add_covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out
             
-  return mean,covariance
+  return add_mean,add_covariance
   
 
 def _subtract_factory(gp1,gp2):
@@ -374,17 +395,17 @@ def _subtract_factory(gp1,gp2):
   *GaussianProcess*.
   '''
   @_Memoize
-  def mean(x,diff):
+  def subtract_mean(x,diff):
     out = gp1._mean(x,diff) - gp2._mean(x,diff)
     return out
       
   @_Memoize
-  def covariance(x1,x2,diff1,diff2):
+  def subtract_covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
-  return mean,covariance
+  return subtract_mean,subtract_covariance
 
 
 def _scale_factory(gp,c):
@@ -393,16 +414,16 @@ def _scale_factory(gp,c):
   a scaled *GaussianProcess*.
   '''
   @_Memoize
-  def mean(x,diff):
+  def scale_mean(x,diff):
     out = c*gp._mean(x,diff)
     return out
 
   @_Memoize
-  def covariance(x1,x2,diff1,diff2):
+  def scale_covariance(x1,x2,diff1,diff2):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
-  return mean,covariance
+  return scale_mean,scale_covariance
 
 
 def _differentiate_factory(gp,d):
@@ -411,16 +432,16 @@ def _differentiate_factory(gp,d):
   a differentiated *GaussianProcess*.
   '''
   @_Memoize
-  def mean(x,diff):
+  def differentiate_mean(x,diff):
     out = gp._mean(x,diff + d)
     return out 
 
   @_Memoize
-  def covariance(x1,x2,diff1,diff2):
+  def differentiate_covariance(x1,x2,diff1,diff2):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
-  return mean,covariance
+  return differentiate_mean,differentiate_covariance
 
 
 def _condition_factory(gp,y,d,sigma,obs_diff):
@@ -441,15 +462,17 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     K_y_inv = np.linalg.inv(K_y)
   except np.linalg.LinAlgError:
     raise np.linalg.LinAlgError(
-        'Failed to compute the inverse of K. This is likely '
-        'because there is not enough data to constrain a null '
-        'space in the prior')
+        'Failed to compute the inverse of K. Potential reasons '
+        'include: \n\n'
+        '  * There is not enough data to constrain the null space \n'
+        '  * Noise-free observations are inconsistent with the '
+        'Gaussian process \n')
 
   # compute residuals
   r = np.zeros(q+m)
   r[:q] = d - gp._mean(y,obs_diff)
   @_Memoize
-  def mean(x,diff):
+  def condition_mean(x,diff):
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
     p_x   = _mvmonos(x,powers,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
@@ -457,7 +480,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     return out
 
   @_Memoize
-  def covariance(x1,x2,diff1,diff2):
+  def condition_covariance(x1,x2,diff1,diff2):
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
@@ -468,7 +491,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
-  return mean,covariance
+  return condition_mean,condition_covariance
 
 
 def _prior_factory(basis,coeff,order):
@@ -476,29 +499,31 @@ def _prior_factory(basis,coeff,order):
   Factory function which returns the mean and covariance functions for 
   a *PriorGaussianProcess*.
   '''
+  a,b,c = coeff  
   @_Memoize
-  def mean(x,diff):
+  def prior_mean(x,diff):
     out = np.zeros(x.shape[0])
     if sum(diff) == 0:
-      out[:] = coeff[1]
+      out[:] = a
 
     return out
       
   @_Memoize
-  def covariance(x1,x2,diff1,diff2):
-    eps = np.ones(x2.shape[0])/coeff[2]
-    a = (-1)**sum(diff2)*coeff[0]
+  def prior_covariance(x1,x2,diff1,diff2):
     diff = diff1 + diff2
-    out = a*basis(x1,x2,eps=eps,diff=diff)
+    eps = np.ones(x2.shape[0])/c
+    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=eps,diff=diff)
     if np.any(~np.isfinite(out)):
       raise ValueError(
-        'Encountered a non-finite covariance. This is likely '
-        'because the prior basis function is not sufficiently '
-        'differentiable.')
+        'Encountered a non-finite prior covariance. Potential '
+        'reasons include: \n\n'
+        '  * The prior basis function evaluated to infinity \n'
+        '  * The prior basis function is not sufficiently '
+        'differentiable \n')
 
     return out
 
-  return mean,covariance
+  return prior_mean,prior_covariance
   
 
 class GaussianProcess(object):
@@ -590,6 +615,12 @@ class GaussianProcess(object):
     '''
     return self.__mul__(c)
 
+  def __repr__(self):
+    out = ('<GaussianProcess : mean = %s, cov = %s, order = %s>' 
+           % (str(self._mean),str(self._covariance),self.order))
+    return out
+
+
   def add(self,other):
     ''' 
     Adds two Gaussian processes
@@ -655,7 +686,7 @@ class GaussianProcess(object):
     out : GaussianProcess 
       
     '''
-    c = float(c)
+    c = np.float64(c)
     mean,covariance = _scale_factory(self,c)
     if c != 0.0:
       order = self.order
@@ -1029,8 +1060,8 @@ class PriorGaussianProcess(GaussianProcess):
     
   coeff : 3-tuple  
     Tuple of three distribution coefficients, *a*, *b*, and *c*. *a* 
-    scales the variance of the Gaussian process, *b* is the mean, 
-    and *c* is the characteristic length scale (see above). 
+    is the mean, *b* scales the amplitude of the covariance, and *c* 
+    is the characteristic length scale (see above).
       
   order : int, optional
     Order of the polynomial spanning the null space. Defaults to -1, 
@@ -1041,19 +1072,19 @@ class PriorGaussianProcess(GaussianProcess):
   
   Examples
   --------
-  Instantiate a PriorGaussianProcess where the basis is a squared 
-  exponential function with variance = 1, mean = 0, and characteristic 
+  Instantiate a *PriorGaussianProcess* where the basis is a squared 
+  exponential function with mean = 0, variance = 1, and characteristic 
   length scale = 2.
   
   >>> from rbf.basis import ga,phs3
-  >>> gp = PriorGaussianProcess(ga,(1,0,2))
+  >>> gp = PriorGaussianProcess(ga,(0,1,2))
   
   Instantiate a PriorGaussianProcess which is equivalent to a 1-D thin 
   plate spline with penalty parameter 0.01. Then find the conditional 
   mean and uncertainty of the Gaussian process after incorporating 
   observations
   
-  >>> gp = PriorGaussianProcess(phs3,(0.01,0,1.0),order=1)
+  >>> gp = PriorGaussianProcess(phs3,(0.0,0.01,1.0),order=1)
   >>> y = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
   >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
   >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
@@ -1063,30 +1094,59 @@ class PriorGaussianProcess(GaussianProcess):
   
   Notes
   -----
-  If *order* >= 0, then *b* has no effect on the resulting Gaussian 
+  If *order* >= 0, then *a* has no effect on the resulting Gaussian 
   process.
   
   If *basis* is scale invariant, such as for odd order polyharmonic 
-  splines, then *a* and *c* have inverse effects on the resulting 
+  splines, then *b* and *c* have inverse effects on the resulting 
   Gaussian process and thus only one of them needs to be chosen while 
   the other can be fixed at an arbitary value.
   
   Not all radial basis functions are positive definite, which means 
   that there may not be a valid covariance function describing the 
   Gaussian process. The squared exponential basis function, 
-  rbf.basis.exp, is positive definite for all spatial dimensions and 
+  *rbf.basis.ga*, is positive definite for all spatial dimensions and 
   it is infinitely differentiable. For this reason it is a generally 
   safe choice for *basis*.
 
   '''
   def __init__(self,basis,coeff,order=-1,dim=None):
-    self.basis = basis
-    self.coeff = coeff
-    mean_func,cov_func = _prior_factory(basis,coeff,order)
-    GaussianProcess.__init__(self,mean_func,cov_func,
+    coeff = np.asarray(coeff,dtype=float)  
+    if coeff.shape[0] != 3:
+      raise ValueError('*coeff* must be a (3,) array')
+    if coeff[2] == 0.0:   
+      raise ValueError('characteristic length-scale cannot be zero')
+      
+    mean,covariance = _prior_factory(basis,coeff,order)
+    GaussianProcess.__init__(self,mean,covariance,
                              order=order,dim=dim)
 
-        
+    # A PriorGaussian process has these additional attributes
+    self.basis = basis
+    self.coeff = coeff
+
+  def __repr__(self):
+    a = _sigfigs(self.coeff[0],3)
+    b = _sigfigs(self.coeff[1],3)
+    c_inv = _sigfigs(1.0/self.coeff[2],3)
+    EPS = rbf.basis.get_EPS()
+    R = rbf.basis.get_R()
+    r = sympy.symbols('r')
+    cov_expr = b*self.basis.expr.subs(EPS,c_inv).subs(R,r)
+    try:
+      # try to simplify cov_expr to a float. If its possible then try 
+      # to convert NaNs to zeros
+      cov_expr = np.float64(cov_expr)
+      cov_expr = np.nan_to_num(cov_expr)
+    except TypeError:  
+      # Just use the expression
+      pass
+    
+    out = ('<PriorGaussianProcess : mean = %s, cov = %s, order = %s>' 
+           % (a,str(cov_expr),self.order))
+    return out
+    
+
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
         diff=None,procs=0):
   '''     
