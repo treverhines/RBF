@@ -1124,27 +1124,33 @@ class PriorGaussianProcess(GaussianProcess):
     # A PriorGaussian process has these additional attributes
     self.basis = basis
     self.coeff = coeff
-
-  def __repr__(self):
-    a = _sigfigs(self.coeff[0],3)
-    b = _sigfigs(self.coeff[1],3)
-    c_inv = _sigfigs(1.0/self.coeff[2],3)
-    EPS = rbf.basis.get_EPS()
-    R = rbf.basis.get_R()
-    r = sympy.symbols('r')
-    cov_expr = b*self.basis.expr.subs(EPS,c_inv).subs(R,r)
-    try:
-      # try to simplify cov_expr to a float. If its possible then try 
-      # to convert NaNs to zeros
-      cov_expr = np.float64(cov_expr)
-      cov_expr = np.nan_to_num(cov_expr)
-    except TypeError:  
-      # Just use the expression
-      pass
+    self._repr_string = None
     
-    out = ('<PriorGaussianProcess : mean = %s, cov = %s, order = %s>' 
-           % (a,str(cov_expr),self.order))
-    return out
+  def __repr__(self):
+    # make the repr string once and then reuse it.
+    if self._repr_string is None:
+      # make string for __repr__
+      a = _sigfigs(self.coeff[0],3)
+      b = _sigfigs(self.coeff[1],3)
+      c_inv = _sigfigs(1.0/self.coeff[2],3)
+      EPS = rbf.basis.get_EPS()
+      R = rbf.basis.get_R()
+      r = sympy.symbols('r')
+      cov_expr = b*self.basis.expr.subs(EPS,c_inv).subs(R,r)
+      try:
+        # try to simplify cov_expr to a float. If its possible then try 
+        # to convert NaNs to zeros
+        cov_expr = np.float64(cov_expr)
+        cov_expr = np.nan_to_num(cov_expr)
+      except TypeError:  
+        # Just use the expression
+        pass
+    
+      self._repr_string = (
+        '<PriorGaussianProcess : mean = %s, cov = %s, order = %s>' 
+        % (a,str(cov_expr),self.order))
+
+    return self._repr_string
     
 
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
