@@ -129,7 +129,7 @@ class Test(unittest.TestCase):
     res = (mean - test_func1d(x))/std
     mean_chi2 = np.sqrt(res.T.dot(res)/m)
     # the mean chi squared should be close to 1
-    self.assertTrue(abs(mean_chi2 - 1.0) < 0.4)
+    self.assertTrue(np.abs(np.log10(mean_chi2)) < 0.2)
     #plt.plot(x,mean,'b-')
     #plt.fill_between(x[:,0],mean-std,mean+std,color='b',alpha=0.2)
     #plt.plot(x,test_func1d(x),'k-')
@@ -151,7 +151,7 @@ class Test(unittest.TestCase):
     res = (mean - test_func1d_diffx(x))/std
     mean_chi2 = np.sqrt(res.T.dot(res)/m)
     # the mean chi squared should be close to 1
-    self.assertTrue(abs(mean_chi2 - 1.0) < 0.4)
+    self.assertTrue(np.abs(np.log10(mean_chi2)) < 0.2)
     #plt.plot(x,mean,'b-')
     #plt.fill_between(x[:,0],mean-std,mean+std,color='b',alpha=0.2)
     #plt.plot(x,test_func1d_diffx(x),'k-')
@@ -174,7 +174,7 @@ class Test(unittest.TestCase):
     res = (mean - test_func1d(x))/std
     mean_chi2 = np.sqrt(res.T.dot(res)/m)
     # the mean chi squared should be close to 1
-    self.assertTrue(abs(mean_chi2 - 1.0) < 0.4)
+    self.assertTrue(np.abs(np.log10(mean_chi2)) < 0.2)
     #plt.plot(x,mean,'b-')
     #plt.fill_between(x[:,0],mean-std,mean+std,color='b',alpha=0.2)
     #plt.plot(x,test_func1d(x),'k-')
