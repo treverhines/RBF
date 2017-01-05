@@ -12,16 +12,10 @@ def test_func2d(x):
   return np.sin(x[...,0])*np.cos(x[...,1])
 
 def test_func2d_diffx(x):
-  dx = 1e-6
-  xpert = np.copy(x)
-  xpert[...,0] += dx
-  return (test_func2d(xpert) - test_func2d(x))/dx
+  return np.cos(x[:,0])*np.cos(x[:,1])
 
 def test_func2d_diffy(x):
-  dy = 1e-6
-  xpert = np.copy(x)
-  xpert[...,1] += dy
-  return (test_func2d(xpert) - test_func2d(x))/dy
+  return -np.sin(x[:,0])*np.sin(x[:,1])
 
 class Test(unittest.TestCase):
   def test_interp(self):
