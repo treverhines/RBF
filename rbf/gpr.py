@@ -1165,27 +1165,29 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   Parameters
   ----------
   y : (N,D) array
-    Observation points
+    Observation points.
 
   d : (...,N) array
-    Observed data at *y*  
+    Observed data at *y*.
   
   sigma : (...,N) array
-    Data uncertainty
+    Data uncertainty. *np.nan* or *np.inf* can be used to indicate 
+    that the data is missing, which will cause the corresponding value 
+    in *d* to be ignored.
   
   coeff : 3-tuple
-    variance, mean, and characteristic length scale for the prior 
-    Gaussian process
+    Variance, mean, and characteristic length scale for the prior 
+    Gaussian process.
   
   x : (M,D) array, optional
-    Evaluation points, defaults to *y*   
+    Evaluation points, defaults to *y*.
   
   basis : RBF instance, optional      
     Radial basis function which describes the prior covariance 
     structure. Defaults to rbf.basis.ga.
     
   order : int, optional
-    Order of the prior null space
+    Order of the prior null space.
 
   diff : (D,), optional         
     Specifies the derivative of the returned values. 
@@ -1195,15 +1197,15 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
     to 0 (i.e. the parent process does all the work).  Each task is to 
     perform Gaussian process regression for one of the (N,) arrays in 
     *d* and *sigma*. So if *d* and *sigma* are (N,) arrays then using 
-    multiple process will not provide any speed improvement
+    multiple process will not provide any speed improvement.
   
   Returns
   -------
   out_mean : (...,M) array  
-    mean of the posterior at *x*
+    Mean of the posterior at *x*.
       
   out_sigma : (...,M) array  
-    one standard deviation of the posterior at *x*
+    One standard deviation of the posterior at *x*.
       
   '''
   y = np.asarray(y)
@@ -1225,7 +1227,7 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   def doit(i):
     gp = PriorGaussianProcess(basis,coeff,order=order)
     # do not condition the Gaussian process with data that has 
-    # infinite uncertainty.
+    # infinite or NaN uncertainty.
     is_finite = np.isfinite(sigma[i])
     gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
                                 sigma=sigma[i,is_finite])
