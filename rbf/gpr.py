@@ -375,17 +375,17 @@ def _add_factory(gp1,gp2):
   two added *GaussianProcesses*.
   '''
   @_Memoize
-  def add_mean(x,diff):
+  def mean(x,diff):
     out = gp1._mean(x,diff) + gp2._mean(x,diff)
     return out       
 
   @_Memoize
-  def add_covariance(x1,x2,diff1,diff2):
+  def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out
             
-  return add_mean,add_covariance
+  return mean,covariance
   
 
 def _subtract_factory(gp1,gp2):
@@ -395,17 +395,17 @@ def _subtract_factory(gp1,gp2):
   *GaussianProcess*.
   '''
   @_Memoize
-  def subtract_mean(x,diff):
+  def mean(x,diff):
     out = gp1._mean(x,diff) - gp2._mean(x,diff)
     return out
       
   @_Memoize
-  def subtract_covariance(x1,x2,diff1,diff2):
+  def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
-  return subtract_mean,subtract_covariance
+  return mean,covariance
 
 
 def _scale_factory(gp,c):
@@ -414,16 +414,16 @@ def _scale_factory(gp,c):
   a scaled *GaussianProcess*.
   '''
   @_Memoize
-  def scale_mean(x,diff):
+  def mean(x,diff):
     out = c*gp._mean(x,diff)
     return out
 
   @_Memoize
-  def scale_covariance(x1,x2,diff1,diff2):
+  def covariance(x1,x2,diff1,diff2):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
-  return scale_mean,scale_covariance
+  return mean,covariance
 
 
 def _differentiate_factory(gp,d):
@@ -432,16 +432,16 @@ def _differentiate_factory(gp,d):
   a differentiated *GaussianProcess*.
   '''
   @_Memoize
-  def differentiate_mean(x,diff):
+  def mean(x,diff):
     out = gp._mean(x,diff + d)
     return out 
 
   @_Memoize
-  def differentiate_covariance(x1,x2,diff1,diff2):
+  def covariance(x1,x2,diff1,diff2):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
-  return differentiate_mean,differentiate_covariance
+  return mean,covariance
 
 
 def _condition_factory(gp,y,d,sigma,obs_diff):
@@ -472,7 +472,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   r = np.zeros(q+m)
   r[:q] = d - gp._mean(y,obs_diff)
   @_Memoize
-  def condition_mean(x,diff):
+  def mean(x,diff):
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
     p_x   = _mvmonos(x,powers,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
@@ -480,7 +480,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     return out
 
   @_Memoize
-  def condition_covariance(x1,x2,diff1,diff2):
+  def covariance(x1,x2,diff1,diff2):
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
@@ -491,7 +491,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
-  return condition_mean,condition_covariance
+  return mean,covariance
 
 
 def _prior_factory(basis,coeff,order):
@@ -501,7 +501,7 @@ def _prior_factory(basis,coeff,order):
   '''
   a,b,c = coeff  
   @_Memoize
-  def prior_mean(x,diff):
+  def mean(x,diff):
     out = np.zeros(x.shape[0])
     if sum(diff) == 0:
       out[:] = a
@@ -509,7 +509,7 @@ def _prior_factory(basis,coeff,order):
     return out
       
   @_Memoize
-  def prior_covariance(x1,x2,diff1,diff2):
+  def covariance(x1,x2,diff1,diff2):
     diff = diff1 + diff2
     eps = np.ones(x2.shape[0])/c
     out = b*(-1)**sum(diff2)*basis(x1,x2,eps=eps,diff=diff)
@@ -523,7 +523,7 @@ def _prior_factory(basis,coeff,order):
 
     return out
 
-  return prior_mean,prior_covariance
+  return mean,covariance
   
 
 class GaussianProcess(object):
