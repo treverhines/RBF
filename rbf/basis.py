@@ -111,16 +111,17 @@ class RBF(object):
   tol : float, optional  
     If an evaluation point, *x*, is within *tol* of an RBF center, 
     *c*, then *x* is considered equal to *c*. The returned value is 
-    then the RBF at the symbolically evaluated limit as *x* -> *c*. This 
-    is only useful when there is a removable singularity at *c*, such 
-    as for polyharmonic splines. If *tol* is not provided then there 
-    will be no special treatment for when *x* is close to *c*. Note 
-    that computing the limit as *x* -> *c* can be very time intensive.
+    the RBF at the symbolically evaluated limit as *x* -> *c*. This is 
+    only useful when there is a removable singularity at *c*, such as 
+    for polyharmonic splines. If *tol* is not provided then there will 
+    be no special treatment for when *x* is close to *c*. Note that 
+    computing the limit as *x* -> *c* can be very time intensive.
   
   Examples
   --------
   Instantiate an inverse quadratic RBF
 
+  >>> from rbf.basis import *
   >>> R = get_R()
   >>> EPS = get_EPS()
   >>> iq_expr = 1/(1 + (EPS*R)**2)
@@ -134,10 +135,31 @@ class RBF(object):
   >>> center = np.array([[0.0]])
   >>> values = iq(x,center)
     
+  Instantiate a sinc RBF. This has a singularity at the RBF center and 
+  it must be handled separately by specifying a number for *tol*.
+  
+  >>> import sympy
+  >>> sinc_expr = sympy.sin(R)/R
+  >>> sinc = RBF(sinc_expr) # instantiate WITHOUT specifying *tol*
+  >>> x = np.array([[-1.0],[0.0],[1.0]])
+  >>> c = np.array([[0.0]])
+  >>> sinc(x,c) # this incorrectly evaluates to 0.0 at the center
+  array([[ 0.84147098],
+         [ 0.        ],
+         [ 0.84147098]])
+
+  >>> sinc.set_tol(1e-10) # set *tol* 
+  >>> sinc(x,c) # this now correctly evaluates to 1.0 at the center
+  array([[ 0.84147098],
+         [ 1.        ],
+         [ 0.84147098]])
+  
   '''
   def __init__(self,expr,package='cython',tol=None):    
     if not expr.has(_R):
-      raise ValueError('RBF expression must be a function of rbf.basis.R')
+      raise ValueError(
+        '*expr* must be a sympy expression containing the symbolic '
+        'variable returned by rbf.basis.get_R()')
     
     if not expr.has(_EPS):
       # if EPS is not in the expression then substitute EPS*R for R
@@ -251,6 +273,7 @@ class RBF(object):
      
   def set_tol(self,tol):
     self.tol = tol
+    self.clear_cache()
     
   def set_package(self,package):
     if package in ['cython','numpy']:
@@ -258,6 +281,8 @@ class RBF(object):
     else:
       raise ValueError('package must either be "cython" or "numpy" ')  
   
+    self.clear_cache()
+    
   def add_to_cache(self,diff):
     '''     
     Symbolically evaluates the specified derivative and then compiles 
@@ -310,7 +335,8 @@ class RBF(object):
     
   def clear_cache(self):
     ''' 
-    Deletes entries stored in the cache.
+    Deletes entries stored in the cache. This is automatically called 
+    within the methods *set_tol* and *set_package*.
     '''
     self.cache = {}
         
