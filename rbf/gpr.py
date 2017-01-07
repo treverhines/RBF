@@ -262,14 +262,12 @@ import rbf.poly
 import rbf.basis
 import warnings
 import rbf.mp
-from rbf.filter import _get_mask
 from collections import OrderedDict
-from functools import wraps
 import sympy
 import logging
 logger = logging.getLogger(__name__)
 
-
+  
 def _sigfigs(val,n):
   ''' 
   Returns *val* rounded to *n* significant figures. This is just for 
@@ -814,7 +812,7 @@ class GaussianProcess(object):
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
       
-    max_chunks : int, optional
+    max_chunk : int, optional
       Maximum size of the data chunks. Defaults to *max(1000,N/10)*.
       
     Returns

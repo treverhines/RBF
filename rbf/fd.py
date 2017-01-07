@@ -17,10 +17,13 @@ def _lapack_solve(A,b):
   '''
   lu,piv,info = dgetrf(A,overwrite_a=True)
   if info != 0:
-    raise np.linalg.LinAlgError('LAPACK routine dgetrf exited with error code %s' % info)
+    raise np.linalg.LinAlgError(
+      'LAPACK routine *dgetrf* exited with error code %s' % info)
+
   x,info = dgetrs(lu,piv,b,overwrite_b=True)
   if info != 0:
-    raise np.linalg.LinAlgError('LAPACK routine dgetrs exited with error code %s' % info)
+    raise np.linalg.LinAlgError(
+      'LAPACK routine *dgetrs* exited with error code %s' % info)
 
   return x
 
