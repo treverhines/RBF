@@ -813,7 +813,7 @@ class GaussianProcess(object):
       observations constrain the slope of a 1-D Gaussian process.
       
     max_chunk : int, optional
-      Maximum size of the data chunks. Defaults to *max(1000,N/10)*.
+      Maximum size of the data chunks. Defaults to *max(500,N/10)*.
       
     Returns
     -------
@@ -829,11 +829,11 @@ class GaussianProcess(object):
       sigma = np.asarray(sigma,dtype=float)
 
     if max_chunk is None:
-      max_chunk = max(1000,q//10)
+      max_chunk = max(500,q//10)
     
     out = self    
     count = 0        
-    while count < q:
+    while count < q: 
       idx = range(count,min(count+max_chunk,q))
       out = out.condition(y[idx],d[idx],sigma=sigma[idx],
                           obs_diff=obs_diff)
