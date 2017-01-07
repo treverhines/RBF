@@ -262,9 +262,12 @@ import rbf.poly
 import rbf.basis
 import warnings
 import rbf.mp
+from rbf.filter import _get_mask
 from collections import OrderedDict
 from functools import wraps
 import sympy
+import logging
+logger = logging.getLogger(__name__)
 
 
 def _sigfigs(val,n):
@@ -1211,20 +1214,21 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   y = np.asarray(y)
   d = np.asarray(d)
   sigma = np.asarray(sigma)
-  if x is None:
-    x = y
-
   if diff is None:   
     diff = np.zeros(y.shape[1],dtype=int)
 
+  if x is None:
+    x = y
+      
+  m = x.shape[0]
   bcast_shape = d.shape[:-1]
   q = int(np.prod(bcast_shape))
   n = y.shape[0]
-  m = x.shape[0]
   d = d.reshape((q,n))
   sigma = sigma.reshape((q,n))
 
   def doit(i):
+    logger.debug('Performing GPR on data set %s of %s ...' % (i,q))
     gp = PriorGaussianProcess(basis,coeff,order=order)
     # do not condition the Gaussian process with data that has 
     # infinite or NaN uncertainty.
