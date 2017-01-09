@@ -906,7 +906,7 @@ class GaussianProcess(object):
     return out    
     
 
-  def mean(self,x,diff=None,retry=3):
+  def mean(self,x,diff=None,retry=0):
     ''' 
     Returns the mean of the Gaussian process 
     
@@ -969,7 +969,7 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
 
-  def covariance(self,x1,x2,diff1=None,diff2=None,retry=3):
+  def covariance(self,x1,x2,diff1=None,diff2=None,retry=0):
     ''' 
     Returns the covariance of the Gaussian process 
     
