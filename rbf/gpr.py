@@ -268,80 +268,6 @@ import logging
 logger = logging.getLogger(__name__)
 
   
-def _sigfigs(val,n):
-  ''' 
-  Returns *val* rounded to *n* significant figures. This is just for 
-  display purposes.
-  '''
-  if val == 0.0:
-    return 0.0
-  
-  if ~np.isfinite(val):
-    return val
-    
-  d = -np.int(np.log10(np.abs(val))) + n - 1 
-  out = np.round(val,d)
-  return out
-    
-
-class _Memoize(object):
-  ''' 
-  Memoizing decorator. This works for functions that take only 
-  positional arguments and each argument is a numpy array.
-  '''
-  # static variable controlling the maximum cache size for all 
-  # memoized functions
-  MAX_CACHE_SIZE = 500
-  
-  def __init__(self,fin):
-    self.cache = OrderedDict()
-    self.fin = fin
-    self.links = []
-
-  def __call__(self,*args):
-    ''' 
-    Calls *fin* if *fin(*args)* is not stored in the cache. If 
-    *fin(*args)* is in the cache then return it without evaluating 
-    *fin*.
-    '''
-    # it is assumed that all the arguments are numpy arrays
-    key = tuple(a.tobytes() for a in args)
-    if key not in self.cache:
-      output = self.fin(*args)
-      # make output read-only. This prevents the end-user from 
-      # inadvertently modifying the entries in the cache.
-      output.flags['WRITEABLE'] = False
-      # make sure there is room for the new entry
-      while len(self.cache) >= self.max_cache_size:
-        self.cache.popitem(0)
-        
-      self.cache[key] = output
- 
-    return self.cache[key]
-
-  def __repr__(self):
-    return self.fin.__repr__()
-
-  def add_links(self,*args):    
-    ''' 
-    Link other memoized functions so that calling *clear_cache* also 
-    calls *clear_cache* for the linked functions.
-    '''
-    # append links to existing links
-    links = self.links + list(args)
-    links 
-    self.links = links
-    
-
-@_Memoize
-def _mvmonos(x,powers,diff):
-  ''' 
-  Memoized function which returns the matrix of monomials spanning the 
-  null space
-  '''
-  return rbf.poly.mvmonos(x,powers,diff)
-
-
 def _is_positive_definite(A,tol=1e-10):
   ''' 
   Tests if *A* is a positive definite matrix. This function returns 
@@ -385,6 +311,109 @@ def _draw_sample(mean,cov,tol=1e-10):
   return sample
 
 
+def _sigfigs(val,n):
+  ''' 
+  Returns *val* rounded to *n* significant figures. This is just for 
+  display purposes.
+  '''
+  if val == 0.0:
+    return 0.0
+  
+  if ~np.isfinite(val):
+    return val
+    
+  d = -np.int(np.log10(np.abs(val))) + n - 1 
+  out = np.round(val,d)
+  return out
+    
+
+class _Memoize(object):
+  ''' 
+  Memoizing decorator. This works for functions that take only 
+  positional arguments and each argument is a numpy array.
+  '''
+  # static variable controlling the maximum cache size for all 
+  # memoized functions
+  MAX_CACHE_SIZE = 500
+  
+  def __init__(self,fin):
+    self.cache = OrderedDict()
+    self.fin = fin
+    self.links = []
+
+  def __call__(self,*args):
+    ''' 
+    Calls *fin* if *fin(*args)* is not stored in the cache. If 
+    *fin(*args)* is in the cache then return it without evaluating 
+    *fin*.
+    '''
+    # it is assumed that all the arguments are numpy arrays
+    key = tuple(a.tobytes() for a in args)
+    if key not in self.cache:
+      output = self.fin(*args)
+      # make output read-only. This prevents the end-user from 
+      # inadvertently modifying the entries in the cache.
+      #output.flags['WRITEABLE'] = False
+      # make sure there is room for the new entry
+      while len(self.cache) >= _Memoize.MAX_CACHE_SIZE:
+        self.cache.popitem(0)
+        
+      self.cache[key] = output
+ 
+    return self.cache[key]
+
+  def __repr__(self):
+    return self.fin.__repr__()
+
+  def add_links(self,*args):    
+    ''' 
+    Link other memoized functions so that calling *clear_cache* for 
+    this function also calls *clear_cache* for the linked functions.
+    '''
+    # append new links to existing links
+    links = self.links + list(args)
+    # make sure there are no duplicate links
+    links = list(set(links))
+    self.links = links
+
+  def clear_cache(self):    
+    ''' 
+    Clear the cache for this function and any linked functions.
+    '''
+    self.cache = OrderedDict()
+    for l in self.links:
+      if hasattr(l,'clear_cache'):
+        l.clear_cache()
+    
+    
+def get_max_cache_size():
+  ''' 
+  Returns the maximum cache size for memoized functions.
+  '''
+  return _Memoize.MAX_CACHE_SIZE
+  
+
+def set_max_cache_size(val):
+  ''' 
+  Sets the maximum cache size for memoized functions. Increasing this 
+  value generally improves speed at the expense of memory efficiency.
+  '''
+  val = int(val)
+  if val < 0:
+    raise ValueError('maximum cache size must be positive')
+    
+  _Memoize.MAX_CACHE_SIZE = val
+
+
+@_Memoize
+def _mvmonos(x,powers,diff):
+  ''' 
+  Memoized function which returns the matrix of monomials spanning the 
+  null space
+  '''
+  return rbf.poly.mvmonos(x,powers,diff)
+
+
 def _add_factory(gp1,gp2):
   '''   
   Factory function which returns the mean and covariance functions for 
@@ -401,6 +430,8 @@ def _add_factory(gp1,gp2):
            gp2._covariance(x1,x2,diff1,diff2))
     return out
             
+  mean.add_links(gp1._mean,gp2._mean) 
+  covariance.add_links(gp1._covariance,gp2._covariance) 
   return mean,covariance
   
 
@@ -421,6 +452,8 @@ def _subtract_factory(gp1,gp2):
            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
+  mean.add_links(gp1._mean,gp2._mean) 
+  covariance.add_links(gp1._covariance,gp2._covariance) 
   return mean,covariance
 
 
@@ -439,6 +472,8 @@ def _scale_factory(gp,c):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
+  mean.add_links(gp._mean) 
+  covariance.add_links(gp._covariance) 
   return mean,covariance
 
 
@@ -457,6 +492,8 @@ def _differentiate_factory(gp,d):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
+  mean.add_links(gp._mean) 
+  covariance.add_links(gp._covariance) 
   return mean,covariance
 
 
@@ -465,30 +502,40 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   Factory function which returns the mean and covariance functions for 
   a conditioned *GaussianProcess*.
   '''
-  powers = rbf.poly.powers(gp.order,y.shape[1]) 
-  q,m = y.shape[0],powers.shape[0]
-  Cd = np.diag(sigma**2)
-  Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-  p_y = _mvmonos(y,powers,obs_diff)
-  K_y = np.zeros((q+m,q+m))
-  K_y[:q,:q] = Cu_yy + Cd
-  K_y[:q,q:] = p_y
-  K_y[q:,:q] = p_y.T
-  try:
-    K_y_inv = np.linalg.inv(K_y)
-  except np.linalg.LinAlgError:
-    raise np.linalg.LinAlgError(
-        'Failed to compute the inverse of K. Potential reasons '
-        'include: \n\n'
-        '  * There is not enough data to constrain the null space \n'
-        '  * Noise-free observations are inconsistent with the '
-        'Gaussian process \n')
+  @_Memoize
+  def precompute():
+    ''' 
+    do as many calculations as possible without yet knowning where the 
+    interpolation points will be. This is a memoized function because 
+    I can then control when the precomputed data is deallocated
+    '''
+    powers = rbf.poly.powers(gp.order,y.shape[1]) 
+    q,m = y.shape[0],powers.shape[0]
+    Cd = np.diag(sigma**2)
+    Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
+    p_y = _mvmonos(y,powers,obs_diff)
+    K_y = np.zeros((q+m,q+m))
+    K_y[:q,:q] = Cu_yy + Cd
+    K_y[:q,q:] = p_y
+    K_y[q:,:q] = p_y.T
+    try:
+      K_y_inv = np.linalg.inv(K_y)
+      
+    except np.linalg.LinAlgError:
+      raise np.linalg.LinAlgError(
+        'Failed to compute the inverse of K. This could be because '
+        'there is not enough data to constrain a null space. This '
+        'error could also be caused by noise-free observations that '
+        'are inconsistent with the Gaussian process.')
 
-  # compute residuals
-  r = np.zeros(q+m)
-  r[:q] = d - gp._mean(y,obs_diff)
+    # compute residuals
+    r = np.zeros(q+m)
+    r[:q] = d - gp._mean(y,obs_diff)
+    return powers,K_y_inv,r
+    
   @_Memoize
   def mean(x,diff):
+    powers,K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
     p_x   = _mvmonos(x,powers,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
@@ -497,6 +544,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
 
   @_Memoize
   def covariance(x1,x2,diff1,diff2):
+    powers,K_y_inv,r = precompute()
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
@@ -507,6 +555,8 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
+  mean.add_links(gp._mean,precompute) 
+  covariance.add_links(gp._covariance,precompute) 
   return mean,covariance
 
 
@@ -515,9 +565,9 @@ def _prior_factory(basis,coeff,order):
   Factory function which returns the mean and covariance functions for 
   a *PriorGaussianProcess*.
   '''
-  a,b,c = coeff  
   @_Memoize
   def mean(x,diff):
+    a,b,c = coeff  
     out = np.zeros(x.shape[0])
     if sum(diff) == 0:
       out[:] = a
@@ -526,16 +576,15 @@ def _prior_factory(basis,coeff,order):
       
   @_Memoize
   def covariance(x1,x2,diff1,diff2):
+    a,b,c = coeff  
     diff = diff1 + diff2
     eps = np.ones(x2.shape[0])/c
     out = b*(-1)**sum(diff2)*basis(x1,x2,eps=eps,diff=diff)
     if np.any(~np.isfinite(out)):
       raise ValueError(
-        'Encountered a non-finite prior covariance. Potential '
-        'reasons include: \n\n'
-        '  * The prior basis function evaluated to infinity \n'
-        '  * The prior basis function is not sufficiently '
-        'differentiable \n')
+        'Encountered a non-finite prior covariance. This may be '
+        'because the prior basis function is not sufficiently '
+        'differentiable.')
 
     return out
 
@@ -655,8 +704,8 @@ class GaussianProcess(object):
     if (self.dim is not None) & (other.dim is not None):
       if self.dim != other.dim:
         raise ValueError(
-          'The number of spatial dimensions for the '
-          'GaussianProcesses are inconsistent')
+          'The number of spatial dimensions for the Gaussian '
+          'processes are inconsistent')
         
     mean,covariance = _add_factory(self,other)
     order = max(self.order,other.order)
@@ -681,8 +730,8 @@ class GaussianProcess(object):
     if (self.dim is not None) & (other.dim is not None):
       if self.dim != other.dim:
         raise ValueError(
-          'The number of spatial dimensions for the '
-          'GaussianProcesses are inconsistent')
+          'The number of spatial dimensions for the Gaussian '
+          'processes are inconsistent')
 
     mean,covariance = _subtract_factory(self,other)
     order = max(self.order,other.order)
@@ -733,8 +782,8 @@ class GaussianProcess(object):
     if self.dim is not None:
       if self.dim != dim:
         raise ValueError(
-          'The number of spatial dimensions for *d* is inconsistent with '
-          'the GaussianProcess.')
+          'The number of spatial dimensions for *d* is inconsistent '
+          'with the Gaussian process.')
           
     mean,covariance = _differentiate_factory(self,d)
     order = max(self.order - sum(d),-1)
@@ -777,7 +826,7 @@ class GaussianProcess(object):
       if self.dim != dim:
         raise ValueError(
           'The number of spatial dimensions for *y* is inconsistent '
-          'with the GaussianProcess.')
+          'with the Gaussian process.')
 
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
@@ -834,7 +883,7 @@ class GaussianProcess(object):
     -------
     out : GaussianProcess
       
-    '''  
+    '''
     y = np.asarray(y,dtype=float)
     d = np.asarray(d,dtype=float)
     q = y.shape[0]
@@ -857,7 +906,7 @@ class GaussianProcess(object):
     return out    
     
 
-  def mean(self,x,diff=None):
+  def mean(self,x,diff=None,retry=3):
     ''' 
     Returns the mean of the Gaussian process 
     
@@ -868,6 +917,14 @@ class GaussianProcess(object):
         
     diff : (D,) tuple
       Derivative specification    
+      
+    retry : int, optional
+      If the mean of the Gaussian process evaluates to a non-finite 
+      value then this many attempts will be made to recompute it. This 
+      option was added because my CPU is surprisingly unreliable when 
+      using multiple cores and my data occassionally gets corrupted. 
+      Hopefully, I can resolve my own computer problems and this 
+      option will not be needed.
       
     Returns
     -------
@@ -892,17 +949,27 @@ class GaussianProcess(object):
           'the GaussianProcess.')
       
     out = self._mean(x,diff)
+    # If *out* is not finite then warn the user and attempt to compute 
+    # it again. An error is raised after *retry* attempts.
+    if not np.all(np.isfinite(out)):
+      if retry > 0:
+        warnings.warn(
+          'Encountered non-finite value in the mean of the Gaussian '
+          'process. This may be due to a CPU fluke. All relevant ' 
+          'caches will be cleared and another attempt will be made to '
+          'compute the mean.')
+        self.clear_cache()  
+        return self.mean(x,diff=diff,retry=retry-1)
+      else:    
+        raise ValueError(
+          'Encountered non-finite value in the mean of the Gaussian '
+          'process.')     
+
     # out may be read-only and I am returning a writeable copy 
     out = np.array(out,copy=True)
-    # Warn the user if not all of the output is finite. 
-    if not np.all(np.isfinite(out)):
-      warnings.warn(
-        'Encountered non-finite value in the mean of the Gaussian '
-        'process')
-        
     return out
 
-  def covariance(self,x1,x2,diff1=None,diff2=None):
+  def covariance(self,x1,x2,diff1=None,diff2=None,retry=3):
     ''' 
     Returns the covariance of the Gaussian process 
     
@@ -917,6 +984,14 @@ class GaussianProcess(object):
       how the Gaussian process at *x1* covaries with the derivative of 
       the Gaussian process at *x2*.
 
+    retry : int, optional
+      If the covariance of the Gaussian process evaluates to a 
+      non-finite value then this many attempts will be made to 
+      recompute it. This option was added because my CPU is 
+      surprisingly unreliable when using multiple cores and my data 
+      occassionally gets corrupted. Hopefully, I can resolve my own 
+      computer problems and this option will not be needed.
+      
     Returns
     -------
     out : (N,N) array    
@@ -937,39 +1012,50 @@ class GaussianProcess(object):
     if self.dim is not None:
       if x1.shape[1] != self.dim:
         raise ValueError(
-          'The number of spatial dimensions for *x1* is inconsistent with '
-          'the GaussianProcess.')
+          'The number of spatial dimensions for *x1* is inconsistent '
+          'with the GaussianProcess.')
 
       if x2.shape[1] != self.dim:
         raise ValueError(
-          'The number of spatial dimensions for *x2* is inconsistent with '
-          'the GaussianProcess.')
+          'The number of spatial dimensions for *x2* is inconsistent '
+          'with the GaussianProcess.')
 
       if diff1.shape[0] != self.dim:
         raise ValueError(
-          'The number of spatial dimensions for *diff1* is inconsistent with '
-          'the GaussianProcess.')
+          'The number of spatial dimensions for *diff1* is '
+          'inconsistent with the GaussianProcess.')
 
       if diff2.shape[0] != self.dim:
         raise ValueError(
-          'The number of spatial dimensions for *diff2* is inconsistent with '
-          'the GaussianProcess.')
+          'The number of spatial dimensions for *diff2* is '
+          'inconsistent with the GaussianProcess.')
 
     out = self._covariance(x1,x2,diff1,diff2)
-    # out may be read-only and I am returning a writeable copy 
-    out = np.array(out,copy=True)
-    # Warn the user if not all of the output is finite. 
+    # If *out* is not finite then warn the user and attempt to compute 
+    # it again. An error is raised after *retry* attempts.
     if not np.all(np.isfinite(out)):
-      warnings.warn(
-        'Encountered non-finite value in the covariance of the '
-        'Gaussian process')
+      if retry > 0:
+        warnings.warn(
+          'Encountered non-finite value in the covariance of the '
+          'Gaussian process. This may be due to a CPU fluke. All ' 
+          'relevant caches will be cleared and another attempt will '
+          'be made to compute the covariance.')
+        self.clear_cache()  
+        return self.covariance(x1,x2,diff1=diff1,diff2=diff2,
+                               retry=retry-1)
+      else:    
+        raise ValueError(
+          'Encountered non-finite value in the covariance of the '
+          'Gaussian process.')     
 
-    # Warn the user if not all of the output is finite. 
+    # Warn the user if not all of the variances are positive. 
     if np.any(np.diag(out) < 0.0):
       warnings.warn(
         'Encountered negative value in the variance of the Gaussian '
         'process')
         
+    # out may be read-only and I am returning a writeable copy 
+    out = np.array(out,copy=True)
     return out
     
   def mean_and_uncertainty(self,x,max_chunk=100):
@@ -1080,6 +1166,21 @@ class GaussianProcess(object):
     out = _is_positive_definite(cov,tol)
     return out  
     
+
+  def clear_cache(self):
+    ''' 
+    Attempts to clear the caches of memoized functions associated with 
+    this Gaussian process. This is done by calling the *clear_cache* 
+    method of the mean and covariance function if one exists. Note 
+    that this may clear the caches of other Gaussian processes which 
+    have shared ancestors.
+    '''
+    _mvmonos.clear_cache()
+    if hasattr(self._mean,'clear_cache'):
+      self._mean.clear_cache()
+    if hasattr(self._covariance,'clear_cache'):
+      self._covariance.clear_cache()
+          
     
 class PriorGaussianProcess(GaussianProcess):
   ''' 

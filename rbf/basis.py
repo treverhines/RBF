@@ -79,10 +79,12 @@ def get_eps():
   '''
   return sympy.symbols('eps')
 
-# instantiate global symbolic variables _R and _EPS for use in 
-# defining functions in this module
+
+# instantiate global symbolic variables _R and _EPS. Modifying these 
+# variables will break this module
 _R = get_r()    
 _EPS = get_eps()
+
 
 class RBF(object):
   ''' 
