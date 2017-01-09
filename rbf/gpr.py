@@ -974,7 +974,17 @@ class GaussianProcess(object):
       idx = range(count,min(count+max_chunk,q))
       out_mean[idx] = self.mean(x[idx])
       cov = self.covariance(x[idx],x[idx])
-      out_sigma[idx] = np.sqrt(np.diag(cov))
+      var = np.diag(cov)
+      if np.any(var < 0.0):
+        warnings.warn(
+          'Encountered a negative variance for the Gaussian process. '
+          'This may stem from a poorly conditioned matrix inversion '
+          'during a call to *condition*. If so, then the negative '
+          'variances can be remedied by increasing the uncertainties '
+          'on the observations or combining observations that are '
+          'very close together.')
+        
+      out_sigma[idx] = np.sqrt(var)
       count = idx[-1] + 1
     
     return out_mean,out_sigma
