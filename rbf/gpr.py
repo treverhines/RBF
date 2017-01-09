@@ -977,13 +977,8 @@ class GaussianProcess(object):
       var = np.diag(cov)
       if np.any(var < 0.0):
         warnings.warn(
-          'Encountered a negative variance for the Gaussian process. '
-          'This may stem from a poorly conditioned matrix inversion '
-          'during a call to *condition*. If so, then the negative '
-          'variances can be remedied by increasing the uncertainties '
-          'on the observations or combining observations that are '
-          'very close together.')
-        
+          'Encountered a negative variance for the Gaussian process.')
+
       out_sigma[idx] = np.sqrt(var)
       count = idx[-1] + 1
     
@@ -1236,7 +1231,7 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   sigma = sigma.reshape((q,n))
 
   def doit(i):
-    logger.debug('Performing GPR on data set %s of %s ...' % (i,q))
+    logger.debug('Performing GPR on data set %s of %s ...' % (i+1,q))
     gp = PriorGaussianProcess(basis,coeff,order=order)
     # do not condition the Gaussian process with data that has 
     # infinite or NaN uncertainty.
