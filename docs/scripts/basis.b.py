@@ -5,10 +5,10 @@ function
 import numpy as np
 import sympy
 import matplotlib.pyplot as plt
-from rbf.basis import RBF,get_R,get_EPS
+from rbf.basis import RBF,get_r,get_eps
 
-R,EPS = get_R(),get_EPS() # get symbolic variables
-expr = sympy.sin(EPS*R)/(EPS*R) # symbolic expression for the RBF
+r,eps = get_r(),get_eps() # get symbolic variables
+expr = sympy.sin(eps*r)/(eps*r) # symbolic expression for the RBF
 sinc_rbf = RBF(expr) # instantiate the RBF
 x = np.linspace(-5,5,500)
 points = np.reshape(np.meshgrid(x,x),(2,500*500)).T # interp points

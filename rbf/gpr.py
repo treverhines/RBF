@@ -286,12 +286,17 @@ def _sigfigs(val,n):
 
 class _Memoize(object):
   ''' 
-  Memoizing decorator
+  Memoizing decorator. This works for functions that take only 
+  positional arguments and each argument is a numpy array.
   '''
+  # static variable controlling the maximum cache size for all 
+  # memoized functions
+  MAX_CACHE_SIZE = 500
+  
   def __init__(self,fin):
     self.cache = OrderedDict()
     self.fin = fin
-    self.max_cache_size = 500
+    self.links = []
 
   def __call__(self,*args):
     ''' 
@@ -316,6 +321,16 @@ class _Memoize(object):
 
   def __repr__(self):
     return self.fin.__repr__()
+
+  def add_links(self,*args):    
+    ''' 
+    Link other memoized functions so that calling *clear_cache* also 
+    calls *clear_cache* for the linked functions.
+    '''
+    # append links to existing links
+    links = self.links + list(args)
+    links 
+    self.links = links
     
 
 @_Memoize
@@ -950,7 +965,7 @@ class GaussianProcess(object):
         'Gaussian process')
 
     # Warn the user if not all of the output is finite. 
-    if not np.all(np.diag(out) >= 0.0):
+    if np.any(np.diag(out) < 0.0):
       warnings.warn(
         'Encountered negative value in the variance of the Gaussian '
         'process')
@@ -1153,10 +1168,8 @@ class PriorGaussianProcess(GaussianProcess):
       a = _sigfigs(self.coeff[0],3)
       b = _sigfigs(self.coeff[1],3)
       c_inv = _sigfigs(1.0/self.coeff[2],3)
-      EPS = rbf.basis.get_EPS()
-      R = rbf.basis.get_R()
-      r = sympy.symbols('r')
-      cov_expr = b*self.basis.expr.subs(EPS,c_inv).subs(R,r)
+      eps = rbf.basis.get_eps()
+      cov_expr = b*self.basis.expr.subs(eps,c_inv)
       try:
         # try to simplify cov_expr to a float. If its possible then try 
         # to convert NaNs to zeros

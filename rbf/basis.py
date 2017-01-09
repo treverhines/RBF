@@ -32,10 +32,6 @@ import numpy as np
 import copy
 import warnings
 
-# define global symbolic variables
-_R = sympy.symbols('R')
-_EPS = sympy.symbols('EPS')
-
 
 def _replace_nan(x):
   ''' 
@@ -68,21 +64,25 @@ def _check_lambdified_output(fin):
   return fout  
 
 
-def get_R():
+def get_r():
   ''' 
   returns the symbolic variable for :math:`r` which is used to 
   instantiate an *RBF*
   '''
-  return copy.deepcopy(_R)
+  return sympy.symbols('r')
 
 
-def get_EPS():
+def get_eps():
   ''' 
   returns the symbolic variable for :math:`\epsilon` which is used to 
   instantiate an *RBF*
   '''
-  return copy.deepcopy(_EPS)
+  return sympy.symbols('eps')
 
+# instantiate global symbolic variables _R and _EPS for use in 
+# defining functions in this module
+_R = get_r()    
+_EPS = get_eps()
 
 class RBF(object):
   ''' 
@@ -93,11 +93,12 @@ class RBF(object):
   ----------
   expr : sympy expression
     Symbolic expression of the RBF. This must be a function of the 
-    symbolic variable *R*, which is returned by the function *get_R*. 
-    *R* is the radial distance to the RBF center.  The expression may 
-    optionally be a function of *EPS*, which is a shape parameter 
-    obtained by the function *get_EPS*.  If *EPS* is not provided then 
-    *R* is substituted with *R* * *EPS*.
+    symbolic variable *r*, which can be obtained by calling *get_r()* 
+    or *sympy.symbols('r')*. *r* is the radial distance to the RBF 
+    center.  The expression may optionally be a function of *eps*, 
+    which is a shape parameter obtained by calling *get_eps()* or 
+    *sympy.symbols('eps')*.  If *eps* is not provided then *r* is 
+    substituted with *r* * *eps*.
   
   package : string, optional  
     Controls how the symbolic expressions are converted into numerical 
@@ -122,9 +123,9 @@ class RBF(object):
   Instantiate an inverse quadratic RBF
 
   >>> from rbf.basis import *
-  >>> R = get_R()
-  >>> EPS = get_EPS()
-  >>> iq_expr = 1/(1 + (EPS*R)**2)
+  >>> r = get_r()
+  >>> eps = get_eps()
+  >>> iq_expr = 1/(1 + (eps*r)**2)
   >>> iq = RBF(iq_expr)
   
   Evaluate an inverse quadratic at 10 points ranging from -5 to 5. 
@@ -139,7 +140,7 @@ class RBF(object):
   it must be handled separately by specifying a number for *tol*.
   
   >>> import sympy
-  >>> sinc_expr = sympy.sin(R)/R
+  >>> sinc_expr = sympy.sin(r)/r
   >>> sinc = RBF(sinc_expr) # instantiate WITHOUT specifying *tol*
   >>> x = np.array([[-1.0],[0.0],[1.0]])
   >>> c = np.array([[0.0]])
@@ -155,11 +156,11 @@ class RBF(object):
          [ 0.84147098]])
   
   '''
-  def __init__(self,expr,package='cython',tol=None):    
+  def __init__(self,expr,package='cython',tol=None):
     if not expr.has(_R):
       raise ValueError(
         '*expr* must be a sympy expression containing the symbolic '
-        'variable returned by rbf.basis.get_R()')
+        'variable returned by rbf.basis.get_r()')
     
     if not expr.has(_EPS):
       # if EPS is not in the expression then substitute EPS*R for R

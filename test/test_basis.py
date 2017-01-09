@@ -91,10 +91,10 @@ class Test(unittest.TestCase):
     self.assertTrue(test_y_derivative(rbf.basis.iq))
 
   def test_make_rbf(self):
-    R = rbf.basis.get_R()
+    r = rbf.basis.get_r()
     # define the imq function and make sure it is equal to 
     # rbf.basis.imq
-    imq = rbf.basis.RBF(1/sympy.sqrt(1 + R**2))
+    imq = rbf.basis.RBF(1/sympy.sqrt(1 + r**2))
     np.random.seed(1)
     x = np.random.random((5,2))
     c = np.random.random((3,2))
