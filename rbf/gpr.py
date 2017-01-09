@@ -1048,12 +1048,6 @@ class GaussianProcess(object):
           'Encountered non-finite value in the covariance of the '
           'Gaussian process.')     
 
-    # Warn the user if not all of the variances are positive. 
-    if np.any(np.diag(out) < 0.0):
-      warnings.warn(
-        'Encountered negative value in the variance of the Gaussian '
-        'process')
-        
     # out may be read-only and I am returning a writeable copy 
     out = np.array(out,copy=True)
     return out
