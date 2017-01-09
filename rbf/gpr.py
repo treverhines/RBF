@@ -502,40 +502,40 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   Factory function which returns the mean and covariance functions for 
   a conditioned *GaussianProcess*.
   '''
-  @_Memoize
-  def precompute():
-    ''' 
-    do as many calculations as possible without yet knowning where the 
-    interpolation points will be. This is a memoized function because 
-    I can then control when the precomputed data is deallocated
-    '''
-    powers = rbf.poly.powers(gp.order,y.shape[1]) 
-    q,m = y.shape[0],powers.shape[0]
-    Cd = np.diag(sigma**2)
-    Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-    p_y = _mvmonos(y,powers,obs_diff)
-    K_y = np.zeros((q+m,q+m))
-    K_y[:q,:q] = Cu_yy + Cd
-    K_y[:q,q:] = p_y
-    K_y[q:,:q] = p_y.T
-    try:
-      K_y_inv = np.linalg.inv(K_y)
-      
-    except np.linalg.LinAlgError:
-      raise np.linalg.LinAlgError(
-        'Failed to compute the inverse of K. This could be because '
-        'there is not enough data to constrain a null space. This '
-        'error could also be caused by noise-free observations that '
-        'are inconsistent with the Gaussian process.')
+  #@_Memoize
+  #def precompute():
+  ''' 
+  do as many calculations as possible without yet knowning where the 
+  interpolation points will be. This is a memoized function because 
+  I can then control when the precomputed data is deallocated
+  '''
+  powers = rbf.poly.powers(gp.order,y.shape[1]) 
+  q,m = y.shape[0],powers.shape[0]
+  Cd = np.diag(sigma**2)
+  Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
+  p_y = _mvmonos(y,powers,obs_diff)
+  K_y = np.zeros((q+m,q+m))
+  K_y[:q,:q] = Cu_yy + Cd
+  K_y[:q,q:] = p_y
+  K_y[q:,:q] = p_y.T
+  try:
+    K_y_inv = np.linalg.inv(K_y)
+     
+  except np.linalg.LinAlgError:
+    raise np.linalg.LinAlgError(
+      'Failed to compute the inverse of K. This could be because '
+      'there is not enough data to constrain a null space. This '
+      'error could also be caused by noise-free observations that '
+      'are inconsistent with the Gaussian process.')
 
-    # compute residuals
-    r = np.zeros(q+m)
-    r[:q] = d - gp._mean(y,obs_diff)
-    return powers,K_y_inv,r
+  # compute residuals
+  r = np.zeros(q+m)
+  r[:q] = d - gp._mean(y,obs_diff)
+  #return powers,K_y_inv,r
     
   @_Memoize
   def mean(x,diff):
-    powers,K_y_inv,r = precompute()
+    #powers,K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
     p_x   = _mvmonos(x,powers,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
@@ -544,7 +544,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
 
   @_Memoize
   def covariance(x1,x2,diff1,diff2):
-    powers,K_y_inv,r = precompute()
+    #powers,K_y_inv,r = precompute()
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
@@ -555,8 +555,10 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
-  mean.add_links(gp._mean,precompute) 
-  covariance.add_links(gp._covariance,precompute) 
+  #mean.add_links(gp._mean,precompute) 
+  #covariance.add_links(gp._covariance,precompute) 
+  mean.add_links(gp._mean) 
+  covariance.add_links(gp._covariance) 
   return mean,covariance
 
 
