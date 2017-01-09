@@ -1172,6 +1172,7 @@ class GaussianProcess(object):
     _mvmonos.clear_cache()
     if hasattr(self._mean,'clear_cache'):
       self._mean.clear_cache()
+
     if hasattr(self._covariance,'clear_cache'):
       self._covariance.clear_cache()
           
