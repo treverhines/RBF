@@ -879,6 +879,12 @@ class GaussianProcess(object):
     out = self._mean(x,diff)
     # out may be read-only and I am returning a writeable copy 
     out = np.array(out,copy=True)
+    # Warn the user if not all of the output is finite. 
+    if not np.all(np.isfinite(out)):
+      warnings.warn(
+        'Encountered non-finite value in the mean of the Gaussian '
+        'process')
+        
     return out
 
   def covariance(self,x1,x2,diff1=None,diff2=None):
@@ -937,6 +943,18 @@ class GaussianProcess(object):
     out = self._covariance(x1,x2,diff1,diff2)
     # out may be read-only and I am returning a writeable copy 
     out = np.array(out,copy=True)
+    # Warn the user if not all of the output is finite. 
+    if not np.all(np.isfinite(out)):
+      warnings.warn(
+        'Encountered non-finite value in the covariance of the '
+        'Gaussian process')
+
+    # Warn the user if not all of the output is finite. 
+    if not np.all(np.diag(out) >= 0.0):
+      warnings.warn(
+        'Encountered negative value in the variance of the Gaussian '
+        'process')
+        
     return out
     
   def mean_and_uncertainty(self,x,max_chunk=100):
@@ -975,10 +993,6 @@ class GaussianProcess(object):
       out_mean[idx] = self.mean(x[idx])
       cov = self.covariance(x[idx],x[idx])
       var = np.diag(cov)
-      if np.any(var < 0.0):
-        warnings.warn(
-          'Encountered a negative variance for the Gaussian process.')
-
       out_sigma[idx] = np.sqrt(var)
       count = idx[-1] + 1
     
