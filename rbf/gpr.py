@@ -511,11 +511,11 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     interpolation points will be. This is a memoized function because 
     I can then control when the precomputed data is deallocated
     '''
-    powers = rbf.poly.powers(gp.order,y.shape[1]) 
-    q,m = y.shape[0],powers.shape[0]
+    # compute K_y_inv
     Cd = np.diag(sigma**2)
     Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-    p_y = _mvmonos(y,powers,obs_diff)
+    p_y   = gp._null_space(y,obs_diff)
+    q,m = d.shape[0],p_y.shape[1]
     K_y = np.zeros((q+m,q+m))
     K_y[:q,:q] = Cu_yy + Cd
     K_y[:q,q:] = p_y
@@ -530,37 +530,37 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
         'error could also be caused by noise-free observations that '
         'are inconsistent with the Gaussian process.')
 
-    # compute residuals
+    # compute r
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
-    return powers,K_y_inv,r
+    return K_y_inv,r
     
   @_Memoize
   def mean(x,diff):
-    powers,K_y_inv,r = precompute()
+    K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
-    p_x   = _mvmonos(x,powers,diff)
+    p_x   = gp._null_space(x,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
-    out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
+    out   = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
   @_Memoize
   def covariance(x1,x2,diff1,diff2):
-    powers,K_y_inv,r = precompute()
+    K_y_inv,r = precompute()
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
-    p_x1  = _mvmonos(x1,powers,diff1)
-    p_x2  = _mvmonos(x2,powers,diff2)
-    k_x1y = np.hstack((Cu_x1y,p_x1))
-    k_x2y = np.hstack((Cu_x2y,p_x2))
+    p_x1    = gp._null_space(x1,diff1)
+    p_x2    = gp._null_space(x2,diff2)
+    k_x1y   = np.hstack((Cu_x1y,p_x1))
+    k_x2y   = np.hstack((Cu_x2y,p_x2))
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
   # link all functions called by *mean*
-  mean.add_links(gp._mean,gp._covariance,_mvmonos,precompute) 
+  mean.add_links(gp._mean,gp._covariance,precompute) 
   # link all functions called by *covariance*
-  covariance.add_links(gp._mean,gp._covariance,_mvmonos,precompute) 
+  covariance.add_links(gp._mean,gp._covariance,precompute) 
   return mean,covariance
 
 
@@ -654,6 +654,15 @@ class GaussianProcess(object):
     self.order = order
     self.dim = dim
   
+  def _null_space(self,x,diff):
+    ''' 
+    Returns an array of the monomial basis functions spanning the 
+    polynomial null space
+    '''
+    powers = rbf.poly.powers(self.order,x.shape[1]) 
+    out = _mvmonos(x,powers,diff)
+    return out 
+    
   def __call__(self,*args,**kwargs):
     ''' 
     equivalent to calling *mean_and_uncertainty*
@@ -1173,6 +1182,7 @@ class GaussianProcess(object):
     that this may clear the caches of other Gaussian processes which 
     have shared ancestors.
     '''
+    _mvmonos.clear_cache()
     if hasattr(self._mean,'clear_cache'):
       self._mean.clear_cache()
 
