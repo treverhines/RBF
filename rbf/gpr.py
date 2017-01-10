@@ -1173,7 +1173,6 @@ class GaussianProcess(object):
     that this may clear the caches of other Gaussian processes which 
     have shared ancestors.
     '''
-    _mvmonos.clear_cache()
     if hasattr(self._mean,'clear_cache'):
       self._mean.clear_cache()
 
