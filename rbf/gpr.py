@@ -430,7 +430,9 @@ def _add_factory(gp1,gp2):
            gp2._covariance(x1,x2,diff1,diff2))
     return out
             
+  # link all functions called by *mean*
   mean.add_links(gp1._mean,gp2._mean) 
+  # link all functions called by *covariance*
   covariance.add_links(gp1._covariance,gp2._covariance) 
   return mean,covariance
   
@@ -555,8 +557,10 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
-  mean.add_links(gp._mean,precompute) 
-  covariance.add_links(gp._covariance,precompute) 
+  # link all functions called by *mean*
+  mean.add_links(gp._mean,gp._covariance,_mvmonos,precompute) 
+  # link all functions called by *covariance*
+  covariance.add_links(gp._mean,gp._covariance,_mvmonos,precompute) 
   return mean,covariance
 
 
@@ -965,7 +969,7 @@ class GaussianProcess(object):
           'Encountered non-finite value in the mean of the Gaussian '
           'process.')     
 
-    # out may be read-only and I am returning a writeable copy 
+    # return a copy of *out* that is safe to write to
     out = np.array(out,copy=True)
     return out
 
@@ -1048,7 +1052,7 @@ class GaussianProcess(object):
           'Encountered non-finite value in the covariance of the '
           'Gaussian process.')     
 
-    # out may be read-only and I am returning a writeable copy 
+    # return a copy of *out* that is safe to write to
     out = np.array(out,copy=True)
     return out
     
