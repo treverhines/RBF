@@ -20,10 +20,13 @@ from rbf.geometry import simplex_outward_normals
 ####################### USER PARAMETERS #############################
 #####################################################################
 # define the vertices of the problem domain 
-vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],[1.25,1.0],
-                 [1.0,1.25],[0.75,1.0],[0.0,1.0]])
+vert = np.array([[0.0,  0.0],[2.0,  0.0],[2.0,  1.0],
+                 [1.25, 1.0],[1.0, 1.25],[0.75, 1.0],
+                 [0.0,  1.0]])
 # define the connectivity of the vertices
-smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0]])
+smp = np.array([[0,1],[1,2],[2,3],
+                [3,4],[4,5],[5,6],
+                [6,0]])
 # number of nodes 
 N = 500
 # size of RBF-FD stencils
@@ -172,18 +175,16 @@ u_x = u[0,:-g]
 u_y = u[1,:-g]
 fig,ax = plt.subplots()
 # plot the domain boundary 
-poly = Polygon(vert,alpha=0.2,facecolor='c',edgecolor='none')
-ax.add_artist(poly)
-poly = Polygon(vert,facecolor='none',edgecolor='k')
+poly = Polygon(vert,facecolor=(0.8,0.8,0.8),edgecolor='k',zorder=0)
 ax.add_artist(poly)
 # plot vector field solution
 nodes = nodes[:-g] 
-plt.quiver(nodes[:,0],nodes[:,1],u_x,u_y)
+plt.quiver(nodes[:,0],nodes[:,1],u_x,u_y,zorder=1)
 ax.set_xlim((-0.1,2.1))
 ax.set_ylim((-0.1,1.3))
 ax.set_aspect('equal')
 fig.tight_layout()
-plt.savefig('.../figures/fd.b.png')
+plt.savefig('../figures/fd.b.png')
 plt.show()                    
 
 

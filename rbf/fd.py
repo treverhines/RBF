@@ -284,19 +284,19 @@ def weight_matrix(x,p,diffs,coeffs=None,
 
   coeffs : (K,) float array or (K,N) float, optional 
     Coefficients for each term in the differential operator specified 
-    with *diffs*. Defaults to an array of ones. If diffs was specified 
-    as a (D,) array then *coeffs* should be a length 1 array. If the 
-    coefficients for the differential operator vary with *x* then 
-    *coeffs* can be specified as an (K,N) array.
+    with *diffs*. Defaults to an array of ones. If *diffs* was 
+    specified as a (D,) array then *coeffs* should be a length 1 
+    array. If the coefficients for the differential operator vary with 
+    *x* then *coeffs* can be specified as a (K,N) array.
 
   basis : rbf.basis.RBF, optional
-    Type of RBF. Select from those available in rbf.basis or create 
+    Type of RBF. Select from those available in *rbf.basis* or create 
     your own.
 
   order : int, optional
     Order of the added polynomial. This defaults to the highest 
     derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
-    order is set to 2. 
+    *order* is set to 2. 
 
   eps : (M,) array, optional
     shape parameter for each RBF, which have centers *p*. This only 
@@ -305,7 +305,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
     splines are not scale invariant.
 
   n : int, optional
-    Stencil size
+    Stencil size.
     
   vert : (P,D) array, optional
     Vertices of the boundary which stencils cannot intersect
@@ -344,14 +344,14 @@ def weight_matrix(x,p,diffs,coeffs=None,
          [ 0.,  1., -2.,  1.]])
                          
   '''
-  x = np.asarray(x)
-  p = np.asarray(p)
+  x = np.asarray(x,dtype=float)
+  p = np.asarray(p,dtype=float)
   diffs = np.asarray(diffs,dtype=int)
   diffs = _reshape_diffs(diffs)
   if eps is None:
     eps = np.ones(p.shape[0],dtype=float)
   
-  # make *coeffs* an (K,N) array
+  # make *coeffs* a (K,N) array
   if coeffs is None:
     coeffs = np.ones((diffs.shape[0],x.shape[0]),dtype=float)
   else:
