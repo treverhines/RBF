@@ -30,7 +30,7 @@ smp = np.array([[0,1],[1,2],[2,3],
 # number of nodes 
 N = 500
 # size of RBF-FD stencils
-n = 20
+n = 50
 #####################################################################
 #####################################################################
 #####################################################################
@@ -179,7 +179,7 @@ poly = Polygon(vert,facecolor=(0.8,0.8,0.8),edgecolor='k',zorder=0)
 ax.add_artist(poly)
 # plot vector field solution
 nodes = nodes[:-g] 
-plt.quiver(nodes[:,0],nodes[:,1],u_x,u_y,zorder=1)
+plt.quiver(nodes[:,0],nodes[:,1],u_x,u_y,zorder=1,scale=5.0)
 ax.set_xlim((-0.1,2.1))
 ax.set_ylim((-0.1,1.3))
 ax.set_aspect('equal')
