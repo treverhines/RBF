@@ -161,8 +161,7 @@ G = G.tocsc() # set to csc sparse matrix for efficiency purposes
 d = np.hstack((f_x,f_y,fix_x,fix_y,free_x,free_y))
 # solve the system of equations
 u = scipy.sparse.linalg.spsolve(G,d)
-
-# reshape and discard the solution at the ghost nodes
+# reshape the solution
 u = np.reshape(u,(2,-1))
 u_x = u[0,:]
 u_y = u[1,:]
@@ -171,7 +170,6 @@ u_y = u[1,:]
 #####################################################################
 D_x = weight_matrix(nodes,nodes,(1,0),n=n)
 D_y = weight_matrix(nodes,nodes,(0,1),n=n)
-
 e_xx = D_x.dot(u_x)
 e_yy = D_y.dot(u_y)
 e_xy = 0.5*(D_y.dot(u_x) + D_x.dot(u_y))
