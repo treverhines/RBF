@@ -2,15 +2,15 @@
 This script demonstrates using the RBF-FD method to calculate static 
 deformation of a two-dimensional elastic material subject to a uniform 
 body force such as gravity. The elastic material has a fixed boundary 
-condition at the bottom of the domain and the sides of the material 
-have a free surface boundary condition.  This script also demonstrates 
-using ghost nodes which, for all intents and purposes, are necessary 
-when dealing with Neumann boundary conditions. 
+condition on one side and the remaining sides have a free surface 
+boundary condition.  This script also demonstrates using ghost nodes 
+which, for all intents and purposes, are necessary when dealing with 
+Neumann boundary conditions.
 '''
 import numpy as np
 import scipy.sparse
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
+from matplotlib.colors import LogNorm
 from scipy.spatial import cKDTree
 from rbf.nodes import menodes
 from rbf.fd import weight_matrix
@@ -19,18 +19,14 @@ from rbf.geometry import simplex_outward_normals
 #####################################################################
 ####################### USER PARAMETERS #############################
 #####################################################################
-# define the vertices of the problem domain 
-vert = np.array([[0.0,  0.0],[2.0,  0.0],[2.0,  1.0],
-                 [1.25, 1.0],[1.0, 1.25],[0.75, 1.0],
-                 [0.0,  1.0]])
-# define the connectivity of the vertices
-smp = np.array([[0,1],[1,2],[2,3],
-                [3,4],[4,5],[5,6],
-                [6,0]])
+# define the vertices of the problem domain. Note that the first 
+# simplex will be fixed, and the others will be free
+vert = np.array([[0.0,0.0],[0.0,1.0],[2.0,1.0],[2.0,0.0]])
+smp = np.array([[0,1],[1,2],[2,3],[3,0]])
 # number of nodes 
 N = 500
 # size of RBF-FD stencils
-n = 50
+n = 20
 #####################################################################
 #####################################################################
 #####################################################################
@@ -166,23 +162,51 @@ d = np.hstack((f_x,f_y,fix_x,fix_y,free_x,free_y))
 # solve the system of equations
 u = scipy.sparse.linalg.spsolve(G,d)
 
-## Plot the results
-#####################################################################
 # reshape and discard the solution at the ghost nodes
 u = np.reshape(u,(2,-1))
-g = len(free_boundary) # number of ghost nodes 
-u_x = u[0,:-g]
-u_y = u[1,:-g]
-fig,ax = plt.subplots()
-# plot the domain boundary 
-poly = Polygon(vert,facecolor=(0.8,0.8,0.8),edgecolor='k',zorder=0)
-ax.add_artist(poly)
-# plot vector field solution
-nodes = nodes[:-g] 
-plt.quiver(nodes[:,0],nodes[:,1],u_x,u_y,zorder=1,scale=5.0)
+u_x = u[0,:]
+u_y = u[1,:]
+
+## Calculate strain from displacements
+#####################################################################
+D_x = weight_matrix(nodes,nodes,(1,0),n=n)
+D_y = weight_matrix(nodes,nodes,(0,1),n=n)
+
+e_xx = D_x.dot(u_x)
+e_yy = D_y.dot(u_y)
+e_xy = 0.5*(D_y.dot(u_x) + D_x.dot(u_y))
+# calculate second strain invariant
+I2 = np.sqrt(e_xx**2 + e_yy**2 + 2*e_xy**2)
+
+## Plot the results
+#####################################################################
+# toss out ghost nodes
+g = len(free_boundary)
+nodes = nodes[:-g]
+u_x = u_x[:-g]
+u_y = u_y[:-g]
+I2 = I2[:-g]
+
+fig,ax = plt.subplots(figsize=(7,3.5))
+# plot the fixed boundary
+ax.plot(vert[smp[0],0],vert[smp[0],1],'r-',lw=2,label='fixed',zorder=1)
+# plot the free boundary
+ax.plot(vert[smp[1],0],vert[smp[1],1],'r--',lw=2,label='free',zorder=1)
+for s in smp[2:]:
+  ax.plot(vert[s,0],vert[s,1],'r--',lw=2,zorder=1)
+
+# plot the second strain invariant
+p = ax.tripcolor(nodes[:,0],nodes[:,1],I2,
+                 norm=LogNorm(vmin=1e-1,vmax=1e1),
+                 cmap='viridis',zorder=0)
+# plot the displacement vectors
+ax.quiver(nodes[:,0],nodes[:,1],u_x,u_y,zorder=2)
 ax.set_xlim((-0.1,2.1))
-ax.set_ylim((-0.1,1.3))
+ax.set_ylim((-0.25,1.1))
 ax.set_aspect('equal')
+ax.legend(loc=3,frameon=False,fontsize=12,ncol=2)
+cbar = fig.colorbar(p)
+cbar.set_label('second strain invariant')
 fig.tight_layout()
 plt.savefig('../figures/fd.b.png')
 plt.show()                    
