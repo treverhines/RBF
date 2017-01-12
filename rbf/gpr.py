@@ -378,7 +378,8 @@ class _Memoize(object):
 
   def clear_cache(self):    
     ''' 
-    Clear the cache for this function and any linked functions.
+    Dereference the current cache and instantiate an empty one. This 
+    is also done for any linked functions.
     '''
     self.cache = OrderedDict()
     for l in self.links:
@@ -509,7 +510,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     ''' 
     do as many calculations as possible without yet knowning where the 
     interpolation points will be. This is a memoized function because 
-    I can then control when the precomputed data is deallocated
+    I can then control when the precomputed data is dereferenced.
     '''
     # compute K_y_inv
     Cd = np.diag(sigma**2)
