@@ -282,11 +282,12 @@ def weight_matrix(x,p,diffs,coeffs=None,
     differential operator. For example the two-dimensional Laplacian 
     can be represented as [[2,0],[0,2]].  
 
-  coeffs : (K,) array, optional 
-    Coefficients for each term in the differential operator 
-    specified with *diffs*.  Defaults to an array of ones. If diffs 
-    was specified as a (D,) array then coeffs should be a length 1 
-    array.
+  coeffs : (K,) float array or (K,N) float, optional 
+    Coefficients for each term in the differential operator specified 
+    with *diffs*. Defaults to an array of ones. If diffs was specified 
+    as a (D,) array then *coeffs* should be a length 1 array. If the 
+    coefficients for the differential operator vary with *x* then 
+    *coeffs* can be specified as an (K,N) array.
 
   basis : rbf.basis.RBF, optional
     Type of RBF. Select from those available in rbf.basis or create 
@@ -318,7 +319,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
     points in *p* which form an edge with *x[i]* that intersects the 
     boundary.  If True then, additionally, no stencils will contain 
     two points from *p* which form an edge that intersects the 
-    boundary. 
+    boundary. This option will soon be removed and always be False.
     
   use_pinv : bool, optional
     Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 
@@ -350,6 +351,14 @@ def weight_matrix(x,p,diffs,coeffs=None,
   if eps is None:
     eps = np.ones(p.shape[0],dtype=float)
   
+  # make *coeffs* an (K,N) array
+  if coeffs is None:
+    coeffs = np.ones((diffs.shape[0],x.shape[0]),dtype=float)
+  else:
+    coeffs = np.asarray(coeffs,dtype=float)
+    if coeffs.ndim == 1:
+      coeffs = np.repeat(coeffs[:,None],x.shape[0],axis=1) 
+   
   if n is None:
     # if stencil size is not given then use the default stencil size. 
     # If the default stencil size is too large then incrementally 
@@ -360,6 +369,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
         sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp,
                                          check_all_edges=check_all_edges)
         break 
+
       except rbf.stencil.StencilError as err:
         n -= 1
   else:
@@ -370,7 +380,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
   data = np.zeros(sn.shape,dtype=float)
   for i,si in enumerate(sn):
     data[i,:] = weights(x[i],p[si],diffs,
-                        coeffs=coeffs,eps=eps[si],
+                        coeffs=coeffs[:,i],eps=eps[si],
                         basis=basis,order=order,
                         use_pinv=use_pinv)
 
