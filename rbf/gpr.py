@@ -293,7 +293,7 @@ def _is_positive_definite(A,tol=1e-10):
 def _draw_sample(mean,cov,tol=1e-10):
   ''' 
   Draws a random sample from the gaussian process with the specified 
-  mean and covariance.
+  mean and covariance. 
   '''
   mean = np.asarray(mean)
   cov = np.asarray(cov)
