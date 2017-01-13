@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def _nearest_neighbor_argsort(nodes,n=10):
   ''' 
-  Returns a pertumation array that sorts nodes so that neighboring 
+  Returns a permutation array that sorts nodes so that neighboring 
   nodes are close together. This is done through use of a KD Tree and 
   the Reverse Cuthill-McKee algorithm
 
@@ -323,7 +323,7 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   It is assumed that *vert* and *smp* define a closed domain. If 
   this is not the case, then it is likely that an error message will 
   be raised which says "ValueError: No intersection found for 
-  segment 
+  segment ...".
    
   This function tends to fail when adjacent simplices form a sharp 
   angle.  The error message raised will be "ValueError: No 

@@ -8,7 +8,7 @@ x = np.linspace(-7.5,7.5,1000) # interpolation points
 u_true = np.exp(-0.3*np.abs(x))*np.sin(x)  # true signal
 sigma = 0.1*np.ones(20) # observation uncertainty
 # noisy observations of the signal
-d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma) 
+d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
 # form a prior Gaussian process which has a squared exponential basis 
 # function (rbf.basis.ga), 0.0 for the mean, 1.0 for the standard 
 # deviation, and 2.0 for the characteristic length scale.
