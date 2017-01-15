@@ -24,7 +24,7 @@ Features
 * An algorithm for generating Radial Basis Function Finite Difference
   (RBF-FD) weights. This is used for solving large scale PDEs over 
   irregular domains.
-* A Node generation algorithm which can be used for solving PDEs with 
+* A node generation algorithm which can be used for solving PDEs with 
   the spectral RBF method or the RBF-FD method.
 * Halton sequence generator.
 * Computational geometry functions (e.g. point in polygon testing) for
