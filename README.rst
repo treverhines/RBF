@@ -1,33 +1,33 @@
 RBF
-***
-Python package containing the tools necessary for radial basis 
-function (RBF) applications.  Applications include 
-interpolating/smoothing scattered data and solving PDEs over irregular
-domains.  The complete documentation for this package can be found 
-`here <http://rbf.readthedocs.io>`_.
++++
+Python package containing tools for radial basis function (RBF) 
+applications.  Applications include interpolating/smoothing scattered 
+data and solving PDEs over irregular domains.  The complete 
+documentation for this package can be found `here 
+<http://rbf.readthedocs.io>`_.
 
 Features
---------
-* Efficient functions to evaluate RBFs and their analytically derived 
-  derivatives
-* Regularized RBF interpolants (including smoothing splines) for 
-  noisy, scattered, data sets
+========
+* Functions for evaluating RBFs and their exact derivatives.
+* A class for RBF interpolation, which is used for interpolating and
+  smoothing scattered, noisy, N-dimensional data.
 * An abstraction for Gaussian processes. Gaussian processes are
-  primarily used here for Gaussian process regression (GPR), which is 
+  primarily used here for Gaussian process regression (GPR), which is
   a nonparametric Bayesian interpolation/smoothing method.
-* An algorithm for generating Radial Basis Function Finite Difference 
-  (RBF-FD) weights
-* RBF-FD Filtering for denoising large, scattered data sets
-* Node and stencil generation algorithms for solving PDEs over
-  irregular domains
-* Halton sequence generator
-* Computational geometry functions for 1, 2, and 3 spatial dimensions
+* RBF-FD Filtering for denoising large, scattered data sets.
+* An algorithm for generating Radial Basis Function Finite Difference
+  (RBF-FD) weights. This is used for solving large scale PDEs over
+  irregular domains.
+* A node generation algorithm which can be used for solving PDEs with 
+  the spectral RBF method or the RBF-FD method.
+* Halton sequence generator.
+* Computational geometry functions (e.g. point in polygon testing) for
+  1, 2, and 3 spatial dimensions.
 
 Quick Demo
-----------
-
+==========
 Smoothing Scattered Data
-++++++++++++++++++++++++
+------------------------
 .. code-block:: python
 
   ''' 
@@ -68,7 +68,7 @@ scatter points and the smoothed interpolant as the color field.
 .. image:: docs/figures/interpolate.a.png
 
 Solving PDEs
-++++++++++++
+------------
 .. code-block:: python
 
   ''' 
