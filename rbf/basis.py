@@ -1,10 +1,13 @@
 ''' 
-This module defines the commonly used radial basis functions (RBFs) 
-shown in the below table. For each RBF expression,
-:math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter.
-:math:`x` and :math:`c` are the evaluation points and RBF centers, 
-respectively. RBFs which are not defined in this module can be created 
-with the *RBF* class.
+This module contains the *RBF* class, which is used to symbolically 
+define and numerically evaluate a radial basis function. *RBF* 
+instances have been predefined in this module for some of the commonly 
+used radial basis functions. The predefined radial basis functions are 
+shown in the table below. For each expression in the table,
+:math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter. 
+:math:`x` and :math:`c` are the evaluation points and radial basis 
+function centers, respectively. The names of the predefined *RBF* 
+instances are given in the abbreviation column. 
 
 =================================  ============  ======================================
 Name                               Abbreviation  Expression
