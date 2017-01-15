@@ -13,7 +13,6 @@
 
 import numpy as np
 import rbf.basis
-import matplotlib.pyplot as plt
 from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from matplotlib import cm
@@ -24,6 +23,7 @@ import sympy
 from scipy.interpolate import griddata
 import numpy as np
 from mayavi import mlab 
+import matplotlib.pyplot as plt
 logging.basicConfig(level=logging.DEBUG)
 
 def scatter_contour(nodes,vals,**kwargs):

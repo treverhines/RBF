@@ -5,7 +5,7 @@ if __name__ == '__main__':
   from Cython.Build import cythonize
   ext = []
   ext += [Extension(name='rbf.halton',sources=['rbf/halton.pyx'])]
-  ext += [Extension(name='rbf.bspline',sources=['rbf/bspline.pyx'])]
+  ext += [Extension(name='rbf.misc.bspline',sources=['rbf/misc/bspline.pyx'])]
   ext += [Extension(name='rbf.geometry',sources=['rbf/geometry.pyx'])]
   ext += [Extension(name='rbf.poly',sources=['rbf/poly.pyx'])]
   setup(name='RBF',
@@ -14,7 +14,7 @@ if __name__ == '__main__':
         author='Trever Hines',
         author_email='treverhines@gmail.com',
         url='www.github.com/treverhines/RBF',
-        packages=['rbf'],
+        packages=['rbf','rbf.misc'],
         ext_modules=cythonize(ext),
         license='MIT')
 
