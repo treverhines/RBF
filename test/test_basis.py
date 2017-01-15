@@ -91,10 +91,10 @@ class Test(unittest.TestCase):
     self.assertTrue(test_y_derivative(rbf.basis.iq))
 
   def test_make_rbf(self):
-    R = rbf.basis.get_R()
+    r = rbf.basis.get_r()
     # define the imq function and make sure it is equal to 
     # rbf.basis.imq
-    imq = rbf.basis.RBF(1/sympy.sqrt(1 + R**2))
+    imq = rbf.basis.RBF(1/sympy.sqrt(1 + r**2))
     np.random.seed(1)
     x = np.random.random((5,2))
     c = np.random.random((3,2))
@@ -104,34 +104,5 @@ class Test(unittest.TestCase):
     check = np.all(np.isclose(out1,out2))
     self.assertTrue(check)
 
-  def test_sym_to_num(self):
-    # test 5, make sure output is the same regardless of sym_to_num 
-    # package
-    R = rbf.basis.get_R()
-    x = np.array([[1.5],[2.0]])
-    c = np.array([[1.0]])
 
-    f1 = rbf.basis.RBF(R)
-    f2 = rbf.basis.RBF(R)
-    rbf.basis.set_sym_to_num('cython')
-    out1 = f1(x,c,diff=(0,))
-    rbf.basis.set_sym_to_num('numpy')
-    out2 = f2(x,c,diff=(0,))
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
-
-    rbf.basis.set_sym_to_num('cython')
-    out1 = f1(x,c,diff=(1,))
-    rbf.basis.set_sym_to_num('numpy')
-    out2 = f2(x,c,diff=(1,))
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
-
-    rbf.basis.set_sym_to_num('cython')
-    out1 = f1(x,c,diff=(2,))
-    rbf.basis.set_sym_to_num('numpy')
-    out2 = f2(x,c,diff=(2,))
-    check = np.all(np.isclose(out1,out2))
-    self.assertTrue(check)
-
-unittest.main()
+#unittest.main()

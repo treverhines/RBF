@@ -12,16 +12,10 @@ def test_func2d(x):
   return np.sin(x[...,0])*np.cos(x[...,1])
 
 def test_func2d_diffx(x):
-  dx = 1e-6
-  xpert = np.copy(x)
-  xpert[...,0] += dx
-  return (test_func2d(xpert) - test_func2d(x))/dx
+  return np.cos(x[:,0])*np.cos(x[:,1])
 
 def test_func2d_diffy(x):
-  dy = 1e-6
-  xpert = np.copy(x)
-  xpert[...,1] += dy
-  return (test_func2d(xpert) - test_func2d(x))/dy
+  return -np.sin(x[:,0])*np.sin(x[:,1])
 
 class Test(unittest.TestCase):
   def test_interp(self):
@@ -54,10 +48,10 @@ class Test(unittest.TestCase):
     valitp4 = I(itp,max_chunk=33)
     valitp5 = I(itp,max_chunk=1)
     
-    self.assertTrue(np.all(valitp1==valitp2))
-    self.assertTrue(np.all(valitp1==valitp3))
-    self.assertTrue(np.all(valitp1==valitp4))
-    self.assertTrue(np.all(valitp1==valitp5))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp2)))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp3)))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp4)))
+    self.assertTrue(np.all(np.isclose(valitp1,valitp5)))
 
   def test_interp_diffx(self):
     N = 1000
@@ -150,7 +144,7 @@ class Test(unittest.TestCase):
                     [1.5,0.5],
                     [-0.5,0.5]])
     I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=1,
-                                       extrapolate=False,fill=np.nan)
+                                       extrapolate=False)
     out = I(itp)
     soln_true = np.array([False,True,True,True,True])
     self.assertTrue(np.all(np.isnan(out) == soln_true))
@@ -166,9 +160,9 @@ class Test(unittest.TestCase):
     val = test_func2d(obs)
     val[0] += 100.0
     
-    weight = np.ones(N)
-    weight[0] = 0.0
-    I = rbf.interpolate.RBFInterpolant(obs,val,weight=weight,penalty=0.01,
+    sigma = np.ones(N)
+    sigma[0] = np.inf
+    I = rbf.interpolate.RBFInterpolant(obs,val,sigma=sigma,penalty=0.01,
                                        basis=rbf.basis.phs3,order=1)
     
     valitp_est = I(itp)
@@ -176,6 +170,6 @@ class Test(unittest.TestCase):
     self.assertTrue(allclose(valitp_est,valitp_true,atol=1e-2))
     
 
-unittest.main()    
+#unittest.main()    
     
 

@@ -6,31 +6,32 @@ from __future__ import division
 import numpy as np
 import rbf.halton
 import rbf.geometry as gm
-import rbf.integrate
 import rbf.stencil
 import logging
 import scipy.sparse
 logger = logging.getLogger(__name__)
 
-def nearest_neighbor_argsort(nodes,n=10):
+
+def _nearest_neighbor_argsort(nodes,n=10):
   ''' 
-  Returns a pertumation array that sorts nodes so that neighboring 
+  Returns a permutation array that sorts nodes so that neighboring 
   nodes are close together. This is done through use of a KD Tree and 
   the Reverse Cuthill-McKee algorithm
 
   Parameters
   ----------
-    nodes : (N,D) array
+  nodes : (N,D) array
+    node array
 
-    n : int 
-      number of adjacencies to identify for each node. The permutation 
-      array will place adjacent nodes close to eachother in memory.  
-      This should be about equal to the stencil size for RBF-FD 
-      method.
+  n : int 
+    Number of adjacencies to identify for each node. The permutation 
+    array will place adjacent nodes close to eachother in memory.  
+    This should be about equal to the stencil size for RBF-FD 
+    method.
 
   Returns
   -------
-    permutation: (N,) array of sorting indices
+  permutation: (N,) array of sorting indices
   '''
   nodes = np.asarray(nodes,dtype=float)
   n = min(n,nodes.shape[0])
@@ -46,49 +47,6 @@ def nearest_neighbor_argsort(nodes,n=10):
   permutation = scipy.sparse.csgraph.reverse_cuthill_mckee(M)
 
   return permutation
-
-
-def check_node_spacing(rho,nodes,tol=0.25):
-  ''' 
-  Returns indices of nodes which are consistent with the node density 
-  function rho. Indexing nodes with the output will return a pared 
-  down node set that is consistent with rho
-
-  Parameters
-  ----------
-    rho : function
-      callable node density function
-  
-    nodes : (N,D) array
-
-    tol : float
-      if a nodes nearest neighbor deviates by more than this factor 
-      from the expected node density, then the node is identified as 
-      being too close
-
-  Returns 
-  ------- 
-    keep_indices : (N,) int array
-      array of node indices which are consistent with the node density 
-      function
-
-  '''
-  logger.info('verifying node spacing')  
-  dim = nodes.shape[1]
-  keep_indices = np.arange(nodes.shape[0],dtype=int)
-  # minimum distance allowed between nodes
-  mindist = tol/(rho(nodes)**(1.0/dim))
-  s,dx = rbf.stencil.nearest(nodes,nodes,2)
-  while np.any(dx[:,1] < mindist):
-    toss = np.argmin(dx[:,1]/mindist)
-    logger.info('removing node %s for being too close to adjacent node' 
-                % keep_indices[toss])
-    nodes = np.delete(nodes,toss,axis=0)
-    keep_indices = np.delete(keep_indices,toss,axis=0)
-    mindist = tol/(rho(nodes)**(1.0/dim))
-    s,dx = rbf.stencil.nearest(nodes,nodes,2)
-
-  return keep_indices
 
 
 def _repel_step(free_nodes,rho,fix_nodes,
@@ -110,7 +68,7 @@ def _repel_step(free_nodes,rho,fix_nodes,
   nodes = np.vstack((free_nodes,fix_nodes))
 
   # find index and distance to nearest nodes
-  i,d = rbf.stencil.nearest(free_nodes,nodes,n,vert,smp)
+  i,d = rbf.stencil.nearest(free_nodes,nodes,n,vert=vert,smp=smp)
 
   # dont consider a node to be one of its own nearest neighbors
   i = i[:,1:]
@@ -202,7 +160,7 @@ def _repel_bounce(free_nodes,vert,smp,rho,
         bounces += 1
 
     free_nodes = free_nodes_new  
-  
+
   return free_nodes
 
 
@@ -283,10 +241,10 @@ def _repel_stick(free_nodes,vert,smp,rho,
 
   return free_nodes,smpid
 
-
-def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
-               itr=20,neighbors=10,delta=0.1,
-               sort_nodes=True,bound_force=False):
+  
+def menodes(N,vert,smp,rho=None,fix_nodes=None,
+            itr=100,neighbors=None,delta=0.05,
+            sort_nodes=True,bound_force=False):
   ''' 
   Generates nodes within the D-dimensional volume enclosed by the 
   simplexes using a minimum energy algorithm.  
@@ -303,68 +261,75 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
   iterations, if a node intersects a boundary then it sticks to the 
   boundary at the intersection point.
 
-  Paramters
-  ---------
-    N : int
-      numbr of nodes
+  Parameters
+  ----------
+  N : int
+    Numbr of nodes
       
-    vert : (P,D) array
-      boundary vertices
+  vert : (P,D) array
+    Boundary vertices
 
-    smp : (Q,D) array
-      describes how the vertices are connected to form the boundary
+  smp : (Q,D) array
+    Describes how the vertices are connected to form the boundary
     
-    rho : function, optional
-      node density function. Takes a (N,D) array of coordinates in D 
-      dimensional space and returns an (N,) array of densities which 
-      have been normalized so that the maximum density in the domain 
-      is 1.0. This function will still work if the maximum value is 
-      normalized to something less than 1.0; however it will be less 
-      efficient.
+  rho : function, optional
+    Node density function. Takes a (N,D) array of coordinates in D 
+    dimensional space and returns an (N,) array of densities which 
+    have been normalized so that the maximum density in the domain 
+    is 1.0. This function will still work if the maximum value is 
+    normalized to something less than 1.0; however it will be less 
+    efficient.
 
-    fix_nodes : (F,D) array, optional
-      nodes which do not move and only provide a repulsion force
+  fix_nodes : (F,D) array, optional
+    Nodes which do not move and only provide a repulsion force
  
-    itr : int, optional
-      number of repulsion iterations. If this number is small then the 
-      nodes will not reach a minimum energy equilibrium.
+  itr : int, optional
+    Number of repulsion iterations. If this number is small then the 
+    nodes will not reach a minimum energy equilibrium.
 
-    neighbors : int, optional
-      Number of neighboring nodes to use when calculating the 
-      repulsion force. When *neighbors* is small, the equilibrium 
-      state tends to be a uniform node distribution (regardless of 
-      *rho*), when *neighbors* is large, nodes tend to get pushed up 
-      against the boundaries.
+  neighbors : int, optional
+    Number of neighboring nodes to use when calculating the 
+    repulsion force. When *neighbors* is small, the equilibrium 
+    state tends to be a uniform node distribution (regardless of 
+    *rho*), when *neighbors* is large, nodes tend to get pushed up 
+    against the boundaries.
 
-    delta : float, optional
-      Scaling factor for the node step size in each iteration. The 
-      step size is equal to *delta* times the distance to the nearest 
-      neighbor.
+  delta : float, optional
+    Scaling factor for the node step size in each iteration. The 
+    step size is equal to *delta* times the distance to the nearest 
+    neighbor.
 
-    sort_nodes : bool, optional
-      If True, nodes that are close in space will also be close in 
-      memory. This is done with the Reverse Cuthill-McKee algorithm
+  sort_nodes : bool, optional
+    If True, nodes that are close in space will also be close in 
+    memory. This is done with the Reverse Cuthill-McKee algorithm
       
-    bound_force : bool, optional
-      If True, then nodes cannot repel other nodes through the domain 
-      boundary. Set to True if the domain has edges that nearly touch 
-      eachother
+  bound_force : bool, optional
+    If True, then nodes cannot repel other nodes through the domain 
+    boundary. Set to True if the domain has edges that nearly touch 
+    eachother. Setting this to True may significantly increase 
+    computation time
 
   Returns
   -------
-    nodes: (N,D) float array 
+  nodes: (N,D) float array 
 
-    smpid: (N,) int array
-      Index of the simplex that each node is on. If a node is not on a 
-      simplex (i.e. it is an interior node) then the simplex index is 
-      -1.
+  smpid: (N,) int array
+    Index of the simplex that each node is on. If a node is not on a 
+    simplex (i.e. it is an interior node) then the simplex index is 
+    -1.
 
-  Note
-  ----
-    It is assumed that *vert* and *smp* define a closed 
-    domain. If this is not the case, the function will run normally 
-    but the nodes will likely be greatly dispersed
-    
+  Notes
+  -----
+  It is assumed that *vert* and *smp* define a closed domain. If 
+  this is not the case, then it is likely that an error message will 
+  be raised which says "ValueError: No intersection found for 
+  segment ...".
+   
+  This function tends to fail when adjacent simplices form a sharp 
+  angle.  The error message raised will be "ValueError: No 
+  intersection found for segment ...".  The only solution is to 
+  taper the angle by adding more simplices
+      
   '''
   max_sample_size = 1000000
 
@@ -379,11 +344,16 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
     def rho(p):
       return np.ones(p.shape[0])
 
+  if neighbors is None:
+    # number of neighbors defaults to 3 raised to the number of 
+    # spatial dimensions
+    neighbors = 3**vert.shape[1]
+    
   # form bounding box for the domain so that a RNG can produce values
   # that mostly lie within the domain
   lb = np.min(vert,axis=0)
   ub = np.max(vert,axis=0)
-  ndim = vert.ndim
+  ndim = vert.shape[1]
   
   # form Halton sequence generator
   H = rbf.halton.Halton(ndim+1)
@@ -432,25 +402,25 @@ def make_nodes(N,vert,smp,rho=None,fix_nodes=None,
     # append to collection of accepted nodes
     nodes = np.vstack((nodes,new_nodes))
 
-    logger.info('accepted %s of %s nodes' % (nodes.shape[0],N))
+    logger.debug('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
 
   nodes = nodes[:N]
 
   # use a minimum energy algorithm to spread out the nodes
-  logger.info('repelling nodes with boundary bouncing') 
+  logger.debug('repelling nodes with boundary bouncing') 
   nodes = _repel_bounce(nodes,vert,smp,rho,
                         fix_nodes,itr,neighbors,delta,3,
                         bound_force)
 
-  logger.info('repelling nodes with boundary sticking') 
+  logger.debug('repelling nodes with boundary sticking') 
   nodes,smpid = _repel_stick(nodes,vert,smp,rho,
                              fix_nodes,itr,neighbors,delta,
                              bound_force)
 
   # sort so that nodes that are close in space are also close in memory
   if sort_nodes:
-    idx = nearest_neighbor_argsort(nodes,n=neighbors)
+    idx = _nearest_neighbor_argsort(nodes,n=neighbors)
     nodes = nodes[idx]
     smpid = smpid[idx] 
   

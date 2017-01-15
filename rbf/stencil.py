@@ -1,13 +1,14 @@
 ''' 
-This module creates RBF-FD stencils
+This module creates stencils used for the Radial Basis Function Finite 
+Difference (RBF-FD) method
+
 '''
 from __future__ import division
 import numpy as np
-import scipy.spatial
-import rbf.geometry 
+from scipy.spatial import cKDTree
+from rbf.geometry import intersection_count
+from itertools import combinations
 import networkx
-import logging
-logger = logging.getLogger(__name__)
 
 class StencilError(Exception):
   ''' 
@@ -15,50 +16,20 @@ class StencilError(Exception):
   '''
   pass
 
-def _distance_matrix(pnts1,pnts2,vert,smp):
-  ''' 
-  returns a distance matrix where the distance is inf if the segment 
-  connecting two points intersects the boundary 
-  '''
-  distance_matrix = np.zeros((pnts1.shape[0],pnts2.shape[0]))
-  for i,p in enumerate(pnts1):
-    pi = p[None,:].repeat(pnts2.shape[0],axis=0)
-    di = np.sqrt(np.sum((p - pnts2)**2,axis=1))
-    cc = np.zeros(pnts2.shape[0],dtype=int)
-    cc[di!=0.0] = rbf.geometry.intersection_count(
-                      pi[di!=0.0],
-                      pnts2[di!=0.0],
-                      vert,smp)
-
-    distance_matrix[i,:] = di
-    distance_matrix[i,cc>0] = np.inf
-
-  return distance_matrix
-
-
-def _naive_nearest(query,population,N,vert,smp):
-  ''' 
-  should have the same functionality as nearest except this is slower 
-  and does not check the input for proper sizes and types
-  '''
-  dm = _distance_matrix(query,population,vert,smp)
-  neighbors = np.argsort(dm,axis=1)[:,:N]
-  dist = np.sort(dm,axis=1)[:,:N]
-  return neighbors,dist
-
-
 def stencils_to_edges(stencils):
   ''' 
   returns an array of edges defined by the *stencils*
   
   Parameters
   ----------
-    stencil : (N,D) int aray
+  stencil : (N,D) int aray
 
   Returns
   -------
-    edges : (K,2) int array
+  edges : (K,2) int array
+
   '''
+  stencils = np.asarray(stencils)
   N,S = stencils.shape
   node1 = np.arange(N)[:,None].repeat(S,axis=1)
   node2 = np.array(stencils,copy=True)
@@ -74,11 +45,12 @@ def is_connected(stencils):
 
   Parameters
   ----------
-    stencil : (N,D) int aray
+  stencil : (N,D) int aray
 
   Returns
   -------
-    out : bool
+  out : bool
+
   '''
   edges = stencils_to_edges(stencils)
   # edges needs to be a list of tuples
@@ -94,11 +66,12 @@ def connectivity(stencils):
 
   Parameters
   ----------
-    stencil : (N,D) int aray
+  stencil : (N,D) int aray
 
   Returns
   -------
-    out : int
+  out : int
+
   '''
   edges = stencils_to_edges(stencils)
   # edges needs to be a list of tuples
@@ -107,266 +80,171 @@ def connectivity(stencils):
   return networkx.node_connectivity(graph)
 
 
-def nearest(query,population,N,vert=None,smp=None):
+def _argsort_closest(c,x):
   ''' 
-  Identifies the *N* points among the population that are closest to 
-  each of the query points. If two points form a line segment which 
-  intersects any part of the boundary defined by *vert* and *smp* then 
-  they are considered infinitely far away.
+  Returns the indices of nodes in *x* sorted in order of distance to *c*
+  '''
+  dist = np.sum((x - c[None,:])**2,axis=1)
+  idx = np.argsort(dist)
+  return idx
 
+
+def _has_edge_intersections(c,x,vert,smp,check_all_edges):
+  ''' 
+  Check if any of the edges (*c*,*x[i]*) intersect the boundary 
+  defined by *vert* and *smp*. If *check_all_edges* is True then the 
+  edges (*x[i]*,*x[j]*) are also tested.
+  '''
+  N = len(x)
+  cext = np.repeat(c[None,:],N,axis=0)
+  # number of times each edge intersects the boundary
+  count = intersection_count(x,cext,vert,smp)
+  # return True if there are no intersections
+  intersects = np.any(count > 0)
+  if ~intersects & check_all_edges:
+    a,b = [],[]
+    for i,j in combinations(range(N),2):
+      a += [i]
+      b += [j]
+
+    # number of times each edge intersects the boundary
+    count = intersection_count(x[a],x[b],vert,smp)
+    # return True if there are no intersections
+    intersects = np.any(count > 0)
+
+  return intersects
+
+
+def _stencil(c,x,n,vert,smp,check_all_edges):
+  ''' 
+  Forms a stencil about *c* made up of *n* nearby nodes in *x*. The 
+  stencil is constrained so that it does not reach across the boundary 
+  defined by *vert* and *smp*.
+  '''
+  sorted_idx = _argsort_closest(c,x)
+  stencil_idx = []    
+  for si in sorted_idx:
+    if len(stencil_idx) == n:
+      break
+
+    stencil_idx += [si]
+    if _has_edge_intersections(c,x[stencil_idx],vert,smp,check_all_edges):
+      stencil_idx.pop()
+
+  if len(stencil_idx) == n:
+    return np.array(stencil_idx,dtype=int)
+  else: 
+    raise StencilError('cannot not form a stencil with size %s' % n)
+
+
+def _stencil_network_no_boundary(x,p,n):
+  ''' 
+  Returns the *n* nearest points in *p* for each point in *x*
+  '''
+  if n == 0:
+    out = np.zeros((x.shape[0],0),dtype=int)
+  else:
+    T = cKDTree(p)
+    dummy,out = T.query(x,n)
+    if n == 1:
+      out = out[:,None]
+
+  return out 
+
+
+def stencil_network(x,p,n,vert=None,smp=None,check_all_edges=False):
+  ''' 
+  Forms a stencil for each point in *x*. Each stencil is made up of 
+  *n* nearby points from *p*. Stencils can be constrained to not 
+  intersect a boundary defined by *vert* and *smp*.
+  
   Parameters
   ----------
-    query: (Q,D) array 
-      query points 
-  
-    population: (P,D) array
-      population points 
+  x : (N,D) array
+    Target points. A stencil will be made for each point in *x*
 
-    N : int
-      number of neighbors to find for each query point
- 
-    vert : (N,D) array, optional
+  p : (M,D) array
+    Source points. The stencils will be made up of points from *p*    
 
-    smp : (M,D) int array, optional
-      
-  Returns 
-  -------
-    neighbors, dist
+  n : int
+    Stencil size
 
-    neighbors : (Q,N) int array
+  vert : (P,D) array, optional
+    Vertices of the boundary which stencils cannot intersect
+
+  smp : (Q,D) array, optional
+    Connectivity of the vertices to form the boundary
+
+  check_all_edges : bool, optional
+    Used to determine how strictly the boundaries are enforced. If 
+    False then a stencil centered on *x[i]* will not contain any 
+    points in *p* which form an edge with *x[i]* that intersects the 
+    boundary.  If True then, additionally, no stencils will contain 
+    two points from *p* which form an edge that intersects the 
+    boundary.
     
-    dist : (Q,N) array
-
-  Note
-  ----
-    If a query point lies on the boundary then this function will
-    fail because the query point will be infinitely far from every 
-    other point
+  Returns
+  -------
+  sn : (N,D) array
+    indices of points in *p* which form a stencil for each point in *x*
+    
   '''
-  query = np.asarray(query,dtype=float)
-  population = np.asarray(population,dtype=float)
-  if smp is None:
-    smp = np.zeros((0,query.shape[1]),dtype=int)
-  else:
-    smp = np.asarray(smp,dtype=int)
-
-  if vert is None:
-    vert = np.zeros((0,population.shape[1]),dtype=float)
+  Nx = len(x)
+  Np = len(p)
+  x = np.asarray(x)
+  p = np.asarray(p)
+  if n > Np:
+    raise StencilError('cannot form a stencil with size %s from %s nodes' % (n,Np))
+    
+  if (vert is None) | (smp is None):
+    vert = np.zeros((0,x.shape[1]),dtype=float)
+    smp = np.zeros((0,x.shape[1]),dtype=int)
+  
   else:
     vert = np.asarray(vert,dtype=float)
-
-  if query.ndim != 2:
-    raise ValueError(
-      'query points must be a two-dimensional array')
-
-  if population.ndim != 2:
-    raise ValueError(
-      'population points must be a two-dimensional array')
-
-  if N > population.shape[0]:
-    raise StencilError(
-      'cannot find %s nearest neighbors with %s points' % (N,population.shape[0]))
-
-  if N < 0:
-    raise ValueError(
-      'must specify a non-negative number of nearest neighbors')
-
-  # querying the KDTree returns a segmentation fault if N is zero and 
-  # so this needs to be handles separately 
-  if N == 0:
-    dist = np.zeros((query.shape[0],0),dtype=float)
-    neighbors = np.zeros((query.shape[0],0),dtype=int)
-  else:
-    T = scipy.spatial.cKDTree(population)
-    dist,neighbors= T.query(query,N)
-    if N == 1:
-      dist = dist[:,None]
-      neighbors = neighbors[:,None]
-
-  if (smp.shape[0] == 0):
-    # if there are no boundaries then return the output of the KDTree
-    return neighbors,dist
-
-  for i in range(query.shape[0]):
-    subpop_size = N
-    di = _distance_matrix(query[[i]],population[neighbors[i]],vert,smp)[0,:]
-    while np.any(np.isinf(di)):
-      # search over an incrementally larger set of nearest neighbors 
-      # until we find N neighbors which do not cross a boundary
-      if subpop_size == population.shape[0]:
-        raise StencilError('cannot find %s nearest neighbors for point '
-                           '%s without crossing a boundary' % (N,query[i]))
-      subpop_size = min(subpop_size+N,population.shape[0])
-      dummy,subpop_idx = T.query(query[i],subpop_size)
-      ni,di = _naive_nearest(query[[i]],population[subpop_idx],N,vert,smp)
-      ni,di = ni[0],di[0]
-      neighbors[i] = subpop_idx[ni]
-      dist[i] = di
-
-  return neighbors,dist
-
-
-def stencil_network(nodes,N,vert=None,smp=None):
-  ''' 
-  Return the indices of *N* nearest neighbors for each element in 
-  *nodes*. If *N* neighbors cannot be found for every element then 
-  then this function attempts to find *N* - 1 nearest neighbors. This 
-  continues until the same number of neighbors can be found for each 
-  element
-
-  Parameters
-  ----------
-    nodes : (M,D) array 
+    smp = np.asarray(smp,dtype=int)
     
-    N : int
-      stencil size
-      
-    vert : (P,D) array, optional
-      vertices of the boundary that edges cannot cross
+  sn = _stencil_network_no_boundary(x,p,n)
+  if smp.shape[0] == 0:
+    return sn
 
-    smp : (Q,D) array, optional
-      connectivity of the boundary vertices
+  for i in range(Nx):
+    if _has_edge_intersections(x[i],p[sn[i]],vert,smp,check_all_edges):
+      sn[i,:] = _stencil(x[i],p,n,vert,smp,check_all_edges)
 
-  Returns
-  -------
-    s : (M,K) int array where K <= N
-    
-  '''
-  while True:
-    try:
-      s,dx = nearest(nodes,nodes,N,vert=vert,smp=smp)
-      return s
-      
-    except StencilError as err:  
-      if N == 0:
-        # this block should never have to run because a stencil should 
-        # always be made with N=0. This is just in case im wrong
-        raise err 
-        
-      N -= 1
-      
-    
-def _slice_list(lst,cuts):
+  return sn
+
+
+def nearest(x,p,n,vert=None,smp=None):
   ''' 
-  segments lst by cuts 
-  '''
-  lst = np.asarray(lst)
-  cuts = np.asarray(cuts)
-  cuts = np.sort(cuts)
-
-  lbs = np.concatenate(([-np.inf],cuts))
-  ubs = np.concatenate((cuts,[np.inf]))
-  intervals = zip(lbs,ubs)
-  out = []
-  for lb,ub in intervals:
-    idx_in_segment = np.nonzero((lst >= lb) & (lst < ub))[0]
-    if len(idx_in_segment) > 0:
-      out += [idx_in_segment]
-
-  return out
-
-
-def _stencil_network_1d(P,N):
-  ''' 
-  returns stencils for sequential 1d nodes
-  '''
-  P = int(P)
-  N = int(N)
-  if P < N:
-    raise StencilError('cannot form a size %s stencil with %s nodes' % (N,P))
-
-  if N == 0:
-    return np.zeros((P,N),dtype=int)
-
-  # number of repeated stencils for the right side
-  right = N//2
-  # number of repeated stencils for the left side
-  left = N - right - 1
-  center = P - N + 1
-
-  stencils_c = np.arange(center,dtype=int)[:,None].repeat(N,axis=1)
-  stencils_c += np.arange(N,dtype=int)
-  stencils_r = stencils_c[[-1],:].repeat(right,axis=0)
-  stencils_l = stencils_c[[0],:].repeat(left,axis=0)
-  stencils = np.vstack((stencils_l,stencils_c,stencils_r))
-  return stencils
-
-
-def stencil_network_1d(nodes,N,vert=None,smp=None):
-  ''' 
-  returns a stencil network for 1d nodes where each stencil is 
-  determined by adjacency and not distance.  For each node, its 
-  stencil is comprised of the N//2 nodes to its right and the (N - 
-  N//2 - 1) nodes to its left. This ensures better connectivity than 
-  what rbf.stencil.stencil_network provides
+  Returns the *n* nearest points in *p* for each point in *x*. Nearest 
+  neighbors cannot extend across the boundary defined by *vert* and 
+  *smp*
   
   Parameters
   ----------
-    nodes : (M,1) array 
+  x : (N,D) array
+    Target points.
 
-    N : int
-      stencil size
+  p : (M,D) array
+    Source points.
 
-    vert : (P,1) array, optional
-      vertices of the boundary that edges cannot cross
+  vert : (P,D) array, optional     
+    Vertices of the boundary 
 
-    smp : (Q,1) array, optional
-      connectivity of the boundary vertices
-
+  smp : (Q,D) array, optional  
+    Connectivity of vertices to form the boundary
+    
   Returns
   -------
-    out : (M,N) int array
-    
-  Example
-  -------
-    # create a first-order forward finite difference stencil
-    >>> x = np.arange(4.0)[:,None]
-    >>> stencil_network_1d(x,2)
+  idx : (N,D) array
+    Indices of nearest points in *p*
 
-    array([[0, 1],
-           [1, 2],
-           [2, 3],
-           [2, 3]])
-                         
+  dist : (N,D) array
+    Distance to the nearest points in *p*  
+
   '''
-  nodes = np.asarray(nodes)
-
-  if nodes.ndim != 2:
-    raise ValueError('nodes must be a two-dimensional array')
-
-  if nodes.shape[1] != 1:
-    raise ValueError('nodes must only have one spatial dimension')
-
-  nodes = nodes[:,0]
-  P = len(nodes)
+  idx = stencil_network(x,p,n,vert=vert,smp=smp,check_all_edges=False)
+  dist = np.sqrt(np.sum((x[:,None,:] - p[idx])**2,axis=2))
+  return idx,dist
   
-  if vert is None:
-    vert = np.zeros((0,1),dtype=float)
-  if smp is None:
-    smp = np.zeros((0,1),dtype=int)
-
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
-  cuts = vert[smp[:,0],0]
-
-  # use progressively smaller N until a stencil network can be made
-  while True:
-    try:
-      segments = _slice_list(nodes,cuts)
-      out = np.zeros((P,N),dtype=int)
-      for idx in segments:
-        count = len(idx)
-        stencil_i = _stencil_network_1d(count,N)
-        sorted_idx = idx[np.argsort(nodes[idx])]
-        stencil_i = sorted_idx[stencil_i]
-        out[sorted_idx,:] = stencil_i
-
-      return out
-
-    except StencilError as err:
-      if N == 0:
-        # this block should never have to run because a stencil should 
-        # always be made with N=0. This is just in case im wrong
-        raise err 
-    
-      N -= 1
