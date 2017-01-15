@@ -10,6 +10,7 @@ with Neumann boundary conditions.
 import numpy as np
 import scipy.sparse
 from mayavi import mlab
+from matplotlib import cm
 from scipy.spatial import cKDTree
 from scipy.interpolate import griddata
 from rbf.nodes import menodes
@@ -28,11 +29,11 @@ smp = np.array([[0,1,3],[0,2,3],[0,1,4],[1,5,4],
                 [0,2,6],[0,4,6],[1,7,5],[1,3,7],
                 [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
 # number of nodes 
-N = 2000
+N = 1500
 # size of RBF-FD stencils
-n = 20
+n = 30
 # lame parameters
-lamb = 1.0 
+lamb = 1.0
 mu = 1.0
 #####################################################################
 #####################################################################
@@ -47,30 +48,18 @@ def mindist(x):
   dist,_ = kd.query(x,2)
   return np.min(dist[:,1])
   
-# generate nodes. Read the documentation for menodes to tune it and 
-# allow for variable density nodes
 nodes,smpid = menodes(N,vert,smp)
-# find the indices for interior nodes, fixed boundary nodes, and free 
-# boundary nodes. This is done by looking at the array *smpid* which 
-# tells us the simplex that each boundary node is attached to.
 interior, = np.nonzero(smpid == -1) 
 interior = list(interior)
-# fix the bottom nodes and keep other boundaries free
 fix_boundary, = np.nonzero((smpid == 0) | (smpid == 1))
 fix_boundary = list(fix_boundary)
 free_boundary, = np.nonzero(smpid > 1)
 free_boundary = list(free_boundary)
-# find the normal vector for each simplex
 simplex_normals = simplex_outward_normals(vert,smp)
-# find the normal vectors for each free boundary node
 normals = simplex_normals[smpid[free_boundary]]
-# add ghost nodes to greatly improve accuracy at the free surface
 dx = mindist(nodes)
 nodes = np.vstack((nodes,
                    nodes[free_boundary] + dx*normals))
-
-# write out the 2-D equations of motion. This is the most difficult 
-# part of setting up the problem and there is no way around it.
 
 ## Enforce the PDE on interior node AND the free surface nodes
 #####################################################################
@@ -149,17 +138,14 @@ dD_free = scipy.sparse.vstack((dD_free_x,dD_free_y,dD_free_z))
 
 ## Create the "right hand side" vector components
 #####################################################################
-# body force vector components
 f_x = np.zeros(len(interior+free_boundary))
 f_y = np.zeros(len(interior+free_boundary)) 
 f_z = np.ones(len(interior+free_boundary)) # THIS IS WHERE GRAVITY IS ADDED
 f = np.hstack((f_x,f_y,f_z))
-# fixed boundary conditions
 fix_x = np.zeros(len(fix_boundary))
 fix_y = np.zeros(len(fix_boundary))
 fix_z = np.zeros(len(fix_boundary))
 fix = np.hstack((fix_x,fix_y,fix_z))
-# free boundary conditions
 free_x = np.zeros(len(free_boundary))
 free_y = np.zeros(len(free_boundary))
 free_z = np.zeros(len(free_boundary))
@@ -167,15 +153,11 @@ free = np.hstack((free_x,free_y,free_z))
 
 ## Combine and solve
 #####################################################################
-# "left hand side" matrix
 G = scipy.sparse.vstack((D,dD_fix,dD_free))
-G = G.tocsc() # set to csc sparse matrix for efficiency purposes
+G = G.tocsc() 
 G.eliminate_zeros()
-# "right hand side" vector
 d = np.hstack((f,fix,free))
-# solve the system of equations
 u = scipy.sparse.linalg.spsolve(G,d)
-# reshape the solution
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
 
@@ -190,14 +172,11 @@ e_zz = D_z.dot(u_z)
 e_xy = 0.5*(D_y.dot(u_x) + D_x.dot(u_y))
 e_xz = 0.5*(D_z.dot(u_x) + D_x.dot(u_z))
 e_yz = 0.5*(D_z.dot(u_y) + D_y.dot(u_z))
-# compute the second invariant of strain, which is just the sum of 
-# each component squared
 I2 = np.sqrt(e_xx**2 + e_yy**2 + e_zz**2 + 
              2*e_xy**2 + 2*e_xz**2 + 2*e_yz**2)
 
 ## Plot the results
 #####################################################################
-# toss out ghost nodes
 g = len(free_boundary)
 nodes = nodes[:-g]
 u_x = u_x[:-g]
@@ -205,7 +184,7 @@ u_y = u_y[:-g]
 u_z = u_z[:-g]
 I2 = I2[:-g]
 
-def make_scalar_field(nodes,vals,step=50j,
+def make_scalar_field(nodes,vals,step=200j,
                       xmin=None,xmax=None,
                       ymin=None,ymax=None,
                       zmin=None,zmax=None):
@@ -226,29 +205,36 @@ def make_scalar_field(nodes,vals,step=50j,
     zmax = np.max(nodes[:,2])
 
   x,y,z = np.mgrid[xmin:xmax:step,ymin:ymax:step,zmin:zmax:step]
-  f = griddata(nodes, vals, (x,y,z),method='nearest')
+  f = griddata(nodes, vals, (x,y,z),method='linear')
   out = mlab.pipeline.scalar_field(x,y,z,f)
   return out
 
-
-fig = mlab.figure(bgcolor=(1.0,1.0,1.0),fgcolor=(0.0,0.0,0.0),size=(640, 480))
-dat = make_scalar_field(nodes,np.log10(I2))
-#mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[2:],
-#                     color=(1.0,1.0,1.0),opacity=0.2)
-#mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],
-#                     color=(1.0,0.0,0.0),opacity=1.0)
+cmap = cm.viridis
+fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
+dat = make_scalar_field(nodes,I2)
+mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[2:],
+                     color=(0.0,0.0,0.0),opacity=0.05)
+mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],
+                     color=(0.0,0.0,0.0),opacity=0.5)
 mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],
-              u_x,u_y,u_z,mode='arrow',color=(0.2,0.2,0.2))
-p = mlab.pipeline.scalar_cut_plane(dat,colormap='hot',vmin=-1,vmax=1)
-cbar = mlab.scalarbar(p,title='log10(second strain invariant)')
+              u_x,u_y,u_z,mode='arrow',color=(0.1,0.1,0.1),scale_factor=0.01)
+p = mlab.pipeline.scalar_cut_plane(dat,vmin=1e-1,vmax=1e1,
+                                     plane_orientation='y_axes')
+colors = cmap(np.linspace(0.0,1.0,256))*255
+p.module_manager.scalar_lut_manager.lut.table = colors
+cbar = mlab.scalarbar(p,title='second strain invariant')
+cbar.lut.scale = 'log10'
+cbar.number_of_labels = 5
 cbar.title_text_property.bold = False
 cbar.title_text_property.italic = False
 cbar.label_text_property.bold = False
 cbar.label_text_property.italic = False
+eng = mlab.get_engine()
+scene = eng.scenes[0]
+scene.scene.camera.pitch(-3.5)
+scene.scene.camera.orthogonalize_view_up()
+mlab.draw()
+mlab.savefig('../figures/fd.c.png')
 mlab.show()
-
-#mlab.pipeline.vector_cut_plane(field, scale_factor=.1, colormap='hot')
-
-
 quit()
 

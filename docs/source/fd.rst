@@ -11,3 +11,6 @@ Examples
 .. literalinclude:: ../scripts/fd.b.py
 .. image:: ../figures/fd.b.png
 
+.. literalinclude:: ../scripts/fd.c.py
+.. image:: ../figures/fd.c.png
+
