@@ -2,10 +2,9 @@
 This script demonstrates using the RBF-FD method to calculate static 
 deformation of a three-dimensional elastic material subject to a 
 uniform body force such as gravity. The elastic material has a fixed 
-boundary condition on one side and the remaining sides have a free 
-surface boundary condition.  This script also demonstrates using ghost 
-nodes which, for all intents and purposes, are necessary when dealing 
-with Neumann boundary conditions.
+boundary condition on the bottom and the remaining sides have a free 
+surface boundary condition. The top of the domain is generated 
+randomly and is intended to simulate topography. 
 '''
 import rbf
 import numpy as np
@@ -23,20 +22,20 @@ np.random.seed(3)
 #####################################################################
 ####################### USER PARAMETERS #############################
 #####################################################################
-# define the vertices of the problem domain. Note that the first two
-# simplices will be fixed, and the others will be free
 def taper_function(x,center,radius,order=10):
   ''' 
   This function is effectively 1.0 within a sphere with radius 
   *radius* centered at *center*.  The function quickly drops to 0.0 
-  outside of the sphere.
+  outside of the sphere. This is used to ensure that the user-defined 
+  topography tapers to zero at the domain edges.
   '''
   r = np.sqrt((x[:,0]-center[0])**2 + (x[:,1]-center[1])**2)
   return 1.0/(1.0 + (r/radius)**order)
 
 def topo_func(x):
   ''' 
-  generates a random topography
+  This function generates a random topography at *x*. For real-world 
+  applications this should be a function that interpolates a DEM.
   '''
   gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
   gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
@@ -45,18 +44,27 @@ def topo_func(x):
   out *= taper_function(x,[0.0,0.0],1.0)
   return out
 
-vert,smp = topography(topo_func,[-1.25,1.25],[-1.25,1.25],1.0,n=75)
+# generates the domain according to topo_func 
+vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
+
+## uncomment to view the domain
+##fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
+##mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,
+##                     colormap='gist_earth',vmin=-1.0,vmax=0.25)
+#mlab.show()                     
+
 # number of nodes 
-N = 5000
+N = 10000
 # size of RBF-FD stencils
 n = 30
 # lame parameters
 lamb = 1.0
 mu = 1.0
-#####################################################################
-#####################################################################
-#####################################################################
 
+
+#####################################################################
+#####################################################################
+#####################################################################
 def mindist(x):
   ''' 
   returns the shortest distance between any two nodes in x. This is 
@@ -66,20 +74,33 @@ def mindist(x):
   dist,_ = kd.query(x,2)
   return np.min(dist[:,1])
   
-print('making nodes ...')
-nodes,smpid = menodes(N,vert,smp,itr=50)
-print('done')
+# generate nodes. Note that this may take a while
+nodes,smpid = menodes(N,vert,smp,itr=100)
+# find which nodes at attached to each simplex
 interior, = np.nonzero(smpid == -1) 
 interior = list(interior)
 fix_boundary, = np.nonzero((smpid == 0) | (smpid == 1))
 fix_boundary = list(fix_boundary)
 free_boundary, = np.nonzero(smpid > 1)
 free_boundary = list(free_boundary)
+# find normal vectors to each free surface node
 simplex_normals = simplex_outward_normals(vert,smp)
 normals = simplex_normals[smpid[free_boundary]]
+# add ghost nodes next to free surface nodes
 dx = mindist(nodes)
 nodes = np.vstack((nodes,
                    nodes[free_boundary] + dx*normals))
+
+## uncomment to view nodes
+##fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
+##mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,
+##                     colormap='gist_earth',vmin=-1.0,vmax=0.25,opacity=0.75)
+##mlab.points3d(nodes[:,0],nodes[:,1],nodes[:,2],color=(0.0,0.0,0.0),scale_factor=0.025)
+##mlab.points3d(nodes[free_boundary,0],nodes[free_boundary,1],nodes[free_boundary,2],
+##              color=(1.0,0.0,0.0),scale_factor=0.05)
+##mlab.points3d(nodes[fix_boundary,0],nodes[fix_boundary,1],nodes[fix_boundary,2],
+##              color=(0.0,0.0,1.0),scale_factor=0.05)
+##mlab.show()                     
 
 ## Enforce the PDE on interior node AND the free surface nodes
 #####################################################################
@@ -158,14 +179,17 @@ dD_free = scipy.sparse.vstack((dD_free_x,dD_free_y,dD_free_z))
 
 ## Create the "right hand side" vector components
 #####################################################################
+# create body force components
 f_x = np.zeros(len(interior+free_boundary))
 f_y = np.zeros(len(interior+free_boundary)) 
 f_z = np.ones(len(interior+free_boundary)) # THIS IS WHERE GRAVITY IS ADDED
 f = np.hstack((f_x,f_y,f_z))
+# create fixed boundary condition components
 fix_x = np.zeros(len(fix_boundary))
 fix_y = np.zeros(len(fix_boundary))
 fix_z = np.zeros(len(fix_boundary))
 fix = np.hstack((fix_x,fix_y,fix_z))
+# create traction vectors for free surface boundary conditions
 free_x = np.zeros(len(free_boundary))
 free_y = np.zeros(len(free_boundary))
 free_z = np.zeros(len(free_boundary))
@@ -174,7 +198,7 @@ free = np.hstack((free_x,free_y,free_z))
 ## Combine and solve
 #####################################################################
 G = scipy.sparse.vstack((D,dD_fix,dD_free))
-G = G.tocsc() 
+G = G.tocsc()
 G.eliminate_zeros()
 d = np.hstack((f,fix,free))
 u = scipy.sparse.linalg.spsolve(G,d)
@@ -192,12 +216,15 @@ e_zz = D_z.dot(u_z)
 e_xy = 0.5*(D_y.dot(u_x) + D_x.dot(u_y))
 e_xz = 0.5*(D_z.dot(u_x) + D_x.dot(u_z))
 e_yz = 0.5*(D_z.dot(u_y) + D_y.dot(u_z))
+# I define the second strain invariant as the sum of squared 
+# components of the strain tensor. Others may define it differently
 I2 = np.sqrt(e_xx**2 + e_yy**2 + e_zz**2 + 
              2*e_xy**2 + 2*e_xz**2 + 2*e_yz**2)
 
 ## Plot the results
 #####################################################################
 g = len(free_boundary)
+# remove ghost nodes
 nodes = nodes[:-g]
 u_x = u_x[:-g]
 u_y = u_y[:-g]
@@ -229,32 +256,43 @@ def make_scalar_field(nodes,vals,step=200j,
   out = mlab.pipeline.scalar_field(x,y,z,f)
   return out
 
+# set strain invariant colormap
 cmap = cm.viridis
+# initiate figure
 fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
+# turn second invariant into structured data
 dat = make_scalar_field(nodes,I2,zmax=0.0)
+# plot the top surface simplices
 mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+0.01,smp[10:],
                      opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
+# plot the bottom simplices
 mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],
                      color=(0.0,0.0,0.0),opacity=0.5)
+# plot decimated displacement vectors
 mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],
               u_x,u_y,u_z,mode='arrow',color=(0.1,0.1,0.1),
               mask_points=5,scale_factor=1.0)
+# make cross section for second invariant
 p = mlab.pipeline.scalar_cut_plane(dat,vmin=0.0,vmax=0.25,
                                    plane_orientation='y_axes')
+# set colormap to cmap
 colors = cmap(np.linspace(0.0,1.0,256))*255
 p.module_manager.scalar_lut_manager.lut.table = colors
+# add colorbar
 cbar = mlab.scalarbar(p,title='second strain invariant')
 #cbar.lut.scale = 'log10'
+# number of ticks on the colorbar
 cbar.number_of_labels = 5
+# change colorbar font
 cbar.title_text_property.bold = False
 cbar.title_text_property.italic = False
 cbar.label_text_property.bold = False
 cbar.label_text_property.italic = False
+# orient the camera position
 eng = mlab.get_engine()
 scene = eng.scenes[0]
 scene.scene.camera.pitch(-3.5)
 scene.scene.camera.orthogonalize_view_up()
 mlab.draw()
 mlab.show()
-quit()
 
