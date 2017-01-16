@@ -56,7 +56,7 @@ vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 # number of nodes 
 N = 10000
 # size of RBF-FD stencils
-n = 30
+n = 50
 # lame parameters
 lamb = 1.0
 mu = 1.0
