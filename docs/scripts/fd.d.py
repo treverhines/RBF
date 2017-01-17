@@ -17,6 +17,7 @@ from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
 from rbf.domain import topography
+import time
 np.random.seed(3)
 
 #####################################################################
@@ -45,7 +46,7 @@ def topo_func(x):
   return out
 
 # generates the domain according to topo_func 
-vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
+vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=50)
 
 ## uncomment to view the domain
 ##fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
@@ -54,7 +55,7 @@ vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 #mlab.show()                     
 
 # number of nodes 
-N = 50000
+N = 5000
 # size of RBF-FD stencils
 n = 30
 # lame parameters
@@ -75,9 +76,9 @@ def mindist(x):
   return np.min(dist[:,1])
   
 # generate nodes. Note that this may take a while
-print('computing nodes')
+start = time.time()
 nodes,smpid = menodes(N,vert,smp,itr=100)
-print('done ...')
+print('nodes generated in %s seconds' % (time.time() - start))
 # find which nodes at attached to each simplex
 interior, = np.nonzero(smpid == -1) 
 interior = list(interior)
@@ -104,6 +105,7 @@ mlab.points3d(nodes[fix_boundary,0],nodes[fix_boundary,1],nodes[fix_boundary,2],
               color=(0.0,0.0,1.0),scale_factor=0.05)
 mlab.show()                     
 
+start = time.time()
 ## Enforce the PDE on interior node AND the free surface nodes
 #####################################################################
 coeffs_xx = [lamb+2*mu,      mu,       mu]
@@ -203,7 +205,10 @@ G = scipy.sparse.vstack((D,dD_fix,dD_free))
 G = G.tocsc()
 G.eliminate_zeros()
 d = np.hstack((f,fix,free))
+print('stiffness matrix made in %s seconds' % (time.time() - start))
+start = time.time()
 u = scipy.sparse.linalg.spsolve(G,d)
+print('system solved in %s seconds' % (time.time() - start))
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
 
@@ -273,7 +278,7 @@ mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],
 # plot decimated displacement vectors
 mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],
               u_x,u_y,u_z,mode='arrow',color=(0.1,0.1,0.1),
-              mask_points=5,scale_factor=1.0)
+              mask_points=20,scale_factor=1.0)
 # make cross section for second invariant
 p = mlab.pipeline.scalar_cut_plane(dat,vmin=0.0,vmax=0.25,
                                    plane_orientation='y_axes')
