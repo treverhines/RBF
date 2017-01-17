@@ -38,12 +38,10 @@ def topo_func(x):
   This function generates a random topography at *x*. For real-world 
   applications this should be a function that interpolates a DEM.
   '''
-  r = np.sqrt(x[:,0]**2 + x[:,1]**2)
-  out = 1.0/(1.0 + (r/0.3)**2)
-  #gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
-  #gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
-  #gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,1.0))
-  #out = gp.draw_sample(x)
+  gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
+  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
+  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,1.0))
+  out = gp.draw_sample(x)
   out *= taper_function(x,[0.0,0.0],1.0)
   return out
 

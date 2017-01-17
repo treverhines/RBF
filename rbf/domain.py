@@ -1,6 +1,6 @@
 ''' 
-Contains functions which generate simple domains, such as a unit 
-circle, or cube
+This module contains functions that generate simplices defining 
+commonly used domains.
 '''
 import numpy as np
 from scipy.spatial import Delaunay
