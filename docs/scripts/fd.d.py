@@ -38,8 +38,10 @@ def taper_function(x,center,radius,order=10):
 
 def topo_func(x):
   ''' 
-  This function generates a random topography at *x*. For real-world 
-  applications this should be a function that interpolates a DEM.
+  This function generates a random topography at *x*. It takes an 
+  (N,2) array of surface positions and returns an (N,) array of 
+  elevations.  For real-world applications this should be a function 
+  that interpolates a DEM.
   '''
   gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
   gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
@@ -50,16 +52,15 @@ def topo_func(x):
 
 def density_func(x):
   ''' 
-  This function describes the desired node density. It takes an (N,D) 
-  array of positions and returns an (N,) array of normalized node 
-  densities. This function is normalized such that all values are 
+  This function describes the desired node density at *x*. It takes an 
+  (N,3) array of positions and returns an (N,) array of normalized 
+  node densities. This function is normalized such that all values are 
   between 0.0 and 1.0.
   '''
   z = x[:,2]
   out = np.zeros(x.shape[0])
-  out[z > -0.3] = 1.0
-  out[(z <= -0.3) & (z > -0.5)] = 0.25
-  out[z <= -0.5] = 0.1
+  out[z > -0.5] = 1.0
+  out[z <= -0.5] = 0.25
   return out
 
 # generates the domain according to topo_func 
@@ -171,7 +172,7 @@ def make_scalar_field(nodes,vals,step=200j,
     zmax = np.max(nodes[:,2])
 
   x,y,z = np.mgrid[xmin:xmax:step,ymin:ymax:step,zmin:zmax:step]
-  f = griddata(nodes, vals, (x,y,z),method='linear')
+  f = griddata(nodes, vals, (x,y,z),method='nearest')
   out = mlab.pipeline.scalar_field(x,y,z,f)
   return out
 
