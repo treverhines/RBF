@@ -373,12 +373,13 @@ cdef np.ndarray intersection_count_2d(double[:,:] start_pnts,
     segment2d* segs = allocate_segment2d_array(N)
     
   try:
-    for i in range(N):
-      segs[i].a.x = start_pnts[i,0]
-      segs[i].a.y = start_pnts[i,1]
-      segs[i].b.x = end_pnts[i,0]
-      segs[i].b.y = end_pnts[i,1]
-      out[i] = _intersection_count_2d(segs[i],vertices,simplices)
+    with nogil:
+      for i in prange(N):
+        segs[i].a.x = start_pnts[i,0]
+        segs[i].a.y = start_pnts[i,1]
+        segs[i].b.x = end_pnts[i,0]
+        segs[i].b.y = end_pnts[i,1]
+        out[i] = _intersection_count_2d(segs[i],vertices,simplices)
 
   finally:
     free(segs)
@@ -633,14 +634,15 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
     vector2d outside_pnt
 
   try:
-    outside_pnt = find_outside_2d(vertices)
-    for i in range(N):
-      segs[i].a.x = outside_pnt.x
-      segs[i].a.y = outside_pnt.y
-      segs[i].b.x = pnt[i,0]
-      segs[i].b.y = pnt[i,1]
-      count = _intersection_count_2d(segs[i],vertices,simplices)
-      out[i] = count%2
+    with nogil:
+      outside_pnt = find_outside_2d(vertices)
+      for i in prange(N):
+        segs[i].a.x = outside_pnt.x
+        segs[i].a.y = outside_pnt.y
+        segs[i].b.x = pnt[i,0]
+        segs[i].b.y = pnt[i,1]
+        count = _intersection_count_2d(segs[i],vertices,simplices)
+        out[i] = count%2
 
   finally:
     free(segs)
@@ -750,14 +752,15 @@ cdef np.ndarray intersection_count_3d(double[:,:] start_pnts,
     segment3d* segs = allocate_segment3d_array(N)
 
   try:
-    for i in range(N):
-      segs[i].a.x = start_pnts[i,0]
-      segs[i].a.y = start_pnts[i,1]
-      segs[i].a.z = start_pnts[i,2]
-      segs[i].b.x = end_pnts[i,0]
-      segs[i].b.y = end_pnts[i,1]
-      segs[i].b.z = end_pnts[i,2]
-      out[i] = _intersection_count_3d(segs[i],vertices,simplices)
+    with nogil:
+      for i in prange(N):
+        segs[i].a.x = start_pnts[i,0]
+        segs[i].a.y = start_pnts[i,1]
+        segs[i].a.z = start_pnts[i,2]
+        segs[i].b.x = end_pnts[i,0]
+        segs[i].b.y = end_pnts[i,1]
+        segs[i].b.z = end_pnts[i,2]
+        out[i] = _intersection_count_3d(segs[i],vertices,simplices)
 
   finally:
     free(segs)
@@ -1049,16 +1052,17 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
     vector3d outside_pnt
 
   try:
-    outside_pnt = find_outside_3d(vertices)
-    for i in range(N):
-      segs[i].a.x = outside_pnt.x
-      segs[i].a.y = outside_pnt.y
-      segs[i].a.z = outside_pnt.z
-      segs[i].b.x = pnt[i,0]
-      segs[i].b.y = pnt[i,1]
-      segs[i].b.z = pnt[i,2]
-      count = _intersection_count_3d(segs[i],vertices,simplices)
-      out[i] = count%2
+    with nogil:
+      outside_pnt = find_outside_3d(vertices)
+      for i in prange(N):
+        segs[i].a.x = outside_pnt.x
+        segs[i].a.y = outside_pnt.y
+        segs[i].a.z = outside_pnt.z
+        segs[i].b.x = pnt[i,0]
+        segs[i].b.y = pnt[i,1]
+        segs[i].b.z = pnt[i,2]
+        count = _intersection_count_3d(segs[i],vertices,simplices)
+        out[i] = count%2
   
   finally:
     free(segs)
