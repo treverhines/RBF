@@ -3,7 +3,7 @@ This modules contains functions for building frequently used RBF-FD
 weight matrices.
 '''
 from rbf.fd import weight_matrix
-from scipy.sparse import csr_sparse
+from scipy.sparse import csr_matrix
 
 def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   ''' 
@@ -142,8 +142,8 @@ def elastic2d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
 
   '''
   D_xx = weight_matrix(x,p,(0,0),**kwargs)
-  D_xy = csr_sparse((x.shape[0],p.shape[0]))
-  D_yx = csr_sparse((x.shape[0],p.shape[0]))
+  D_xy = csr_matrix((x.shape[0],p.shape[0]))
+  D_yx = csr_matrix((x.shape[0],p.shape[0]))
   D_yy = weight_matrix(x,p,(0,0),**kwargs)
   return [[D_xx,D_xy],[D_yx,D_yy]]
 
@@ -305,15 +305,15 @@ def elastic3d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
     based on the displacements at *x*.
 
   '''
-  D_xx = weight_matrix(x,p,(0,0),**kwargs)
-  D_xy = csr_sparse((x.shape[0],p.shape[0]))
-  D_xz = csr_sparse((x.shape[0],p.shape[0]))
-  D_yx = csr_sparse((x.shape[0],p.shape[0]))
-  D_yy = weight_matrix(x,p,(0,0),**kwargs)
-  D_yz = csr_sparse((x.shape[0],p.shape[0]))
-  D_zx = csr_sparse((x.shape[0],p.shape[0]))
-  D_zy = csr_sparse((x.shape[0],p.shape[0]))
-  D_zz = weight_matrix(x,p,(0,0),**kwargs)
+  D_xx = weight_matrix(x,p,(0,0,0),**kwargs)
+  D_xy = csr_matrix((x.shape[0],p.shape[0]))
+  D_xz = csr_matrix((x.shape[0],p.shape[0]))
+  D_yx = csr_matrix((x.shape[0],p.shape[0]))
+  D_yy = weight_matrix(x,p,(0,0,0),**kwargs)
+  D_yz = csr_matrix((x.shape[0],p.shape[0]))
+  D_zx = csr_matrix((x.shape[0],p.shape[0]))
+  D_zy = csr_matrix((x.shape[0],p.shape[0]))
+  D_zz = weight_matrix(x,p,(0,0,0),**kwargs)
   return [[D_xx,D_xy,D_xz],
           [D_yx,D_yy,D_yz],
           [D_zx,D_zy,D_zz]]
