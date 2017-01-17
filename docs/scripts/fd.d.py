@@ -54,9 +54,9 @@ vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 #mlab.show()                     
 
 # number of nodes 
-N = 10000
+N = 50000
 # size of RBF-FD stencils
-n = 50
+n = 30
 # lame parameters
 lamb = 1.0
 mu = 1.0
@@ -75,7 +75,9 @@ def mindist(x):
   return np.min(dist[:,1])
   
 # generate nodes. Note that this may take a while
+print('computing nodes')
 nodes,smpid = menodes(N,vert,smp,itr=100)
+print('done ...')
 # find which nodes at attached to each simplex
 interior, = np.nonzero(smpid == -1) 
 interior = list(interior)
@@ -92,15 +94,15 @@ nodes = np.vstack((nodes,
                    nodes[free_boundary] + dx*normals))
 
 ## uncomment to view nodes
-##fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
-##mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,
-##                     colormap='gist_earth',vmin=-1.0,vmax=0.25,opacity=0.75)
-##mlab.points3d(nodes[:,0],nodes[:,1],nodes[:,2],color=(0.0,0.0,0.0),scale_factor=0.025)
-##mlab.points3d(nodes[free_boundary,0],nodes[free_boundary,1],nodes[free_boundary,2],
-##              color=(1.0,0.0,0.0),scale_factor=0.05)
-##mlab.points3d(nodes[fix_boundary,0],nodes[fix_boundary,1],nodes[fix_boundary,2],
-##              color=(0.0,0.0,1.0),scale_factor=0.05)
-##mlab.show()                     
+fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
+mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp,
+                     colormap='gist_earth',vmin=-1.0,vmax=0.25,opacity=0.75)
+mlab.points3d(nodes[:,0],nodes[:,1],nodes[:,2],color=(0.0,0.0,0.0),scale_factor=0.025)
+mlab.points3d(nodes[free_boundary,0],nodes[free_boundary,1],nodes[free_boundary,2],
+              color=(1.0,0.0,0.0),scale_factor=0.05)
+mlab.points3d(nodes[fix_boundary,0],nodes[fix_boundary,1],nodes[fix_boundary,2],
+              color=(0.0,0.0,1.0),scale_factor=0.05)
+mlab.show()                     
 
 ## Enforce the PDE on interior node AND the free surface nodes
 #####################################################################
