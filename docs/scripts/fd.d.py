@@ -38,10 +38,12 @@ def topo_func(x):
   This function generates a random topography at *x*. For real-world 
   applications this should be a function that interpolates a DEM.
   '''
-  gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
-  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
-  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,1.0))
-  out = gp.draw_sample(x)
+  r = np.sqrt(x[:,0]**2 + x[:,1]**2)
+  out = 1.0/(1.0 + (r/0.3)**2)
+  #gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
+  #gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
+  #gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,1.0))
+  #out = gp.draw_sample(x)
   out *= taper_function(x,[0.0,0.0],1.0)
   return out
 
@@ -55,7 +57,7 @@ vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=50)
 #mlab.show()                     
 
 # number of nodes 
-N = 5000
+N = 1000
 # size of RBF-FD stencils
 n = 30
 # lame parameters
