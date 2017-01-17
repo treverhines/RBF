@@ -84,7 +84,7 @@ smp = np.array([[0,2,6],[0,4,6],[0,1,4],[1,5,4],
                 [0,1,3],[0,2,3],[1,7,5],[1,3,7],
                 [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
 # number of nodes 
-N = 6000
+N = 10000
 # size of RBF-FD stencils
 n = 30
 # Lame parameters
@@ -147,11 +147,11 @@ u = spsolve(G,d)
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
 # compute residual with true solution
-#ut = point_force(nodes)
-#ut_x,ut_y,ut_z = ut.T
-#u_x -= ut_x
-#u_y -= ut_y
-#u_z -= ut_z
+ut = point_force(nodes)
+ut_x,ut_y,ut_z = ut.T
+u_x -= ut_x
+u_y -= ut_y
+u_z -= ut_z
 
 # Calculate strain from displacements
 D_x = weight_matrix(nodes,nodes,(1,0,0),n=n)
