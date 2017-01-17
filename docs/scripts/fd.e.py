@@ -1,10 +1,8 @@
 ''' 
 This script demonstrates using the RBF-FD method to calculate static 
-deformation of a three-dimensional elastic material subject to a 
-uniform body force such as gravity. The elastic material has a fixed 
-boundary condition on the bottom and the remaining sides have a free 
-surface boundary condition. The top of the domain is generated 
-randomly and is intended to simulate topography. 
+deformation of a three-dimensional elastic material subject to a point 
+surface force. The numerical solution is compared to the analytical 
+solution for Boussinesq's problem.
 '''
 import rbf
 import numpy as np
@@ -23,32 +21,46 @@ from rbf.fdbuild import (elastic3d_body_force,
                          elastic3d_displacement)
 np.random.seed(3)
 
+def delta(i,j):
+  if i == j:
+    return 1.0
+  else:
+    return 0.0
+
+def point_force(x,lamb=1.0,mu=1.0):
+  ''' 
+  Solves for displacements resulting from a unit point force normal to 
+  the surface of an elastic halfspace. The point force is applied at 
+  (x,y,z) = (0.0,0.0,0.0) and the halfspace is z<0.0.
+
+  '''
+  # the solution I am using assumes that z is positive in the 
+  # halfspace.
+  x = np.copy(x)
+  x[:,2] *= -1.0
+  nu = lamb/(2*(lamb+mu))
+  r = np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
+  out = np.zeros(np.shape(x))
+  for i in range(3):
+    out[:,i] = (1.0/(4*np.pi*mu)*
+                (x[:,2]*x[:,i]/r**3 +
+                (3 - 4*nu)*delta(i,2)/r -
+                (1 - 2*nu)*(delta(i,2) + x[:,i]/r)/(r + x[:,2])))
+
+  # change displacements z direction so that down is positive 
+  out[:,2] *= -1.0
+  return out
+                                                                                    
+
 #####################################################################
 ####################### USER PARAMETERS #############################
 #####################################################################
-def taper_function(x,center,radius,order=10):
-  ''' 
-  This function is effectively 1.0 within a sphere with radius 
-  *radius* centered at *center*.  The function quickly drops to 0.0 
-  outside of the sphere. This is used to ensure that the user-defined 
-  topography tapers to zero at the domain edges.
-  '''
-  r = np.sqrt((x[:,0]-center[0])**2 + (x[:,1]-center[1])**2)
-  return 1.0/(1.0 + (r/radius)**order)
-
-def topo_func(x):
-  ''' 
-  This function generates a random topography at *x*. It takes an 
-  (N,2) array of surface positions and returns an (N,) array of 
-  elevations.  For real-world applications this should be a function 
-  that interpolates a DEM.
-  '''
-  gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
-  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
-  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,1.0))
-  out = gp.draw_sample(x)
-  out *= taper_function(x,[0.0,0.0],1.0)
-  return out
+def surface_force(x):
+  sigma = 0.05
+  c = 1.0/np.sqrt((2*np.pi*sigma**2)**2)
+  r = np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2 )
+  out = c*np.exp(-0.5*(r/sigma)**2)
+  return -out
 
 def density_func(x):
   ''' 
@@ -57,16 +69,22 @@ def density_func(x):
   node densities. This function is normalized such that all values are 
   between 0.0 and 1.0.
   '''
-  z = x[:,2]
-  out = np.zeros(x.shape[0])
-  out[z > -0.5] = 1.0
-  out[z <= -0.5] = 0.25
+  r= np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
+  out = 1.0/(1 + (r/0.3)**2)
   return out
 
 # generates the domain according to topo_func 
-vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
+vert = np.array([[0.0,0.0,-1.0],[0.0,0.0,0.0],[0.0,1.0,-1.0],
+                 [0.0,1.0,0.0],[1.0,0.0,-1.0],[1.0,0.0,0.0],
+                 [1.0,1.0,-1.0],[1.0,1.0,0.0]])
+# center on the origin
+vert[:,0] = 2*(vert[:,0] - 0.5)
+vert[:,1] = 2*(vert[:,1] - 0.5)
+smp = np.array([[0,2,6],[0,4,6],[0,1,4],[1,5,4],
+                [0,1,3],[0,2,3],[1,7,5],[1,3,7],
+                [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
 # number of nodes 
-N = 8000
+N = 6000
 # size of RBF-FD stencils
 n = 30
 # Lame parameters
@@ -113,10 +131,10 @@ G.eliminate_zeros()
 # Build "right hand side" vector
 body_force_x = np.zeros(len(int_idx+free_idx))
 body_force_y = np.zeros(len(int_idx+free_idx)) 
-body_force_z = np.ones(len(int_idx+free_idx)) # THIS IS WHERE GRAVITY IS ADDED
+body_force_z = np.zeros(len(int_idx+free_idx)) # THIS IS WHERE GRAVITY IS ADDED
 surf_force_x = np.zeros(len(free_idx))
 surf_force_y = np.zeros(len(free_idx))
-surf_force_z = np.zeros(len(free_idx))
+surf_force_z = surface_force(nodes[free_idx])
 disp_x = np.zeros(len(fix_idx))
 disp_y = np.zeros(len(fix_idx))
 disp_z = np.zeros(len(fix_idx))
@@ -128,6 +146,13 @@ d = np.hstack((body_force,surf_force,disp))
 u = spsolve(G,d)
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
+# compute residual with true solution
+#ut = point_force(nodes)
+#ut_x,ut_y,ut_z = ut.T
+#u_x -= ut_x
+#u_y -= ut_y
+#u_z -= ut_z
+
 # Calculate strain from displacements
 D_x = weight_matrix(nodes,nodes,(1,0,0),n=n)
 D_y = weight_matrix(nodes,nodes,(0,1,0),n=n)
@@ -151,7 +176,7 @@ nodes = nodes[:-g]
 u_x,u_y,u_z = u_x[:-g],u_y[:-g],u_z[:-g]
 I2 = I2[:-g]
 
-def make_scalar_field(nodes,vals,step=200j,
+def make_scalar_field(nodes,vals,step=100j,
                       xmin=None,xmax=None,
                       ymin=None,ymax=None,
                       zmin=None,zmax=None):
@@ -183,13 +208,13 @@ fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
 # turn second invariant into structured data
 dat = make_scalar_field(nodes,I2,zmax=0.0)
 # plot the top surface simplices
-mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+0.01,smp[10:],opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
+#mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+0.01,smp[10:],opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
 # plot the bottom simplices
 mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],color=(0.0,0.0,0.0),opacity=0.5)
 # plot decimated displacement vectors
-mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],u_x,u_y,u_z,mode='arrow',color=(0.1,0.1,0.1),mask_points=20,scale_factor=1.0)
+mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],u_x,u_y,u_z,mode='arrow',color=(0.1,0.1,0.1),scale_factor=0.1)
 # make cross section for second invariant
-p = mlab.pipeline.scalar_cut_plane(dat,vmin=0.0,vmax=0.25,plane_orientation='y_axes')
+p = mlab.pipeline.scalar_cut_plane(dat,vmin=0.0,vmax=3.0,plane_orientation='y_axes')
 # set colormap to cmap
 colors = cmap(np.linspace(0.0,1.0,256))*255
 p.module_manager.scalar_lut_manager.lut.table = colors
