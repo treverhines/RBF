@@ -15,6 +15,9 @@ from scipy.spatial import cKDTree
 from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
+import logging
+import time
+logging.basicConfig(level=logging.DEBUG)
 
 #####################################################################
 ####################### USER PARAMETERS #############################
@@ -24,7 +27,7 @@ from rbf.geometry import simplex_outward_normals
 vert = np.array([[0.0,0.0],[0.0,1.0],[2.0,1.0],[2.0,0.0]])
 smp = np.array([[0,1],[1,2],[2,3],[3,0]])
 # number of nodes 
-N = 500
+N = 1000
 # size of RBF-FD stencils
 n = 20
 #####################################################################
@@ -157,10 +160,11 @@ free_y = np.zeros(len(free_boundary))
 # "left hand side" matrix
 G = scipy.sparse.vstack((D,dD_fix,dD_free))
 G = G.tocsc() # set to csc sparse matrix for efficiency purposes
+N = G.shape[0]
 # "right hand side" vector
 d = np.hstack((f_x,f_y,fix_x,fix_y,free_x,free_y))
 # solve the system of equations
-u = scipy.sparse.linalg.spsolve(G,d)
+u = scipy.sparse.linalg.spsolve(G,d,permc_spec='MMD_ATA')
 # reshape the solution
 u = np.reshape(u,(2,-1))
 u_x = u[0,:]

@@ -8,20 +8,18 @@ import rbf
 import numpy as np
 from scipy.sparse import vstack,hstack
 from scipy.sparse.linalg import spsolve
-from mayavi import mlab
-from matplotlib import cm
+import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 from scipy.interpolate import griddata
 from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
-from rbf.domain import topography
-from rbf.fdbuild import (elastic3d_body_force,
-                         elastic3d_surface_force,
-                         elastic3d_displacement)
+from rbf.domain import circle
+from rbf.fdbuild import (elastic2d_body_force,
+                         elastic2d_surface_force,
+                         elastic2d_displacement)
 import time
 np.random.seed(3)
-
 def delta(i,j):
   if i == j:
     return 1.0
@@ -56,49 +54,34 @@ def point_force(x,lamb=1.0,mu=1.0):
 #####################################################################
 ####################### USER PARAMETERS #############################
 #####################################################################
-def surface_force(x):
-  sigma = 0.2
+def initial_displacement(x):
+  out = np.zeros((2,x.shape[0]))
+  sigma = 0.1
   c = 1.0/np.sqrt((2*np.pi*sigma**2)**2)
   r = np.sqrt(x[:,0]**2 + x[:,1]**2)
-  out = c*np.exp(-0.5*(r/sigma)**2)
-  #out = np.ones(x.shape[0])
-  return -out
-
-def density_func(x):
-  ''' 
-  This function describes the desired node density at *x*. It takes an 
-  (N,3) array of positions and returns an (N,) array of normalized 
-  node densities. This function is normalized such that all values are 
-  between 0.0 and 1.0.
-  '''
-  #r= np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
-  #out = 0.5/(1 + (r/0.1)**2)
-  #out = 0.5/(1 + (r/0.3)**2)
-  out = np.ones(x.shape[0])
+  out[0,:] = c*np.exp(-0.5*(r/sigma)**2)
   return out
 
-# generates the domain according to topo_func 
-vert = np.array([[0.0,0.0,-1.0],[0.0,0.0,0.0],[0.0,1.0,-1.0],
-                 [0.0,1.0,0.0],[1.0,0.0,-1.0],[1.0,0.0,0.0],
-                 [1.0,1.0,-1.0],[1.0,1.0,0.0]])
+def initial_velocity(x):
+  out = np.zeros((2,x.shape[0]))
+  return out
+
 # center on the origin
-vert[:,0] = 2*(vert[:,0] - 0.5)
-vert[:,1] = 2*(vert[:,1] - 0.5)
-vert[:,2] = 2*vert[:,2]
-smp = np.array([[0,2,6],[0,4,6],[0,1,4],[1,5,4],
-                [0,1,3],[0,2,3],[1,7,5],[1,3,7],
-                [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
+vert,smp = rbf.domain.circle(4)
 # number of nodes 
-N = 3000
+N = 1000
 # size of RBF-FD stencils
-n = 50
+n = 20
+# time step size
+dt = 0.002
+# time steps
+T = 3000
 # Lame parameters
 lamb = 1.0
 mu = 1.0
 #####################################################################
 #####################################################################
 #####################################################################
-
 def min_distance(x):
   ''' 
   returns the shortest distance between any two nodes in x. This is 
@@ -109,29 +92,61 @@ def min_distance(x):
   return np.min(dist[:,1])
   
 # generate nodes. Note that this may take a while
-nodes,smpid = menodes(N,vert,smp,rho=density_func)
+nodes,smpid = menodes(N,vert,smp,itr=200)
 # find which nodes at attached to each simplex
 int_idx = np.nonzero(smpid == -1)[0].tolist()
-fix_idx = np.nonzero((smpid == 0) | (smpid == 1))[0].tolist()
-free_idx = np.nonzero(smpid > 1)[0].tolist()
+bnd_idx = np.nonzero(smpid >= 0)[0].tolist()
 # find normal vectors to each free surface node
 simplex_normals = simplex_outward_normals(vert,smp)
-normals = simplex_normals[smpid[free_idx]]
+normals = simplex_normals[smpid[bnd_idx]]
 # add ghost nodes next to free surface nodes
 dx = min_distance(nodes)
-nodes = np.vstack((nodes,nodes[free_idx] + 0.5*dx*normals))
-# uncomment to view the nodes
-fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
-mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+0.01,smp,opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
-mlab.points3d(nodes[:,0],nodes[:,1],nodes[:,2],scale_factor=0.025)
-mlab.points3d(nodes[free_idx,0],nodes[free_idx,1],nodes[free_idx,2],surface_force(nodes[free_idx]),scale_factor=0.0025,color=(1.0,0.0,0.0))
-mlab.points3d(nodes[fix_idx,0],nodes[fix_idx,1],nodes[fix_idx,2],scale_factor=0.05,color=(0.0,0.0,1.0))
-mlab.show()
+nodes = np.vstack((nodes,nodes[bnd_idx] + dx*normals))
+gst_idx = range(N,N+len(bnd_idx))
+
 # Build "left hand side" matrix
-G  = elastic3d_body_force(nodes[int_idx+free_idx],nodes,lamb=lamb,mu=mu,n=n)
-G += elastic3d_surface_force(nodes[free_idx],nodes,normals,lamb=lamb,mu=mu,n=n)
-G += elastic3d_displacement(nodes[fix_idx],nodes,lamb=lamb,mu=mu,n=1)
-G  = vstack(hstack(i) for i in G).tocsr()
+D  = elastic2d_body_force(nodes[:N],nodes,lamb=lamb,mu=mu,n=n)
+D  = vstack(hstack(i) for i in D).tocsr()
+dD = elastic2d_surface_force(nodes[bnd_idx],nodes,normals,lamb=lamb,mu=mu,n=n)
+dD = vstack(hstack(i) for i in dD).tocsr()
+idx = np.arange(nodes.size).reshape(nodes.T.shape)[:,N:].flatten()
+print(idx.shape)
+
+axs = []
+u_curr = initial_displacement(nodes)
+u_curr[:,N:] = 0.0
+u_prev = u_curr - dt*initial_velocity(nodes)
+u_prev[:,N:] = 0.0
+for i in range(T):
+  u_next = np.zeros_like(u_curr)  
+  force = D.dot(u_curr.flatten()).reshape((2,-1))
+  damping = 0.0*(u_curr[:,:N] - u_prev[:,:N])/dt
+  acc = dt**2*(force - damping)
+  u_next[:,:N] = acc + 2*u_curr[:,:N] - u_prev[:,:N]
+  d = -dD.dot(u_next.flatten()) 
+  u_next[:,N:] = spsolve(dD[:,idx],d).reshape((2,-1))  
+  u_prev = np.copy(u_curr)
+  u_curr = np.copy(u_next)
+  if i%500 == 0:
+    fig,ax = plt.subplots()
+    ax.set_title('%s' % i)
+    for s in smp:
+      ax.plot(vert[s,0],vert[s,1],'-')
+
+    u_x,u_y = u_curr
+    u_x = u_x[:N]
+    u_y = u_y[:N]
+    nodes = nodes[:N]
+    ax.plot(nodes[:,0],nodes[:,1],'k.')
+    ax.quiver(nodes[:,0],nodes[:,1],u_x,u_y,scale=50.0)
+    ax.set_aspect('equal')
+    axs += [ax]
+    
+plt.show()
+quit()
+
+
+#G += elastic3d_displacement(nodes[fix_idx],nodes,lamb=lamb,mu=mu,n=1)
 G.eliminate_zeros()
 # Build "right hand side" vector
 body_force_x = np.zeros(len(int_idx+free_idx))

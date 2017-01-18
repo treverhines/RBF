@@ -66,7 +66,7 @@ def density_func(x):
 # generates the domain according to topo_func 
 vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 # number of nodes 
-N = 2000
+N = 50000
 # size of RBF-FD stencils
 n = 30
 # Lame parameters
@@ -108,7 +108,7 @@ mlab.show()
 G  = elastic3d_body_force(nodes[int_idx+free_idx],nodes,lamb=lamb,mu=mu,n=n)
 G += elastic3d_surface_force(nodes[free_idx],nodes,normals,lamb=lamb,mu=mu,n=n)
 G += elastic3d_displacement(nodes[fix_idx],nodes,lamb=lamb,mu=mu,n=1)
-G  = vstack(hstack(i) for i in G).tocsr()
+G  = vstack(hstack(i) for i in G).tocsc()
 G.eliminate_zeros()
 # Build "right hand side" vector
 body_force_x = np.zeros(len(int_idx+free_idx))
@@ -125,7 +125,7 @@ surf_force = np.hstack((surf_force_x,surf_force_y,surf_force_z))
 disp = np.hstack((disp_x,disp_y,disp_z))
 d = np.hstack((body_force,surf_force,disp))
 # Combine and solve
-u = spsolve(G,d)
+u = spsolve(G,d,permc_spec='MMD_ATA')
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
 # Calculate strain from displacements
