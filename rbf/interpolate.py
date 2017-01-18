@@ -208,11 +208,11 @@ class RBFInterpolant(object):
     # find the radial basis function coefficients
     coeff = np.linalg.solve(A,d)
 
-    self.y = y
-    self.coeff = coeff
-    self.basis = basis
-    self.order = order 
-    self.eps = eps
+    self._y = y
+    self._coeff = coeff
+    self._basis = basis
+    self._order = order 
+    self._eps = eps
     self.extrapolate = extrapolate
 
   def __call__(self,x,diff=None,max_chunk=100000):
@@ -246,16 +246,16 @@ class RBFInterpolant(object):
     while n < q:
       # xitp indices for this chunk
       idx = range(n,min(n+max_chunk,q))
-      A = _interpolation_matrix(x[idx],self.y,
-                                diff,self.eps,
-                                self.basis,self.order)
-      out[idx] = A.dot(self.coeff) 
+      A = _interpolation_matrix(x[idx],self._y,
+                                diff,self._eps,
+                                self._basis,self._order)
+      out[idx] = A.dot(self._coeff) 
       n += max_chunk
 
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
     if not self.extrapolate:
-      out[~_in_hull(x,self.y)] = np.nan
+      out[~_in_hull(x,self._y)] = np.nan
 
     return out
 

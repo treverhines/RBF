@@ -1266,20 +1266,20 @@ class PriorGaussianProcess(GaussianProcess):
     GaussianProcess.__init__(self,mean,covariance,
                              order=order,dim=dim)
 
-    # A PriorGaussian process has these additional attributes
-    self.basis = basis
-    self.coeff = coeff
+    # A PriorGaussian process has these additional private attributes
+    self._basis = basis
+    self._coeff = coeff
     self._repr_string = None
     
   def __repr__(self):
     # make the repr string once and then reuse it.
     if self._repr_string is None:
       # make string for __repr__
-      a = _sigfigs(self.coeff[0],3)
-      b = _sigfigs(self.coeff[1],3)
-      c_inv = _sigfigs(1.0/self.coeff[2],3)
+      a = _sigfigs(self._coeff[0],3)
+      b = _sigfigs(self._coeff[1],3)
+      c_inv = _sigfigs(1.0/self._coeff[2],3)
       eps = rbf.basis.get_eps()
-      cov_expr = b*self.basis.expr.subs(eps,c_inv)
+      cov_expr = b*self._basis.expr.subs(eps,c_inv)
       try:
         # try to simplify cov_expr to a float. If its possible then try 
         # to convert NaNs to zeros
