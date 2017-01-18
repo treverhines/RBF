@@ -19,6 +19,7 @@ from rbf.domain import topography
 from rbf.fdbuild import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement)
+import time
 np.random.seed(3)
 
 def delta(i,j):
@@ -56,10 +57,11 @@ def point_force(x,lamb=1.0,mu=1.0):
 ####################### USER PARAMETERS #############################
 #####################################################################
 def surface_force(x):
-  sigma = 0.05
+  sigma = 0.2
   c = 1.0/np.sqrt((2*np.pi*sigma**2)**2)
-  r = np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2 )
+  r = np.sqrt(x[:,0]**2 + x[:,1]**2)
   out = c*np.exp(-0.5*(r/sigma)**2)
+  #out = np.ones(x.shape[0])
   return -out
 
 def density_func(x):
@@ -69,8 +71,10 @@ def density_func(x):
   node densities. This function is normalized such that all values are 
   between 0.0 and 1.0.
   '''
-  r= np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
-  out = 1.0/(1 + (r/0.3)**2)
+  #r= np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
+  #out = 0.5/(1 + (r/0.1)**2)
+  #out = 0.5/(1 + (r/0.3)**2)
+  out = np.ones(x.shape[0])
   return out
 
 # generates the domain according to topo_func 
@@ -80,13 +84,14 @@ vert = np.array([[0.0,0.0,-1.0],[0.0,0.0,0.0],[0.0,1.0,-1.0],
 # center on the origin
 vert[:,0] = 2*(vert[:,0] - 0.5)
 vert[:,1] = 2*(vert[:,1] - 0.5)
+vert[:,2] = 2*vert[:,2]
 smp = np.array([[0,2,6],[0,4,6],[0,1,4],[1,5,4],
                 [0,1,3],[0,2,3],[1,7,5],[1,3,7],
                 [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
 # number of nodes 
-N = 10000
+N = 3000
 # size of RBF-FD stencils
-n = 30
+n = 50
 # Lame parameters
 lamb = 1.0
 mu = 1.0
@@ -104,7 +109,7 @@ def min_distance(x):
   return np.min(dist[:,1])
   
 # generate nodes. Note that this may take a while
-nodes,smpid = menodes(N,vert,smp,itr=100,rho=density_func)
+nodes,smpid = menodes(N,vert,smp,rho=density_func)
 # find which nodes at attached to each simplex
 int_idx = np.nonzero(smpid == -1)[0].tolist()
 fix_idx = np.nonzero((smpid == 0) | (smpid == 1))[0].tolist()
@@ -114,12 +119,12 @@ simplex_normals = simplex_outward_normals(vert,smp)
 normals = simplex_normals[smpid[free_idx]]
 # add ghost nodes next to free surface nodes
 dx = min_distance(nodes)
-nodes = np.vstack((nodes,nodes[free_idx] + dx*normals))
+nodes = np.vstack((nodes,nodes[free_idx] + 0.5*dx*normals))
 # uncomment to view the nodes
 fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
 mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+0.01,smp,opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
 mlab.points3d(nodes[:,0],nodes[:,1],nodes[:,2],scale_factor=0.025)
-mlab.points3d(nodes[free_idx,0],nodes[free_idx,1],nodes[free_idx,2],scale_factor=0.05,color=(1.0,0.0,0.0))
+mlab.points3d(nodes[free_idx,0],nodes[free_idx,1],nodes[free_idx,2],surface_force(nodes[free_idx]),scale_factor=0.0025,color=(1.0,0.0,0.0))
 mlab.points3d(nodes[fix_idx,0],nodes[fix_idx,1],nodes[fix_idx,2],scale_factor=0.05,color=(0.0,0.0,1.0))
 mlab.show()
 # Build "left hand side" matrix
@@ -143,16 +148,10 @@ surf_force = np.hstack((surf_force_x,surf_force_y,surf_force_z))
 disp = np.hstack((disp_x,disp_y,disp_z))
 d = np.hstack((body_force,surf_force,disp))
 # Combine and solve
+G = G.tocsc()
 u = spsolve(G,d)
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
-# compute residual with true solution
-ut = point_force(nodes)
-ut_x,ut_y,ut_z = ut.T
-u_x -= ut_x
-u_y -= ut_y
-u_z -= ut_z
-
 # Calculate strain from displacements
 D_x = weight_matrix(nodes,nodes,(1,0,0),n=n)
 D_y = weight_matrix(nodes,nodes,(0,1,0),n=n)
@@ -220,7 +219,7 @@ colors = cmap(np.linspace(0.0,1.0,256))*255
 p.module_manager.scalar_lut_manager.lut.table = colors
 # add colorbar
 cbar = mlab.scalarbar(p,title='second strain invariant')
-#cbar.lut.scale = 'log10'
+cbar.lut.scale = 'log10'
 cbar.number_of_labels = 5
 cbar.title_text_property.bold = False
 cbar.title_text_property.italic = False

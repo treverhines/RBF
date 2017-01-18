@@ -211,13 +211,13 @@ class RBF(object):
     
     Parameters                                       
     ----------                                         
-    x : (N,D) array 
+    x : (N,D) float array 
       evaluation points
                                                                        
-    c : (M,D) array 
+    c : (M,D) float array 
       RBF centers 
         
-    eps : (M,) array, optional
+    eps : (M,) float array, optional
       shape parameters for each RBF. Defaults to 1.0
                                                                            
     diff : (D,) int array, optional
@@ -229,7 +229,7 @@ class RBF(object):
 
     Returns
     -------
-    out : (N,M) array
+    out : (N,M) float array
       Returns the RBFs with centers *c* evaluated at *x*
 
     Notes
