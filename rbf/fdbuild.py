@@ -56,7 +56,7 @@ def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   return [[D_xx,D_xy],[D_yx,D_yy]]
 
 
-def elastic2d_surface_force(x,p,normals,lamb=1.0,mu=1.0,**kwargs):
+def elastic2d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
   ''' 
   Returns a collection of weight matrices that estimate surface
   traction forces at *x* resulting from displacements at *p*.
@@ -66,11 +66,12 @@ def elastic2d_surface_force(x,p,normals,lamb=1.0,mu=1.0,**kwargs):
   x : (N,2) array
     target points which reside on a surface.
   
+  nrm : (N,2) array
+    surface normal vectors at each point in *x*.
+
   p : (M,2) array
     observation points.  
   
-  normals : (N,2) array
-    surface normal vectors at each point in *x*.
 
   lamb : float
     first Lame parameter
@@ -90,16 +91,16 @@ def elastic2d_surface_force(x,p,normals,lamb=1.0,mu=1.0,**kwargs):
 
   '''
   # x component of traction force resulting from x displacement 
-  coeffs_xx = [normals[:,0]*(lamb+2*mu), normals[:,1]*mu]
+  coeffs_xx = [nrm[:,0]*(lamb+2*mu), nrm[:,1]*mu]
   diffs_xx =  [                   (1,0),           (0,1)]
   # x component of traction force resulting from y displacement
-  coeffs_xy = [normals[:,0]*lamb, normals[:,1]*mu]
+  coeffs_xy = [nrm[:,0]*lamb, nrm[:,1]*mu]
   diffs_xy =  [            (0,1),           (1,0)]
   # y component of traction force resulting from x displacement
-  coeffs_yx = [normals[:,0]*mu, normals[:,1]*lamb]
+  coeffs_yx = [nrm[:,0]*mu, nrm[:,1]*lamb]
   diffs_yx =  [          (0,1),             (1,0)]
   # y component of force resulting from displacement in the y direction
-  coeffs_yy = [normals[:,0]*mu, normals[:,1]*(lamb+2*mu)]
+  coeffs_yy = [nrm[:,0]*mu, nrm[:,1]*(lamb+2*mu)]
   diffs_yy =  [          (1,0),                    (0,1)]
   # make the differentiation matrices that enforce the free surface boundary 
   # conditions.
@@ -210,7 +211,7 @@ def elastic3d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
           [D_zx,D_zy,D_zz]]
 
 
-def elastic3d_surface_force(x,p,normals,lamb=1.0,mu=1.0,**kwargs):
+def elastic3d_surface_force(x,p,nrm,lamb=1.0,mu=1.0,**kwargs):
   ''' 
   Returns a collection of weight matrices that estimate surface
   traction forces at *x* resulting from displacements at *p*.
@@ -223,7 +224,7 @@ def elastic3d_surface_force(x,p,normals,lamb=1.0,mu=1.0,**kwargs):
   p : (M,3) array
     observation points.  
   
-  normals : (N,3) array
+  nrm : (N,3) array
     surface normal vectors at each point in *x*.
 
   lamb : float
@@ -243,23 +244,23 @@ def elastic3d_surface_force(x,p,normals,lamb=1.0,mu=1.0,**kwargs):
     at *p*.
 
   '''
-  coeffs_xx = [normals[:,0]*(lamb+2*mu), normals[:,1]*mu, normals[:,2]*mu]
+  coeffs_xx = [nrm[:,0]*(lamb+2*mu), nrm[:,1]*mu, nrm[:,2]*mu]
   diffs_xx =  [                 (1,0,0),         (0,1,0),         (0,0,1)]
-  coeffs_xy = [normals[:,0]*lamb, normals[:,1]*mu]
+  coeffs_xy = [nrm[:,0]*lamb, nrm[:,1]*mu]
   diffs_xy =  [          (0,1,0),         (1,0,0)]
-  coeffs_xz = [normals[:,0]*lamb, normals[:,2]*mu]
+  coeffs_xz = [nrm[:,0]*lamb, nrm[:,2]*mu]
   diffs_xz =  [          (0,0,1),         (1,0,0)]
-  coeffs_yx = [normals[:,0]*mu, normals[:,1]*lamb]
+  coeffs_yx = [nrm[:,0]*mu, nrm[:,1]*lamb]
   diffs_yx =  [        (0,1,0),           (1,0,0)]
-  coeffs_yy = [normals[:,0]*mu, normals[:,1]*(lamb+2*mu), normals[:,2]*mu]
+  coeffs_yy = [nrm[:,0]*mu, nrm[:,1]*(lamb+2*mu), nrm[:,2]*mu]
   diffs_yy =  [        (1,0,0),                  (0,1,0),         (0,0,1)]
-  coeffs_yz = [normals[:,1]*lamb, normals[:,2]*mu]
+  coeffs_yz = [nrm[:,1]*lamb, nrm[:,2]*mu]
   diffs_yz =  [          (0,0,1),         (0,1,0)]
-  coeffs_zx = [normals[:,0]*mu, normals[:,2]*lamb]
+  coeffs_zx = [nrm[:,0]*mu, nrm[:,2]*lamb]
   diffs_zx =  [        (0,0,1),           (1,0,0)]
-  coeffs_zy = [normals[:,1]*mu, normals[:,2]*lamb]
+  coeffs_zy = [nrm[:,1]*mu, nrm[:,2]*lamb]
   diffs_zy =  [        (0,0,1),           (0,1,0)]
-  coeffs_zz = [normals[:,0]*mu, normals[:,1]*mu, normals[:,2]*(lamb+2*mu)]
+  coeffs_zz = [nrm[:,0]*mu, nrm[:,1]*mu, nrm[:,2]*(lamb+2*mu)]
   diffs_zz =  [        (1,0,0),         (0,1,0),                  (0,0,1)]
   D_xx = weight_matrix(x,p,diffs_xx,coeffs=coeffs_xx,**kwargs)
   D_xy = weight_matrix(x,p,diffs_xy,coeffs=coeffs_xy,**kwargs)
