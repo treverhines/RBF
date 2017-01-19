@@ -548,10 +548,10 @@ cdef vector2d _intersection_point_2d(segment2d seg1,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
-                                 double[:,:] end_pnts,
-                                 double[:,:] vertices,
-                                 long[:,:] simplices):         
+cdef np.ndarray intersection_normal_2d(double[:,:] start_pnts,
+                                       double[:,:] end_pnts,
+                                       double[:,:] vertices,
+                                       long[:,:] simplices):         
   ''' 
   Returns an array of normal vectors to the simplices intersected by
   the line segments 
@@ -573,7 +573,7 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
     seg.a.y = start_pnts[i,1]
     seg.b.x = end_pnts[i,0]
     seg.b.y = end_pnts[i,1]
-    vec = _cross_normals_2d(seg,vertices,simplices)
+    vec = _intersection_normal_2d(seg,vertices,simplices)
     out[i,0] = vec.x
     out[i,1] = vec.y
     
@@ -583,9 +583,9 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector2d _cross_normals_2d(segment2d seg1,
-                                double[:,:] vertices,
-                                long[:,:] simplices) except *:      
+cdef vector2d _intersection_normal_2d(segment2d seg1,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices) except *:      
   cdef:
     double proj,mag
     int idx
@@ -952,10 +952,10 @@ cdef vector3d _intersection_point_3d(segment3d seg,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
-                                 double[:,:] end_pnts,
-                                 double[:,:] vertices,
-                                 long[:,:] simplices):
+cdef np.ndarray intersection_normal_3d(double[:,:] start_pnts,
+                                       double[:,:] end_pnts,
+                                       double[:,:] vertices,
+                                       long[:,:] simplices):
   ''' 
   Returns the normal vectors to the simplices intersected by 
   start_pnts and end_pnts
@@ -980,7 +980,7 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
     seg.b.x = end_pnts[i,0]
     seg.b.y = end_pnts[i,1]
     seg.b.z = end_pnts[i,2]
-    vec = _cross_normals_3d(seg,vertices,simplices)
+    vec = _intersection_normal_3d(seg,vertices,simplices)
     out[i,0] = vec.x
     out[i,1] = vec.y
     out[i,2] = vec.z
@@ -991,9 +991,9 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector3d _cross_normals_3d(segment3d seg,
-                                double[:,:] vertices,
-                                long[:,:] simplices) except *:         
+cdef vector3d _intersection_normal_3d(segment3d seg,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices) except *:
   cdef:
     double proj,mag
     int idx
@@ -1196,10 +1196,10 @@ def intersection_normal(start_points,end_points,vertices,simplices):
     out[crossed_vert < start_points] = -1.0
 
   elif dim == 2:
-    out = cross_normals_2d(start_points,end_points,vertices,simplices)
+    out = intersection_normal_2d(start_points,end_points,vertices,simplices)
 
   elif dim == 3:
-    out = cross_normals_3d(start_points,end_points,vertices,simplices)
+    out = intersection_normal_3d(start_points,end_points,vertices,simplices)
 
   else:
     raise ValueError(
@@ -1465,9 +1465,15 @@ def simplex_normals(vert,smp):
   if (dim != 2) & (dim != 3):
     raise ValueError('simplicial complex must be 2 or 3 dimensional')
 
+  # I *could* find the normal vectors for each simplex by converting 
+  # the vertices and simplices to segment and triangle C structures 
+  # and then use the *segment_normal_2d* and *triangle_normal_3d* C 
+  # functions. However, I will compute the normals directly from the 
+  # numpy arrays. This is all vectorized so it should not be any 
+  # slower than using the C functions.
+
   # Create a N by D-1 by D matrix    
   M = vert[smp[:,1:]] - vert[smp[:,[0]]]
-
   Msubs = [np.delete(M,i,-1) for i in range(dim)]
   out = np.linalg.det(Msubs)
   out[1::2] *= -1
