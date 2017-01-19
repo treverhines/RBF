@@ -17,11 +17,11 @@ from rbf.fdbuild import (elastic2d_body_force,
                          elastic2d_displacement)
 
 ####################### USER PARAMETERS #############################
-scale = 20.0
+scale = 10.0
 def node_density(x):
   c = np.array([0.0,1.0])
   r = (x[:,0] - c[0])**2 + (x[:,1] - c[1])**2
-  out = 0.75/(1.0 + (r/1.0)**2)
+  out = 0.75/(1.0 + (r/2.0)**2)
   out += 0.25/(1.0 + (r/(2*scale))**2)
   return out
 
@@ -131,7 +131,7 @@ A = vstack((A_body_x,A_body_y,
 b = np.hstack((b_body_x,b_body_y,
                b_surf_x,b_surf_y,
                b_roller_n,b_roller_p))
-u = spsolve(A,b)
+u = spsolve(A,b,permc_spec='MMD_ATA')
 u = np.reshape(u,(2,-1))
 u_x,u_y = u
 # Calculate strain and stress from displacements
