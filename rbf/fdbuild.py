@@ -13,16 +13,16 @@ def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   Parameters
   ----------
   x : (N,2) array
-    target points.
+    Target points.
   
   p : (M,2) array
-    observation points.  
+    Observation points.  
   
-  lamb : float
-    first Lame parameter
+  lamb : float, optional
+    First Lame parameter
   
-  mu : float
-    second Lame parameter
+  mu : float, optional
+    Specond Lame parameter
     
   **kwargs :
     additional arguments passed to *weight_matrix*

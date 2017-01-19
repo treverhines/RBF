@@ -66,7 +66,7 @@ def density_func(x):
 # generates the domain according to topo_func 
 vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 # number of nodes 
-N = 50000
+N = 5000
 # size of RBF-FD stencils
 n = 30
 # Lame parameters
