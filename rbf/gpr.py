@@ -622,9 +622,9 @@ class GaussianProcess(object):
     the data contains trends that are well described by a polynomial.
     
   dim : int, optional  
-    Specifies the spatial dimensions of the Gaussian process. An 
-    error will be raised if the arguments to the *mean* or 
-    *covariance* methods conflict with *dim*.
+    Specifies the spatial dimensions of the Gaussian process. An error 
+    will be raised if the arguments to the *mean* or *covariance* 
+    methods conflict with *dim*.
     
   Notes
   -----

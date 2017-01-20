@@ -15,9 +15,6 @@ from scipy.spatial import cKDTree
 from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
-import logging
-import time
-logging.basicConfig(level=logging.DEBUG)
 
 #####################################################################
 ####################### USER PARAMETERS #############################

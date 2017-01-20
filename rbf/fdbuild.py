@@ -8,7 +8,7 @@ from scipy.sparse import csr_matrix
 def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   ''' 
   Returns a collection of weight matrices used to calculate body 
-  force.
+  force in a two-dimensional homogeneous elastc medium.
 
   Parameters
   ----------
@@ -152,7 +152,7 @@ def elastic2d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
 def elastic3d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   ''' 
   Returns a collection of weight matrices used to calculate body 
-  force.
+  force in a three-dimensional homogeneous elastic medium.
 
   Parameters
   ----------
