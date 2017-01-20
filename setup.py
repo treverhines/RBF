@@ -6,10 +6,12 @@ if __name__ == '__main__':
   ext = []
   ext += [Extension(name='rbf.halton',sources=['rbf/halton.pyx'])]
   ext += [Extension(name='rbf.misc.bspline',sources=['rbf/misc/bspline.pyx'])]
-  ext += [Extension(name='rbf.geometry',sources=['rbf/geometry.pyx'])]
+  ext += [Extension(name='rbf.geometry',sources=['rbf/geometry.pyx'],
+                    extra_compile_args=['-fopenmp'],
+                    extra_link_args=['-fopenmp'])]
   ext += [Extension(name='rbf.poly',sources=['rbf/poly.pyx'])]
   setup(name='RBF',
-        version='1.0',
+        version='1.1',
         description='Package containing the tools necessary for radial basis function (RBF) applications',
         author='Trever Hines',
         author_email='treverhines@gmail.com',

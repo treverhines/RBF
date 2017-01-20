@@ -259,7 +259,7 @@ def weights(x,s,diffs,coeffs=None,
 def weight_matrix(x,p,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
                   eps=None,n=None,vert=None,smp=None,
-                  check_all_edges=False,use_pinv=False):
+                  use_pinv=False):
   ''' 
   Returns a weight matrix which maps a functions values at *p* to an 
   approximation of that functions derivative at *x*.  This is a 
@@ -312,14 +312,6 @@ def weight_matrix(x,p,diffs,coeffs=None,
    
   smp : (Q,D) int array, optional
     Connectivity of the vertices to form the boundary
-
-  check_all_edges : bool, optional
-    Used to determine how strictly the boundaries are enforced. If 
-    False then a stencil centered on *x[i]* will not contain any 
-    points in *p* which form an edge with *x[i]* that intersects the 
-    boundary.  If True then, additionally, no stencils will contain 
-    two points from *p* which form an edge that intersects the 
-    boundary. This option will soon be removed and always be False.
     
   use_pinv : bool, optional
     Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 
@@ -366,15 +358,13 @@ def weight_matrix(x,p,diffs,coeffs=None,
     n = _default_stencil_size(diffs)
     while True:
       try:    
-        sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp,
-                                         check_all_edges=check_all_edges)
+        sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp)
         break 
 
       except rbf.stencil.StencilError as err:
         n -= 1
   else:
-    sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp,
-                                     check_all_edges=check_all_edges)
+    sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp)
   
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)

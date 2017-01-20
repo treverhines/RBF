@@ -154,27 +154,56 @@ class RBF(object):
          [ 0.        ],
          [ 0.84147098]])
 
-  >>> sinc.set_tol(1e-10) # set *tol* 
+  >>> sinc.tol = 1e-10 # set *tol* 
   >>> sinc(x,c) # this now correctly evaluates to 1.0 at the center
   array([[ 0.84147098],
          [ 1.        ],
          [ 0.84147098]])
   
   '''
-  def __init__(self,expr,package='cython',tol=None):
-    if not expr.has(_R):
+  @property
+  def expr(self):
+    return self._expr
+  
+  @expr.setter
+  def expr(self,val):
+    if not val.has(_R):
       raise ValueError(
         '*expr* must be a sympy expression containing the symbolic '
-        'variable returned by rbf.basis.get_r()')
+        'variable returned by *rbf.basis.get_r()*')
     
-    if not expr.has(_EPS):
-      # if EPS is not in the expression then substitute EPS*R for R
-      expr = expr.subs(_R,_EPS*_R)
+    if not val.has(_EPS):
+      # if eps is not in the expression then substitute eps*r for r
+      val = val.subs(_R,_EPS*_R)
       
+    self._expr = val
+    self.cache = {}
+
+  @property
+  def package(self):
+    return self._package
+  
+  @package.setter
+  def package(self,val):  
+    if val in ['cython','numpy']:
+      self._package = val
+      self.cache = {}
+    else:
+      raise ValueError('package must either be "cython" or "numpy" ')  
+    
+  @property
+  def tol(self):
+    return self._tol
+  
+  @tol.setter    
+  def tol(self,val):
+    self._tol = val
+    self.cache = {}
+
+  def __init__(self,expr,package='cython',tol=None):
     self.expr = expr
-    self.set_package(package)
-    self.set_tol(tol)
-    self.clear_cache()
+    self.tol = tol
+    self.package = package
 
   def __call__(self,x,c,eps=None,diff=None):
     ''' 
@@ -182,13 +211,13 @@ class RBF(object):
     
     Parameters                                       
     ----------                                         
-    x : (N,D) array 
+    x : (N,D) float array 
       evaluation points
                                                                        
-    c : (M,D) array 
+    c : (M,D) float array 
       RBF centers 
         
-    eps : (M,) array, optional
+    eps : (M,) float array, optional
       shape parameters for each RBF. Defaults to 1.0
                                                                            
     diff : (D,) int array, optional
@@ -200,7 +229,7 @@ class RBF(object):
 
     Returns
     -------
-    out : (N,M) array
+    out : (N,M) float array
       Returns the RBFs with centers *c* evaluated at *x*
 
     Notes
@@ -277,18 +306,6 @@ class RBF(object):
     out = '<RBF : %s>' % str(self.expr)
     return out
      
-  def set_tol(self,tol):
-    self.tol = tol
-    self.clear_cache()
-    
-  def set_package(self,package):
-    if package in ['cython','numpy']:
-      self.package = package
-    else:
-      raise ValueError('package must either be "cython" or "numpy" ')  
-  
-    self.clear_cache()
-    
   def add_to_cache(self,diff):
     '''     
     Symbolically evaluates the specified derivative and then compiles 
@@ -339,13 +356,6 @@ class RBF(object):
       func = ufuncify(x_sym+c_sym+(_EPS,),expr)
       self.cache[diff] = func
     
-  def clear_cache(self):
-    ''' 
-    Deletes entries stored in the cache. This is automatically called 
-    within the methods *set_tol* and *set_package*.
-    '''
-    self.cache = {}
-        
 
 # Instantiate some common RBFs
 phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython')

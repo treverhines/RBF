@@ -84,14 +84,17 @@ as this module.  For example geos (http://trac.osgeo.org/geos/) and
 gts (http://gts.sourceforge.net/).  However, the python bindings for 
 these packages are too slow for RBF purposes.
 '''
+# python imports
 from __future__ import division
 import numpy as np
+from itertools import combinations
+from scipy.special import factorial
+# cython imports
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
 from cython.parallel import prange
+from libc.stdlib cimport malloc,free
 from libc.stdlib cimport rand
-from itertools import combinations
-from scipy.special import factorial
 
 
 # NOTE: fabs is not the same as abs in C!!! 
@@ -140,6 +143,30 @@ cdef struct triangle3d:
   vector3d a
   vector3d b
   vector3d c
+
+cdef segment2d* allocate_segment2d_array(long n):
+  ''' 
+  This is used in *contains_2d* and *intersection_count_2d*
+  '''
+  cdef:
+    segment2d* out = <segment2d*>malloc(n*sizeof(segment2d))
+
+  if not out:
+    raise MemoryError()
+
+  return out  
+
+cdef segment3d* allocate_segment3d_array(long n):
+  ''' 
+  This is used in *contains_3d* and *intersection_count_3d*
+  '''
+  cdef:
+    segment3d* out = <segment3d*>malloc(n*sizeof(segment3d))
+    
+  if not out:
+    raise MemoryError()
+
+  return out  
 
 ## point in simplex functions
 #####################################################################
@@ -337,24 +364,25 @@ cdef np.ndarray intersection_count_2d(double[:,:] start_pnts,
                                       long[:,:] simplices):
   ''' 
   Returns an array containing the number of simplices intersected 
-  between start_pnts and end_pnts
+  between start_pnts and end_pnts. This is parallelizable.
   '''
   cdef:
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment2d seg
+    segment2d* segs = allocate_segment2d_array(N)
     
-  # This can be parallelized with prange
-  #for i in prange(N):
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    out[i] = _intersection_count_2d(seg,vertices,simplices)
+  try:
+    for i in prange(N,nogil=True):
+      segs[i].a.x = start_pnts[i,0]
+      segs[i].a.y = start_pnts[i,1]
+      segs[i].b.x = end_pnts[i,0]
+      segs[i].b.y = end_pnts[i,1]
+      out[i] = _intersection_count_2d(segs[i],vertices,simplices)
 
-
+  finally:
+    free(segs)
+    
   return np.asarray(out,dtype=int)
 
 
@@ -387,18 +415,19 @@ cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
                                       long[:,:] simplices):
   ''' 
   Returns an array identifying which simplex is intersected by
-  start_pnts and end_pnts
+  start_pnts and end_pnts. 
 
   Notes
   -----
-  if there is no intersection then a ValueError is returned.
+  if there is no intersection then a ValueError is returned. Since an 
+  error could potentially be returned, this is not parallelizable.
 
   '''
   cdef:
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment2d seg
+    segment2d seg 
     
   for i in range(N):
     seg.a.x = start_pnts[i,0]
@@ -519,10 +548,10 @@ cdef vector2d _intersection_point_2d(segment2d seg1,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
-                                 double[:,:] end_pnts,
-                                 double[:,:] vertices,
-                                 long[:,:] simplices):         
+cdef np.ndarray intersection_normal_2d(double[:,:] start_pnts,
+                                       double[:,:] end_pnts,
+                                       double[:,:] vertices,
+                                       long[:,:] simplices):         
   ''' 
   Returns an array of normal vectors to the simplices intersected by
   the line segments 
@@ -544,7 +573,7 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
     seg.a.y = start_pnts[i,1]
     seg.b.x = end_pnts[i,0]
     seg.b.y = end_pnts[i,1]
-    vec = _cross_normals_2d(seg,vertices,simplices)
+    vec = _intersection_normal_2d(seg,vertices,simplices)
     out[i,0] = vec.x
     out[i,1] = vec.y
     
@@ -554,9 +583,9 @@ cdef np.ndarray cross_normals_2d(double[:,:] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector2d _cross_normals_2d(segment2d seg1,
-                                double[:,:] vertices,
-                                long[:,:] simplices) except *:      
+cdef vector2d _intersection_normal_2d(segment2d seg1,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices) except *:      
   cdef:
     double proj,mag
     int idx
@@ -600,18 +629,22 @@ cdef np.ndarray contains_2d(double[:,:] pnt,
     int count,i
     int N = pnt.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c') 
-    segment2d seg
+    segment2d* segs = allocate_segment2d_array(N)
     vector2d outside_pnt
 
-  outside_pnt = find_outside_2d(vertices)
-  for i in range(N):
-    seg.a.x = outside_pnt.x
-    seg.a.y = outside_pnt.y
-    seg.b.x = pnt[i,0]
-    seg.b.y = pnt[i,1]
-    count = _intersection_count_2d(seg,vertices,simplices)
-    out[i] = count%2
+  try:
+    outside_pnt = find_outside_2d(vertices)
+    for i in prange(N,nogil=True):
+      segs[i].a.x = outside_pnt.x
+      segs[i].a.y = outside_pnt.y
+      segs[i].b.x = pnt[i,0]
+      segs[i].b.y = pnt[i,1]
+      count = _intersection_count_2d(segs[i],vertices,simplices)
+      out[i] = count%2
 
+  finally:
+    free(segs)
+    
   return np.asarray(out,dtype=bool)
 
 
@@ -714,17 +747,21 @@ cdef np.ndarray intersection_count_3d(double[:,:] start_pnts,
     int i
     int N = start_pnts.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c')
-    segment3d seg
+    segment3d* segs = allocate_segment3d_array(N)
 
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.a.z = start_pnts[i,2]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    seg.b.z = end_pnts[i,2]
-    out[i] = _intersection_count_3d(seg,vertices,simplices)
+  try:
+    for i in prange(N,nogil=True):
+      segs[i].a.x = start_pnts[i,0]
+      segs[i].a.y = start_pnts[i,1]
+      segs[i].a.z = start_pnts[i,2]
+      segs[i].b.x = end_pnts[i,0]
+      segs[i].b.y = end_pnts[i,1]
+      segs[i].b.z = end_pnts[i,2]
+      out[i] = _intersection_count_3d(segs[i],vertices,simplices)
 
+  finally:
+    free(segs)
+    
   return np.asarray(out)  
 
 
@@ -915,10 +952,10 @@ cdef vector3d _intersection_point_3d(segment3d seg,
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
-                                 double[:,:] end_pnts,
-                                 double[:,:] vertices,
-                                 long[:,:] simplices):
+cdef np.ndarray intersection_normal_3d(double[:,:] start_pnts,
+                                       double[:,:] end_pnts,
+                                       double[:,:] vertices,
+                                       long[:,:] simplices):
   ''' 
   Returns the normal vectors to the simplices intersected by 
   start_pnts and end_pnts
@@ -943,7 +980,7 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
     seg.b.x = end_pnts[i,0]
     seg.b.y = end_pnts[i,1]
     seg.b.z = end_pnts[i,2]
-    vec = _cross_normals_3d(seg,vertices,simplices)
+    vec = _intersection_normal_3d(seg,vertices,simplices)
     out[i,0] = vec.x
     out[i,1] = vec.y
     out[i,2] = vec.z
@@ -954,9 +991,9 @@ cdef np.ndarray cross_normals_3d(double[:,:] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef vector3d _cross_normals_3d(segment3d seg,
-                                double[:,:] vertices,
-                                long[:,:] simplices) except *:         
+cdef vector3d _intersection_normal_3d(segment3d seg,
+                                      double[:,:] vertices,
+                                      long[:,:] simplices) except *:
   cdef:
     double proj,mag
     int idx
@@ -1008,20 +1045,24 @@ cdef np.ndarray contains_3d(double[:,:] pnt,
     int count,i
     int N = pnt.shape[0]
     long[:] out = np.empty((N,),dtype=int,order='c') 
-    segment3d seg
+    segment3d* segs = allocate_segment3d_array(N)
     vector3d outside_pnt
 
-  outside_pnt = find_outside_3d(vertices)
-  for i in range(N):
-    seg.a.x = outside_pnt.x
-    seg.a.y = outside_pnt.y
-    seg.a.z = outside_pnt.z
-    seg.b.x = pnt[i,0]
-    seg.b.y = pnt[i,1]
-    seg.b.z = pnt[i,2]
-    count = _intersection_count_3d(seg,vertices,simplices)
-    out[i] = count%2
-
+  try:
+    outside_pnt = find_outside_3d(vertices)
+    for i in prange(N,nogil=True):
+      segs[i].a.x = outside_pnt.x
+      segs[i].a.y = outside_pnt.y
+      segs[i].a.z = outside_pnt.z
+      segs[i].b.x = pnt[i,0]
+      segs[i].b.y = pnt[i,1]
+      segs[i].b.z = pnt[i,2]
+      count = _intersection_count_3d(segs[i],vertices,simplices)
+      out[i] = count%2
+  
+  finally:
+    free(segs)
+    
   return np.asarray(out,dtype=bool)
 
 ## end-user functions
@@ -1155,10 +1196,10 @@ def intersection_normal(start_points,end_points,vertices,simplices):
     out[crossed_vert < start_points] = -1.0
 
   elif dim == 2:
-    out = cross_normals_2d(start_points,end_points,vertices,simplices)
+    out = intersection_normal_2d(start_points,end_points,vertices,simplices)
 
   elif dim == 3:
-    out = cross_normals_3d(start_points,end_points,vertices,simplices)
+    out = intersection_normal_3d(start_points,end_points,vertices,simplices)
 
   else:
     raise ValueError(
@@ -1216,7 +1257,6 @@ def intersection_index(start_points,end_points,vertices,simplices):
 
   if not (start_points.shape[0] == end_points.shape[0]): 
     raise ValueError('start points and end points must have the same length')
-
 
   dim = start_points.shape[1]
   if dim == 1:
@@ -1277,6 +1317,11 @@ def intersection_count(start_points,end_points,vertices,simplices):
   -------
   out : (N,) int array
     intersection counts
+
+  Notes
+  -----
+  This function is parallelized. Set the number of threads used with 
+  the environment variable *OMP_NUM_THREADS*.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1352,6 +1397,9 @@ def contains(points,vertices,simplices):
   This function does not require any particular orientation for the 
   simplices
 
+  This function is parallelized. Set the number of threads used with 
+  the environment variable *OMP_NUM_THREADS*.
+
   '''
   points = np.asarray(points)
   vertices = np.asarray(vertices)
@@ -1417,9 +1465,15 @@ def simplex_normals(vert,smp):
   if (dim != 2) & (dim != 3):
     raise ValueError('simplicial complex must be 2 or 3 dimensional')
 
+  # I *could* find the normal vectors for each simplex by converting 
+  # the vertices and simplices to segment and triangle C structures 
+  # and then use the *segment_normal_2d* and *triangle_normal_3d* C 
+  # functions. However, I will compute the normals directly from the 
+  # numpy arrays. This is all vectorized so it should not be any 
+  # slower than using the C functions.
+
   # Create a N by D-1 by D matrix    
   M = vert[smp[:,1:]] - vert[smp[:,[0]]]
-
   Msubs = [np.delete(M,i,-1) for i in range(dim)]
   out = np.linalg.det(Msubs)
   out[1::2] *= -1
