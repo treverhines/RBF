@@ -48,6 +48,17 @@ def _circle_refine(vert,smp):
 def circle(r=5):
   ''' 
   returns the outwardly oriented simplices of a circle
+  
+  Parameters
+  ----------
+  r : int, optional
+    refinement order
+      
+  Returns
+  -------
+  vert : (N,2) float array
+  smp : (M,2) int array
+    
   '''
   vert = np.array([[1.0,0.0],
                    [0.0,1.0],
@@ -66,6 +77,17 @@ def circle(r=5):
 def sphere(r=5):
   ''' 
   returns the outwardly oriented simplices of a sphere
+
+  Parameters
+  ----------
+  r : int, optional
+    refinement order
+      
+  Returns
+  -------
+  vert : (N,2) float array
+  smp : (M,2) int array
+  
   '''
   f = np.sqrt(2.0)/2.0
   vert = np.array([[ 0.0,-1.0, 0.0],
@@ -114,7 +136,7 @@ def topography(zfunc,xlim,ylim,depth,n=10):
   
   n : int, optional
     Number of simplices along the x and y axis. Increasing this 
-    number results in better a resolved domain. 
+    number results in a better resolved domain. 
 
   Returns
   -------
