@@ -22,7 +22,7 @@ from rbf.fdbuild import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement)
 
-## User define parameters
+## User defined parameters
 #####################################################################
 
 def taper_function(x,center,radius,order=10):
@@ -66,7 +66,7 @@ def density_func(x):
 # generates the domain according to topo_func 
 vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 # number of nodes 
-N = 10000
+N = 2000
 # size of RBF-FD stencils
 n = 35
 # Lame parameters
@@ -130,7 +130,7 @@ def find_orthogonals(n):
 
 # generate nodes. Note that this may take a while
 nodes,smpid = menodes(N,vert,smp,itr=50,rho=density_func)
-# find which nodes at attached to each simplex
+# find which nodes are attached to each simplex
 int_idx = np.nonzero(smpid == -1)[0].tolist()
 roller_idx = np.nonzero((smpid >= 0) & (smpid <= 9))[0].tolist()
 free_idx = np.nonzero(smpid > 9)[0].tolist()
@@ -254,30 +254,27 @@ e_xy,e_xz,e_yz = e_xy[:N],e_xz[:N],e_yz[:N]
 s_xx,s_yy,s_zz = s_xx[:N],s_yy[:N],s_zz[:N]
 s_xy,s_xz,s_yz = s_xy[:N],s_xz[:N],s_yz[:N]
 cmap = cm.viridis
-# Plot the six strain components
-stress = [s_xx,s_yy,s_zz,s_xy,s_xz,s_yz]
-stress_labels = ['sigma_xx','sigma_yy','sigma_zz','sigma_xy','sigma_xz','sigma_yz']
-for s,sl in zip(stress,stress_labels):
-  fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
-  # turn second invariant into structured data
-  dat = make_scalar_field(nodes,s,bnd_vert=vert,bnd_smp=smp)
-  # plot the top surface simplices
-  mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[10:],opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
-  # plot the bottom simplices
-  mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],color=(0.0,0.0,0.0),opacity=0.5)
-  p = mlab.pipeline.iso_surface(dat,opacity=0.3,contours=7)
-  #mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],u_x,u_y,u_z,mode='arrow',color=(0.1,0.1,0.1),scale_factor=1.0)
-  # set colormap to cmap
-  colors = cmap(np.linspace(0.0,1.0,256))*255
-  p.module_manager.scalar_lut_manager.lut.table = colors
-  # add colorbar
-  cbar = mlab.scalarbar(p,title=sl)
-  #cbar.lut.scale = 'log10'
-  cbar.number_of_labels = 5
-  cbar.title_text_property.bold = False
-  cbar.title_text_property.italic = False
-  cbar.label_text_property.bold = False
-  cbar.label_text_property.italic = False
-
+# Plot this component of the stress tensor
+stress = s_zz
+stress_label = 'vertical stress'
+fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
+# turn second invariant into structured data
+dat = make_scalar_field(nodes,stress,bnd_vert=vert,bnd_smp=smp)
+# plot the top surface simplices
+mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+1e-2,smp[10:],opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
+# plot the bottom simplices
+mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],color=(0.0,0.0,0.0),opacity=0.5)
+p = mlab.pipeline.iso_surface(dat,opacity=0.5,contours=7)
+mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],u_x,u_y,u_z,mode='arrow',color=(0.2,0.2,0.2),scale_factor=1.0)
+# set colormap to cmap
+colors = cmap(np.linspace(0.0,1.0,256))*255
+p.module_manager.scalar_lut_manager.lut.table = colors
+# add colorbar
+cbar = mlab.scalarbar(p,title=stress_label)
+cbar.number_of_labels = 5
+cbar.title_text_property.bold = False
+cbar.title_text_property.italic = False
+cbar.label_text_property.bold = False
+cbar.label_text_property.italic = False
 mlab.show()
 

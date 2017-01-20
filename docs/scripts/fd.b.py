@@ -16,8 +16,7 @@ from rbf.nodes import menodes
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
 
-#####################################################################
-####################### USER PARAMETERS #############################
+## User defined parameters
 #####################################################################
 # define the vertices of the problem domain. Note that the first 
 # simplex will be fixed, and the others will be free
@@ -27,48 +26,43 @@ smp = np.array([[0,1],[1,2],[2,3],[3,0]])
 N = 1000
 # size of RBF-FD stencils
 n = 20
-#####################################################################
-#####################################################################
+# lame parameters
+lamb = 1.0
+mu = 1.0
+# z component of body force
+body_force = 1.0
+
+## Build and solve for displacements and strain
 #####################################################################
 
-def mindist(x):
+def min_distance(x):
   ''' 
-  returns the shortest distance between any two nodes in x. This is 
-  used to determine how far outside the boundary to place ghost nodes
+  Returns the shortest distance between any two nodes in *x*. This is 
+  used to determine how far outside the boundary to place ghost nodes.
   '''
   kd = cKDTree(x)
   dist,_ = kd.query(x,2)
-  return np.min(dist[:,1])
-  
-# generate nodes. Read the documentation for menodes to tune it and 
-# allow for variable density nodes
+  out = np.min(dist[:,1])
+  return out
+
+# generate nodes. Read the documentation for *menodes* to tune it and 
+# allow for variable node densities.
 nodes,smpid = menodes(N,vert,smp)
 # find the indices for interior nodes, fixed boundary nodes, and free 
 # boundary nodes. This is done by looking at the array *smpid* which 
 # tells us the simplex that each boundary node is attached to.
-interior, = np.nonzero(smpid == -1) 
-interior = list(interior)
+int_idx = np.nonzero(smpid == -1)[0].tolist()
 # fix the bottom nodes and keep other boundaries free
-fix_boundary, = np.nonzero(smpid == 0)
-fix_boundary = list(fix_boundary)
-free_boundary, = np.nonzero(smpid > 0)
-free_boundary = list(free_boundary)
+fix_idx = np.nonzero(smpid == 0)[0].tolist()
+free_idx = np.nonzero(smpid > 0)[0].tolist()
 # find the normal vector for each simplex
 simplex_normals = simplex_outward_normals(vert,smp)
 # find the normal vectors for each free boundary node
-normals = simplex_normals[smpid[free_boundary]]
+normals = simplex_normals[smpid[free_idx]]
 # add ghost nodes to greatly improve accuracy at the free surface
-dx = mindist(nodes)
-nodes = np.vstack((nodes,
-                   nodes[free_boundary] + dx*normals))
-
-# write out the 2-D equations of motion. This is the most difficult 
-# part of setting up the problem and there is no way around it.
-
-## Enforce the PDE on interior node AND the free surface nodes
-#####################################################################
-lamb = 1.0 # lame parameters
-mu = 1.0
+dx = min_distance(nodes)
+nodes = np.vstack((nodes,nodes[free_idx] + dx*normals))
+## Enforce the PDE on interior nodes AND the free surface nodes 
 # x component of force resulting from displacement in the x direction.
 coeffs_xx = [lamb+2*mu,mu]
 diffs_xx = [(2,0),(0,2)]
@@ -79,21 +73,19 @@ diffs_xy = [(1,1),(1,1)]
 coeffs_yx = [mu,lamb]
 diffs_yx = [(1,1),(1,1)]
 # y component of force resulting from displacement in the y direction.
-coeffs_yy = [lamb+2*mu, mu]
+coeffs_yy = [lamb+2*mu,mu]
 diffs_yy =  [(0,2),(2,0)]
 # make the differentiation matrices that enforce the PDE on the 
 # interior nodes.
-D_xx = weight_matrix(nodes[interior+free_boundary],nodes,diffs_xx,coeffs=coeffs_xx,n=n)
-D_xy = weight_matrix(nodes[interior+free_boundary],nodes,diffs_xy,coeffs=coeffs_xy,n=n)
-D_yx = weight_matrix(nodes[interior+free_boundary],nodes,diffs_yx,coeffs=coeffs_yx,n=n)
-D_yy = weight_matrix(nodes[interior+free_boundary],nodes,diffs_yy,coeffs=coeffs_yy,n=n)
+D_xx = weight_matrix(nodes[int_idx+free_idx],nodes,diffs_xx,coeffs=coeffs_xx,n=n)
+D_xy = weight_matrix(nodes[int_idx+free_idx],nodes,diffs_xy,coeffs=coeffs_xy,n=n)
+D_yx = weight_matrix(nodes[int_idx+free_idx],nodes,diffs_yx,coeffs=coeffs_yx,n=n)
+D_yy = weight_matrix(nodes[int_idx+free_idx],nodes,diffs_yy,coeffs=coeffs_yy,n=n)
 # stack them together
 D_x = scipy.sparse.hstack((D_xx,D_xy))
 D_y = scipy.sparse.hstack((D_yx,D_yy))
 D = scipy.sparse.vstack((D_x,D_y))
-
 ## Enforce fixed boundary conditions
-#####################################################################
 # Enforce that x and y are as specified with the fixed boundary 
 # condition. These matrices turn out to be identity matrices, but I 
 # include this computation for consistency with the rest of the code. 
@@ -107,16 +99,14 @@ coeffs_yx = [0.0]
 diffs_yx = [(0,0)]
 coeffs_yy = [1.0]
 diffs_yy = [(0,0)]
-dD_fix_xx = weight_matrix(nodes[fix_boundary],nodes,diffs_xx,coeffs=coeffs_xx,n=n)
-dD_fix_xy = weight_matrix(nodes[fix_boundary],nodes,diffs_xy,coeffs=coeffs_xy,n=n)
-dD_fix_yx = weight_matrix(nodes[fix_boundary],nodes,diffs_yx,coeffs=coeffs_yx,n=n)
-dD_fix_yy = weight_matrix(nodes[fix_boundary],nodes,diffs_yy,coeffs=coeffs_yy,n=n)
+dD_fix_xx = weight_matrix(nodes[fix_idx],nodes,diffs_xx,coeffs=coeffs_xx,n=n)
+dD_fix_xy = weight_matrix(nodes[fix_idx],nodes,diffs_xy,coeffs=coeffs_xy,n=n)
+dD_fix_yx = weight_matrix(nodes[fix_idx],nodes,diffs_yx,coeffs=coeffs_yx,n=n)
+dD_fix_yy = weight_matrix(nodes[fix_idx],nodes,diffs_yy,coeffs=coeffs_yy,n=n)
 dD_fix_x = scipy.sparse.hstack((dD_fix_xx,dD_fix_xy))
 dD_fix_y = scipy.sparse.hstack((dD_fix_yx,dD_fix_yy))
 dD_fix = scipy.sparse.vstack((dD_fix_x,dD_fix_y))
-
 ## Enforce free surface boundary conditions
-#####################################################################
 # x component of traction force resulting from x displacement 
 coeffs_xx = [normals[:,0]*(lamb+2*mu),normals[:,1]*mu]
 diffs_xx = [(1,0),(0,1)]
@@ -131,44 +121,35 @@ coeffs_yy = [normals[:,1]*(lamb+2*mu),normals[:,0]*mu]
 diffs_yy =  [(0,1),(1,0)]
 # make the differentiation matrices that enforce the free surface boundary 
 # conditions.
-dD_free_xx = weight_matrix(nodes[free_boundary],nodes,diffs_xx,coeffs=coeffs_xx,n=n)
-dD_free_xy = weight_matrix(nodes[free_boundary],nodes,diffs_xy,coeffs=coeffs_xy,n=n)
-dD_free_yx = weight_matrix(nodes[free_boundary],nodes,diffs_yx,coeffs=coeffs_yx,n=n)
-dD_free_yy = weight_matrix(nodes[free_boundary],nodes,diffs_yy,coeffs=coeffs_yy,n=n)
+dD_free_xx = weight_matrix(nodes[free_idx],nodes,diffs_xx,coeffs=coeffs_xx,n=n)
+dD_free_xy = weight_matrix(nodes[free_idx],nodes,diffs_xy,coeffs=coeffs_xy,n=n)
+dD_free_yx = weight_matrix(nodes[free_idx],nodes,diffs_yx,coeffs=coeffs_yx,n=n)
+dD_free_yy = weight_matrix(nodes[free_idx],nodes,diffs_yy,coeffs=coeffs_yy,n=n)
 # stack them together
 dD_free_x = scipy.sparse.hstack((dD_free_xx,dD_free_xy))
 dD_free_y = scipy.sparse.hstack((dD_free_yx,dD_free_yy))
 dD_free = scipy.sparse.vstack((dD_free_x,dD_free_y))
-
 ## Create the "right hand side" vector components
-#####################################################################
 # body force vector components
-f_x = np.zeros(len(interior+free_boundary))
-f_y = np.ones(len(interior+free_boundary)) # THIS IS WHERE GRAVITY IS ADDED
+f_x = np.zeros_like(int_idx+free_idx)
+f_y = body_force*np.ones_like(int_idx+free_idx) # THIS IS WHERE GRAVITY IS ADDED
 # fixed boundary conditions
-fix_x = np.zeros(len(fix_boundary))
-fix_y = np.zeros(len(fix_boundary))
+fix_x = np.zeros_like(fix_idx)
+fix_y = np.zeros_like(fix_idx)
 # free boundary conditions
-free_x = np.zeros(len(free_boundary))
-free_y = np.zeros(len(free_boundary))
-
+free_x = np.zeros_like(free_idx)
+free_y = np.zeros_like(free_idx)
 ## Combine and solve
-#####################################################################
 # "left hand side" matrix
-G = scipy.sparse.vstack((D,dD_fix,dD_free))
-G = G.tocsc() # set to csc sparse matrix for efficiency purposes
-N = G.shape[0]
+G = scipy.sparse.vstack((D,dD_fix,dD_free)).tocsr()
 # "right hand side" vector
 d = np.hstack((f_x,f_y,fix_x,fix_y,free_x,free_y))
 # solve the system of equations
 u = scipy.sparse.linalg.spsolve(G,d,permc_spec='MMD_ATA')
 # reshape the solution
 u = np.reshape(u,(2,-1))
-u_x = u[0,:]
-u_y = u[1,:]
-
+u_x,u_y = u
 ## Calculate strain from displacements
-#####################################################################
 D_x = weight_matrix(nodes,nodes,(1,0),n=n)
 D_y = weight_matrix(nodes,nodes,(0,1),n=n)
 e_xx = D_x.dot(u_x)
@@ -180,11 +161,10 @@ I2 = np.sqrt(e_xx**2 + e_yy**2 + 2*e_xy**2)
 ## Plot the results
 #####################################################################
 # toss out ghost nodes
-g = len(free_boundary)
-nodes = nodes[:-g]
-u_x = u_x[:-g]
-u_y = u_y[:-g]
-I2 = I2[:-g]
+g = len(free_idx)
+nodes = nodes[:N]
+u_x,u_y = u_x[:N],u_y[:N]
+I2 = I2[:N]
 
 fig,ax = plt.subplots(figsize=(7,3.5))
 # plot the fixed boundary
@@ -196,7 +176,7 @@ for s in smp[2:]:
 
 # plot the second strain invariant
 p = ax.tripcolor(nodes[:,0],nodes[:,1],I2,
-                 norm=LogNorm(vmin=1e-1,vmax=1e1),
+                 norm=LogNorm(vmin=0.1,vmax=3.2),
                  cmap='viridis',zorder=0)
 # plot the displacement vectors
 ax.quiver(nodes[:,0],nodes[:,1],u_x,u_y,zorder=2)
@@ -208,6 +188,4 @@ cbar = fig.colorbar(p)
 cbar.set_label('second strain invariant')
 fig.tight_layout()
 plt.savefig('../figures/fd.b.png')
-plt.show()                    
-
-
+plt.show() 
