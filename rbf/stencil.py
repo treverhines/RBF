@@ -78,7 +78,7 @@ def connectivity(stencils):
   return networkx.node_connectivity(graph)
 
 
-def _argsort_closest(c,x):
+def _closest_argsort(c,x):
   ''' 
   Returns the indices of nodes in *x* sorted in order of distance to *c*
   '''
@@ -107,7 +107,7 @@ def _stencil(c,x,n,vert,smp):
   stencil is constrained so that it does not reach across the boundary 
   defined by *vert* and *smp*.
   '''
-  sorted_idx = _argsort_closest(c,x)
+  sorted_idx = _closest_argsort(c,x)
   stencil_idx = []    
   for si in sorted_idx:
     if len(stencil_idx) == n:
@@ -211,18 +211,18 @@ def nearest(x,p,n,vert=None,smp=None):
     Source points.
 
   vert : (P,D) array, optional     
-    Vertices of the boundary 
+    Vertices of the boundary.
 
   smp : (Q,D) array, optional  
-    Connectivity of vertices to form the boundary
+    Connectivity of vertices to form the boundary.
     
   Returns
   -------
   idx : (N,D) array
-    Indices of nearest points in *p*
+    Indices of nearest points in *p*.
 
   dist : (N,D) array
-    Distance to the nearest points in *p*  
+    Distance to the nearest points in *p*.
 
   '''
   idx = stencil_network(x,p,n,vert=vert,smp=smp)
