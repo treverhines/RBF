@@ -17,7 +17,7 @@ from rbf.geometry import (intersection_count,
 logger = logging.getLogger(__name__)
 
 
-def neighbor_argsort(nodes,neighbors=10):
+def neighbor_argsort(nodes,vert=None,smp=None,neighbors=10):
   ''' 
   Returns a permutation array that sorts *nodes* so that each node and 
   its *n* nearest neighbors are close together in memory. This is done 
@@ -53,7 +53,7 @@ def neighbor_argsort(nodes,neighbors=10):
   nodes = np.asarray(nodes,dtype=float)
   neighbors = min(neighbors,nodes.shape[0])
   # find the indices of the nearest n nodes for each node
-  idx,dist = nearest(nodes,nodes,neighbors)
+  idx,dist = nearest(nodes,nodes,neighbors,vert=vert,smp=smp)
   # efficiently form adjacency matrix
   col = idx.flatten()
   row = np.repeat(np.arange(nodes.shape[0]),neighbors)
@@ -167,8 +167,8 @@ def _disperse(free_nodes,fix_nodes,rho,n,delta,vert,smp):
   return out
 
 
-def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
-             neighbors=None,delta=0.05,bound_force=False): 
+def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
+             neighbors=None,delta=0.1,bound_force=False): 
   '''   
   Returns *nodes* after beingly slightly dispersed. The disperson is 
   analogous to electrostatic repulsion, where neighboring node exert a 
@@ -187,12 +187,11 @@ def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
   nodes : (N,D) float array
     Node positions.
 
-  vert : (P,D) array
+  vert : (P,D) array, optional
     Boundary vertices.
 
-  smp : (Q,D) array
-    Describes how the vertices are connected to form the boundary. The 
-    boundary must form a closed domain.
+  smp : (Q,D) array, optional
+    Describes how the vertices are connected to form the boundary. 
     
   rho : function, optional
     Node density function. Takes a (N,D) array of coordinates in D 
@@ -229,8 +228,16 @@ def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
     
   '''
   nodes = np.asarray(nodes,dtype=float)
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
+  if vert is None:
+    vert = np.zeros((0,nodes.shape[1]),dtype=float)
+  else:  
+    vert = np.asarray(vert,dtype=float)
+  
+  if smp is None:
+    smp = np.zeros((0,nodes.shape[1]),dtype=int)
+  else:
+    smp = np.asarray(smp,dtype=int)
+    
   if bound_force:
     bound_vert,bound_smp = vert,smp
   else:
@@ -256,7 +263,7 @@ def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
   # node positions after repulsion 
   out = _disperse(nodes,fix_nodes,rho,neighbors,delta,bound_vert,bound_smp)
   # boolean array of nodes which are now outside the domain
-  crossed = ~contains(out,vert,smp)
+  crossed = intersection_count(nodes,out,vert,smp) > 0
   # point where nodes intersected the boundary
   inter = intersection_point(nodes[crossed],out[crossed],vert,smp)
   # normal vector to intersection point
@@ -265,9 +272,9 @@ def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
   res = out[crossed] - inter
   # bouce node off the boundary
   out[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
-  # check to see if the bounced nodes are now within the domain. If 
+  # check to see if the bounced nodes still intersect the boundary. If 
   # not then set the bounced nodes back to their original position
-  crossed = ~contains(out,vert,smp)
+  crossed = intersection_count(nodes,out,vert,smp) > 0
   out[crossed] = nodes[crossed]
   return out
 
@@ -416,9 +423,9 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   # use a minimum energy algorithm to spread out the nodes
   for i in range(itr):
     logger.debug('starting node repulsion iteration %s of %s' % (i+1,itr)) 
-    nodes = disperse(nodes,vert,smp,rho=rho,fix_nodes=fix_nodes,
-                     neighbors=neighbors,delta=delta,
-                     bound_force=bound_force)
+    nodes = disperse(nodes,vert=vert,smp=smp,rho=rho,
+                     fix_nodes=fix_nodes,neighbors=neighbors,
+                     delta=delta,bound_force=bound_force)
 
   logger.debug('snapping nodes to boundary') 
   nodes,smpid = snap_to_boundary(nodes,vert,smp,delta=0.5)
