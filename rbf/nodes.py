@@ -132,9 +132,9 @@ def snap_to_boundary(nodes,vert,smp,delta=1.0):
   return out_nodes,out_smpid
 
 
-def _repel(free_nodes,fix_nodes,rho,n,delta,vert,smp):
+def _disperse(free_nodes,fix_nodes,rho,n,delta,vert,smp):
   ''' 
-  Returns the new position of the free nodes after a repulsion step. 
+  Returns the new position of the free nodes after a dispersal step. 
   Nodes on opposite sides of the boundary defined by vert and smp 
   cannot repel eachother.
   '''
@@ -167,11 +167,20 @@ def _repel(free_nodes,fix_nodes,rho,n,delta,vert,smp):
   return out
 
 
-def repel(nodes,vert,smp,rho=None,fix_nodes=None,
-          neighbors=None,delta=0.05,bound_force=False):  
-  ''' 
-  Returns nodes after undergoing a repulsion force and bouncing of any 
-  intersected boundaries.
+def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
+             neighbors=None,delta=0.05,bound_force=False): 
+  '''   
+  Returns *nodes* after beingly slightly dispersed. The disperson is 
+  analogous to electrostatic repulsion, where neighboring node exert a 
+  repulsive force on eachother. The repulsive force for each node is 
+  constant, by default, but it can vary spatially by specifying *rho*. 
+  If a node intersects the boundary defined by *vert* and *smp* then 
+  it will bounce off the boundary elastically. This ensures that no 
+  nodes will leave the domain, assuming the domain is closed and all 
+  nodes are initially inside. Using the electrostatic analogy, this 
+  function returns the nodes after a single *time step*, and greater 
+  amounts of dispersion can be attained by calling this function 
+  iteratively.
   
   Parameters
   ----------
@@ -182,7 +191,8 @@ def repel(nodes,vert,smp,rho=None,fix_nodes=None,
     Boundary vertices.
 
   smp : (Q,D) array
-    Describes how the vertices are connected to form the boundary.
+    Describes how the vertices are connected to form the boundary. The 
+    boundary must form a closed domain.
     
   rho : function, optional
     Node density function. Takes a (N,D) array of coordinates in D 
@@ -203,9 +213,8 @@ def repel(nodes,vert,smp,rho=None,fix_nodes=None,
     against the boundaries.
 
   delta : float, optional
-    Scaling factor for the node step size in each iteration. The 
-    step size is equal to *delta* times the distance to the nearest 
-    neighbor.
+    Scaling factor for the node step size. The step size is equal to 
+    *delta* times the distance to the nearest neighbor.
 
   bound_force : bool, optional
     If True, then nodes cannot repel other nodes through the domain 
@@ -216,8 +225,7 @@ def repel(nodes,vert,smp,rho=None,fix_nodes=None,
   Returns
   -------
   out : (N,D) float array
-    Nodes after undergoing a repulsion force and bouncing off 
-    boundaries.
+    Nodes after being dispersed.
     
   '''
   nodes = np.asarray(nodes,dtype=float)
@@ -246,7 +254,7 @@ def repel(nodes,vert,smp,rho=None,fix_nodes=None,
   # is less than or equal to the total number of nodes
   neighbors = min(neighbors,nodes.shape[0]+fix_nodes.shape[0])
   # node positions after repulsion 
-  out = _repel(nodes,fix_nodes,rho,neighbors,delta,bound_vert,bound_smp)
+  out = _disperse(nodes,fix_nodes,rho,neighbors,delta,bound_vert,bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = ~contains(out,vert,smp)
   # point where nodes intersected the boundary
@@ -407,10 +415,10 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   nodes = nodes[:N]
   # use a minimum energy algorithm to spread out the nodes
   for i in range(itr):
-    logger.debug('iteration %s of %s for node repulsion' % (i+1,itr)) 
-    nodes = repel(nodes,vert,smp,rho=rho,fix_nodes=fix_nodes,
-                  neighbors=neighbors,delta=delta,
-                  bound_force=bound_force)
+    logger.debug('starting node repulsion iteration %s of %s' % (i+1,itr)) 
+    nodes = disperse(nodes,vert,smp,rho=rho,fix_nodes=fix_nodes,
+                     neighbors=neighbors,delta=delta,
+                     bound_force=bound_force)
 
   logger.debug('snapping nodes to boundary') 
   nodes,smpid = snap_to_boundary(nodes,vert,smp,delta=0.5)

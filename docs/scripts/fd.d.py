@@ -129,7 +129,7 @@ def find_orthogonals(n):
   return out1,out2
 
 # generate nodes. Note that this may take a while
-nodes,smpid = menodes(N,vert,smp,itr=50,rho=density_func)
+nodes,smpid = menodes(N,vert,smp,rho=density_func,itr=50)
 # find which nodes are attached to each simplex
 int_idx = np.nonzero(smpid == -1)[0].tolist()
 roller_idx = np.nonzero((smpid >= 0) & (smpid <= 9))[0].tolist()
