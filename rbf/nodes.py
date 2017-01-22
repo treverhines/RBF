@@ -5,79 +5,153 @@ distribution of nodes over an arbitrary domain
 from __future__ import division
 import numpy as np
 import rbf.halton
-import rbf.geometry as gm
-import rbf.stencil
 import logging
-import scipy.sparse
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import reverse_cuthill_mckee
+from rbf.stencil import nearest
+from rbf.geometry import (intersection_count,
+                          intersection_index,
+                          intersection_point,
+                          intersection_normal,
+                          contains)
 logger = logging.getLogger(__name__)
 
 
-def _nearest_neighbor_argsort(nodes,n=10):
+def neighbor_argsort(nodes,neighbors=10):
   ''' 
-  Returns a permutation array that sorts nodes so that neighboring 
-  nodes are close together. This is done through use of a KD Tree and 
-  the Reverse Cuthill-McKee algorithm
+  Returns a permutation array that sorts *nodes* so that each node and 
+  its *n* nearest neighbors are close together in memory. This is done 
+  through the use of a KD Tree and the Reverse Cuthill-McKee 
+  algorithm.
 
   Parameters
   ----------
   nodes : (N,D) array
-    node array
+    Node array.
 
-  n : int 
-    Number of adjacencies to identify for each node. The permutation 
-    array will place adjacent nodes close to eachother in memory.  
-    This should be about equal to the stencil size for RBF-FD 
-    method.
+  neighbors : int, optional
+    Number of neighboring nodes to place close together in memory. 
+    This should be about equal to the stencil size for RBF-FD method.
 
   Returns
   -------
-  permutation: (N,) array of sorting indices
+  permutation: (N,) array 
+    Sorting indices.
+
+  Examples
+  --------
+  >>> nodes = np.array([[0.0,1.0],
+                        [2.0,1.0],
+                        [1.0,1.0]])
+  >>> idx = neighbor_argsort(nodes,2)
+  >>> nodes[idx]
+  array([[ 2.,  1.],
+         [ 1.,  1.],
+         [ 0.,  1.]])
+
   '''
   nodes = np.asarray(nodes,dtype=float)
-  n = min(n,nodes.shape[0])
-
-  # find the indices of the nearest N nodes for each node
-  idx,dist = rbf.stencil.nearest(nodes,nodes,n)
-
+  neighbors = min(neighbors,nodes.shape[0])
+  # find the indices of the nearest n nodes for each node
+  idx,dist = nearest(nodes,nodes,neighbors)
   # efficiently form adjacency matrix
   col = idx.flatten()
-  row = np.repeat(np.arange(nodes.shape[0]),n)
-  data = np.ones(nodes.shape[0]*n,dtype=bool)
-  M = scipy.sparse.csr_matrix((data,(row,col)),dtype=bool)
-  permutation = scipy.sparse.csgraph.reverse_cuthill_mckee(M)
-
+  row = np.repeat(np.arange(nodes.shape[0]),neighbors)
+  data = np.ones(nodes.shape[0]*neighbors,dtype=bool)
+  mat = csr_matrix((data,(row,col)),dtype=bool)
+  permutation = reverse_cuthill_mckee(mat)
   return permutation
 
 
-def _repel_step(free_nodes,rho,fix_nodes,
-                n,delta,vert,smp):
+def snap_to_boundary(nodes,vert,smp,delta=1.0):
   ''' 
-  returns the new position of the free nodes after a repulsion step
-  
-  nodes on opposite sides of the boundary defined by vert and smp 
-  cannot repel eachother 
-  '''
-  
-  free_nodes = np.array(free_nodes,dtype=float,copy=True)
+  Snaps nodes to the boundary defined by *vert* and *smp*. This is 
+  done by slightly shifting each node along the basis directions and 
+  checking to see if that caused a boundary intersection. If so, then 
+  the intersecting node is reset at the point of intersection.
 
+  Parameters
+  ----------
+  nodes : (N,D) float array
+    Node positions.
+  
+  vert : (M,D) float array
+    Vertices making up the boundary.
+  
+  smp : (P,D) int array
+    Connectivity of the vertices to form the boundary. Each row 
+    contains the indices of the vertices which form one simplex of the 
+    boundary.
+    
+  delta : float, optional
+    Controls the maximum snapping distance. The maximum snapping 
+    distance for each node is *delta* times the distance to the 
+    nearest neighbor. This defaults to 1.0.
+  
+  Returns
+  -------
+  out_nodes : (N,D) float array
+    New nodes positions.
+  
+  out_smp : (N,D) int array
+    Index of the simplex that each node is on. If a node is not on a 
+    simplex (i.e. it is an interior node) then the simplex index is 
+    -1.
+    
+  '''
+  nodes = np.asarray(nodes,dtype=float)
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  n,dim = nodes.shape
+  # find the distance to the nearest node
+  dx = nearest(nodes,nodes,2)[1][:,1]
+  # allocate output arrays
+  out_smpid = -np.ones(n,dtype=int)
+  out_nodes = np.array(nodes,copy=True)
+  min_dist = np.inf*np.ones(n,dtype=float)
+  for i in range(dim):
+    for sign in [-1.0,1.0]:
+      # *pert_nodes* is *nodes* shifted slightly along dimension *i*
+      pert_nodes = np.array(nodes,copy=True)
+      pert_nodes[:,i] += delta*sign*dx
+      # find which segments intersect the boundary
+      idx = intersection_count(nodes,pert_nodes,vert,smp) > 0
+      # find the intersection points
+      pnt = intersection_point(nodes[idx],pert_nodes[idx],vert,smp)
+      # find the distance between *nodes* and the intersection point
+      dist = np.inf*np.ones(n,dtype=float)
+      dist[idx] = np.linalg.norm(nodes[idx] - pnt,axis=1)
+      # if the distance to the intersection point is less than the 
+      # distance to any previously found intersections then set the new 
+      # values for out_nodes and out_smpid
+      idx = (dist < min_dist)
+      out_smpid[idx] = intersection_index(nodes[idx],pert_nodes[idx],vert,smp)
+      out_nodes[idx] = intersection_point(nodes[idx],pert_nodes[idx],vert,smp)
+      min_dist[idx] = dist[idx]
+
+  return out_nodes,out_smpid
+
+
+def _disperse(free_nodes,fix_nodes,rho,n,delta,vert,smp):
+  ''' 
+  Returns the new position of the free nodes after a dispersal step. 
+  Nodes on opposite sides of the boundary defined by vert and smp 
+  cannot repel eachother.
+  '''
   # if n is 0 or 1 then the nodes remain stationary
   if n <= 1:
-    return free_nodes
+    return np.array(free_nodes,copy=True)
 
   # form collection of all nodes
   nodes = np.vstack((free_nodes,fix_nodes))
-
   # find index and distance to nearest nodes
-  i,d = rbf.stencil.nearest(free_nodes,nodes,n,vert=vert,smp=smp)
-
+  i,d = nearest(free_nodes,nodes,n,vert=vert,smp=smp)
   # dont consider a node to be one of its own nearest neighbors
-  i = i[:,1:]
-  d = d[:,1:]
-
+  i,d = i[:,1:],d[:,1:]
   # compute the force proportionality constant between each node
   # based on their charges
   c = 1.0/(rho(nodes)[i,None]*rho(free_nodes)[:,None,None])
-  # caluclate forces on each node resulting from the *n* nearest nodes 
+  # calculate forces on each node resulting from the *n* nearest nodes 
   forces = c*(free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3
   # sum up all the forces for each node
   direction = np.sum(forces,1)
@@ -85,192 +159,40 @@ def _repel_step(free_nodes,rho,fix_nodes,
   direction /= np.linalg.norm(direction,axis=1)[:,None]
   # in the case of a zero vector replace nans with zeros
   direction = np.nan_to_num(direction)  
-
   # move in the direction of the force by an amount proportional to 
   # the distance to the nearest neighbor
   step = delta*d[:,0,None]*direction
-
   # new node positions
-  free_nodes += step
-  return free_nodes
+  out = free_nodes + step
+  return out
 
 
-def _repel_bounce(free_nodes,vert,smp,rho,   
-                  fix_nodes,itr,n,delta,
-                  max_bounces,bound_force):
-  ''' 
-  nodes are repelled by eachother and bounce off boundaries
-  '''
-  free_nodes = np.array(free_nodes,dtype=float,copy=True)
-
-  # if bound_force then use the domain boundary as the force 
-  # boundary
-  if bound_force:
-    bound_vert = vert
-    bound_smp = smp
-  else:
-    bound_vert = np.zeros((0,vert.shape[1]),dtype=float)
-    bound_smp = np.zeros((0,vert.shape[1]),dtype=int)
-
-  # this is used for the lengthscale of the domain
-  scale = vert.ptp()
-
-  # ensure that the number of nodes used to determine repulsion force
-  # is less than or equal to the total number of nodes
-  n = min(n,free_nodes.shape[0]+fix_nodes.shape[0])
-
-  for k in range(itr):
-    # node positions after repulsion 
-    free_nodes_new = _repel_step(free_nodes,rho,fix_nodes,
-                                 n,delta,bound_vert,bound_smp)
-
-    # boolean array of nodes which are now outside the domain
-    crossed = ~gm.contains(free_nodes_new,vert,smp)
-    bounces = 0
-    while np.any(crossed):
-      # point where nodes intersected the boundary
-      inter = gm.intersection_point(
-                free_nodes[crossed],     
-                free_nodes_new[crossed],
-                vert,smp)
-
-      # normal vector to intersection point
-      norms = gm.intersection_normal(
-                free_nodes[crossed],     
-                free_nodes_new[crossed],
-                vert,smp)
-      
-      # distance that the node wanted to travel beyond the boundary
-      res = free_nodes_new[crossed] - inter
-
-      # move the previous node position to just within the boundary
-      free_nodes[crossed] = inter - 1e-10*scale*norms
-
-      # 3 is the number of bounces allowed   
-      if bounces > max_bounces:
-        free_nodes_new[crossed] = inter - 1e-10*scale*norms
-        break
-
-      else: 
-        # bouce node off the boundary
-        free_nodes_new[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
-        # check to see if the bounced node is now within the domain, 
-        # if not then iterations continue
-        crossed = ~gm.contains(free_nodes_new,vert,smp)
-        bounces += 1
-
-    free_nodes = free_nodes_new  
-
-  return free_nodes
-
-
-def _repel_stick(free_nodes,vert,smp,rho,   
-                 fix_nodes,itr,n,delta,
-                 bound_force):
-  ''' 
-  nodes are repelled by eachother and then become fixed when they hit 
-  a boundary
-  '''
-  free_nodes = np.array(free_nodes,dtype=float,copy=True)
-
-  # if bound_force then use the domain boundary as the force 
-  # boundary
-  if bound_force:
-    bound_vert = vert
-    bound_smp = smp
-  else:
-    bound_vert = np.zeros((0,vert.shape[1]),dtype=float)
-    bound_smp = np.zeros((0,vert.shape[1]),dtype=int)
-
-  # Keeps track of whether nodes in the interior or boundary. -1 
-  # indicates interior and >= 0 indicates boundary. If its on the 
-  # boundary then the number is the index of the simplex that the node 
-  # is on
-  smpid = np.repeat(-1,free_nodes.shape[0])
-
-  # length scale of the domain
-  scale = vert.ptp()
-
-  # ensure that the number of nodes used to compute repulsion force is
-  # less than or equal to the total number of nodes
-  n = min(n,free_nodes.shape[0]+fix_nodes.shape[0])
-
-  for k in range(itr):
-    # indices of all interior nodes
-    interior, = (smpid==-1).nonzero()
-
-    # indices of nodes associated with a simplex (i.e. nodes which 
-    # intersected a boundary
-    boundary, = (smpid>=0).nonzero()
-
-    # nodes which are stationary 
-    all_fix_nodes = np.vstack((fix_nodes,free_nodes[boundary]))
-
-    # new position of free nodes
-    free_nodes_new = np.array(free_nodes,copy=True)
-    # shift positions of interior nodes
-    free_nodes_new[interior] = _repel_step(free_nodes[interior],
-                                 rho,all_fix_nodes,n,delta,
-                                 bound_vert,bound_smp)
-
-    # indices of free nodes which crossed a boundary
-    crossed = ~gm.contains(free_nodes_new,vert,smp)
+def disperse(nodes,vert,smp,rho=None,fix_nodes=None,
+             neighbors=None,delta=0.05,bound_force=False): 
+  '''   
+  Returns *nodes* after beingly slightly dispersed. The disperson is 
+  analogous to electrostatic repulsion, where neighboring node exert a 
+  repulsive force on eachother. The repulsive force for each node is 
+  constant, by default, but it can vary spatially by specifying *rho*. 
+  If a node intersects the boundary defined by *vert* and *smp* then 
+  it will bounce off the boundary elastically. This ensures that no 
+  nodes will leave the domain, assuming the domain is closed and all 
+  nodes are initially inside. Using the electrostatic analogy, this 
+  function returns the nodes after a single *time step*, and greater 
+  amounts of dispersion can be attained by calling this function 
+  iteratively.
   
-    # if a node intersected a boundary then associate it with a simplex
-    smpid[crossed] = gm.intersection_index(
-                       free_nodes[crossed],     
-                       free_nodes_new[crossed], 
-                       vert,smp)
-
-    # outward normal vector at intesection points
-    norms = gm.intersection_normal(
-              free_nodes[crossed],     
-              free_nodes_new[crossed], 
-              vert,smp)
-
-    # intersection point for nodes which crossed a boundary
-    inter = gm.intersection_point(
-              free_nodes[crossed],     
-              free_nodes_new[crossed],
-              vert,smp)
-
-    # new position of nodes which crossed the boundary is just within
-    # the intersection point
-    free_nodes_new[crossed] = inter - 1e-10*scale*norms
-    free_nodes = free_nodes_new
-
-  return free_nodes,smpid
-
-  
-def menodes(N,vert,smp,rho=None,fix_nodes=None,
-            itr=100,neighbors=None,delta=0.05,
-            sort_nodes=True,bound_force=False):
-  ''' 
-  Generates nodes within the D-dimensional volume enclosed by the 
-  simplexes using a minimum energy algorithm.  
-  
-  At each iteration the nearest neighbors to each node are found and 
-  then a repulsion force is calculated using the distance to the 
-  nearest neighbors and their charges (which is inversely proportional 
-  to the node density). Each node then moves in the direction of the 
-  net force acting on it.  The step size is equal to delta times the 
-  distance to the nearest node. This is repeated for 2*itr iterations.
-  
-  During the first *itr* iterations, if a node intersects a boundary 
-  then it elastically bounces off the boundary. During the last *itr* 
-  iterations, if a node intersects a boundary then it sticks to the 
-  boundary at the intersection point.
-
   Parameters
   ----------
-  N : int
-    Numbr of nodes
-      
+  nodes : (N,D) float array
+    Node positions.
+
   vert : (P,D) array
-    Boundary vertices
+    Boundary vertices.
 
   smp : (Q,D) array
-    Describes how the vertices are connected to form the boundary
+    Describes how the vertices are connected to form the boundary. The 
+    boundary must form a closed domain.
     
   rho : function, optional
     Node density function. Takes a (N,D) array of coordinates in D 
@@ -281,7 +203,111 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     efficient.
 
   fix_nodes : (F,D) array, optional
-    Nodes which do not move and only provide a repulsion force
+    Nodes which do not move and only provide a repulsion force.
+
+  neighbors : int, optional
+    Number of neighboring nodes to use when calculating the 
+    repulsion force. When *neighbors* is small, the equilibrium 
+    state tends to be a uniform node distribution (regardless of 
+    *rho*), when *neighbors* is large, nodes tend to get pushed up 
+    against the boundaries.
+
+  delta : float, optional
+    Scaling factor for the node step size. The step size is equal to 
+    *delta* times the distance to the nearest neighbor.
+
+  bound_force : bool, optional
+    If True, then nodes cannot repel other nodes through the domain 
+    boundary. Set to True if the domain has edges that nearly touch 
+    eachother. Setting this to True may significantly increase 
+    computation time.
+    
+  Returns
+  -------
+  out : (N,D) float array
+    Nodes after being dispersed.
+    
+  '''
+  nodes = np.asarray(nodes,dtype=float)
+  vert = np.asarray(vert,dtype=float)
+  smp = np.asarray(smp,dtype=int)
+  if bound_force:
+    bound_vert,bound_smp = vert,smp
+  else:
+    bound_vert,bound_smp = None,None
+
+  if rho is None:
+    def rho(p):
+      return np.ones(p.shape[0])
+  
+  if fix_nodes is None:
+    fix_nodes = np.zeros((0,nodes.shape[1]),dtype=float)
+  else:
+    fix_nodes = np.asarray(fix_nodes,dtype=float)
+      
+  if neighbors is None:
+    # number of neighbors defaults to 3 raised to the number of 
+    # spatial dimensions
+    neighbors = 3**nodes.shape[1]
+
+  # ensure that the number of nodes used to determine repulsion force
+  # is less than or equal to the total number of nodes
+  neighbors = min(neighbors,nodes.shape[0]+fix_nodes.shape[0])
+  # node positions after repulsion 
+  out = _disperse(nodes,fix_nodes,rho,neighbors,delta,bound_vert,bound_smp)
+  # boolean array of nodes which are now outside the domain
+  crossed = ~contains(out,vert,smp)
+  # point where nodes intersected the boundary
+  inter = intersection_point(nodes[crossed],out[crossed],vert,smp)
+  # normal vector to intersection point
+  norms = intersection_normal(nodes[crossed],out[crossed],vert,smp)
+  # distance that the node wanted to travel beyond the boundary
+  res = out[crossed] - inter
+  # bouce node off the boundary
+  out[crossed] -= 2*norms*np.sum(res*norms,1)[:,None]        
+  # check to see if the bounced nodes are now within the domain. If 
+  # not then set the bounced nodes back to their original position
+  crossed = ~contains(out,vert,smp)
+  out[crossed] = nodes[crossed]
+  return out
+
+  
+def menodes(N,vert,smp,rho=None,fix_nodes=None,
+            itr=100,neighbors=None,delta=0.05,
+            sort_nodes=True,bound_force=False):
+  ''' 
+  Generates nodes within a 1, 2, or 3 dimensional domain using a 
+  minimum energy algorithm.
+  
+  The algorithm is as follows. A random distribution of nodes is first 
+  generated within the domain. The nodes positions are then 
+  iteratively adjusted. For each iteration, the nearest neighbors to 
+  each node are found. A repulsion force is calculated for each node 
+  using the distance to its nearest neighbors and their charges (which 
+  are inversely proportional to the node density). Each node then 
+  moves in the direction of the net force acting on it. 
+
+  Parameters
+  ----------
+  N : int
+    Number of nodes.
+      
+  vert : (P,D) array
+    Vertices making up the boundary.
+
+  smp : (Q,D) array
+    Describes how the vertices are connected to form the boundary.
+    
+  rho : function, optional
+    Node density function. Takes a (N,D) array of coordinates in D 
+    dimensional space and returns an (N,) array of densities which 
+    have been normalized so that the maximum density in the domain 
+    is 1.0. This function will still work if the maximum value is 
+    normalized to something less than 1.0; however it will be less 
+    efficient.
+
+  fix_nodes : (F,D) array, optional
+    Nodes which do not move and only provide a repulsion force.
  
   itr : int, optional
     Number of repulsion iterations. If this number is small then the 
@@ -301,17 +327,18 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
 
   sort_nodes : bool, optional
     If True, nodes that are close in space will also be close in 
-    memory. This is done with the Reverse Cuthill-McKee algorithm
+    memory. This is done with the Reverse Cuthill-McKee algorithm.
       
   bound_force : bool, optional
     If True, then nodes cannot repel other nodes through the domain 
     boundary. Set to True if the domain has edges that nearly touch 
     eachother. Setting this to True may significantly increase 
-    computation time
+    computation time.
 
   Returns
   -------
   nodes: (N,D) float array 
+    Nodes positions.
 
   smpid: (N,) int array
     Index of the simplex that each node is on. If a node is not on a 
@@ -324,22 +351,12 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   this is not the case, then it is likely that an error message will 
   be raised which says "ValueError: No intersection found for 
   segment ...".
-   
-  This function tends to fail when adjacent simplices form a sharp 
-  angle.  The error message raised will be "ValueError: No 
-  intersection found for segment ...".  The only solution is to 
-  taper the angle by adding more simplices
       
   '''
+  logger.debug('starting minimum energy node generation') 
   max_sample_size = 1000000
-
   vert = np.asarray(vert,dtype=float) 
   smp = np.asarray(smp,dtype=int) 
-  if fix_nodes is None:
-    fix_nodes = np.zeros((0,vert.shape[1]))
-  else:
-    fix_nodes = np.asarray(fix_nodes)
-
   if rho is None:
     def rho(p):
       return np.ones(p.shape[0])
@@ -348,22 +365,18 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     # number of neighbors defaults to 3 raised to the number of 
     # spatial dimensions
     neighbors = 3**vert.shape[1]
-    
+
   # form bounding box for the domain so that a RNG can produce values
   # that mostly lie within the domain
   lb = np.min(vert,axis=0)
   ub = np.max(vert,axis=0)
   ndim = vert.shape[1]
-  
   # form Halton sequence generator
   H = rbf.halton.Halton(ndim+1)
-
   # initiate array of nodes
-  nodes = np.zeros((0,ndim))
-
+  nodes = np.zeros((0,ndim),dtype=float)
   # node counter
   cnt = 0
-
   # I use a rejection algorithm to get an initial sampling of nodes 
   # that resemble to density specified by rho. The acceptance keeps 
   # track of the ratio of accepted nodes to tested nodes
@@ -384,44 +397,37 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     cnt += sample_size
     # form test points
     seqNd = H(sample_size)
-
     # In order for a test point to be accepted, rho evaluated at that 
     # test point needs to be larger than a random number with uniform 
     # distribution between 0 and 1. Here I form those random numbers
     seq1d = seqNd[:,-1]
-
     # scale range of test points to encompass the domain  
     new_nodes = (ub-lb)*seqNd[:,:ndim] + lb
-
     # reject test points based on random value
     new_nodes = new_nodes[rho(new_nodes) > seq1d]
-
     # reject test points that are outside of the domain
-    new_nodes = new_nodes[gm.contains(new_nodes,vert,smp)]
-
+    new_nodes = new_nodes[contains(new_nodes,vert,smp)]
     # append to collection of accepted nodes
     nodes = np.vstack((nodes,new_nodes))
-
     logger.debug('accepted %s of %s nodes' % (nodes.shape[0],N))
     acceptance = nodes.shape[0]/cnt
 
   nodes = nodes[:N]
-
   # use a minimum energy algorithm to spread out the nodes
-  logger.debug('repelling nodes with boundary bouncing') 
-  nodes = _repel_bounce(nodes,vert,smp,rho,
-                        fix_nodes,itr,neighbors,delta,3,
-                        bound_force)
+  for i in range(itr):
+    logger.debug('starting node repulsion iteration %s of %s' % (i+1,itr)) 
+    nodes = disperse(nodes,vert,smp,rho=rho,fix_nodes=fix_nodes,
+                     neighbors=neighbors,delta=delta,
+                     bound_force=bound_force)
 
-  logger.debug('repelling nodes with boundary sticking') 
-  nodes,smpid = _repel_stick(nodes,vert,smp,rho,
-                             fix_nodes,itr,neighbors,delta,
-                             bound_force)
-
-  # sort so that nodes that are close in space are also close in memory
+  logger.debug('snapping nodes to boundary') 
+  nodes,smpid = snap_to_boundary(nodes,vert,smp,delta=0.5)
   if sort_nodes:
-    idx = _nearest_neighbor_argsort(nodes,n=neighbors)
+    # sort so that nodes that are close in space are also close in 
+    # memory
+    idx = neighbor_argsort(nodes,neighbors=neighbors)
     nodes = nodes[idx]
     smpid = smpid[idx] 
   
+  logger.debug('finished generating nodes') 
   return nodes,smpid

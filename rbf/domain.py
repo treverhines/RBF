@@ -47,7 +47,7 @@ def _circle_refine(vert,smp):
 
 def circle(r=5):
   ''' 
-  returns the outwardly oriented simplices of a circle
+  Returns the outwardly oriented simplices of a circle
   
   Parameters
   ----------
@@ -73,6 +73,37 @@ def circle(r=5):
 
   return vert,smp  
 
+def logo():
+  ''' 
+  Returns a domain resembling the Python logo
+  
+  Returns
+  -------
+  vert : (76,2) float array
+
+  smp : (76,2) int array
+    Rows 0-12 define the simplices for the edges of the logo. Rows 
+    12-44 define the simplices for the top eye, and the remaining rows 
+    make up the simplices for the bottom eye.
+  
+  '''  
+  edge_vert = np.array([[-0.5,0.0],[-0.5,1.0],[0.0,1.0],[0.0,1.5],
+                        [1.0,1.5],[1.0,1.0],[1.5,1.0],[1.5,0.0],
+                        [1.0,0.0],[1.0,-0.5],[0.0,-0.5],[0.0,0.0]])
+  edge_smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],
+                       [6,7],[7,8],[8,9],[9,10],[10,11],[11,0]])
+  eye1_vert,eye1_smp = circle(3)
+  eye2_vert,eye2_smp = circle(3)
+  eye1_vert *= 0.15
+  eye2_vert *= 0.15
+  eye1_vert += np.array([0.25,1.25])
+  eye2_vert += np.array([0.75,-0.25])
+  eye1_smp += 12
+  eye2_smp += 44
+  vert = np.vstack((edge_vert,eye1_vert,eye2_vert))
+  smp = np.vstack((edge_smp,eye1_smp,eye2_smp))
+  return vert,smp
+
 
 def sphere(r=5):
   ''' 
@@ -86,6 +117,7 @@ def sphere(r=5):
   Returns
   -------
   vert : (N,2) float array
+
   smp : (M,2) int array
   
   '''
@@ -144,10 +176,10 @@ def topography(zfunc,xlim,ylim,depth,n=10):
     Vertices of the domain.
     
   smp : (Q,3) int array
-    Indices of the vertices that make up each simplex. The first two 
-    rows make up the simplices for the bottom of the domain. Rows 
-    three through ten make up the sides of the domain. The remaining 
-    rows make up the simplices for the surface.
+    Indices of the vertices that make up each simplex. Rows 0-2 make 
+    up the simplices for the bottom of the domain. Rows 2-10 make up 
+    the sides of the domain. The remaining rows make up the simplices 
+    for the surface.
 
   '''
   base_vert = np.array([[0.0,0.0,-1.0],[0.0,0.0,0.0],[0.0,1.0,-1.0],

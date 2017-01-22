@@ -72,53 +72,55 @@ Solving PDEs
 .. code-block:: python
 
   ''' 
-  In this example we solve the Poisson equation with a constant forcing 
-  term using the spectral RBF method.
+  In this example we solve the Poisson equation with fix boundary 
+  conditions on an irregular domain.
   '''
   import numpy as np
   from rbf.basis import phs3
-  from rbf.domain import circle
+  from rbf.domain import logo
+  from rbf.geometry import contains
   from rbf.nodes import menodes
   import matplotlib.pyplot as plt
-
-  # define the problem domain
-  vert = np.array([[0.762,0.057],[0.492,0.247],[0.225,0.06 ],[0.206,0.056],
-                   [0.204,0.075],[0.292,0.398],[0.043,0.609],[0.036,0.624],
-                   [0.052,0.629],[0.373,0.63 ],[0.479,0.953],[0.49 ,0.966],
-                   [0.503,0.952],[0.611,0.629],[0.934,0.628],[0.95 ,0.622],
-                   [0.941,0.607],[0.692,0.397],[0.781,0.072],[0.779,0.055]])
-
-  smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
-                  [9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],
-                  [16,17],[17,18],[18,19],[19,0]])
-
+  # Define the problem domain. This is done by specifying the vertices of the
+  # domain, *vert*, and the vertex indices making up each segment, *smp*.
+  vert,smp = logo()
   N = 500 # total number of nodes
   nodes,smpid = menodes(N,vert,smp) # generate nodes
-  boundary, = (smpid>=0).nonzero() # identify boundary nodes
-  interior, = (smpid==-1).nonzero() # identify interior nodes
-
-  # create left-hand-side matrix and right-hand-side vector
+  edge_idx, = ((smpid>=0) & (smpid<12)).nonzero() # identify edge nodes
+  eye1_idx, = ((smpid>=12) & (smpid<44)).nonzero() # identify top eye nodes
+  eye2_idx, = (smpid>=44).nonzero() # identify bottom eye nodes
+  interior_idx, = (smpid==-1).nonzero() # identify interior nodes
+  # create left hand side" matrix
   A = np.empty((N,N))
-  A[interior]  = phs3(nodes[interior],nodes,diff=[2,0])
-  A[interior] += phs3(nodes[interior],nodes,diff=[0,2])
-  A[boundary,:] = phs3(nodes[boundary],nodes)
-  d = np.empty(N)
-  d[interior] = -100.0
-  d[boundary] = 0.0
-
+  A[interior_idx]  = phs3(nodes[interior_idx],nodes,diff=[2,0])
+  A[interior_idx] += phs3(nodes[interior_idx],nodes,diff=[0,2])
+  A[edge_idx] = phs3(nodes[edge_idx],nodes)
+  A[eye1_idx] = phs3(nodes[eye1_idx],nodes)
+  A[eye2_idx] = phs3(nodes[eye2_idx],nodes)
+  # set "right hand side" boundary conditions
+  d = np.zeros(N)
+  d[eye1_idx] = -1.0
+  d[eye2_idx] = 1.0
   # Solve the PDE
   coeff = np.linalg.solve(A,d) # solve for the RBF coefficients
-  itp = menodes(10000,vert,smp)[0] # interpolation points
-  soln = phs3(itp,nodes).dot(coeff) # evaluate at the interp points
-
+  # interpolate the solution on a grid
+  xg,yg = np.meshgrid(np.linspace(-0.6,1.6,500),np.linspace(-0.6,1.6,500))
+  points = np.array([xg.flatten(),yg.flatten()]).T
+  u = phs3(points,nodes).dot(coeff) # evaluate at the interp points
+  u[~contains(points,vert,smp)] = np.nan # mask outside points
+  ug = u.reshape((500,500)) # fold back into a grid
+  # make a contour plot of the solution
   fig,ax = plt.subplots()
-  p = ax.scatter(itp[:,0],itp[:,1],s=20,c=soln,edgecolor='none',cmap='viridis')
-  ax.set_aspect('equal')
+  p = ax.contourf(xg,yg,ug,cmap='viridis',vmin=-0.5,vmax=0.5)
   ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
-  ax.set_xlim((0.025,0.975))
-  ax.set_ylim((0.03,0.98))
-  plt.colorbar(p,ax=ax)
-  plt.tight_layout()
+  for s in smp:
+    ax.plot(vert[s,0],vert[s,1],'k-',lw=2)
+
+  ax.set_aspect('equal')
+  ax.set_xlim((-0.6,1.6))
+  ax.set_ylim((-0.6,1.6))
+  fig.colorbar(p,ax=ax)
+  fig.tight_layout()
   plt.savefig('../figures/basis.a.png')
   plt.show()
 
