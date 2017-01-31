@@ -855,6 +855,15 @@ class GaussianProcess(object):
     else:
       sigma = np.asarray(sigma,dtype=float)
     
+    if d.ndim != 1:
+      raise ValueError(
+        'The observations, *d*, must be a one dimensional array')
+
+    if sigma.ndim != 1:
+      raise ValueError(
+        'The observation uncertainties, *sigma*, must be a one '
+        'dimensional array')
+        
     mean,covariance = _condition_factory(self,y,d,sigma,obs_diff)
     out = GaussianProcess(mean,covariance,dim=dim,order=-1)
     return out
@@ -910,11 +919,13 @@ class GaussianProcess(object):
     
     out = self    
     count = 0        
-    while count < q: 
+    while True:
       idx = range(count,min(count+max_chunk,q))
       out = out.condition(y[idx],d[idx],sigma=sigma[idx],
                           obs_diff=obs_diff)
-      count = idx[-1] + 1
+      count = min(count+max_chunk,q)
+      if count == q:
+        break
       
     return out    
     
