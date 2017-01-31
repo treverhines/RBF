@@ -263,7 +263,6 @@ import rbf.basis
 import warnings
 import rbf.mp
 from collections import OrderedDict
-import sympy
 import logging
 logger = logging.getLogger(__name__)
 
@@ -1130,13 +1129,6 @@ class GaussianProcess(object):
     *x*. 
 
     '''
-    if self.order != -1:
-      warnings.warn(
-        'Cannot sample a *GaussianProcess* with a polynomial null '
-        'space. The sample will instead be generated from a '
-        'conditional *GaussianProcesss* where the null space has '
-        'been removed.')
-
     mean = self.mean(x)
     cov = self.covariance(x,x)
     out = _draw_sample(mean,cov,tol=tol)
@@ -1298,6 +1290,20 @@ class PriorGaussianProcess(GaussianProcess):
     return self._repr_string
     
 
+def _calculate_trend(y,d,sigma,x,order,diff):
+  ''' 
+  returns the best fitting polynomial to observations *d*, which were 
+  made at *y* and have uncertainties *sigma*. The polynomial has order 
+  *order*, is evaluated at *x*, and then differentiated by *diff*.
+  '''
+  powers = rbf.poly.powers(order,y.shape[1])
+  Gobs = rbf.poly.mvmonos(y,powers) # system matrix
+  W = np.diag(1.0/sigma) # weight matrix
+  coeff = np.linalg.lstsq(W.dot(Gobs),W.dot(d))[0]
+  Gitp = rbf.poly.mvmonos(x,powers,diff) 
+  trend = Gitp.dot(coeff) # evaluated trend at interpolation points
+  return trend
+
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
         diff=None,procs=0,condition=True,return_sample=False):
   '''     
@@ -1347,7 +1353,7 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   condition : bool, optional
     If False then the prior Gaussian process will not be conditioned 
     with the data and the output will just be the prior or its 
-    specified derivative.
+    specified derivative. 
     
   return_sample : bool, optional
     If True then *out_mean* is a sample of the posterior, rather than 
@@ -1365,9 +1371,9 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
     One standard deviation of the posterior at *x*.
       
   '''
-  y = np.asarray(y)
-  d = np.asarray(d)
-  sigma = np.asarray(sigma)
+  y = np.asarray(y,dtype=float)
+  d = np.asarray(d,dtype=float)
+  sigma = np.asarray(sigma,dtype=float)
   if diff is None:   
     diff = np.zeros(y.shape[1],dtype=int)
 
@@ -1383,11 +1389,10 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
 
   def doit(i):
     logger.debug('Performing GPR on data set %s of %s ...' % (i+1,q))
-    gp = PriorGaussianProcess(basis,coeff,order=order)
+    gp = PriorGaussianProcess(basis,coeff,order=order,dim=x.shape[1])
+    # ignore data that has infinite uncertainty
+    is_finite = ~np.isinf(sigma[i])
     if condition:
-      # do not condition the Gaussian process with data that has 
-      # infinite uncertainty
-      is_finite = ~np.isinf(sigma[i])
       gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
                                   sigma=sigma[i,is_finite])
 
@@ -1395,10 +1400,25 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
     if return_sample:
       out_mean_i = gp.draw_sample(x)
       out_sigma_i = np.zeros_like(out_mean_i)
-      return out_mean_i,out_sigma_i
     else:  
       out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
-      return out_mean_i,out_sigma_i
+
+    if gp.order != -1:
+      # if a polynomial null space exists, then it is impossible to 
+      # return the expected value, covariance, or a sample of the 
+      # prior. This is because the polynomial coefficients are equally 
+      # likely to be any real number.  We can only look at the prior 
+      # under the condition that the polynomial coefficients have been 
+      # fixed at some value. For viewing convenience, I am choosing to 
+      # use the coefficients that best fit the data. Note that by 
+      # default, the mean, covariance, and samples returned by a 
+      # GaussianProcess instance have the polynomial coefficients 
+      # fixed at zero if a null space exists.
+      trend = _calculate_trend(y[is_finite],d[i,is_finite],
+                               sigma[i,is_finite],x,order,diff)
+      out_mean_i += trend                         
+
+    return out_mean_i,out_sigma_i
 
   out = rbf.mp.parmap(doit,range(q),workers=procs)   
   out_mean = np.array([k[0] for k in out])
