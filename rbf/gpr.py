@@ -1206,7 +1206,9 @@ class PriorGaussianProcess(GaussianProcess):
   coeff : 3-tuple  
     Tuple of three distribution coefficients, *a*, *b*, and *c*. *a* 
     is the mean, *b* scales the amplitude of the covariance, and *c* 
-    is the characteristic length scale (see above).
+    is the characteristic length scale (see module documentation). 
+    Note that *c* is the reciprocal of the shape parameter used to 
+    define *RBF* instances, *eps*.
       
   order : int, optional
     Order of the polynomial spanning the null space. Defaults to -1, 
@@ -1297,7 +1299,7 @@ class PriorGaussianProcess(GaussianProcess):
     
 
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
-        diff=None,procs=0):
+        diff=None,procs=0,sample_prior=False):
   '''     
   Performs Guassian process regression on the observed data. This is a 
   convenience function which initiates a *PriorGaussianProcess*, 
@@ -1314,9 +1316,9 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
     Observed data at *y*.
   
   sigma : (...,N) array
-    Data uncertainty. *np.nan* or *np.inf* can be used to indicate 
-    that the data is missing, which will cause the corresponding value 
-    in *d* to be ignored.
+    Data uncertainty. *np.inf* can be used to indicate that the data 
+    is missing, which will cause the corresponding value in *d* to be 
+    ignored.
   
   coeff : 3-tuple
     Variance, mean, and characteristic length scale for the prior 
@@ -1327,7 +1329,7 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   
   basis : RBF instance, optional      
     Radial basis function which describes the prior covariance 
-    structure. Defaults to rbf.basis.ga.
+    structure. Defaults to *rbf.basis.ga*.
     
   order : int, optional
     Order of the prior null space.
@@ -1342,9 +1344,13 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
     *d* and *sigma*. So if *d* and *sigma* are (N,) arrays then using 
     multiple process will not provide any speed improvement.
   
-  Returns
-  -------
-  out_mean : (...,M) array  
+  sample_prior : bool, optional
+    If True then *out_mean* will be samples of the prior Gaussian 
+    process at *x*. *out_sigma* will be an array of zeros.
+    
+  Returns 
+  ------- 
+  out_mean : (...,M) array
     Mean of the posterior at *x*.
       
   out_sigma : (...,M) array  
@@ -1359,7 +1365,7 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
 
   if x is None:
     x = y
-      
+  
   m = x.shape[0]
   bcast_shape = d.shape[:-1]
   q = int(np.prod(bcast_shape))
@@ -1370,9 +1376,14 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   def doit(i):
     logger.debug('Performing GPR on data set %s of %s ...' % (i+1,q))
     gp = PriorGaussianProcess(basis,coeff,order=order)
+    if sample_prior:
+      out_mean_i = gp.draw_sample(x)
+      out_sigma_i = np.zeros_like(out_mean_i)
+      return out_mean_i,out_sigma_i
+      
     # do not condition the Gaussian process with data that has 
-    # infinite or NaN uncertainty.
-    is_finite = np.isfinite(sigma[i])
+    # infinite uncertainty
+    is_finite = ~np.isinf(sigma[i])
     gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
                                 sigma=sigma[i,is_finite])
     gp = gp.differentiate(diff)
