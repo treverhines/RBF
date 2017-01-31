@@ -1299,7 +1299,7 @@ class PriorGaussianProcess(GaussianProcess):
     
 
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
-        diff=None,procs=0,sample_prior=False):
+        diff=None,procs=0,condition=True,return_sample=False):
   '''     
   Performs Guassian process regression on the observed data. This is a 
   convenience function which initiates a *PriorGaussianProcess*, 
@@ -1344,9 +1344,17 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
     *d* and *sigma*. So if *d* and *sigma* are (N,) arrays then using 
     multiple process will not provide any speed improvement.
   
-  sample_prior : bool, optional
-    If True then *out_mean* will be samples of the prior Gaussian 
-    process at *x*. *out_sigma* will be an array of zeros.
+  condition : bool, optional
+    If False then the prior Gaussian process will not be conditioned 
+    with the data and the output will just be the prior or its 
+    specified derivative.
+    
+  return_sample : bool, optional
+    If True then *out_mean* is a sample of the posterior, rather than 
+    its expected value. *out_sigma* will then be an array of zeros, 
+    since a sample has no associated uncertainty. If *return_sample* 
+    is True and *condition* is False then a sample of the prior will 
+    be returned.
     
   Returns 
   ------- 
@@ -1376,19 +1384,21 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   def doit(i):
     logger.debug('Performing GPR on data set %s of %s ...' % (i+1,q))
     gp = PriorGaussianProcess(basis,coeff,order=order)
-    if sample_prior:
+    if condition:
+      # do not condition the Gaussian process with data that has 
+      # infinite uncertainty
+      is_finite = ~np.isinf(sigma[i])
+      gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
+                                  sigma=sigma[i,is_finite])
+
+    gp = gp.differentiate(diff)
+    if return_sample:
       out_mean_i = gp.draw_sample(x)
       out_sigma_i = np.zeros_like(out_mean_i)
       return out_mean_i,out_sigma_i
-      
-    # do not condition the Gaussian process with data that has 
-    # infinite uncertainty
-    is_finite = ~np.isinf(sigma[i])
-    gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
-                                sigma=sigma[i,is_finite])
-    gp = gp.differentiate(diff)
-    out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
-    return out_mean_i,out_sigma_i
+    else:  
+      out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
+      return out_mean_i,out_sigma_i
 
   out = rbf.mp.parmap(doit,range(q),workers=procs)   
   out_mean = np.array([k[0] for k in out])
