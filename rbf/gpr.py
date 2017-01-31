@@ -627,13 +627,13 @@ class GaussianProcess(object):
     
   Notes
   -----
-  This class does not check whether the specified covariance function 
-  is positive definite, making it easy construct an invalid 
+  1. This class does not check whether the specified covariance 
+  function is positive definite, making it easy construct an invalid 
   *GaussianProcess* instance. For this reason, this class should not 
   be directly instantiated by the user. Instead, create a 
   *GaussianProcess* with the subclass *PriorGaussianProcess*.
   
-  A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
+  2. A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
   *differentiate*, and *condition* has a *mean* and *covariance* 
   function which calls the *mean* and *covariance* functions of its 
   parents. For example, if *gp1* and *gp2* are *GaussianProcess* 
@@ -644,6 +644,15 @@ class GaussianProcess(object):
   (for lack of a better term) is limited by the maximum recursion 
   depth.
 
+  3. If a Gaussian process contains a polynomial null space, then its 
+  mean and covariance are undefined. This is because the monomial 
+  coefficients are equally likely to be any number between positive 
+  and negative infinity. When the *mean* or *covariance* methods are 
+  called, the returned values are instead the Gaussian process under 
+  the condition that the monomial coefficients are zero. In other 
+  words, the *mean* and *covariance* functions ignore the presence of 
+  a polynomial null space.
+  
   '''
   def __init__(self,mean,covariance,order=-1,dim=None):
     # the mean and covariance functions are hidden and the mean and 
@@ -1248,15 +1257,15 @@ class PriorGaussianProcess(GaussianProcess):
   
   Notes
   -----
-  If *order* >= 0, then *a* has no effect on the resulting Gaussian 
+  1. If *order* >= 0, then *a* has no effect on the resulting Gaussian 
   process.
   
-  If *basis* is scale invariant, such as for odd order polyharmonic 
+  2. If *basis* is scale invariant, such as for odd order polyharmonic 
   splines, then *b* and *c* have inverse effects on the resulting 
   Gaussian process and thus only one of them needs to be chosen while 
   the other can be fixed at an arbitary value.
   
-  Not all radial basis functions are positive definite, which means 
+  3. Not all radial basis functions are positive definite, which means 
   that there may not be a valid covariance function describing the 
   Gaussian process. The squared exponential basis function, 
   *rbf.basis.ga*, is positive definite for all spatial dimensions and 
@@ -1313,6 +1322,11 @@ def _get_trend(y,d,sigma,x,order,diff):
   made at *y* and have uncertainties *sigma*. The polynomial has order 
   *order*, is evaluated at *x*, and then differentiated by *diff*.
   '''
+  if y.shape[0] == 0:
+    # lstsq is unable to handle when y.shape[0]==0. In this case, 
+    # return an array of zeros with shape equal to x.shape[0]
+    return np.zeros(x.shape[0])
+    
   powers = rbf.poly.powers(order,y.shape[1])
   Gobs = rbf.poly.mvmonos(y,powers) # system matrix
   W = np.diag(1.0/sigma) # weight matrix
@@ -1320,6 +1334,7 @@ def _get_trend(y,d,sigma,x,order,diff):
   Gitp = rbf.poly.mvmonos(x,powers,diff) 
   trend = Gitp.dot(coeff) # evaluated trend at interpolation points
   return trend
+
 
 def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
         diff=None,procs=0,condition=True,return_sample=False):
@@ -1370,7 +1385,10 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
   condition : bool, optional
     If False then the prior Gaussian process will not be conditioned 
     with the data and the output will just be the prior or its 
-    specified derivative. 
+    specified derivative. If the prior contains a polynomial null 
+    space (i.e. order > -1), then the monomial coefficients will be 
+    set to those that best fit the data. See note 3 in the 
+    GaussianProcess documentation.
     
   return_sample : bool, optional
     If True then *out_mean* is a sample of the posterior, rather than 
@@ -1414,26 +1432,33 @@ def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
                                   sigma=sigma[i,is_finite])
 
     gp = gp.differentiate(diff)
-    if return_sample:
-      out_mean_i = gp.draw_sample(x)
-      out_sigma_i = np.zeros_like(out_mean_i)
-    else:  
-      out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
+    try:
+      if return_sample:
+        out_mean_i = gp.draw_sample(x)
+        out_sigma_i = np.zeros_like(out_mean_i)
+      else:  
+        out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
+      
+      if gp.order != -1:
+        # Read note 3 in the GaussianProcess documentation. If a 
+        # polynomial null space exists, then I am setting the monomial 
+        # coefficients to be the coefficients that best fit the data. 
+        # This deviates from the default behavior for a GaussianProcess, 
+        # which sets the monomial coefficients to zero.
+        trend = _get_trend(y[is_finite],d[i,is_finite],
+                           sigma[i,is_finite],x,order,diff)
+        out_mean_i += trend                         
 
-    if gp.order != -1:
-      # if a polynomial null space exists, then it is impossible to 
-      # return the expected value, covariance, or a sample of the 
-      # prior. This is because the polynomial coefficients are equally 
-      # likely to be any real number.  We can only look at the prior 
-      # under the condition that the polynomial coefficients have been 
-      # fixed at some value. For viewing convenience, I am choosing to 
-      # use the coefficients that best fit the data. Note that by 
-      # default, the mean, covariance, and samples returned by a 
-      # GaussianProcess instance have the polynomial coefficients 
-      # fixed at zero if a null space exists.
-      trend = _get_trend(y[is_finite],d[i,is_finite],sigma[i,is_finite],
-                         x,order,diff)
-      out_mean_i += trend                         
+    except np.linalg.LinAlgError:    
+      logger.info(
+        'Could not compute the expected values and uncertainties for '
+        'the Gaussian process. This may be due to insufficient data. '
+        'The returned expected values and uncertainties will be NaN '
+        'and INF, respectively.') 
+      out_mean_i = np.empty(x.shape[0])  
+      out_mean_i[:] = np.nan
+      out_sigma_i = np.empty(x.shape[0])  
+      out_sigma_i[:] = np.inf
 
     return out_mean_i,out_sigma_i
 
