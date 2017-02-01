@@ -205,7 +205,7 @@ class RBF(object):
     self.tol = tol
     self.package = package
 
-  def __call__(self,x,c,eps=None,diff=None):
+  def __call__(self,x,c,eps=1.0,diff=None):
     ''' 
     Evaluates the RBF
     
@@ -217,7 +217,7 @@ class RBF(object):
     c : (M,D) float array 
       RBF centers 
         
-    eps : (M,) float array, optional
+    eps : float or (M,) float array, optional
       shape parameters for each RBF. Defaults to 1.0
                                                                            
     diff : (D,) int array, optional
@@ -250,8 +250,11 @@ class RBF(object):
     '''
     x = np.asarray(x,dtype=float)
     c = np.asarray(c,dtype=float)
-    if eps is None:
-      eps = np.ones(c.shape[0],dtype=float)   
+    if np.isscalar(eps):
+      # makes eps an array of constant values
+      arr = np.empty(c.shape[0],dtype=float)
+      arr.fill(eps)
+      eps = arr
     else:  
       eps = np.asarray(eps,dtype=float)
 
@@ -281,16 +284,13 @@ class RBF(object):
         'dimensions in *x* and *c*')
 
     # expand to allow for broadcasting
-    x = x[:,None,:]
-    c = c[None,:,:]
-    # this does the same thing as np.rollaxis(x,-1) but is much faster
-    x = np.einsum('ijk->kij',x)
-    c = np.einsum('ijk->kij',c)
+    x = x.T[:,:,None] 
+    c = c.T[:,None,:]
     # add function to cache if not already
     if diff not in self.cache:
       self.add_to_cache(diff)
  
-    args = (tuple(x)+tuple(c)+(eps,))    
+    args = (tuple(x)+tuple(c)+(eps,))
     # ignore divide by zero warnings and then replace nans with zeros. 
     # This is an ad-hoc (but fast!) way of handling the removable 
     # singularity in polyharmonic splines. A more appropriate way to 
@@ -298,7 +298,7 @@ class RBF(object):
     with warnings.catch_warnings():
       warnings.simplefilter("ignore")
       out = self.cache[diff](*args)
-      out = _replace_nan(out)
+      out = _replace_nan(out) 
 
     return out
 
