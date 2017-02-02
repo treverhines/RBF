@@ -28,9 +28,6 @@ Quick Demo
 ==========
 Smoothing Scattered Data
 ------------------------
-
-.. literalinclude:: docs/scripts.interpolatea.py
-
 .. code-block:: python
 
   ''' 
