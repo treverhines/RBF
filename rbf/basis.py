@@ -252,9 +252,7 @@ class RBF(object):
     c = np.asarray(c,dtype=float)
     if np.isscalar(eps):
       # makes eps an array of constant values
-      arr = np.empty(c.shape[0],dtype=float)
-      arr.fill(eps)
-      eps = arr
+      eps = np.full(c.shape[0],eps,dtype=float)
     else:  
       eps = np.asarray(eps,dtype=float)
 

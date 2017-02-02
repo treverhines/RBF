@@ -64,7 +64,6 @@ def _coefficient_matrix(x,eps,sigma,basis,order):
   '''
   # number of observation points and spatial dimensions
   N,D = x.shape
-
   # powers for the additional polynomials
   powers = rbf.poly.powers(order,D)
   # number of polynomial terms
@@ -136,9 +135,9 @@ class RBFInterpolant(object):
     One standard deviation uncertainty on the observations. This 
     defaults to ones.
         
-  eps : (N,) array, optional
-    Shape parameters for each RBF. this has no effect for odd
-    order polyharmonic splines.
+  eps : float or (N,) array, optional
+    Shape parameters for each RBF. This has no effect for odd
+    order polyharmonic splines. Defaults to 1.0.
 
   basis : rbf.basis.RBF instance, optional
     Radial basis function to use.
@@ -184,18 +183,12 @@ class RBFInterpolant(object):
   [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
   and Applications. John Wiley & Sons, 2000.
   '''
-  def __init__(self,y,d,sigma=None,eps=None,basis=rbf.basis.phs3,
+  def __init__(self,y,d,sigma=None,eps=1.0,basis=rbf.basis.phs3,
                order=1,extrapolate=True,penalty=0.0):
     y = np.asarray(y) 
     d = np.asarray(d)
     q,dim = y.shape
     p = rbf.poly.count(order,dim)
-
-    if eps is None:
-      eps = np.ones(q)
-    else:
-      eps = np.asarray(eps)
-
     if sigma is None:
       sigma = np.ones(q)
     else:

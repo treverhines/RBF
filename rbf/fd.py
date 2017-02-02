@@ -101,14 +101,14 @@ def _rhs(x,s,eps,powers,diff,basis):
   # number of monomial terms
   Np = powers.shape[0]
   d = np.empty(Ns+Np,dtype=float)
-  d[:Ns] = basis(x,s,eps,diff=diff)[0,:]
+  d[:Ns] = basis(x,s,eps=eps,diff=diff)[0,:]
   d[Ns:] = rbf.poly.mvmonos(x,powers,diff=diff)[0,:]
   return d
 
 
 def weights(x,s,diffs,coeffs=None,
             basis=rbf.basis.phs3,order=None,
-            eps=None,use_pinv=False):
+            eps=1.0,use_pinv=False):
   ''' 
   Returns the weights which map a functions values at *s* to an 
   approximation of that functions derivative at *x*. The weights are 
@@ -148,7 +148,7 @@ def weights(x,s,diffs,coeffs=None,
     derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
     order is set to 2. 
 
-  eps : (N,) array, optional
+  eps : float or (N,) array, optional
     Shape parameter for each RBF, which have centers *s*. This only 
     makes a difference when using RBFs that are not scale invariant. 
     All the predefined RBFs except for the odd order polyharmonic 
@@ -208,18 +208,12 @@ def weights(x,s,diffs,coeffs=None,
   diffs = _reshape_diffs(diffs)
   # stencil size and number of dimensions
   N,D = s.shape
-
   if coeffs is None:
     coeffs = np.ones(diffs.shape[0],dtype=float)
   else:
     coeffs = np.asarray(coeffs,dtype=float)
     if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
       raise ValueError('coeffs and diffs have incompatible shapes')
-      
-  if eps is None:
-    eps = np.ones(N,dtype=float)
-  else:
-    eps = np.asarray(eps,dtype=float)
 
   max_order = _max_poly_order(N,D)
   if order is None:
@@ -258,7 +252,7 @@ def weights(x,s,diffs,coeffs=None,
 
 def weight_matrix(x,p,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
-                  eps=None,n=None,vert=None,smp=None,
+                  eps=1.0,n=None,vert=None,smp=None,
                   use_pinv=False):
   ''' 
   Returns a weight matrix which maps a functions values at *p* to an 
@@ -298,7 +292,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
     derivative order. For example, if *diffs* is [[2,0],[0,1]], then 
     *order* is set to 2. 
 
-  eps : (M,) array, optional
+  eps : float or (M,) array, optional
     shape parameter for each RBF, which have centers *p*. This only 
     makes a difference when using RBFs that are not scale invariant.  
     All the predefined RBFs except for the odd order polyharmonic 
@@ -340,8 +334,10 @@ def weight_matrix(x,p,diffs,coeffs=None,
   p = np.asarray(p,dtype=float)
   diffs = np.asarray(diffs,dtype=int)
   diffs = _reshape_diffs(diffs)
-  if eps is None:
-    eps = np.ones(p.shape[0],dtype=float)
+  if np.isscalar(eps):
+    eps = np.full(p.shape[0],eps,dtype=float)
+  else:
+    eps = np.asarray(eps,dtype=float)  
   
   # make *coeffs* a (K,N) array
   if coeffs is None:

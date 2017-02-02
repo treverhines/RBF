@@ -582,8 +582,7 @@ def _prior_factory(basis,coeff,order):
   def covariance(x1,x2,diff1,diff2):
     a,b,c = coeff  
     diff = diff1 + diff2
-    eps = np.ones(x2.shape[0])/c
-    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=eps,diff=diff)
+    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=1.0/c,diff=diff)
     if np.any(~np.isfinite(out)):
       raise ValueError(
         'Encountered a non-finite prior covariance. This may be '
@@ -645,13 +644,13 @@ class GaussianProcess(object):
   depth.
 
   3. If a Gaussian process contains a polynomial null space, then its 
-  mean and covariance are undefined. This is because the monomial 
-  coefficients are equally likely to be any number between positive 
-  and negative infinity. When the *mean* or *covariance* methods are 
-  called, the returned values are instead the Gaussian process under 
-  the condition that the monomial coefficients are zero. In other 
-  words, the *mean* and *covariance* functions ignore the presence of 
-  a polynomial null space.
+  mean and covariance are undefined. This is because the coefficients 
+  for the monomials spanning the null space are equally likely to be 
+  any number between positive and negative infinity. When the *mean* 
+  or *covariance* methods are called, the returned values are for the 
+  Gaussian process under the condition that the monomial coefficients 
+  are zero. In other words, the *mean* and *covariance* functions 
+  ignore the presence of a polynomial null space.
   
   '''
   def __init__(self,mean,covariance,order=-1,dim=None):
@@ -1222,13 +1221,13 @@ class PriorGaussianProcess(GaussianProcess):
   coeff : 3-tuple  
     Tuple of three distribution coefficients, *a*, *b*, and *c*. *a* 
     is the mean, *b* scales the amplitude of the covariance, and *c* 
-    is the characteristic length scale (see module documentation). 
-    Note that *c* is the reciprocal of the shape parameter used to 
-    define *RBF* instances, *eps*.
+    is the reciprocal of the shape parameter, *eps*, that is used to 
+    define *RBF* instances. In most cases *c* can be interpreted as 
+    the characteristic length-scale.
       
   order : int, optional
-    Order of the polynomial spanning the null space. Defaults to -1, 
-    which means that there is no null space.
+    Order of the polynomial null space. Defaults to -1, which means 
+    that there is no null space.
     
   dim : int, optional
     Fixes the spatial dimensions of the Gaussian process.   
@@ -1266,12 +1265,15 @@ class PriorGaussianProcess(GaussianProcess):
   the other can be fixed at an arbitary value.
   
   3. Not all radial basis functions are positive definite, which means 
-  that there may not be a valid covariance function describing the 
-  Gaussian process. The squared exponential basis function, 
-  *rbf.basis.ga*, is positive definite for all spatial dimensions and 
-  it is infinitely differentiable. For this reason it is a generally 
-  safe choice for *basis*.
+  that it is possible to instantiate a *PriorGaussianProcess* that 
+  does not have a valid covariance function. The squared exponential 
+  basis function, *rbf.basis.ga*, is positive definite for all spatial 
+  dimensions. Furthermore, it is infinitely differentiable, which 
+  means its derivatives are also positive definite. For this reason 
+  *rbf.basis.ga* is a generally safe choice for *basis*.
 
+  4. See the notes in the *GaussianProcess* docstring.
+  
   '''
   def __init__(self,basis,coeff,order=-1,dim=None):
     coeff = np.asarray(coeff,dtype=float)  
