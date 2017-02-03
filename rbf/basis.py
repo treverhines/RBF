@@ -32,7 +32,6 @@ from __future__ import division
 import sympy 
 from sympy.utilities.autowrap import ufuncify 
 import numpy as np 
-import copy
 import warnings
 
 
@@ -44,7 +43,7 @@ def _replace_nan(x):
   return x
 
 
-def _check_lambdified_output(fin):
+def _fix_lambdified_output(fin):
   ''' 
   when lambdifying a sympy expression, the output is a scalar if the 
   expression is independent of R. This function checks the output of a 
@@ -58,9 +57,7 @@ def _check_lambdified_output(fin):
     x = args[0]
     eps = args[-1]
     if np.isscalar(out):
-      arr = np.empty((x.shape[0],eps.shape[0]),dtype=float)
-      arr[...] = out
-      out = arr
+      out = np.full((x.shape[0],eps.shape[0]),out,dtype=float)
 
     return out
 
@@ -177,7 +174,7 @@ class RBF(object):
       val = val.subs(_R,_EPS*_R)
       
     self._expr = val
-    self.cache = {}
+    self._cache = {}
 
   @property
   def package(self):
@@ -187,7 +184,7 @@ class RBF(object):
   def package(self,val):  
     if val in ['cython','numpy']:
       self._package = val
-      self.cache = {}
+      self._cache = {}
     else:
       raise ValueError('package must either be "cython" or "numpy" ')  
     
@@ -198,7 +195,7 @@ class RBF(object):
   @tol.setter    
   def tol(self,val):
     self._tol = val
-    self.cache = {}
+    self._cache = {}
 
   def __init__(self,expr,package='cython',tol=None):
     self.expr = expr
@@ -234,19 +231,20 @@ class RBF(object):
 
     Notes
     -----
-    This function evaluates the RBF and its derivatives symbolically 
-    using sympy and then the symbolic expression is converted to a 
-    numerical function. The numerical function is cached and then 
-    reused when this function is called again with the same derivative 
-    specification.
+    1. This function evaluates the RBF derivatives symbolically, if a 
+    derivative was specified, and then the symbolic expression is 
+    converted to a numerical function. The numerical function is 
+    cached and then reused when this function is called again with the 
+    same derivative specification.
 
-    All NaNs are replaced with zeros and divide by zero warnings are 
-    suppressed. This is an ad-hoc, but fast, way to handle the 
+    2. All NaNs are replaced with zeros and divide by zero warnings 
+    are suppressed. This is an ad-hoc, but fast, way to handle the 
     removable singularity with polyharmonic splines, and it does not 
     require symbolically calculating the limit at the singularity. 
     This is not guaranteed to produce the correct result at the 
     singularity, and one may prefer to handle the singularity 
     separately by setting a value for *tol*.
+
     '''
     x = np.asarray(x,dtype=float)
     c = np.asarray(c,dtype=float)
@@ -285,8 +283,8 @@ class RBF(object):
     x = x.T[:,:,None] 
     c = c.T[:,None,:]
     # add function to cache if not already
-    if diff not in self.cache:
-      self.add_to_cache(diff)
+    if diff not in self._cache:
+      self.add_diff_to_cache(diff)
  
     args = (tuple(x)+tuple(c)+(eps,))
     # ignore divide by zero warnings and then replace nans with zeros. 
@@ -295,7 +293,7 @@ class RBF(object):
     # handle the singularity is by specifying *tol*.
     with warnings.catch_warnings():
       warnings.simplefilter("ignore")
-      out = self.cache[diff](*args)
+      out = self._cache[diff](*args)
       out = _replace_nan(out) 
 
     return out
@@ -304,7 +302,7 @@ class RBF(object):
     out = '<RBF : %s>' % str(self.expr)
     return out
      
-  def add_to_cache(self,diff):
+  def add_diff_to_cache(self,diff):
     '''     
     Symbolically evaluates the specified derivative and then compiles 
     it to a function which can be evaluated numerically. The numerical 
@@ -347,12 +345,12 @@ class RBF(object):
       
     if self.package == 'numpy':
       func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
-      func = _check_lambdified_output(func)
-      self.cache[diff] = func
+      func = _fix_lambdified_output(func)
+      self._cache[diff] = func
 
     elif self.package == 'cython':        
       func = ufuncify(x_sym+c_sym+(_EPS,),expr)
-      self.cache[diff] = func
+      self._cache[diff] = func
     
 
 # Instantiate some common RBFs
