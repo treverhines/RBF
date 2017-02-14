@@ -10,9 +10,9 @@ sigma = 0.1*np.ones(20) # observation uncertainty
 # noisy observations of the signal
 d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
 # form a prior Gaussian process which has a squared exponential basis 
-# function (rbf.basis.ga), 0.0 for the mean, 1.0 for the standard 
+# function (rbf.basis.se), 0.0 for the mean, 1.0 for the standard 
 # deviation, and 2.0 for the characteristic length scale.
-gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,1.0,2.0))
+gp = rbf.gpr.PriorGaussianProcess((0.0,1.0,2.0),basis=rbf.basis.se)
 sample = gp.draw_sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x
 gp_cond = gp.condition(y[:,None],d,sigma=sigma) # condition with data

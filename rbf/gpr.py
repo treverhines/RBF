@@ -235,7 +235,7 @@ covariance functions described as
 and
 
 .. math::
-  C_u(x,x') = b\phi\\left(\\frac{||x - x'||_2}{c}\\right), 
+  C_u(x,x') = b\phi\\left(||x - x'||_2,c\\right), 
   
 where :math:`a`, :math:`b`, and :math:`c` are user specified 
 coefficients. The literature on radial basis functions and Gaussian 
@@ -245,7 +245,7 @@ positive definite radial function. One common choice for :math:`\phi`
 is the squared exponential function,
 
 .. math::
-  \phi(r) = \exp(-r^2),
+  \phi(r,c) = \exp\\left(-r^2/c^2\\right),
 
 which has the benefit of being infinitely differentiable. See [1] for 
 a list of commonly used radial functions as well as for more 
@@ -316,10 +316,10 @@ def _sigfigs(val,n):
   display purposes.
   '''
   if val == 0.0:
-    return 0.0
+    return np.float64(0.0)
   
   if ~np.isfinite(val):
-    return val
+    return np.float64(val)
     
   d = -np.int(np.log10(np.abs(val))) + n - 1 
   out = np.round(val,d)
@@ -572,9 +572,10 @@ def _prior_factory(basis,coeff,order):
   @_Memoize
   def mean(x,diff):
     a,b,c = coeff  
-    out = np.zeros(x.shape[0])
     if sum(diff) == 0:
-      out[:] = a
+      out = np.full(x.shape[0],a,dtype=float)
+    else:
+      out = np.zeros(x.shape[0],dtype=float)
 
     return out
       
@@ -582,7 +583,7 @@ def _prior_factory(basis,coeff,order):
   def covariance(x1,x2,diff1,diff2):
     a,b,c = coeff  
     diff = diff1 + diff2
-    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=1.0/c,diff=diff)
+    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=c,diff=diff)
     if np.any(~np.isfinite(out)):
       raise ValueError(
         'Encountered a non-finite prior covariance. This may be '
@@ -1209,22 +1210,24 @@ class GaussianProcess(object):
 class PriorGaussianProcess(GaussianProcess):
   ''' 
   A *PriorGaussianProcess* instance represents a stationary Gaussian 
-  process process which has a constant mean and a covariance function 
+  process which has a constant mean and a covariance function 
   described by a radial basis function. The prior can also be given a 
-  null space containing all polynomials of order *order*.  
+  null space containing all polynomials of order *order*.
 
   Parameters
   ----------
-  basis : RBF instance
-    Radial basis function describing the covariance function
-    
   coeff : 3-tuple  
-    Tuple of three distribution coefficients, *a*, *b*, and *c*. *a* 
-    is the mean, *b* scales the amplitude of the covariance, and *c* 
-    is the reciprocal of the shape parameter, *eps*, that is used to 
-    define *RBF* instances. In most cases *c* can be interpreted as 
-    the characteristic length-scale.
+    Tuple of three coefficients, *a*, *b*, and *c*, describing the 
+    prior probability distribution.  *a* is the mean and, when using 
+    the default value for *basis*, *b* and *c* describe the prior 
+    variance and characteristic length-scale.  In general, *b* scales 
+    the covariance function, and *c* is the shape parameter, *eps*, 
+    that is used to define *basis*.
       
+  basis : RBF instance, optional
+    Radial basis function describing the covariance function. Defaults 
+    to a squared exponential, *rbf.basis.se*.
+    
   order : int, optional
     Order of the polynomial null space. Defaults to -1, which means 
     that there is no null space.
@@ -1238,15 +1241,15 @@ class PriorGaussianProcess(GaussianProcess):
   exponential function with mean = 0, variance = 1, and characteristic 
   length scale = 2.
   
-  >>> from rbf.basis import ga,phs3
-  >>> gp = PriorGaussianProcess(ga,(0,1,2))
+  >>> gp = PriorGaussianProcess((0.0,1.0,2.0))
   
   Instantiate a PriorGaussianProcess which is equivalent to a 1-D thin 
   plate spline with penalty parameter 0.01. Then find the conditional 
   mean and uncertainty of the Gaussian process after incorporating 
   observations
   
-  >>> gp = PriorGaussianProcess(phs3,(0.0,0.01,1.0),order=1)
+  >>> from rbf.basis import phs3
+  >>> gp = PriorGaussianProcess((0.0,0.01,1.0),basis=phs3,order=1)
   >>> y = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
   >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
   >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
@@ -1267,25 +1270,21 @@ class PriorGaussianProcess(GaussianProcess):
   3. Not all radial basis functions are positive definite, which means 
   that it is possible to instantiate a *PriorGaussianProcess* that 
   does not have a valid covariance function. The squared exponential 
-  basis function, *rbf.basis.ga*, is positive definite for all spatial 
+  basis function, *rbf.basis.se*, is positive definite for all spatial 
   dimensions. Furthermore, it is infinitely differentiable, which 
   means its derivatives are also positive definite. For this reason 
-  *rbf.basis.ga* is a generally safe choice for *basis*.
+  *rbf.basis.se* is a generally safe choice for *basis*.
 
   4. See the notes in the *GaussianProcess* docstring.
   
   '''
-  def __init__(self,basis,coeff,order=-1,dim=None):
+  def __init__(self,coeff,basis=rbf.basis.se,order=-1,dim=None):
     coeff = np.asarray(coeff,dtype=float)  
     if coeff.shape[0] != 3:
       raise ValueError('*coeff* must be a (3,) array')
-    if coeff[2] == 0.0:   
-      raise ValueError('characteristic length-scale cannot be zero')
       
     mean,covariance = _prior_factory(basis,coeff,order)
-    GaussianProcess.__init__(self,mean,covariance,
-                             order=order,dim=dim)
-
+    GaussianProcess.__init__(self,mean,covariance,order=order,dim=dim)
     # A PriorGaussian process has these additional private attributes
     self._basis = basis
     self._coeff = coeff
@@ -1296,9 +1295,9 @@ class PriorGaussianProcess(GaussianProcess):
       # make string for __repr__
       a = _sigfigs(self._coeff[0],3)
       b = _sigfigs(self._coeff[1],3)
-      c_inv = _sigfigs(1.0/self._coeff[2],3)
+      c = 1.0/_sigfigs(1.0/self._coeff[2],3)
       eps = rbf.basis.get_eps()
-      cov_expr = b*self._basis.expr.subs(eps,c_inv)
+      cov_expr = b*self._basis.expr.subs(eps,c)
       try:
         # try to simplify cov_expr to a float. If this is possible, 
         # then convert NaNs to 0.0 which accounts for the singularity 
@@ -1318,159 +1317,3 @@ class PriorGaussianProcess(GaussianProcess):
     return self._repr_string
     
 
-def _get_trend(y,d,sigma,x,order,diff):
-  ''' 
-  returns the best fitting polynomial to observations *d*, which were 
-  made at *y* and have uncertainties *sigma*. The polynomial has order 
-  *order*, is evaluated at *x*, and then differentiated by *diff*.
-  '''
-  if y.shape[0] == 0:
-    # lstsq is unable to handle when y.shape[0]==0. In this case, 
-    # return an array of zeros with shape equal to x.shape[0]
-    return np.zeros(x.shape[0])
-    
-  powers = rbf.poly.powers(order,y.shape[1])
-  Gobs = rbf.poly.mvmonos(y,powers) # system matrix
-  W = np.diag(1.0/sigma) # weight matrix
-  coeff = np.linalg.lstsq(W.dot(Gobs),W.dot(d))[0]
-  Gitp = rbf.poly.mvmonos(x,powers,diff) 
-  trend = Gitp.dot(coeff) # evaluated trend at interpolation points
-  return trend
-
-
-def gpr(y,d,sigma,coeff,x=None,basis=rbf.basis.ga,order=1,
-        diff=None,procs=0,condition=True,return_sample=False):
-  '''     
-  Performs Guassian process regression on the observed data. This is a 
-  convenience function which initiates a *PriorGaussianProcess*, 
-  conditions it with the observations, differentiates it (if 
-  specified), and then evaluates the resulting *GaussianProcess* at 
-  *x*. 
-  
-  Parameters
-  ----------
-  y : (N,D) array
-    Observation points.
-
-  d : (...,N) array
-    Observed data at *y*.
-  
-  sigma : (...,N) array
-    Data uncertainty. *np.inf* can be used to indicate that the data 
-    is missing, which will cause the corresponding value in *d* to be 
-    ignored.
-  
-  coeff : 3-tuple
-    Variance, mean, and characteristic length scale for the prior 
-    Gaussian process.
-  
-  x : (M,D) array, optional
-    Evaluation points, defaults to *y*.
-  
-  basis : RBF instance, optional      
-    Radial basis function which describes the prior covariance 
-    structure. Defaults to *rbf.basis.ga*.
-    
-  order : int, optional
-    Order of the prior null space.
-
-  diff : (D,), optional         
-    Specifies the derivative of the returned values. 
-
-  procs : int, optional
-    Distribute the tasks among this many subprocesses. This defaults 
-    to 0 (i.e. the parent process does all the work).  Each task is to 
-    perform Gaussian process regression for one of the (N,) arrays in 
-    *d* and *sigma*. So if *d* and *sigma* are (N,) arrays then using 
-    multiple process will not provide any speed improvement.
-  
-  condition : bool, optional
-    If False then the prior Gaussian process will not be conditioned 
-    with the data and the output will just be the prior or its 
-    specified derivative. If the prior contains a polynomial null 
-    space (i.e. order > -1), then the monomial coefficients will be 
-    set to those that best fit the data. See note 3 in the 
-    GaussianProcess documentation.
-    
-  return_sample : bool, optional
-    If True then *out_mean* is a sample of the posterior, rather than 
-    its expected value. *out_sigma* will then be an array of zeros, 
-    since a sample has no associated uncertainty. If *return_sample* 
-    is True and *condition* is False then a sample of the prior will 
-    be returned.
-    
-  Returns 
-  ------- 
-  out_mean : (...,M) array
-    Mean of the posterior at *x*.
-      
-  out_sigma : (...,M) array  
-    One standard deviation of the posterior at *x*.
-      
-  '''
-  y = np.asarray(y,dtype=float)
-  d = np.asarray(d,dtype=float)
-  sigma = np.asarray(sigma,dtype=float)
-  if diff is None:   
-    diff = np.zeros(y.shape[1],dtype=int)
-
-  if x is None:
-    x = y
-  
-  m = x.shape[0]
-  bcast_shape = d.shape[:-1]
-  q = int(np.prod(bcast_shape))
-  n = y.shape[0]
-  d = d.reshape((q,n))
-  sigma = sigma.reshape((q,n))
-
-  def doit(i):
-    logger.debug('Performing GPR on data set %s of %s ...' % (i+1,q))
-    gp = PriorGaussianProcess(basis,coeff,order=order,dim=x.shape[1])
-    # ignore data that has infinite uncertainty
-    is_finite = ~np.isinf(sigma[i])
-    if condition:
-      gp = gp.recursive_condition(y[is_finite],d[i,is_finite],
-                                  sigma=sigma[i,is_finite])
-
-    gp = gp.differentiate(diff)
-    try:
-      if return_sample:
-        out_mean_i = gp.draw_sample(x)
-        out_sigma_i = np.zeros_like(out_mean_i)
-      else:  
-        out_mean_i,out_sigma_i = gp.mean_and_uncertainty(x)
-      
-      if gp.order != -1:
-        # Read note 3 in the GaussianProcess documentation. If a 
-        # polynomial null space exists, then I am setting the monomial 
-        # coefficients to be the coefficients that best fit the data. 
-        # This deviates from the default behavior for a GaussianProcess, 
-        # which sets the monomial coefficients to zero.
-        trend = _get_trend(y[is_finite],d[i,is_finite],
-                           sigma[i,is_finite],x,order,diff)
-        out_mean_i += trend                         
-
-    except np.linalg.LinAlgError:    
-      logger.info(
-        'Could not compute the expected values and uncertainties for '
-        'the Gaussian process. This may be due to insufficient data. '
-        'The returned expected values and uncertainties will be NaN '
-        'and INF, respectively.') 
-      out_mean_i = np.empty(x.shape[0])  
-      out_mean_i[:] = np.nan
-      out_sigma_i = np.empty(x.shape[0])  
-      out_sigma_i[:] = np.inf
-
-    return out_mean_i,out_sigma_i
-
-  out = rbf.mp.parmap(doit,range(q),workers=procs)   
-  out_mean = np.array([k[0] for k in out])
-  out_sigma = np.array([k[1] for k in out])
-  out_mean = out_mean.reshape(bcast_shape + (m,))
-  out_sigma = out_sigma.reshape(bcast_shape + (m,))
-  return out_mean,out_sigma
-
-  
-
-  

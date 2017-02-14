@@ -25,6 +25,7 @@ Inverse multiquadratic             imq           :math:`(1 + (\epsilon r)^2)^{-1
 Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1}`
 Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
 Exponential                        exp           :math:`\exp(-(\epsilon r))`
+Squared Exponential                se            :math:`\exp(-(r/\epsilon)^2)`
 =================================  ============  ======================================
 
 ''' 
@@ -366,6 +367,7 @@ exp = RBF(sympy.exp(-(_EPS*_R)),package='cython')
 imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2),package='cython')
 iq = RBF(1/(1+(_EPS*_R)**2),package='cython')
 ga = RBF(sympy.exp(-(_EPS*_R)**2),package='cython')
+se = RBF(sympy.exp(-(_R/_EPS)**2),package='cython')
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2),package='cython')
 
 
