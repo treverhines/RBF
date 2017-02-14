@@ -908,7 +908,7 @@ class GaussianProcess(object):
       observations constrain the slope of a 1-D Gaussian process.
       
     max_chunk : int, optional
-      Maximum size of the data chunks. Defaults to *max(500,N/10)*.
+      Maximum size of the data chunks. Defaults to *max(500,N/10)*. 
       
     Returns
     -------
@@ -1098,8 +1098,10 @@ class GaussianProcess(object):
       
     max_chunk : int, optional  
       Break *x* into chunks with this size and evaluate the Gaussian 
-      process for each chunk. Smaller values result in decreased 
-      memory usage but also decrease speed.
+      process for each chunk. This argument affects the speed and 
+      memory usage of this method, and it does not affect the output. 
+      Setting this to a larger value will reduce the number of python 
+      function call at the expense of increased memory usage.
     
     Returns
     -------
