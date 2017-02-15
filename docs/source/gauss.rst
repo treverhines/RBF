@@ -9,3 +9,9 @@ Examples
 --------
 .. literalinclude:: ../scripts/gauss.a.py
 .. image:: ../figures/gauss.a.png
+
+.. literalinclude:: ../scripts/gauss.b.py
+.. image:: ../figures/gauss.b.png
+
+.. literalinclude:: ../scripts/gauss.c.py
+.. image:: ../figures/gauss.c.png
