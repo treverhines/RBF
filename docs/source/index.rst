@@ -38,7 +38,7 @@ Table of Contents
   installation
   basis
   interpolate
-  gpr
+  gauss
   fd
   filter
   nodes

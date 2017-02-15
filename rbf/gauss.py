@@ -388,7 +388,7 @@ class _Memoize(object):
     
 def get_max_cache_size():
   ''' 
-  Returns the maximum cache size for memoized functions.
+  Returns the maximum cache size for memoized functions. 
   '''
   return _Memoize.MAX_CACHE_SIZE
   

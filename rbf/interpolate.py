@@ -164,7 +164,7 @@ class RBFInterpolant(object):
   smoothing large data sets. 
   
   This function does not make any estimates of the uncertainties on 
-  the interpolated values.  See *rbf.gpr* for interpolation with 
+  the interpolated values.  See *rbf.gauss* for interpolation with 
   uncertainties.
     
   With certain choices of basis functions and polynomial orders this 

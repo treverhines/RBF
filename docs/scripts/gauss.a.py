@@ -1,3 +1,9 @@
+''' 
+This script demonstrates how to perform Gaussian process regression on 
+a noisy data set. It also demonstrates drawing samples of the prior 
+and posterior to provide the user with an intuitive understanding of 
+their distributions.
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 import rbf
@@ -12,7 +18,7 @@ d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
 # form a prior Gaussian process which has a squared exponential basis 
 # function (rbf.basis.se), 0.0 for the mean, 1.0 for the standard 
 # deviation, and 2.0 for the characteristic length scale.
-gp = rbf.gpr.PriorGaussianProcess((0.0,1.0,2.0),basis=rbf.basis.se)
+gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,2.0),basis=rbf.basis.se)
 sample = gp.draw_sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x
 gp_cond = gp.condition(y[:,None],d,sigma=sigma) # condition with data
@@ -45,5 +51,5 @@ ax.set_xlim((-7.5,7.5))
 ax.set_ylim((-0.75,1.0))
 ax.legend(loc=2,frameon=False,fontsize=10)
 plt.tight_layout()
-plt.savefig('../figures/gpr.a.png')
+plt.savefig('../figures/gauss.a.png')
 plt.show()
