@@ -84,7 +84,7 @@ noise[20],noise[25] = 2.0,1.0 # add anomalously large noise
 d_true = np.exp(-0.3*np.abs(x))*np.sin(x)  # true signal at interp. points
 d = np.exp(-0.3*np.abs(y))*np.sin(y) + noise  # observations
 # find the mean and uncertainty of the posterior
-u,us = robust_gpr(y[:,None],d,s,(0.0,1.0,2.0),x=x[:,None]) 
+u,us = robust_gpr(y[:,None],d,s,(0.0,100.0,2.0),x=x[:,None]) 
 # plot the results
 fig,ax = plt.subplots() 
 ax.errorbar(y,d,s,fmt='k.',capsize=0.0,label='observations') 
