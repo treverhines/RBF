@@ -333,7 +333,7 @@ class _Memoize(object):
   '''
   # static variable controlling the maximum cache size for all 
   # memoized functions
-  MAX_CACHE_SIZE = 500
+  MAX_CACHE_SIZE = 100
   
   def __init__(self,fin):
     self.cache = OrderedDict()
@@ -358,7 +358,7 @@ class _Memoize(object):
         self.cache.popitem(0)
         
       self.cache[key] = output
- 
+      
     return self.cache[key]
 
   def __repr__(self):
@@ -884,11 +884,10 @@ class GaussianProcess(object):
     observed data. The data is broken into chunks and the returned 
     *GaussianProcess* is computed recursively, where each recursion 
     depth corresponds to a different chunk. The *GaussianProcess* 
-    returned by this function should be equivalent (to within 
-    numerical precision) to the *GaussianProcess* returned by the 
-    *condition* method. This function should be preferred over the 
-    *condition* method for large (>1000) data sets because it can be 
-    faster and use less memory.
+    returned by this method should be equivalent (to within numerical 
+    precision) to the *GaussianProcess* returned by the *condition* 
+    method. However, this methods run time, memory usaged, and 
+    numerical stability may differ from the *condition* method.
     
     Parameters
     ----------
