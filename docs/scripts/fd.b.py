@@ -11,8 +11,7 @@ import numpy as np
 import scipy.sparse
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from scipy.spatial import cKDTree
-from rbf.nodes import menodes
+from rbf.nodes import menodes,neighbors
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
 
@@ -34,17 +33,6 @@ body_force = 1.0
 
 ## Build and solve for displacements and strain
 #####################################################################
-
-def min_distance(x):
-  ''' 
-  Returns the shortest distance between any two nodes in *x*. This is 
-  used to determine how far outside the boundary to place ghost nodes.
-  '''
-  kd = cKDTree(x)
-  dist,_ = kd.query(x,2)
-  out = np.min(dist[:,1])
-  return out
-
 # generate nodes. Read the documentation for *menodes* to tune it and 
 # allow for variable node densities.
 nodes,smpid = menodes(N,vert,smp)
@@ -60,7 +48,7 @@ simplex_normals = simplex_outward_normals(vert,smp)
 # find the normal vectors for each free boundary node
 normals = simplex_normals[smpid[free_idx]]
 # add ghost nodes to greatly improve accuracy at the free surface
-dx = min_distance(nodes)
+dx = np.min(neighbors(nodes,2)[1][:,1])
 nodes = np.vstack((nodes,nodes[free_idx] + dx*normals))
 ## Enforce the PDE on interior nodes AND the free surface nodes 
 # x component of force resulting from displacement in the x direction.

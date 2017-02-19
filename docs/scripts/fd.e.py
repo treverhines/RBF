@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from scipy.interpolate import griddata
 from scipy.spatial import cKDTree
-from rbf.nodes import menodes
+from rbf.nodes import menodes,neighbors
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals
 from rbf.fdbuild import (elastic2d_body_force,
@@ -40,15 +40,6 @@ n = 20
 lamb = 1.0
 mu = 1.0
 #####################################################################
-def min_distance(x):
-  ''' 
-  returns the shortest distance between any two nodes in x. This is 
-  used to determine how far outside the boundary to place ghost nodes
-  '''
-  kd = cKDTree(x)
-  dist,_ = kd.query(x,2)
-  return np.min(dist[:,1])
-  
 def find_orthogonals(n):
   ''' 
   Returns an array of normalized vector that are orthogonal to *n*. 
@@ -93,7 +84,7 @@ free_normals = simplex_normals[smpid[free_idx]]
 # surface parallel vectors
 roller_parallels = find_orthogonals(roller_normals)
 # add ghost nodes next to free surface and roller nodes
-dx = min_distance(nodes)
+dx = np.min(neighbors(nodes,2)[1][:,1])
 nodes = np.vstack((nodes,nodes[roller_idx] + dx*roller_normals))
 nodes = np.vstack((nodes,nodes[free_idx] + dx*free_normals))
 # build the "left hand side" matrices for body force constraints

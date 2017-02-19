@@ -12,11 +12,10 @@ from mayavi import mlab
 from matplotlib import cm
 from scipy.sparse import vstack,hstack
 from scipy.sparse.linalg import spsolve
-from scipy.spatial import cKDTree
 from scipy.interpolate import griddata
-from rbf.nodes import menodes
+from rbf.nodes import menodes,neighbors
 from rbf.fd import weight_matrix
-from rbf.geometry import simplex_outward_normals
+from rbf.geometry import simplex_outward_normals,contains
 from rbf.fdbuild import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement) 
@@ -43,28 +42,6 @@ body_force = 1.0
 
 ## Build and solve for displacements and strain
 #####################################################################
-
-def min_distance(x):
-  ''' 
-  Returns the shortest distance between any two nodes in *x*. This is 
-  used to determine how far outside the boundary to place ghost nodes.
-
-  Parameters
-  ----------
-  x : (N,D) array
-    node positions
-  
-  Returns
-  -------  
-  out : float  
-    shortest distance between any two nodes in *x*
-    
-  '''
-  kd = cKDTree(x)
-  dist,_ = kd.query(x,2)
-  out = np.min(dist[:,1])
-  return out
-  
 # generate nodes. Note that this may take a while
 nodes,smpid = menodes(N,vert,smp)
 # find which nodes are attached to each simplex
@@ -75,7 +52,7 @@ free_idx = np.nonzero(smpid > 1)[0].tolist()
 simplex_normals = simplex_outward_normals(vert,smp)
 normals = simplex_normals[smpid[free_idx]]
 # add ghost nodes next to free surface nodes
-dx = min_distance(nodes)
+dx = np.min(neighbors(nodes,2)[1][:,1])
 nodes = np.vstack((nodes,nodes[free_idx] + dx*normals))
 
 # The "left hand side" matrices are built with the convenience 

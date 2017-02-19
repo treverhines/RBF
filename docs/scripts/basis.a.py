@@ -7,18 +7,10 @@ neighbor distance.
 import numpy as np
 from rbf.basis import mq
 from rbf.geometry import contains
-from rbf.nodes import menodes
-from scipy.spatial import cKDTree
+from rbf.nodes import menodes,neighbors
 import matplotlib.pyplot as plt
 
-def neighbor_distance(x):
-  '''returns the average distance to the nearest neighbor'''
-  dist,_ = cKDTree(nodes).query(nodes,2)
-  return np.mean(dist[:,1])
-
-# Define the problem domain. This is done by specifying the vertices 
-# of the domain, *vert*, and the vertex indices making up each 
-# segment, *smp*.
+# Define the problem domain with line segments.
 vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],
                  [1.0,1.0],[1.0,2.0],[0.0,2.0]])
 smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]])
@@ -26,7 +18,8 @@ N = 500 # total number of nodes
 nodes,smpid = menodes(N,vert,smp) # generate nodes
 edge_idx, = (smpid>=0).nonzero() # identify edge nodes
 interior_idx, = (smpid==-1).nonzero() # identify interior nodes
-eps = 0.5/neighbor_distance(nodes) # shape parameter
+dx = np.mean(neighbors(nodes,2)[1][:,1]) # avg. distance to nearest neighbor
+eps = 0.5/dx  # shape parameter
 # create "left hand side" matrix
 A = np.empty((N,N))
 A[interior_idx]  = mq(nodes[interior_idx],nodes,eps=eps,diff=[2,0])

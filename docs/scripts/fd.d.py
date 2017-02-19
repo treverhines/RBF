@@ -12,9 +12,8 @@ from scipy.sparse import vstack,hstack,diags
 from scipy.sparse.linalg import spsolve
 from mayavi import mlab
 from matplotlib import cm
-from scipy.spatial import cKDTree
 from scipy.interpolate import griddata
-from rbf.nodes import menodes
+from rbf.nodes import menodes,neighbors
 from rbf.fd import weight_matrix
 from rbf.geometry import simplex_outward_normals,contains
 from rbf.domain import topography
@@ -43,9 +42,9 @@ def topo_func(x):
   that interpolates a DEM.
   '''
   np.random.seed(3)
-  gp = rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.25))
-  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,0.5))
-  gp += rbf.gpr.PriorGaussianProcess(rbf.basis.ga,(0.0,0.01,1.0))
+  gp = rbf.gauss.PriorGaussianProcess((0.0,0.01,0.25))
+  gp += rbf.gauss.PriorGaussianProcess((0.0,0.01,0.5))
+  gp += rbf.gauss.PriorGaussianProcess((0.0,0.01,1.0))
   out = gp.draw_sample(x)
   out *= taper_function(x,[0.0,0.0],1.0)
   return out
@@ -78,27 +77,6 @@ body_force = 1.0
 ## Build and solve for topographic stress
 #####################################################################
 
-def min_distance(x):
-  ''' 
-  Returns the shortest distance between any two nodes in *x*. This is 
-  used to determine how far outside the boundary to place ghost nodes.
-
-  Parameters
-  ----------
-  x : (N,D) array
-    node positions
-  
-  Returns
-  -------  
-  out : float  
-    shortest distance between any two nodes in *x*
-    
-  '''
-  kd = cKDTree(x)
-  dist,_ = kd.query(x,2)
-  out = np.min(dist[:,1])
-  return out
-  
 def find_orthogonals(n):
   ''' 
   Returns two arrays of normalized vector that are orthogonal to *n*.
@@ -145,7 +123,7 @@ roller_normals = simplex_normals[smpid[roller_idx]]
 # vectors that are parallel to the surface would do.
 roller_parallels1,roller_parallels2 = find_orthogonals(roller_normals)
 # add ghost nodes next to free and roller nodes
-dx = min_distance(nodes)
+dx = np.min(neighbors(nodes,2)[1][:,1])
 nodes = np.vstack((nodes,nodes[free_idx] + dx*free_normals))
 nodes = np.vstack((nodes,nodes[roller_idx] + dx*roller_normals))
 # build the "left hand side" matrices for body force constraints
