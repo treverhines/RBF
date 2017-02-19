@@ -1,7 +1,7 @@
 ''' 
 In this script we solve the 2-d wave equation over an L-shaped domain 
 with a RBF-FD scheme. The domain has free boundary conditions. Time 
-integration is done with the fourth-order Runga-Kutta method.
+integration is done with the fourth-order Runge-Kutta method.
 '''
 import numpy as np
 from rbf.fd import weight_matrix
@@ -50,7 +50,8 @@ def f(t,v):
   u = np.empty(len(nodes))
   # interior and boundary nodes come from the state vector
   u[interior+boundary] = v[0] 
-  # solve for the ghost node values that satisfy the boundary conditions  
+  # solve for the ghost node values that satisfy the boundary 
+  # conditions. NOTE: this can be made much more efficient.
   u[ghost] = spsolve(dD[:,ghost],u_bnd - dD[:,interior+boundary].dot(v[0]))
   # return time derivative of the state vector
   return np.hstack([v[1],D.dot(u)])
