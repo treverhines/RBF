@@ -8,7 +8,7 @@ import rbf.halton
 import logging
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
-from rbf.stencil import nearest
+from rbf.stencil import stencil_network
 from rbf.geometry import (intersection_count,
                           intersection_index,
                           intersection_point,
@@ -17,19 +17,59 @@ from rbf.geometry import (intersection_count,
 logger = logging.getLogger(__name__)
 
 
-def neighbor_argsort(nodes,vert=None,smp=None,neighbors=10):
+def neighbors(x,m,p=None,vert=None,smp=None):
+  ''' 
+  Returns the indices and distances for the *m* nearest neighbors to 
+  each node in *x*. If *p* is specified then this function returns the 
+  *m* nearest nodes in *p* to each nodes in *x*. Nearest neighbors 
+  cannot extend across the boundary defined by *vert* and *smp*.
+  
+  Parameters
+  ----------
+  x : (N,D) array
+    Node positions.
+    
+  m : integer
+    Number of neighbors to find for each point in *x*.
+    
+  p : (M,D) array, optional
+    Node positions.
+        
+  vert : (P,D) array, optional     
+    Vertices of the boundary.
+
+  smp : (Q,D) array, optional  
+    Connectivity of vertices to form the boundary.
+    
+  Returns
+  -------
+  idx : (N,*m*) integer array
+    Indices of nearest points.
+
+  dist : (N,*m*) float array
+    Distance to the nearest points.
+
+  '''
+  x = np.asarray(x,dtype=float)
+  if p is None: p = x
+  idx = stencil_network(x,p,m,vert=vert,smp=smp)
+  dist = np.sqrt(np.sum((x[:,None,:] - p[idx])**2,axis=2))
+  return idx,dist
+
+
+def neighbor_argsort(nodes,m=10,vert=None,smp=None):
   ''' 
   Returns a permutation array that sorts *nodes* so that each node and 
-  its *n* nearest neighbors are close together in memory. This is done 
+  its *m* nearest neighbors are close together in memory. This is done 
   through the use of a KD Tree and the Reverse Cuthill-McKee 
   algorithm.
 
   Parameters
   ----------
   nodes : (N,D) array
-    Node array.
+    Node positions.
 
-  neighbors : int, optional
+  m : int, optional
     Number of neighboring nodes to place close together in memory. 
     This should be about equal to the stencil size for RBF-FD method.
 
@@ -51,13 +91,13 @@ def neighbor_argsort(nodes,vert=None,smp=None,neighbors=10):
 
   '''
   nodes = np.asarray(nodes,dtype=float)
-  neighbors = min(neighbors,nodes.shape[0])
+  m = min(m,nodes.shape[0])
   # find the indices of the nearest n nodes for each node
-  idx,dist = nearest(nodes,nodes,neighbors,vert=vert,smp=smp)
+  idx,dist = neighbors(nodes,m,vert=vert,smp=smp)
   # efficiently form adjacency matrix
-  col = idx.flatten()
-  row = np.repeat(np.arange(nodes.shape[0]),neighbors)
-  data = np.ones(nodes.shape[0]*neighbors,dtype=bool)
+  col = idx.ravel()
+  row = np.repeat(np.arange(nodes.shape[0]),m)
+  data = np.ones(nodes.shape[0]*m,dtype=bool)
   mat = csr_matrix((data,(row,col)),dtype=bool)
   permutation = reverse_cuthill_mckee(mat)
   return permutation
@@ -104,48 +144,47 @@ def snap_to_boundary(nodes,vert,smp,delta=1.0):
   smp = np.asarray(smp,dtype=int)
   n,dim = nodes.shape
   # find the distance to the nearest node
-  dx = nearest(nodes,nodes,2)[1][:,1]
+  dx = neighbors(nodes,2)[1][:,1]
   # allocate output arrays
-  out_smpid = -np.ones(n,dtype=int)
+  out_smpid = np.full(n,-1,dtype=int)
   out_nodes = np.array(nodes,copy=True)
-  min_dist = np.inf*np.ones(n,dtype=float)
+  min_dist = np.full(n,np.inf,dtype=float)
   for i in range(dim):
     for sign in [-1.0,1.0]:
       # *pert_nodes* is *nodes* shifted slightly along dimension *i*
       pert_nodes = np.array(nodes,copy=True)
       pert_nodes[:,i] += delta*sign*dx
       # find which segments intersect the boundary
-      idx = intersection_count(nodes,pert_nodes,vert,smp) > 0
+      idx, = (intersection_count(nodes,pert_nodes,vert,smp) > 0).nonzero()
       # find the intersection points
       pnt = intersection_point(nodes[idx],pert_nodes[idx],vert,smp)
       # find the distance between *nodes* and the intersection point
-      dist = np.inf*np.ones(n,dtype=float)
-      dist[idx] = np.linalg.norm(nodes[idx] - pnt,axis=1)
-      # if the distance to the intersection point is less than the 
-      # distance to any previously found intersections then set the new 
-      # values for out_nodes and out_smpid
-      idx = (dist < min_dist)
-      out_smpid[idx] = intersection_index(nodes[idx],pert_nodes[idx],vert,smp)
-      out_nodes[idx] = intersection_point(nodes[idx],pert_nodes[idx],vert,smp)
-      min_dist[idx] = dist[idx]
+      dist = np.linalg.norm(nodes[idx] - pnt,axis=1)
+      # only snap nodes which have an intersection point that is 
+      # closer than any of their previously found intersection points
+      snap = dist < min_dist[idx]
+      snap_idx = idx[snap]
+      out_smpid[snap_idx] = intersection_index(nodes[snap_idx],pert_nodes[snap_idx],vert,smp)
+      out_nodes[snap_idx] = pnt[snap]
+      min_dist[snap_idx] = dist[snap]
 
   return out_nodes,out_smpid
 
 
-def _disperse(free_nodes,fix_nodes,rho,n,delta,vert,smp):
+def _disperse(free_nodes,fix_nodes,rho,m,delta,vert,smp):
   ''' 
   Returns the new position of the free nodes after a dispersal step. 
   Nodes on opposite sides of the boundary defined by vert and smp 
   cannot repel eachother.
   '''
-  # if n is 0 or 1 then the nodes remain stationary
-  if n <= 1:
+  # if m is 0 or 1 then the nodes remain stationary
+  if m <= 1:
     return np.array(free_nodes,copy=True)
 
   # form collection of all nodes
   nodes = np.vstack((free_nodes,fix_nodes))
   # find index and distance to nearest nodes
-  i,d = nearest(free_nodes,nodes,n,vert=vert,smp=smp)
+  i,d = neighbors(free_nodes,m,p=nodes,vert=vert,smp=smp)
   # dont consider a node to be one of its own nearest neighbors
   i,d = i[:,1:],d[:,1:]
   # compute the force proportionality constant between each node
@@ -168,7 +207,7 @@ def _disperse(free_nodes,fix_nodes,rho,n,delta,vert,smp):
 
 
 def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
-             neighbors=None,delta=0.1,bound_force=False): 
+             m=None,delta=0.1,bound_force=False): 
   '''   
   Returns *nodes* after beingly slightly dispersed. The disperson is 
   analogous to electrostatic repulsion, where neighboring node exert a 
@@ -204,12 +243,11 @@ def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
   fix_nodes : (F,D) array, optional
     Nodes which do not move and only provide a repulsion force.
 
-  neighbors : int, optional
-    Number of neighboring nodes to use when calculating the 
-    repulsion force. When *neighbors* is small, the equilibrium 
-    state tends to be a uniform node distribution (regardless of 
-    *rho*), when *neighbors* is large, nodes tend to get pushed up 
-    against the boundaries.
+  m : int, optional
+    Number of neighboring nodes to use when calculating the repulsion 
+    force. When *m* is small, the equilibrium state tends to be a 
+    uniform node distribution (regardless of *rho*), when *m* is 
+    large, nodes tend to get pushed up against the boundaries.
 
   delta : float, optional
     Scaling factor for the node step size. The step size is equal to 
@@ -252,16 +290,16 @@ def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
   else:
     fix_nodes = np.asarray(fix_nodes,dtype=float)
       
-  if neighbors is None:
+  if m is None:
     # number of neighbors defaults to 3 raised to the number of 
     # spatial dimensions
-    neighbors = 3**nodes.shape[1]
+    m = 3**nodes.shape[1]
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
-  neighbors = min(neighbors,nodes.shape[0]+fix_nodes.shape[0])
+  m = min(m,nodes.shape[0]+fix_nodes.shape[0])
   # node positions after repulsion 
-  out = _disperse(nodes,fix_nodes,rho,neighbors,delta,bound_vert,bound_smp)
+  out = _disperse(nodes,fix_nodes,rho,m,delta,bound_vert,bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = intersection_count(nodes,out,vert,smp) > 0
   # point where nodes intersected the boundary
@@ -280,7 +318,7 @@ def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
 
   
 def menodes(N,vert,smp,rho=None,fix_nodes=None,
-            itr=100,neighbors=None,delta=0.05,
+            itr=100,m=None,delta=0.05,
             sort_nodes=True,bound_force=False):
   ''' 
   Generates nodes within a 1, 2, or 3 dimensional domain using a 
@@ -320,12 +358,11 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     Number of repulsion iterations. If this number is small then the 
     nodes will not reach a minimum energy equilibrium.
 
-  neighbors : int, optional
-    Number of neighboring nodes to use when calculating the 
-    repulsion force. When *neighbors* is small, the equilibrium 
-    state tends to be a uniform node distribution (regardless of 
-    *rho*), when *neighbors* is large, nodes tend to get pushed up 
-    against the boundaries.
+  m : int, optional
+    Number of neighboring nodes to use when calculating the repulsion 
+    force. When *m* is small, the equilibrium state tends to be a 
+    uniform node distribution (regardless of *rho*), when *m* is 
+    large, nodes tend to get pushed up against the boundaries.
 
   delta : float, optional
     Scaling factor for the node step size in each iteration. The 
@@ -368,10 +405,10 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     def rho(p):
       return np.ones(p.shape[0])
 
-  if neighbors is None:
+  if m is None:
     # number of neighbors defaults to 3 raised to the number of 
     # spatial dimensions
-    neighbors = 3**vert.shape[1]
+    m = 3**vert.shape[1]
 
   # form bounding box for the domain so that a RNG can produce values
   # that mostly lie within the domain
@@ -424,7 +461,7 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   for i in range(itr):
     logger.debug('starting node repulsion iteration %s of %s' % (i+1,itr)) 
     nodes = disperse(nodes,vert=vert,smp=smp,rho=rho,
-                     fix_nodes=fix_nodes,neighbors=neighbors,
+                     fix_nodes=fix_nodes,m=m,
                      delta=delta,bound_force=bound_force)
 
   logger.debug('snapping nodes to boundary') 
@@ -432,7 +469,7 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
   if sort_nodes:
     # sort so that nodes that are close in space are also close in 
     # memory
-    idx = neighbor_argsort(nodes,neighbors=neighbors)
+    idx = neighbor_argsort(nodes,m=m)
     nodes = nodes[idx]
     smpid = smpid[idx] 
   

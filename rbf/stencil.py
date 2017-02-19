@@ -194,38 +194,3 @@ def stencil_network(x,p,n,vert=None,smp=None):
       sn[i,:] = _stencil(x[i],p,n,vert,smp)
 
   return sn
-
-
-def nearest(x,p,n,vert=None,smp=None):
-  ''' 
-  Returns the *n* nearest points in *p* for each point in *x*. Nearest 
-  neighbors cannot extend across the boundary defined by *vert* and 
-  *smp*
-  
-  Parameters
-  ----------
-  x : (N,D) array
-    Target points.
-
-  p : (M,D) array
-    Source points.
-
-  vert : (P,D) array, optional     
-    Vertices of the boundary.
-
-  smp : (Q,D) array, optional  
-    Connectivity of vertices to form the boundary.
-    
-  Returns
-  -------
-  idx : (N,D) array
-    Indices of nearest points in *p*.
-
-  dist : (N,D) array
-    Distance to the nearest points in *p*.
-
-  '''
-  idx = stencil_network(x,p,n,vert=vert,smp=smp)
-  dist = np.sqrt(np.sum((x[:,None,:] - p[idx])**2,axis=2))
-  return idx,dist
-  
