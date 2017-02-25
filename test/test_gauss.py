@@ -41,11 +41,11 @@ class Test(unittest.TestCase):
                   diff1=(0,),diff2=(0,))
     return 
 
-  def test_run_mean_and_uncertainty(self):
-    # make sure the test_mean_and_uncertainty methods runs without 
+  def test_run_mean_and_sigma(self):
+    # make sure the test_mean_and_sigma methods runs without 
     # failure
     gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
-    gp.mean_and_uncertainty([[0.0],[1.0],[2.0]])
+    gp.mean_and_sigma([[0.0],[1.0],[2.0]])
     return 
   
   def test_run_add(self):

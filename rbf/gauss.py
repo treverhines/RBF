@@ -674,9 +674,9 @@ class GaussianProcess(object):
     
   def __call__(self,*args,**kwargs):
     ''' 
-    equivalent to calling *mean_and_uncertainty*
+    equivalent to calling *mean_and_sigma*
     '''
-    return self.mean_and_uncertainty(*args,**kwargs)
+    return self.mean_and_sigma(*args,**kwargs)
 
   def __add__(self,other):
     ''' 
@@ -1084,11 +1084,11 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
     
-  def mean_and_uncertainty(self,x,max_chunk=100):
+  def mean_and_sigma(self,x,max_chunk=100):
     ''' 
-    Returns the mean and uncertainty at *x*. This does not return the 
-    full covariance matrix, making it appropriate for evaluating the 
-    Gaussian process at many interpolation points.
+    Returns the mean and standard deviation at *x*. This does not 
+    return the full covariance matrix, making it appropriate for 
+    evaluating the Gaussian process at many points.
     
     Parameters
     ----------
@@ -1193,12 +1193,14 @@ class GaussianProcess(object):
     
 
   def clear_cache(self):
-    ''' 
+    '''     
     Attempts to clear the caches of memoized functions associated with 
     this Gaussian process. This is done by calling the *clear_cache* 
     method of the mean and covariance function if one exists. Note 
     that this may clear the caches of other Gaussian processes which 
-    have shared ancestors.
+    have shared ancestors. This is useful when memory consumption 
+    is of concern and the user wants to dereference data saved in the 
+    caches. It is also useful when a cache has somehow been corrupted.
     '''
     _mvmonos.clear_cache()
     if hasattr(self._mean,'clear_cache'):
