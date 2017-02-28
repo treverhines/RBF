@@ -289,7 +289,7 @@ def _is_positive_definite(A,tol=1e-10):
   return True  
 
 
-def _draw_sample(mean,cov,tol=1e-10):
+def _draw_sample(mean,cov):
   ''' 
   Draws a random sample from the gaussian process with the specified 
   mean and covariance. 
@@ -1131,7 +1131,7 @@ class GaussianProcess(object):
     
     return out_mean,out_sigma
 
-  def draw_sample(self,x,tol=1e-10):  
+  def draw_sample(self,x):  
     '''  
     Draws a random sample from the Gaussian process
     
@@ -1156,7 +1156,7 @@ class GaussianProcess(object):
     '''
     mean = self.mean(x)
     cov = self.covariance(x,x)
-    out = _draw_sample(mean,cov,tol=tol)
+    out = _draw_sample(mean,cov)
     return out
     
   def is_positive_definite(self,x,tol=1e-10):
