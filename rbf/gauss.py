@@ -7,7 +7,7 @@ is a technique for constructing a continuous function from discrete
 and potentially noisy observations. This documentation describes 
 Gaussian processes and the operations (methods), which they are 
 endowed with. Details on the classes *GaussianProcess* and 
-*PriorGaussianProcess* can be found in their doc strings.
+*RBFGaussianProcess* can be found in their doc strings.
 
 There are several existing python packages for GPR. Some packages are 
 well developed and contain a great deal of functionilty which is 
@@ -264,6 +264,8 @@ import warnings
 import rbf.mp
 from collections import OrderedDict
 import logging
+import weakref
+import inspect
 logger = logging.getLogger(__name__)
 
   
@@ -326,35 +328,48 @@ def _sigfigs(val,n):
   return out
     
 
-class _Memoize(object):
+class Memoize(object):
   ''' 
-  Memoizing decorator. This works for functions that take only 
-  positional arguments and each argument is a numpy array.
+  Memoizing decorator. The output for calls to decorated functions 
+  will be cached and reused if the function is called again with the 
+  same arguments. The input arguments must either be hashable or numpy 
+  arrays. Caches can be cleared with the module-level function 
+  *clear_caches*.
   '''
-  # static variable controlling the maximum cache size for all 
-  # memoized functions
+  # variable controlling the maximum cache size for all memoized 
+  # functions
   MAX_CACHE_SIZE = 100
+  # collection of weak references to all instances
+  INSTANCES = []
   
   def __init__(self,fin):
-    self.cache = OrderedDict()
     self.fin = fin
-    self.links = []
+    self.cache = OrderedDict()
+    Memoize.INSTANCES += [weakref.ref(self)]
 
   def __call__(self,*args):
     ''' 
-    Calls *fin* if *fin(*args)* is not stored in the cache. If 
-    *fin(*args)* is in the cache then return it without evaluating 
-    *fin*.
+    Calls the decorated function with *args* if the output is not 
+    already stored in the cache. Otherwise, the cached value is 
+    returned.
     '''
-    # it is assumed that all the arguments are numpy arrays
-    key = tuple(a.tobytes() for a in args)
+    # generates hashable representations of the arguments
+    def hashables():
+      for a in args:
+        if hasattr(a,'tobytes'):
+          # if *a* has the method *tobytes*, then it is a numpy array. 
+          # The output for *tobytes* is used in the key, since the array 
+          # is not hashable.
+          yield a.tobytes()
+        else:
+          yield a
+          
+    # create the cache key. 
+    key = tuple(hashables())        
     if key not in self.cache:
       output = self.fin(*args)
-      # make output read-only. This prevents the end-user from 
-      # inadvertently modifying the entries in the cache.
-      #output.flags['WRITEABLE'] = False
       # make sure there is room for the new entry
-      while len(self.cache) >= _Memoize.MAX_CACHE_SIZE:
+      while len(self.cache) >= Memoize.MAX_CACHE_SIZE:
         self.cache.popitem(0)
         
       self.cache[key] = output
@@ -364,48 +379,19 @@ class _Memoize(object):
   def __repr__(self):
     return self.fin.__repr__()
 
-  def add_links(self,*args):    
-    ''' 
-    Link other memoized functions so that calling *clear_cache* for 
-    this function also calls *clear_cache* for the linked functions.
-    '''
-    # append new links to existing links
-    links = self.links + list(args)
-    # make sure there are no duplicate links
-    links = list(set(links))
-    self.links = links
 
-  def clear_cache(self):    
-    ''' 
-    Dereference the current cache and instantiate an empty one. This 
-    is also done for any linked functions.
-    '''
-    self.cache = OrderedDict()
-    for l in self.links:
-      if hasattr(l,'clear_cache'):
-        l.clear_cache()
-    
-    
-def get_max_cache_size():
+def clear_caches():
   ''' 
-  Returns the maximum cache size for memoized functions. 
+  Dereferences the caches for all memoized functions. 
   '''
-  return _Memoize.MAX_CACHE_SIZE
-  
-
-def set_max_cache_size(val):
-  ''' 
-  Sets the maximum cache size for memoized functions. Increasing this 
-  value generally improves speed at the expense of memory efficiency.
-  '''
-  val = int(val)
-  if val < 0:
-    raise ValueError('maximum cache size must be positive')
-    
-  _Memoize.MAX_CACHE_SIZE = val
+  for i in Memoize.INSTANCES:
+    if i() is not None:
+      # *i* will be done if it has no references. If references still 
+      # exists, then give it a new empty cache.
+      i().cache = OrderedDict()
 
 
-@_Memoize
+@Memoize
 def _mvmonos(x,powers,diff):
   ''' 
   Memoized function which returns the matrix of monomials spanning the 
@@ -419,21 +405,17 @@ def _add_factory(gp1,gp2):
   Factory function which returns the mean and covariance functions for 
   two added *GaussianProcesses*.
   '''
-  @_Memoize
+  @Memoize
   def mean(x,diff):
     out = gp1._mean(x,diff) + gp2._mean(x,diff)
     return out       
 
-  @_Memoize
+  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out
             
-  # link all functions called by *mean*
-  mean.add_links(gp1._mean,gp2._mean) 
-  # link all functions called by *covariance*
-  covariance.add_links(gp1._covariance,gp2._covariance) 
   return mean,covariance
   
 
@@ -443,19 +425,17 @@ def _subtract_factory(gp1,gp2):
   a *GaussianProcess* which has been subtracted from another 
   *GaussianProcess*.
   '''
-  @_Memoize
+  @Memoize
   def mean(x,diff):
     out = gp1._mean(x,diff) - gp2._mean(x,diff)
     return out
       
-  @_Memoize
+  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
-  mean.add_links(gp1._mean,gp2._mean) 
-  covariance.add_links(gp1._covariance,gp2._covariance) 
   return mean,covariance
 
 
@@ -464,18 +444,16 @@ def _scale_factory(gp,c):
   Factory function which returns the mean and covariance functions for 
   a scaled *GaussianProcess*.
   '''
-  @_Memoize
+  @Memoize
   def mean(x,diff):
     out = c*gp._mean(x,diff)
     return out
 
-  @_Memoize
+  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
-  mean.add_links(gp._mean) 
-  covariance.add_links(gp._covariance) 
   return mean,covariance
 
 
@@ -484,18 +462,16 @@ def _differentiate_factory(gp,d):
   Factory function which returns the mean and covariance functions for 
   a differentiated *GaussianProcess*.
   '''
-  @_Memoize
+  @Memoize
   def mean(x,diff):
     out = gp._mean(x,diff + d)
     return out 
 
-  @_Memoize
+  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
-  mean.add_links(gp._mean) 
-  covariance.add_links(gp._covariance) 
   return mean,covariance
 
 
@@ -504,12 +480,11 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   Factory function which returns the mean and covariance functions for 
   a conditioned *GaussianProcess*.
   '''
-  @_Memoize
+  @Memoize
   def precompute():
     ''' 
     do as many calculations as possible without yet knowning where the 
-    interpolation points will be. This is a memoized function because 
-    I can then control when the precomputed data is dereferenced.
+    interpolation points will be.
     '''
     # compute K_y_inv
     Cd = np.diag(sigma**2)
@@ -535,7 +510,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     r[:q] = d - gp._mean(y,obs_diff)
     return K_y_inv,r
     
-  @_Memoize
+  @Memoize
   def mean(x,diff):
     K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
@@ -544,7 +519,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out   = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
-  @_Memoize
+  @Memoize
   def covariance(x1,x2,diff1,diff2):
     K_y_inv,r = precompute()
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
@@ -557,19 +532,15 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
 
-  # link all functions called by *mean*
-  mean.add_links(gp._mean,gp._covariance,precompute) 
-  # link all functions called by *covariance*
-  covariance.add_links(gp._mean,gp._covariance,precompute) 
   return mean,covariance
 
 
 def _prior_factory(basis,coeff,order):
   ''' 
   Factory function which returns the mean and covariance functions for 
-  a *PriorGaussianProcess*.
+  a *RBFGaussianProcess*.
   '''
-  @_Memoize
+  @Memoize
   def mean(x,diff):
     a,b,c = coeff  
     if sum(diff) == 0:
@@ -579,7 +550,7 @@ def _prior_factory(basis,coeff,order):
 
     return out
       
-  @_Memoize
+  @Memoize
   def covariance(x1,x2,diff1,diff2):
     a,b,c = coeff  
     diff = diff1 + diff2
@@ -593,6 +564,22 @@ def _prior_factory(basis,coeff,order):
     return out
 
   return mean,covariance
+
+def _get_arg_count(func):
+  ''' 
+  Returns the number of function arguments. If this cannot be inferred 
+  then -1 is returned.
+  '''
+  try:
+    results = inspect.getargspec(func)
+  except TypeError:
+    return -1
+      
+  if (results.varargs is not None) | (results.keywords is not None):
+    return -1
+
+  else:
+    return len(results.args)
   
 
 class GaussianProcess(object):
@@ -605,15 +592,23 @@ class GaussianProcess(object):
     
   Parameters
   ----------
-  mean : function with arguments (*x*, *diff*) 
-    Function that returns the *diff* derivative of the mean at *x*. 
-    *x* is a (N,D) float array of positions and *diff* is a (D,) 
-    integer array indicating the derivative order along each 
-    dimension.
+  mean : function 
+    Mean function for the Gaussian process. This takes either one 
+    argument, *x*, or two arguments, *x* and *diff*. *x* is an (N,D) 
+    array of positions and *diff* is a (D,) array specifying the 
+    derivative. If the function only takes one argument, then the 
+    function is assumed to not be differentiable. The function should 
+    return an (N,) array.
 
-  covariance : function with arguments (*x1*, *x2*, *diff1*, *diff2*)
-    Function that returns the covariance between the *diff1* 
-    derivative at *x1* and the *diff2* derivative at *x2*.
+  covariance : function
+    Covariance function for the Gaussian process. This takes either 
+    two arguments, *x1* and *x2*, or four arguments, *x1*, *x2*, 
+    *diff1* and *diff2*. *x1* and *x2* are (N,D) and (M,D) arrays of 
+    positions, respectively. *diff1* and *diff2* are (D,) arrays 
+    specifying the derivatives with respect to *x1* and *x2*, 
+    respectively. If the function only takes two arguments, then the 
+    function is assumed to not be differentiable. The function should 
+    return an (N,M) array.
 
   order : int, optional
     Order of the polynomial null space. If this is -1 then the 
@@ -629,9 +624,8 @@ class GaussianProcess(object):
   -----
   1. This class does not check whether the specified covariance 
   function is positive definite, making it easy construct an invalid 
-  *GaussianProcess* instance. For this reason, this class should not 
-  be directly instantiated by the user. Instead, create a 
-  *GaussianProcess* with the subclass *PriorGaussianProcess*.
+  *GaussianProcess* instance. For this reason, one may prefer to 
+  create a *GaussianProcess* with the subclass *RBFGaussianProcess*.
   
   2. A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
   *differentiate*, and *condition* has a *mean* and *covariance* 
@@ -655,11 +649,33 @@ class GaussianProcess(object):
   
   '''
   def __init__(self,mean,covariance,order=-1,dim=None):
-    # the mean and covariance functions are hidden and the mean and 
-    # covariance methods should be preferred because the methods 
-    # performs necessary argument checks
-    self._mean = mean
-    self._covariance = covariance
+    if _get_arg_count(mean) == 1:
+      # if the mean function only takes one argument then make a 
+      # wrapper for it which takes two arguments.
+      def mean_with_diff(x,diff):
+        if sum(diff) != 0: 
+          raise ValueError('The mean of the Gaussian process is not differentiable')
+          
+        return mean(x)
+    
+      self._mean = mean_with_diff
+    else:
+      # otherwise, assume that the function can take two arguments
+      self._mean = mean  
+      
+    if _get_arg_count(covariance) == 2:
+      # if the covariance funciton only takes two argument then make a 
+      # wrapper for it which takes four arguments.
+      def covariance_with_diff(x1,x2,diff1,diff2):
+        if (sum(diff1) != 0) | (sum(diff2) != 0): 
+          raise ValueError('The covariance of the Gaussian process is not differentiable')
+          
+        return covariance(x1,x2)
+
+      self._covariance = covariance_with_diff
+    else:
+      self._covariance = covariance
+    
     self.order = order
     self.dim = dim
   
@@ -987,10 +1003,10 @@ class GaussianProcess(object):
       if retry > 0:
         warnings.warn(
           'Encountered non-finite value in the mean of the Gaussian '
-          'process. This may be due to a CPU fluke. All relevant ' 
+          'process. This may be due to a CPU fluke. Memoized function ' 
           'caches will be cleared and another attempt will be made to '
           'compute the mean.')
-        self.clear_cache()  
+        clear_caches()  
         return self.mean(x,diff=diff,retry=retry-1)
       else:    
         raise ValueError(
@@ -1069,10 +1085,10 @@ class GaussianProcess(object):
       if retry > 0:
         warnings.warn(
           'Encountered non-finite value in the covariance of the '
-          'Gaussian process. This may be due to a CPU fluke. All ' 
-          'relevant caches will be cleared and another attempt will '
+          'Gaussian process. This may be due to a CPU fluke. Memoized ' 
+          'function caches will be cleared and another attempt will '
           'be made to compute the covariance.')
-        self.clear_cache()  
+        clear_caches()  
         return self.covariance(x1,x2,diff1=diff1,diff2=diff2,
                                retry=retry-1)
       else:    
@@ -1168,7 +1184,7 @@ class GaussianProcess(object):
     function is positive definite.
     
     If this function returns a False then there was likely an 
-    inappropriate choice for *basis* in the *PriorGaussianProcess*. 
+    inappropriate choice for *basis* in the *RBFGaussianProcess*. 
     Perhaps the chosen basis is not sufficiently differentiable. 
     
     Parameters
@@ -1192,30 +1208,12 @@ class GaussianProcess(object):
     return out  
     
 
-  def clear_cache(self):
-    '''     
-    Attempts to clear the caches of memoized functions associated with 
-    this Gaussian process. This is done by calling the *clear_cache* 
-    method of the mean and covariance function if one exists. Note 
-    that this may clear the caches of other Gaussian processes which 
-    have shared ancestors. This is useful when memory consumption 
-    is of concern and the user wants to dereference data saved in the 
-    caches. It is also useful when a cache has somehow been corrupted.
-    '''
-    _mvmonos.clear_cache()
-    if hasattr(self._mean,'clear_cache'):
-      self._mean.clear_cache()
-
-    if hasattr(self._covariance,'clear_cache'):
-      self._covariance.clear_cache()
-          
-    
-class PriorGaussianProcess(GaussianProcess):
+class RBFGaussianProcess(GaussianProcess):
   ''' 
-  A *PriorGaussianProcess* instance represents a stationary Gaussian 
+  A *RBFGaussianProcess* instance represents a stationary Gaussian 
   process which has a constant mean and a covariance function 
-  described by a radial basis function. The prior can also be given a 
-  null space containing all polynomials of order *order*.
+  described by a radial basis function. This can also be given a null 
+  space containing all polynomials of order *order*.
 
   Parameters
   ----------
@@ -1240,19 +1238,19 @@ class PriorGaussianProcess(GaussianProcess):
   
   Examples
   --------
-  Instantiate a *PriorGaussianProcess* where the basis is a squared 
+  Instantiate a *RBFGaussianProcess* where the basis is a squared 
   exponential function with mean = 0, variance = 1, and characteristic 
   length scale = 2.
   
-  >>> gp = PriorGaussianProcess((0.0,1.0,2.0))
+  >>> gp = RBFGaussianProcess((0.0,1.0,2.0))
   
-  Instantiate a PriorGaussianProcess which is equivalent to a 1-D thin 
+  Instantiate a RBFGaussianProcess which is equivalent to a 1-D thin 
   plate spline with penalty parameter 0.01. Then find the conditional 
   mean and uncertainty of the Gaussian process after incorporating 
   observations
   
   >>> from rbf.basis import phs3
-  >>> gp = PriorGaussianProcess((0.0,0.01,1.0),basis=phs3,order=1)
+  >>> gp = RBFGaussianProcess((0.0,0.01,1.0),basis=phs3,order=1)
   >>> y = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
   >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
   >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
@@ -1271,7 +1269,7 @@ class PriorGaussianProcess(GaussianProcess):
   the other can be fixed at an arbitary value.
   
   3. Not all radial basis functions are positive definite, which means 
-  that it is possible to instantiate a *PriorGaussianProcess* that 
+  that it is possible to instantiate a *RBFGaussianProcess* that 
   does not have a valid covariance function. The squared exponential 
   basis function, *rbf.basis.se*, is positive definite for all spatial 
   dimensions. Furthermore, it is infinitely differentiable, which 
@@ -1288,7 +1286,7 @@ class PriorGaussianProcess(GaussianProcess):
       
     mean,covariance = _prior_factory(basis,coeff,order)
     GaussianProcess.__init__(self,mean,covariance,order=order,dim=dim)
-    # A PriorGaussian process has these additional private attributes
+    # A RBFGaussian process has these additional private attributes
     self._basis = basis
     self._coeff = coeff
     
@@ -1314,9 +1312,15 @@ class PriorGaussianProcess(GaussianProcess):
         pass
     
       self._repr_string = (
-        '<PriorGaussianProcess : mean = %s, cov = %s, order = %s>' 
+        '<RBFGaussianProcess : mean = %s, cov = %s, order = %s>' 
         % (a,str(cov_expr),self.order))
 
     return self._repr_string
     
 
+# create alternate name
+class PriorGaussianProcess(RBFGaussianProcess):
+  def __init__(*args,**kwargs):
+    print('*PriorGaussianProcess* has been renamed *RBFGaussianProcess*')
+    RBFGaussianProcess.__init__(*args,**kwargs)
+  

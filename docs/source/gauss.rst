@@ -7,6 +7,9 @@ Gauss (Gaussian Process)
 
 Examples
 --------
+.. literalinclude:: ../scripts/gauss.d.py
+.. image:: ../figures/gauss.d.png
+
 .. literalinclude:: ../scripts/gauss.a.py
 .. image:: ../figures/gauss.a.png
 
