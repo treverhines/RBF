@@ -57,7 +57,7 @@ def robust_gpr(y,d,s,coeffs,x=None,basis=rbf.basis.se,order=1,tol=3.0):
   if x is None: x = y
   # Initially assume that none of the data are outliers
   is_outlier = np.zeros(d.shape[0],dtype=bool)
-  prior = rbf.gauss.PriorGaussianProcess(coeffs,basis=basis,order=order)
+  prior = rbf.gauss.RBFGaussianProcess(coeffs,basis=basis,order=order)
   while True:
     # form posterior ignoring detected outliers
     post = prior.condition(y[~is_outlier],d[~is_outlier],sigma=s[~is_outlier])

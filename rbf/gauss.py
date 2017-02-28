@@ -222,7 +222,6 @@ invertible is that :math:`q \geq m_u`.
 
 Prior Gaussian Processes
 ========================
-
 This module is primarily intended for Gaussian process regression 
 (GPR) and we begin a GPR problem by assuming a prior stochastic model 
 for the underlying signal which we are trying to uncover. In this 
@@ -312,29 +311,13 @@ def _draw_sample(mean,cov):
   return sample
 
 
-def _sigfigs(val,n):
-  ''' 
-  Returns *val* rounded to *n* significant figures. This is just for 
-  display purposes.
-  '''
-  if val == 0.0:
-    return np.float64(0.0)
-  
-  if ~np.isfinite(val):
-    return np.float64(val)
-    
-  d = -np.int(np.log10(np.abs(val))) + n - 1 
-  out = np.round(val,d)
-  return out
-    
-
 class Memoize(object):
   ''' 
   Memoizing decorator. The output for calls to decorated functions 
   will be cached and reused if the function is called again with the 
-  same arguments. The input arguments must either be hashable or numpy 
-  arrays. Caches can be cleared with the module-level function 
-  *clear_caches*.
+  same arguments. The input arguments for decorated functions must all 
+  be numpy arrays. Caches can be cleared with the module-level 
+  function *clear_caches*.
   '''
   # variable controlling the maximum cache size for all memoized 
   # functions
@@ -353,19 +336,7 @@ class Memoize(object):
     already stored in the cache. Otherwise, the cached value is 
     returned.
     '''
-    # generates hashable representations of the arguments
-    def hashables():
-      for a in args:
-        if hasattr(a,'tobytes'):
-          # if *a* has the method *tobytes*, then it is a numpy array. 
-          # The output for *tobytes* is used in the key, since the array 
-          # is not hashable.
-          yield a.tobytes()
-        else:
-          yield a
-          
-    # create the cache key. 
-    key = tuple(hashables())        
+    key = tuple(a.tobytes() for a in args)
     if key not in self.cache:
       output = self.fin(*args)
       # make sure there is room for the new entry
@@ -535,7 +506,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   return mean,covariance
 
 
-def _prior_factory(basis,coeff,order):
+def _rbf_factory(basis,coeff,order):
   ''' 
   Factory function which returns the mean and covariance functions for 
   a *RBFGaussianProcess*.
@@ -557,8 +528,8 @@ def _prior_factory(basis,coeff,order):
     out = b*(-1)**sum(diff2)*basis(x1,x2,eps=c,diff=diff)
     if np.any(~np.isfinite(out)):
       raise ValueError(
-        'Encountered a non-finite prior covariance. This may be '
-        'because the prior basis function is not sufficiently '
+        'Encountered a non-finite RBF covariance. This may be '
+        'because the basis function is not sufficiently '
         'differentiable.')
 
     return out
@@ -674,6 +645,7 @@ class GaussianProcess(object):
 
       self._covariance = covariance_with_diff
     else:
+      # otherwise, assume that the function can take four arguuments
       self._covariance = covariance
     
     self.order = order
@@ -747,7 +719,9 @@ class GaussianProcess(object):
         
     mean,covariance = _add_factory(self,other)
     order = max(self.order,other.order)
-    out = GaussianProcess(mean,covariance,order=order)
+    # dim is set to the non-*None* value, if it exists
+    dim = max(self.dim,other.dim)
+    out = GaussianProcess(mean,covariance,order=order,dim=dim)
     return out
 
   def subtract(self,other):
@@ -773,7 +747,9 @@ class GaussianProcess(object):
 
     mean,covariance = _subtract_factory(self,other)
     order = max(self.order,other.order)
-    out = GaussianProcess(mean,covariance,order=order)
+    # dim is set to the non-*None* value, if it exists
+    dim = max(self.dim,other.dim)
+    out = GaussianProcess(mean,covariance,order=order,dim=dim)
     return out
     
   def scale(self,c):
@@ -796,7 +772,7 @@ class GaussianProcess(object):
     else:
       order = -1
         
-    out = GaussianProcess(mean,covariance,order=order)
+    out = GaussianProcess(mean,covariance,order=order,dim=self.dim)
     return out
 
   def differentiate(self,d):
@@ -1284,7 +1260,7 @@ class RBFGaussianProcess(GaussianProcess):
     if coeff.shape[0] != 3:
       raise ValueError('*coeff* must be a (3,) array')
       
-    mean,covariance = _prior_factory(basis,coeff,order)
+    mean,covariance = _rbf_factory(basis,coeff,order)
     GaussianProcess.__init__(self,mean,covariance,order=order,dim=dim)
     # A RBFGaussian process has these additional private attributes
     self._basis = basis
@@ -1294,9 +1270,7 @@ class RBFGaussianProcess(GaussianProcess):
     # make the repr string once and then reuse it.
     if not hasattr(self,'_repr_string'):
       # make string for __repr__
-      a = _sigfigs(self._coeff[0],3)
-      b = _sigfigs(self._coeff[1],3)
-      c = 1.0/_sigfigs(1.0/self._coeff[2],3)
+      a,b,c = self._coeff 
       eps = rbf.basis.get_eps()
       cov_expr = b*self._basis.expr.subs(eps,c)
       try:

@@ -10,8 +10,8 @@ np.random.seed(1)
 
 dx = np.linspace(0.0,5.0,1000)[:,None]
 x = np.linspace(-5,5.0,1000)[:,None]
-gp_long = rbf.gauss.PriorGaussianProcess((0.0,1.0,2.0),basis=rbf.basis.se)
-gp_short = rbf.gauss.PriorGaussianProcess((0.0,0.5,0.25),basis=rbf.basis.se)
+gp_long = rbf.gauss.RBFGaussianProcess((0.0,1.0,2.0),basis=rbf.basis.se)
+gp_short = rbf.gauss.RBFGaussianProcess((0.0,0.5,0.25),basis=rbf.basis.se)
 gp = gp_long + gp_short
 # compute the autocovariances 
 acov_long = gp_long.covariance(dx,[[0.0]])
