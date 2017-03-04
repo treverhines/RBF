@@ -165,6 +165,13 @@ class RBF(object):
   
   @expr.setter
   def expr(self,val):
+    # make sure that *val* does not contain any symbols other than 
+    # *_R* and *_EPS*
+    other_symbols = val.free_symbols.difference({_R,_EPS})
+    if len(other_symbols) != 0:
+      raise ValueError(
+        '*expr* cannot contain any symbols other than *r* and *eps*')
+        
     if not val.has(_R):
       raise ValueError(
         '*expr* must be a sympy expression containing the symbolic '
