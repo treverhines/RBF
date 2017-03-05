@@ -274,7 +274,7 @@ def _is_positive_definite(A,tol=1e-10):
   Tests if *A* is a positive definite matrix. This function returns 
   True if *A* is symmetric and all of its eigenvalues are real and 
   positive.  
-  '''
+  '''   
   # test if A is symmetric
   if np.any(np.abs(A - A.T) > tol):
     return False
@@ -415,8 +415,15 @@ def _add_factory(gp1,gp2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out
+
+  @Memoize
+  def null(x,diff):
+    out = np.hstack((gp1._null(x,diff),
+                     gp2._null(x,diff)))
+    return out                     
             
-  return mean,covariance
+  out = GaussianProcess(mean,covariance,null)
+  return out
   
 
 def _subtract_factory(gp1,gp2):
@@ -436,7 +443,14 @@ def _subtract_factory(gp1,gp2):
            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
-  return mean,covariance
+  @Memoize
+  def null(x,diff):
+    out = np.hstack((gp1._null(x,diff),
+                     gp2._null(x,diff)))
+    return out                     
+
+  out = GaussianProcess(mean,covariance,null)
+  return out
 
 
 def _scale_factory(gp,c):
@@ -454,7 +468,9 @@ def _scale_factory(gp,c):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
-  return mean,covariance
+  # the null space is unchanged by scaling
+  out = GaussianProcess(mean,covariance,gp._null)
+  return out
 
 
 def _differentiate_factory(gp,d):
@@ -472,7 +488,13 @@ def _differentiate_factory(gp,d):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
-  return mean,covariance
+  @Memoize
+  def null(x,diff):
+    out = gp._null(x,diff + d)
+    return out 
+    
+  out = GaussianProcess(mean,covariance,null,dim=len(d))
+  return out
 
 
 def _condition_factory(gp,y,d,sigma,obs_diff):
@@ -489,7 +511,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     # compute K_y_inv
     Cd = np.diag(sigma**2)
     Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-    p_y   = gp._null_space(y,obs_diff)
+    p_y   = gp._null(y,obs_diff)
     q,m = d.shape[0],p_y.shape[1]
     K_y = np.zeros((q+m,q+m))
     K_y[:q,:q] = Cu_yy + Cd
@@ -514,7 +536,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   def mean(x,diff):
     K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
-    p_x   = gp._null_space(x,diff)
+    p_x   = gp._null(x,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
     out   = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
@@ -525,17 +547,22 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
-    p_x1    = gp._null_space(x1,diff1)
-    p_x2    = gp._null_space(x2,diff2)
+    p_x1    = gp._null(x1,diff1)
+    p_x2    = gp._null(x2,diff2)
     k_x1y   = np.hstack((Cu_x1y,p_x1))
     k_x2y   = np.hstack((Cu_x2y,p_x2))
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
+  
+  @Memoize
+  def null(x,diff):
+    return np.empty((x.shape[0],0),dtype=float)
 
-  return mean,covariance
+  out = GaussianProcess(mean,covariance,null)
+  return out
 
 
-def _prior_factory(basis,coeff,order):
+def _prior_factory(basis,coeff):
   ''' 
   Factory function which returns the mean and covariance functions for 
   a *RBFGaussianProcess*.
@@ -563,7 +590,11 @@ def _prior_factory(basis,coeff,order):
 
     return out
 
-  return mean,covariance
+  @Memoize
+  def null(x,diff):
+    return np.empty((x.shape[0],0),dtype=float)
+    
+  return mean,covariance,null
 
 def _get_arg_count(func):
   ''' 
@@ -610,11 +641,17 @@ class GaussianProcess(object):
     function is assumed to not be differentiable. The function should 
     return an (N,M) array.
 
-  order : int, optional
-    Order of the polynomial null space. If this is -1 then the 
-    Gaussian process contains no null space. This should be used if 
-    the data contains trends that are well described by a polynomial.
-    
+  null : function, optional
+    Null space basis functions. If two points in function space differ 
+    only by a linear combination of the null space basis functions 
+    then they have the same likelihood of being realized by this 
+    Gaussian process.  This function takes either one argument, *x*, 
+    or two arguments, *x* and *diff*. *x* is an (N,D) array of 
+    positions and *diff* is a (D,) array specifying the derivative. 
+    This function returns an (N,P) array, where each column is a basis 
+    function spanning the null space evaluated at *x*. By default, the 
+    a *GaussianProcess* instance contains no null space.
+        
   dim : int, optional  
     Specifies the spatial dimensions of the Gaussian process. An error 
     will be raised if the arguments to the *mean* or *covariance* 
@@ -648,13 +685,14 @@ class GaussianProcess(object):
   ignore the presence of a polynomial null space.
   
   '''
-  def __init__(self,mean,covariance,order=-1,dim=None):
+  def __init__(self,mean,covariance,null=None,order=None,dim=None):
     if _get_arg_count(mean) == 1:
       # if the mean function only takes one argument then make a 
       # wrapper for it which takes two arguments.
       def mean_with_diff(x,diff):
         if sum(diff) != 0: 
-          raise ValueError('The mean of the Gaussian process is not differentiable')
+          raise ValueError(
+            'The mean of the Gaussian process is not differentiable')
           
         return mean(x)
     
@@ -668,7 +706,9 @@ class GaussianProcess(object):
       # wrapper for it which takes four arguments.
       def covariance_with_diff(x1,x2,diff1,diff2):
         if (sum(diff1) != 0) | (sum(diff2) != 0): 
-          raise ValueError('The covariance of the Gaussian process is not differentiable')
+          raise ValueError(
+            'The covariance of the Gaussian process is not '
+            'differentiable')
           
         return covariance(x1,x2)
 
@@ -676,18 +716,29 @@ class GaussianProcess(object):
     else:
       self._covariance = covariance
     
-    self.order = order
+    if null is None:  
+      # Make an empty null space if one was not specified
+      def null(x,diff):
+        return np.empty((x.shape[0],0),dtype=float)
+    
+    if _get_arg_count(null) == 1:
+      # if the null function only takes one argument then make a 
+      # wrapper for it which takes two arguments.
+      def null_with_diff(x,diff):
+        if sum(diff) != 0: 
+          raise ValueError(
+            'The null space basis functions for the Gaussian process '
+            'are not differentiable')
+          
+        return null(x)
+    
+      self._null = null_with_diff
+    else:
+      # otherwise, assume that the function can take two arguments
+      self._null = null
+        
     self.dim = dim
   
-  def _null_space(self,x,diff):
-    ''' 
-    Returns the monomial basis functions spanning the polynomial 
-    null space evaluated at *x*. 
-    '''
-    powers = rbf.poly.powers(self.order,x.shape[1]) 
-    out = _mvmonos(x,powers,diff)
-    return out 
-    
   def __call__(self,*args,**kwargs):
     ''' 
     equivalent to calling *mean_and_sigma*
@@ -745,7 +796,8 @@ class GaussianProcess(object):
           'The number of spatial dimensions for the Gaussian '
           'processes are inconsistent')
         
-    mean,covariance = _add_factory(self,other)
+    out = GaussianProcess(
+    mean,covariance,null = _add_factory(self,other)
     order = max(self.order,other.order)
     out = GaussianProcess(mean,covariance,order=order)
     return out
