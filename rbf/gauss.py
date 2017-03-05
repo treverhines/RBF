@@ -294,8 +294,8 @@ def _draw_sample(mean,cov):
   ''' 
   Draws a random sample from the gaussian process with the specified 
   mean and covariance. 
-  '''
-  mean = np.asarray(mean)
+  '''   
+  mean = np.asarray(mean)  
   cov = np.asarray(cov)
   val,vec = np.linalg.eigh(cov)
   # ignore any slightly imaginary components
@@ -308,6 +308,10 @@ def _draw_sample(mean,cov):
   sample = np.random.normal(0.0,np.sqrt(val[idx]))
   # map with the eigenvectors and add the mean
   sample = mean + vec[:,idx].dot(sample)
+  ''' 
+  a
+  '''
+  
   return sample
 
 
