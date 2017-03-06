@@ -2,7 +2,7 @@
 This script demonstrates how to perform Gaussian process regression on 
 a noisy data set. It also demonstrates drawing samples of the prior 
 and posterior to provide the user with an intuitive understanding of 
-their distributions.
+their distributions. 
 '''
 import numpy as np
 import matplotlib.pyplot as plt
