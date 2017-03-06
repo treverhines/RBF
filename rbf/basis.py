@@ -24,7 +24,7 @@ Multiquadratic                     mq            :math:`(1 + (\epsilon r)^2)^{1/
 Inverse multiquadratic             imq           :math:`(1 + (\epsilon r)^2)^{-1/2}`
 Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1}`
 Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
-Exponential                        exp           :math:`\exp(-(\epsilon r))`
+Exponential                        exp           :math:`\exp(-r/\epsilon)`
 Squared Exponential                se            :math:`\exp(-(r/\epsilon)^2)`
 =================================  ============  ======================================
 
@@ -165,6 +165,13 @@ class RBF(object):
   
   @expr.setter
   def expr(self,val):
+    # make sure that *val* does not contain any symbols other than 
+    # *_R* and *_EPS*
+    other_symbols = val.free_symbols.difference({_R,_EPS})
+    if len(other_symbols) != 0:
+      raise ValueError(
+        '*expr* cannot contain any symbols other than *r* and *eps*')
+        
     if not val.has(_R):
       raise ValueError(
         '*expr* must be a sympy expression containing the symbolic '
@@ -363,11 +370,11 @@ phs7 = RBF((_EPS*_R)**7,package='cython')
 phs5 = RBF((_EPS*_R)**5,package='cython')
 phs3 = RBF((_EPS*_R)**3,package='cython')
 phs1 = RBF(_EPS*_R,package='cython')
-exp = RBF(sympy.exp(-(_EPS*_R)),package='cython')
 imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2),package='cython')
 iq = RBF(1/(1+(_EPS*_R)**2),package='cython')
 ga = RBF(sympy.exp(-(_EPS*_R)**2),package='cython')
-se = RBF(sympy.exp(-(_R/_EPS)**2),package='cython')
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2),package='cython')
+exp = RBF(sympy.exp(-_R/_EPS),package='cython')
+se = RBF(sympy.exp(-(_R/_EPS)**2),package='cython')
 
 

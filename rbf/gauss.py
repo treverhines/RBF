@@ -1,50 +1,47 @@
 ''' 
 This module defines a class, *GaussianProcess*, which is an 
 abstraction that allows one to easily work with Gaussian processes. 
-The *GaussianProcess* class is primarily intended for Gaussian process 
-regression (GPR), which is performed with the *condition* method. GPR 
-is a technique for constructing a continuous function from discrete 
-and potentially noisy observations. This documentation describes 
-Gaussian processes and the operations (methods), which they are 
-endowed with. Details on the classes *GaussianProcess* and 
-*RBFGaussianProcess* can be found in their doc strings.
+One main use for the *GaussianProcess* class is Gaussian process 
+regression (GPR).  GPR is also known as Kriging or Least Squares 
+Collocation.  It is a technique for constructing a continuous function 
+from discrete observations by incorporating a stochastic prior model 
+for the underlying function.  GPR is performed with the *condition* 
+method of a *GaussianProcess* instance. In addition to GPR, the 
+*GaussianProcess* class can be used for basic arithmetic with Gaussian 
+processes and for generating random samples of a Gaussian process.
 
-There are several existing python packages for GPR. Some packages are 
-well developed and contain a great deal of functionilty which is 
-absent here. For example, this module does not contain any routines 
-for optimizing hyperparameters. However, this module is not a stripped 
-down rewrite of existing packages. Instead, this module approaches GPR 
-from an object oriented perspective. GPR is treated as a method of a 
-*GaussianProcess* and the method returns a new *GaussianProcess* which 
-can itself be used as a prior for further GPR. *GaussianProcess* 
-instances also have methods for addition, subtraction, scaling, and 
-differentiation, which each return a *GaussianProcess* possessing the 
-same methods. This object oriented approach is intended to give the 
-user the flexibility necessary for data analysis with Gaussian 
-processes.
+There are several existing python packages for Gaussian processes (See 
+www.gaussianprocess.org for an updated list of packages). This module 
+was written because existing software lacked the ability to 1) include 
+unconstrained basis functions in a Gaussian process 2) compute 
+analytical derivatives of a Gaussian process and 3) condition a 
+Gaussian process with derivative constraints. Other software packages 
+have a strong focus on hyperparameter optimization. This module does 
+not include any optimization routines and hyperparameters are always 
+explicitly specified by the user. However, it is not difficult to use 
+functions from *scipy.optimize* with the *GaussianProcess* class to 
+create your own hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
-A Gaussian process is a stochastic process, :math:`u(x)`, which has a 
-domain in :math:`\mathbb{R}^n` and we define it in terms of a mean 
-function, :math:`\\bar{u}(x)`, a covariance function,
-:math:`C_u(x,x')`, and the order of the polynomial null space, 
-:math:`d_u`. The null space is the span of all monomial
-basis functions in :math:`\mathbb{R}^n` which have order up to and 
-including :math:`d_u`. These monomials are denoted as
-:math:`\mathbf{p}_u(x) = [p_i(x)]_{i=1}^{m_u}`, where :math:`m_u = 
-{{n+d_u}\choose{n}}`. It is not necessary for a Gaussian process to 
-have a null space. If there is no null space then we say 
-:math:`d_u=-1`. We express the Gaussian process as
-  
-.. math::
-  u(x) = u_o(x) + \sum_{i=1}^{m_u} c_i p_i(x),
+In this module, we define a Gaussian process, :math:`u(x)`, as the 
+combination of a stochastic function, :math:`u_o(x)`, and a set of 
+deterministic basis functions, :math:`\mathbf{p}_u(x) = 
+\{p_i(x)\}_{i=1}^m`:
 
-where :math:`\{c_i\}_{i=1}^{m_u}` are uncorrelated random variables 
-with infinite variance and
+.. math::
+  u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x),
+
+where :math:`\{c_i\}_{i=1}^m` are unconstrained random variables. We 
+define :math:`u_o(x)` in terms of a mean function, 
+:math:`\\bar{u}(x)`, and a covariance function, :math:`C_u(x,x')`, as
 
 .. math::
   u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
+
+Note that :math:`\\bar{u}(x)` and :math:`C_u(x,x')` are the mean and 
+covariance functions for the stochastic component of :math:`u(x)` and 
+not necessarily for :math:`u(x)` itself.
 
 We consider five operations on Gaussian processes: addition, 
 subtraction, scaling, differentiation, and conditioning. Each 
@@ -62,7 +59,7 @@ added as
 .. math::
   u(x) + v(x) = z(x)
 
-where the mean, covariance, and null space order for :math:`z` are
+where the mean, covariance, and basis functions for :math:`z` are
 
 .. math::
   \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
@@ -73,7 +70,7 @@ where the mean, covariance, and null space order for :math:`z` are
 and 
 
 .. math::
-  d_z = \max(d_u,d_v).
+  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x)
 
 Subtraction
 -----------
@@ -94,7 +91,7 @@ where
 and 
 
 .. math::
-  d_z = \max(d_u,d_v).
+  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x)
 
 
 Scaling
@@ -115,11 +112,8 @@ where
 and 
 
 .. math::
-  d_z = 
-  \\begin{cases}
-  d_u, &\\text{if  } c\\neq 0   \\\\  
-  -1, &\mathrm{otherwise}  \\\\
-  \\end{cases}.
+  \mathbf{p}_z(x) = \mathbf{p}_u(x)
+
 
 Differentiation
 ---------------
@@ -145,10 +139,12 @@ where
 .. math::
   C_z(x,x') = D_xD_{x'}C_u(x,x'),
   
-.. math::
-  d_z = \max(d_u - d_D,-1),
+and 
 
-and :math:`d_D = a_1 + a_2 + \dots + a_n`. 
+.. math::
+  \mathbf{p}_z(x) = \\left\{D_x p_i(x) \mid p_i(x) \in 
+                            \mathbf{p}_u(x)\\right\}
+
 
 Conditioning
 ------------
@@ -178,7 +174,7 @@ where
 and
 
 .. math::
-  d_z = -1.
+  \mathbf{p}_z(x) = \emptyset.
 
 In the above equations we use the augmented covariance matrices, 
 :math:`\mathbf{k}` and :math:`\mathbf{K}`, which are defined as
@@ -212,44 +208,65 @@ We define the residual vector as
   \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
   
 and :math:`\mathbf{r}^*` is the residual vector which has been 
-suitably padded with zeros. Note that there is no null space in
-:math:`z` because it is assumed that there is enough data in 
-:math:`\mathbf{d}` to constrain the null spaces in :math:`u`. If 
-:math:`\mathbf{d}` is not sufficiently informative then 
+suitably padded with zeros. Note that there are no unconstrained basis 
+functions in :math:`z` because it is assumed that there is enough data 
+in :math:`\mathbf{d}` to constrain the basis functions in :math:`u`. 
+If :math:`\mathbf{d}` is not sufficiently informative then
 :math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but 
 not sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be 
-invertible is that :math:`q \geq m_u`.
+invertible is that :math:`q \geq m`.
 
-Prior Gaussian Processes
-========================
 
-This module is primarily intended for Gaussian process regression 
-(GPR) and we begin a GPR problem by assuming a prior stochastic model 
-for the underlying signal which we are trying to uncover. In this 
-module, priors are stationary Gaussian processes which have mean and 
-covariance functions described as
-  
+Special Classes of Gaussian Processes
+=====================================
+
+Isotropic Gaussian Processes
+----------------------------
+An isotropic Gaussian process has a constant mean and a covariance 
+function that can be written as a function of :math:`||x - x'||_2`. We 
+describe the mean and covariance for an isotropic Gaussian processes, 
+:math:`u(x)`, as
+
 .. math::
   \\bar{u}(x) = a,
   
 and
 
 .. math::
-  C_u(x,x') = b\phi\\left(||x - x'||_2,c\\right), 
-  
-where :math:`a`, :math:`b`, and :math:`c` are user specified 
-coefficients. The literature on radial basis functions and Gaussian 
-process regression often refers to :math:`c` as the shape parameter or 
-the characteristic length scale. :math:`\phi` is a user specified 
-positive definite radial function. One common choice for :math:`\phi` 
-is the squared exponential function,
+  C_u(x,x') = b\phi\\left(||x - x'||_2\ ; c\\right), 
+
+Where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis 
+function with shape parameter :math:`\epsilon`, and :math:`a`, 
+:math:`b`, and :math:`c` are distribution parameters.
+
+Basis Function Gaussian Processes
+---------------------------------
+It is possible to define a Gaussian process, :math:`u(x)` such that 
+its realizations are constrained to the space spanned by a set of 
+basis functions, :math:`\mathbf{f}(x) = \{f_i(x)\}_{i=1}^m`:
 
 .. math::
-  \phi(r,c) = \exp\\left(-r^2/c^2\\right),
+  u(x) = \sum_{i=1}^m a_i f_i(x),
 
-which has the benefit of being infinitely differentiable. See [1] for 
-a list of commonly used radial functions as well as for more 
-information on Gaussian processes.
+where :math:`\mathbf{a} = \{a_i\}_{i=1}^m` and 
+
+.. math::
+  \mathbf{a} \\sim \mathcal{N}(\mathbf{\\bar{a}},\mathbf{C_a}). 
+  
+If the variance of :math:`\mathbf{a}` is infinite, then :math:`u(x)` 
+can be viewed as a Gaussian process with zero mean, zero covariance, 
+and unconstrained basis functions :math:`\mathbf{f}(x)`. If
+:math:`\mathbf{a}` has a finite variance, then the mean and covariance 
+for :math:`u(x)` are described as
+
+.. math::
+  \\bar{u}(x) = \mathbf{f}(x)^T\mathbf{\\bar{a}},
+  
+and
+
+.. math::
+  C_u(x,x') = \mathbf{f}(x)^T\mathbf{C_a}\mathbf{f}(x').
+
 
 References
 ==========
@@ -268,7 +285,27 @@ import weakref
 import inspect
 logger = logging.getLogger(__name__)
 
+
+def _assert_shape(a,shape,label):  
+  ''' 
+  Raises an error if *a* does not have the specified shape. If an 
+  element in *shape* is *None* then that axis can have any length.
+  '''
+  if len(a.shape) != len(shape):
+    raise ValueError(
+      '*%s* is a %s dimensional array but it should be a %s dimensional array' % 
+      (label,len(a.shape),len(shape))) 
   
+  for axis,(i,j) in enumerate(zip(a.shape,shape)):    
+    if j is None:
+      continue
+    
+    if i != j:      
+      raise ValueError(
+        'axis %s of *%s* has length %s but it should have length %s.' % 
+        (axis,label,i,j))
+
+
 def _is_positive_definite(A,tol=1e-10):
   ''' 
   Tests if *A* is a positive definite matrix. This function returns 
@@ -295,8 +332,8 @@ def _draw_sample(mean,cov):
   ''' 
   Draws a random sample from the gaussian process with the specified 
   mean and covariance. 
-  '''
-  mean = np.asarray(mean)
+  '''   
+  mean = np.asarray(mean)  
   cov = np.asarray(cov)
   val,vec = np.linalg.eigh(cov)
   # ignore any slightly imaginary components
@@ -312,29 +349,13 @@ def _draw_sample(mean,cov):
   return sample
 
 
-def _sigfigs(val,n):
-  ''' 
-  Returns *val* rounded to *n* significant figures. This is just for 
-  display purposes.
-  '''
-  if val == 0.0:
-    return np.float64(0.0)
-  
-  if ~np.isfinite(val):
-    return np.float64(val)
-    
-  d = -np.int(np.log10(np.abs(val))) + n - 1 
-  out = np.round(val,d)
-  return out
-    
-
 class Memoize(object):
   ''' 
   Memoizing decorator. The output for calls to decorated functions 
   will be cached and reused if the function is called again with the 
-  same arguments. The input arguments must either be hashable or numpy 
-  arrays. Caches can be cleared with the module-level function 
-  *clear_caches*.
+  same arguments. The input arguments for decorated functions must all 
+  be numpy arrays. Caches can be cleared with the module-level 
+  function *clear_caches*.
   '''
   # variable controlling the maximum cache size for all memoized 
   # functions
@@ -353,19 +374,7 @@ class Memoize(object):
     already stored in the cache. Otherwise, the cached value is 
     returned.
     '''
-    # generates hashable representations of the arguments
-    def hashables():
-      for a in args:
-        if hasattr(a,'tobytes'):
-          # if *a* has the method *tobytes*, then it is a numpy array. 
-          # The output for *tobytes* is used in the key, since the array 
-          # is not hashable.
-          yield a.tobytes()
-        else:
-          yield a
-          
-    # create the cache key. 
-    key = tuple(hashables())        
+    key = tuple(a.tobytes() for a in args)
     if key not in self.cache:
       output = self.fin(*args)
       # make sure there is room for the new entry
@@ -391,19 +400,10 @@ def clear_caches():
       i().cache = OrderedDict()
 
 
-@Memoize
-def _mvmonos(x,powers,diff):
-  ''' 
-  Memoized function which returns the matrix of monomials spanning the 
-  null space
-  '''
-  return rbf.poly.mvmonos(x,powers,diff)
-
-
-def _add_factory(gp1,gp2):
+def _add(gp1,gp2):
   '''   
-  Factory function which returns the mean and covariance functions for 
-  two added *GaussianProcesses*.
+  Returns a *GaussianProcess* which is the sum of two 
+  *GaussianProcess* instances.
   '''
   @Memoize
   def mean(x,diff):
@@ -417,20 +417,20 @@ def _add_factory(gp1,gp2):
     return out
 
   @Memoize
-  def null(x,diff):
-    out = np.hstack((gp1._null(x,diff),
-                     gp2._null(x,diff)))
+  def basis(x,diff):
+    out = np.hstack((gp1._basis(x,diff),
+                     gp2._basis(x,diff)))
     return out                     
             
-  out = GaussianProcess(mean,covariance,null)
+  dim = max(gp1.dim,gp2.dim)
+  out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
   return out
   
 
-def _subtract_factory(gp1,gp2):
+def _subtract(gp1,gp2):
   '''   
-  Factory function which returns the mean and covariance functions for 
-  a *GaussianProcess* which has been subtracted from another 
-  *GaussianProcess*.
+  Returns a *GaussianProcess* which is the difference of two 
+  *GaussianProcess* instances.
   '''
   @Memoize
   def mean(x,diff):
@@ -444,19 +444,19 @@ def _subtract_factory(gp1,gp2):
     return out       
             
   @Memoize
-  def null(x,diff):
-    out = np.hstack((gp1._null(x,diff),
-                     gp2._null(x,diff)))
+  def basis(x,diff):
+    out = np.hstack((gp1._basis(x,diff),
+                     gp2._basis(x,diff)))
     return out                     
 
-  out = GaussianProcess(mean,covariance,null)
+  dim = max(gp1.dim,gp2.dim)
+  out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
   return out
 
 
-def _scale_factory(gp,c):
+def _scale(gp,c):
   '''   
-  Factory function which returns the mean and covariance functions for 
-  a scaled *GaussianProcess*.
+  Returns a scaled *GaussianProcess*.
   '''
   @Memoize
   def mean(x,diff):
@@ -468,15 +468,14 @@ def _scale_factory(gp,c):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
       
-  # the null space is unchanged by scaling
-  out = GaussianProcess(mean,covariance,gp._null)
+  # the basis functions are unchanged by scaling
+  out = GaussianProcess(mean,covariance,basis=gp._basis,dim=gp.dim)
   return out
 
 
-def _differentiate_factory(gp,d):
+def _differentiate(gp,d):
   '''   
-  Factory function which returns the mean and covariance functions for 
-  a differentiated *GaussianProcess*.
+  Differentiates a *GaussianProcess*.
   '''
   @Memoize
   def mean(x,diff):
@@ -489,18 +488,18 @@ def _differentiate_factory(gp,d):
     return out
       
   @Memoize
-  def null(x,diff):
-    out = gp._null(x,diff + d)
+  def basis(x,diff):
+    out = gp._basis(x,diff + d)
     return out 
     
-  out = GaussianProcess(mean,covariance,null,dim=len(d))
+  dim = d.shape[0]
+  out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
   return out
 
 
-def _condition_factory(gp,y,d,sigma,obs_diff):
+def _condition(gp,y,d,Cd,obs_diff):
   '''   
-  Factory function which returns the mean and covariance functions for 
-  a conditioned *GaussianProcess*.
+  Returns a conditioned *GaussianProcess*.
   '''
   @Memoize
   def precompute():
@@ -509,9 +508,8 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     interpolation points will be.
     '''
     # compute K_y_inv
-    Cd = np.diag(sigma**2)
     Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-    p_y   = gp._null(y,obs_diff)
+    p_y   = gp._basis(y,obs_diff)
     q,m = d.shape[0],p_y.shape[1]
     K_y = np.zeros((q+m,q+m))
     K_y[:q,:q] = Cu_yy + Cd
@@ -523,7 +521,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     except np.linalg.LinAlgError:
       raise np.linalg.LinAlgError(
         'Failed to compute the inverse of K. This could be because '
-        'there is not enough data to constrain a null space. This '
+        'the data is not able to constrain the basis functions. This '
         'error could also be caused by noise-free observations that '
         'are inconsistent with the Gaussian process.')
 
@@ -536,7 +534,7 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
   def mean(x,diff):
     K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
-    p_x   = gp._null(x,diff)
+    p_x   = gp._basis(x,diff)
     k_xy  = np.hstack((Cu_xy,p_x))
     out   = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
@@ -547,54 +545,17 @@ def _condition_factory(gp,y,d,sigma,obs_diff):
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
     Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
-    p_x1    = gp._null(x1,diff1)
-    p_x2    = gp._null(x2,diff2)
+    p_x1    = gp._basis(x1,diff1)
+    p_x2    = gp._basis(x2,diff2)
     k_x1y   = np.hstack((Cu_x1y,p_x1))
     k_x2y   = np.hstack((Cu_x2y,p_x2))
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
   
-  @Memoize
-  def null(x,diff):
-    return np.empty((x.shape[0],0),dtype=float)
-
-  out = GaussianProcess(mean,covariance,null)
+  dim = y.shape[1]
+  out = GaussianProcess(mean,covariance,dim=dim)
   return out
 
-
-def _prior_factory(basis,coeff):
-  ''' 
-  Factory function which returns the mean and covariance functions for 
-  a *RBFGaussianProcess*.
-  '''
-  @Memoize
-  def mean(x,diff):
-    a,b,c = coeff  
-    if sum(diff) == 0:
-      out = np.full(x.shape[0],a,dtype=float)
-    else:
-      out = np.zeros(x.shape[0],dtype=float)
-
-    return out
-      
-  @Memoize
-  def covariance(x1,x2,diff1,diff2):
-    a,b,c = coeff  
-    diff = diff1 + diff2
-    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=c,diff=diff)
-    if np.any(~np.isfinite(out)):
-      raise ValueError(
-        'Encountered a non-finite prior covariance. This may be '
-        'because the prior basis function is not sufficiently '
-        'differentiable.')
-
-    return out
-
-  @Memoize
-  def null(x,diff):
-    return np.empty((x.shape[0],0),dtype=float)
-    
-  return mean,covariance,null
 
 def _get_arg_count(func):
   ''' 
@@ -613,13 +574,29 @@ def _get_arg_count(func):
     return len(results.args)
   
 
+def _zero_mean(x,diff):
+  '''mean function that returns zeros'''
+  return np.zeros((x.shape[0],),dtype=float)  
+
+
+def _zero_covariance(x1,x2,diff1,diff2):
+  '''covariance function that returns zeros'''
+  return np.zeros((x1.shape[0],x2.shape[0]),dtype=float)  
+
+
+def _empty_basis(x,diff):
+  '''empty set of basis functions'''
+  return np.zeros((x.shape[0],0),dtype=float)  
+  
+  
 class GaussianProcess(object):
   ''' 
-  A *GaussianProcess* instance represents a stochastic process, which 
-  is defined in terms of its mean function, covariance function, and 
-  polynomial null space. This class allows for basic operations on 
-  Gaussian processes which includes addition, subtraction, scaling, 
-  differentiation, sampling, and conditioning.
+  A *GaussianProcess* instance represents a stochastic process which 
+  is defined in terms of a mean function, a covariance function, and 
+  (optionally) a set of unconstrained basis functions. This class is 
+  used to perform basic operations on Gaussian processes which include 
+  addition, subtraction, scaling, differentiation, sampling, and 
+  conditioning.
     
   Parameters
   ----------
@@ -641,51 +618,44 @@ class GaussianProcess(object):
     function is assumed to not be differentiable. The function should 
     return an (N,M) array.
 
-  null : function, optional
-    Null space basis functions. If two points in function space differ 
-    only by a linear combination of the null space basis functions 
-    then they have the same likelihood of being realized by this 
-    Gaussian process.  This function takes either one argument, *x*, 
-    or two arguments, *x* and *diff*. *x* is an (N,D) array of 
-    positions and *diff* is a (D,) array specifying the derivative. 
-    This function returns an (N,P) array, where each column is a basis 
-    function spanning the null space evaluated at *x*. By default, the 
-    a *GaussianProcess* instance contains no null space.
+  basis : function, optional
+    Unconstrained basis functions. This function takes either one 
+    argument, *x*, or two arguments, *x* and *diff*. *x* is an (N,D) 
+    array of positions and *diff* is a (D,) array specifying the 
+    derivative. This function should return an (N,P) array, where each 
+    column is a basis function evaluated at *x*. By default, a 
+    *GaussianProcess* instance contains no unconstrained basis 
+    functions.
         
   dim : int, optional  
-    Specifies the spatial dimensions of the Gaussian process. An error 
-    will be raised if the arguments to the *mean* or *covariance* 
-    methods conflict with *dim*.
+    Specifies the spatial dimensions of the *GaussianProcess*. This is 
+    used to ensure that method arguments have consistent spatial 
+    dimensions.
     
   Notes
   -----
   1. This class does not check whether the specified covariance 
   function is positive definite, making it easy construct an invalid 
   *GaussianProcess* instance. For this reason, one may prefer to 
-  create a *GaussianProcess* with the subclass *RBFGaussianProcess*.
+  create a *GaussianProcess* with the functions *gpiso*, *gpbasis*, or 
+  *gppoly*.
   
   2. A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
-  *differentiate*, and *condition* has a *mean* and *covariance* 
-  function which calls the *mean* and *covariance* functions of its 
-  parents. For example, if *gp1* and *gp2* are *GaussianProcess* 
-  instances then *gp_sum = gp1 + gp2* is another *GaussianProcess* 
-  whose *mean* and *covariance* functions make calls to the *mean* and 
-  *covariance* functions from its parents, *gp1* and *gp2*. Due to 
-  this recursive implementation, the number of generations of children 
-  (for lack of a better term) is limited by the maximum recursion 
-  depth.
+  *differentiate*, and *condition* has *mean*, *covariance*, and 
+  *null* function which calls the *mean*, *covariance*, and *null* 
+  functions of its parents. Due to this recursive implementation, the 
+  number of generations of children (for lack of a better term) is 
+  limited by the maximum recursion depth.
 
-  3. If a Gaussian process contains a polynomial null space, then its 
-  mean and covariance are undefined. This is because the coefficients 
-  for the monomials spanning the null space are equally likely to be 
-  any number between positive and negative infinity. When the *mean* 
-  or *covariance* methods are called, the returned values are for the 
-  Gaussian process under the condition that the monomial coefficients 
-  are zero. In other words, the *mean* and *covariance* functions 
-  ignore the presence of a polynomial null space.
+  3. If a Gaussian process contains a unconstrained basis functions, 
+  then its mean and covariance are undefined. When the *mean* or 
+  *covariance* methods are called, the returned values are for the 
+  Gaussian process under the condition that the basis function 
+  coefficients are zero. In other words, the *mean* and *covariance* 
+  functions ignore the presence of a unconstrained basis functions.
   
   '''
-  def __init__(self,mean,covariance,null=None,order=None,dim=None):
+  def __init__(self,mean,covariance,basis=None,dim=None):
     if _get_arg_count(mean) == 1:
       # if the mean function only takes one argument then make a 
       # wrapper for it which takes two arguments.
@@ -714,28 +684,27 @@ class GaussianProcess(object):
 
       self._covariance = covariance_with_diff
     else:
+      # otherwise, assume that the function can take four arguuments
       self._covariance = covariance
     
-    if null is None:  
-      # Make an empty null space if one was not specified
-      def null(x,diff):
-        return np.empty((x.shape[0],0),dtype=float)
+    if basis is None:  
+      basis = _empty_basis
     
-    if _get_arg_count(null) == 1:
-      # if the null function only takes one argument then make a 
+    if _get_arg_count(basis) == 1:
+      # if the basis function only takes one argument then make a 
       # wrapper for it which takes two arguments.
-      def null_with_diff(x,diff):
+      def basis_with_diff(x,diff):
         if sum(diff) != 0: 
           raise ValueError(
-            'The null space basis functions for the Gaussian process '
+            'The unconstrained basis functions for the Gaussian process '
             'are not differentiable')
           
-        return null(x)
+        return basis(x)
     
-      self._null = null_with_diff
+      self._basis = basis_with_diff
     else:
       # otherwise, assume that the function can take two arguments
-      self._null = null
+      self._basis = basis
         
     self.dim = dim
   
@@ -769,15 +738,9 @@ class GaussianProcess(object):
     '''
     return self.__mul__(c)
 
-  def __repr__(self):
-    out = ('<GaussianProcess : mean = %s, cov = %s, order = %s>' 
-           % (str(self._mean),str(self._covariance),self.order))
-    return out
-
-
   def add(self,other):
     ''' 
-    Adds two Gaussian processes
+    Adds two Gaussian processes. 
     
     Parameters
     ----------
@@ -793,18 +756,15 @@ class GaussianProcess(object):
     if (self.dim is not None) & (other.dim is not None):
       if self.dim != other.dim:
         raise ValueError(
-          'The number of spatial dimensions for the Gaussian '
-          'processes are inconsistent')
+          'The number of spatial dimensions for the '
+          '*GaussianProcess* instances are inconsitent.')
         
-    out = GaussianProcess(
-    mean,covariance,null = _add_factory(self,other)
-    order = max(self.order,other.order)
-    out = GaussianProcess(mean,covariance,order=order)
+    out = _add(self,other)
     return out
 
   def subtract(self,other):
     '''  
-    Subtracts two Gaussian processes
+    Subtracts two Gaussian processes.
     
     Parameters
     ----------
@@ -820,17 +780,15 @@ class GaussianProcess(object):
     if (self.dim is not None) & (other.dim is not None):
       if self.dim != other.dim:
         raise ValueError(
-          'The number of spatial dimensions for the Gaussian '
-          'processes are inconsistent')
+          'The number of spatial dimensions for the '
+          '*GaussianProcess* instances are inconsitent.')
 
-    mean,covariance = _subtract_factory(self,other)
-    order = max(self.order,other.order)
-    out = GaussianProcess(mean,covariance,order=order)
+    out = _subtract(self,other)
     return out
     
   def scale(self,c):
     ''' 
-    Scales a Gaussian process 
+    Scales a Gaussian process.
     
     Parameters
     ----------
@@ -842,22 +800,16 @@ class GaussianProcess(object):
       
     '''
     c = np.float64(c)
-    mean,covariance = _scale_factory(self,c)
-    if c != 0.0:
-      order = self.order
-    else:
-      order = -1
-        
-    out = GaussianProcess(mean,covariance,order=order)
+    out = _scale(self,c)
     return out
 
   def differentiate(self,d):
     ''' 
-    Returns the derivative of a Gaussian process
+    Returns the derivative of a Gaussian process.
     
     Parameters
     ----------
-    d : (D,) tuple
+    d : (D,) int array
       Derivative specification
       
     Returns
@@ -866,18 +818,9 @@ class GaussianProcess(object):
 
     '''
     d = np.asarray(d,dtype=int)
-    dim = d.shape[0]
-    # if the GaussianProcess already has dim specified then make sure 
-    # the derivative specification is consistent
-    if self.dim is not None:
-      if self.dim != dim:
-        raise ValueError(
-          'The number of spatial dimensions for *d* is inconsistent '
-          'with the Gaussian process.')
-          
-    mean,covariance = _differentiate_factory(self,d)
-    order = max(self.order - sum(d),-1)
-    out = GaussianProcess(mean,covariance,dim=dim,order=order)
+    _assert_shape(d,(self.dim,),'d')
+
+    out = _differentiate(self,d)
     return out  
 
   def condition(self,y,d,sigma=None,obs_diff=None):
@@ -887,18 +830,19 @@ class GaussianProcess(object):
     
     Parameters
     ----------
-    y : (N,D) array
+    y : (N,D) float array
       Observation points
     
-    d : (N,) array
+    d : (N,) float array
       Observed values at *y*
       
-    sigma : (N,) array, optional
-      One standard deviation uncertainty on the observations. This 
-      defaults to zeros (i.e. the data are assumed to be known 
-      perfectly).
+    sigma : (N,) or (N,N) float array, optional
+      Data uncertainty. If this is an (N,) array then it describes one 
+      standard deviation of the data error. If this is an (N,N) array 
+      then it describes the covariances of the data error. If nothing 
+      is provided then the error is assumed to be zero.
 
-    obs_diff : (D,) tuple, optional
+    obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
       
@@ -907,42 +851,31 @@ class GaussianProcess(object):
     out : GaussianProcess
       
     '''
+    ## Check the input for errors 
     y = np.asarray(y,dtype=float)
-    d = np.asarray(d,dtype=float)
+    _assert_shape(y,(None,self.dim),'y')
     q,dim = y.shape
-    # if the GaussianProcess already has dim specified then make sure 
-    # the data dim is the same
-    if self.dim is not None:
-      if self.dim != dim:
-        raise ValueError(
-          'The number of spatial dimensions for *y* is inconsistent '
-          'with the Gaussian process.')
+
+    d = np.asarray(d,dtype=float)
+    _assert_shape(d,(q,),'d')
 
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
     else:
       obs_diff = np.asarray(obs_diff,dtype=int)
-      if obs_diff.shape[0] != dim:
-        raise ValueError(
-          'The number of spatial dimensions for *obs_diff* is '
-          'inconsistent with *y*')
+      _assert_shape(obs_diff,(dim,),'obs_diff')
     
     if sigma is None:
-      sigma = np.zeros(q,dtype=float)      
+      sigma = np.zeros((q,q),dtype=float)      
     else:
       sigma = np.asarray(sigma,dtype=float)
-    
-    if d.ndim != 1:
-      raise ValueError(
-        'The observations, *d*, must be a one dimensional array')
+      if sigma.ndim == 1:
+        # convert standard deviations to covariances
+        sigma = np.diag(sigma**2)
 
-    if sigma.ndim != 1:
-      raise ValueError(
-        'The observation uncertainties, *sigma*, must be a one '
-        'dimensional array')
+      _assert_shape(sigma,(q,q),'sigma')
         
-    mean,covariance = _condition_factory(self,y,d,sigma,obs_diff)
-    out = GaussianProcess(mean,covariance,dim=dim,order=-1)
+    out = _condition(self,y,d,sigma,obs_diff)
     return out
 
   def recursive_condition(self,y,d,sigma=None,obs_diff=None,
@@ -1004,11 +937,40 @@ class GaussianProcess(object):
         break
       
     return out    
+
+  def basis(self,x,diff=None):
+    ''' 
+    Returns the unconstrained basis vectors evaluated at *x*.
     
+    Parameters
+    ----------
+    x : (N,D) array
+      Evaluation points
+        
+    diff : (D,) tuple
+      Derivative specification    
+      
+    Returns
+    -------
+    out : (N,P) array  
+
+    '''
+    x = np.asarray(x,dtype=float)
+    _assert_shape(x,(None,self.dim),'x')
+    
+    if diff is None:  
+      diff = np.zeros(x.shape[1],dtype=int)
+    else:
+      diff = np.asarray(diff,dtype=int)
+      _assert_shape(diff,(x.shape[1],),'diff')
+      
+    out = self._basis(x,diff)
+    out = np.array(out,copy=True)
+    return out
 
   def mean(self,x,diff=None,retry=1):
     ''' 
-    Returns the mean of the Gaussian process 
+    Returns the mean of the Gaussian process. 
     
     Parameters
     ----------
@@ -1032,21 +994,13 @@ class GaussianProcess(object):
 
     '''
     x = np.asarray(x,dtype=float)
+    _assert_shape(x,(None,self.dim),'x')
+    
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
     else:
       diff = np.asarray(diff,dtype=int)
-      
-    if self.dim is not None:
-      if x.shape[1] != self.dim:
-        raise ValueError(
-          'The number of spatial dimensions for *x* is inconsistent with '
-          'the GaussianProcess.')
-
-      if diff.shape[0] != self.dim:
-        raise ValueError(
-          'The number of spatial dimensions for *diff* is inconsistent with '
-          'the GaussianProcess.')
+      _assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._mean(x,diff)
     # If *out* is not finite then warn the user and attempt to compute 
@@ -1098,38 +1052,23 @@ class GaussianProcess(object):
     
     '''
     x1 = np.asarray(x1,dtype=float)
+    _assert_shape(x1,(None,self.dim),'x1')
+
     x2 = np.asarray(x2,dtype=float)
+    _assert_shape(x2,(None,self.dim),'x2')
+
     if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
     else:
       diff1 = np.asarray(diff1,dtype=int)
+      _assert_shape(diff1,(x1.shape[1],),'diff1')
 
     if diff2 is None:  
       diff2 = np.zeros(x2.shape[1],dtype=int)
     else:
       diff2 = np.asarray(diff2,dtype=int)
+      _assert_shape(diff2,(x1.shape[1],),'diff2')
       
-    if self.dim is not None:
-      if x1.shape[1] != self.dim:
-        raise ValueError(
-          'The number of spatial dimensions for *x1* is inconsistent '
-          'with the GaussianProcess.')
-
-      if x2.shape[1] != self.dim:
-        raise ValueError(
-          'The number of spatial dimensions for *x2* is inconsistent '
-          'with the GaussianProcess.')
-
-      if diff1.shape[0] != self.dim:
-        raise ValueError(
-          'The number of spatial dimensions for *diff1* is '
-          'inconsistent with the GaussianProcess.')
-
-      if diff2.shape[0] != self.dim:
-        raise ValueError(
-          'The number of spatial dimensions for *diff2* is '
-          'inconsistent with the GaussianProcess.')
-
     out = self._covariance(x1,x2,diff1,diff2)
     # If *out* is not finite then warn the user and attempt to compute 
     # it again. An error is raised after *retry* attempts.
@@ -1185,8 +1124,6 @@ class GaussianProcess(object):
     q = x.shape[0]
     out_mean = np.zeros(q,dtype=float)
     out_sigma = np.zeros(q,dtype=float)
-    # If q is zero then mean and covariance never get evaluated. This 
-    # is a bug because errors can pass through
     while True:
       idx = range(count,min(count+max_chunk,q))
       out_mean[idx] = self.mean(x[idx])
@@ -1201,7 +1138,7 @@ class GaussianProcess(object):
 
   def draw_sample(self,x):  
     '''  
-    Draws a random sample from the Gaussian process
+    Draws a random sample from the Gaussian process.
     
     Parameters
     ----------
@@ -1219,7 +1156,7 @@ class GaussianProcess(object):
     invalid and then the returned sample will be meaningless. If you 
     are not confident that the covariance function is positive 
     definite then call the *is_positive_definite* method with argument 
-    *x*. 
+    *x*.
 
     '''
     mean = self.mean(x)
@@ -1237,7 +1174,7 @@ class GaussianProcess(object):
     
     If this function returns a False then there was likely an 
     inappropriate choice for *basis* in the *RBFGaussianProcess*. 
-    Perhaps the chosen basis is not sufficiently differentiable. 
+    Perhaps the chosen basis is not sufficiently differentiable.
     
     Parameters
     ----------
@@ -1260,119 +1197,167 @@ class GaussianProcess(object):
     return out  
     
 
-class RBFGaussianProcess(GaussianProcess):
+def gpiso(basis,coeff):
   ''' 
-  A *RBFGaussianProcess* instance represents a stationary Gaussian 
-  process which has a constant mean and a covariance function 
-  described by a radial basis function. This can also be given a null 
-  space containing all polynomials of order *order*.
-
+  Creates an isotropic *GaussianProcess* instance which has a constant 
+  mean and a covariance function that is described by a radial basis 
+  function.
+  
   Parameters
   ----------
+  basis : RBF instance
+    Radial basis function describing the covariance function. For 
+    example, use *rbf.basis.se* for a squared exponential covariance 
+    function.
+
   coeff : 3-tuple  
     Tuple of three coefficients, *a*, *b*, and *c*, describing the 
-    prior probability distribution.  *a* is the mean and, when using 
-    the default value for *basis*, *b* and *c* describe the prior 
-    variance and characteristic length-scale.  In general, *b* scales 
-    the covariance function, and *c* is the shape parameter, *eps*, 
-    that is used to define *basis*.
+    probability distribution. *a* is the mean, *b* scales the 
+    covariance function, and *c* is the shape parameter. When *basis* 
+    is set to *rbf.basis.se*, *b* and *c* describe the variance and 
+    the characteristic length-scale, respectively.
       
-  basis : RBF instance, optional
-    Radial basis function describing the covariance function. Defaults 
-    to a squared exponential, *rbf.basis.se*.
-    
-  order : int, optional
-    Order of the polynomial null space. Defaults to -1, which means 
-    that there is no null space.
-    
-  dim : int, optional
-    Fixes the spatial dimensions of the Gaussian process.   
-  
-  Examples
-  --------
-  Instantiate a *RBFGaussianProcess* where the basis is a squared 
-  exponential function with mean = 0, variance = 1, and characteristic 
-  length scale = 2.
-  
-  >>> gp = RBFGaussianProcess((0.0,1.0,2.0))
-  
-  Instantiate a RBFGaussianProcess which is equivalent to a 1-D thin 
-  plate spline with penalty parameter 0.01. Then find the conditional 
-  mean and uncertainty of the Gaussian process after incorporating 
-  observations
-  
-  >>> from rbf.basis import phs3
-  >>> gp = RBFGaussianProcess((0.0,0.01,1.0),basis=phs3,order=1)
-  >>> y = np.array([[0.0],[0.5],[1.0],[1.5],[2.0]])
-  >>> d = np.array([0.5,1.5,1.25,1.75,1.0])
-  >>> sigma = np.array([0.1,0.1,0.1,0.1,0.1])
-  >>> gp = gp.condition(y,d,sigma)
-  >>> x = np.linspace(0.0,2.0,100)[:,None]
-  >>> mean,sigma = gp(x)
-  
   Notes
   -----
-  1. If *order* >= 0, then *a* has no effect on the resulting Gaussian 
-  process.
-  
-  2. If *basis* is scale invariant, such as for odd order polyharmonic 
+  1. If *basis* is scale invariant, such as for odd order polyharmonic 
   splines, then *b* and *c* have inverse effects on the resulting 
   Gaussian process and thus only one of them needs to be chosen while 
   the other can be fixed at an arbitary value.
   
-  3. Not all radial basis functions are positive definite, which means 
-  that it is possible to instantiate a *RBFGaussianProcess* that 
-  does not have a valid covariance function. The squared exponential 
-  basis function, *rbf.basis.se*, is positive definite for all spatial 
-  dimensions. Furthermore, it is infinitely differentiable, which 
-  means its derivatives are also positive definite. For this reason 
-  *rbf.basis.se* is a generally safe choice for *basis*.
+  2. Not all radial basis functions are positive definite, which means 
+  that it is possible to instantiate an invalid *GaussianProcess*. The 
+  method *is_positive_definite* provides a necessary but not 
+  sufficient test for positive definiteness. Examples of predefined 
+  *RBF* instances which are positive definite include: *rbf.basis.se*, 
+  *rbf.basis.ga*, *rbf.basis.exp*, *rbf.basis.iq*, *rbf.basis.imq*.
 
-  4. See the notes in the *GaussianProcess* docstring.
-  
   '''
-  def __init__(self,coeff,basis=rbf.basis.se,order=-1,dim=None):
-    coeff = np.asarray(coeff,dtype=float)  
-    if coeff.shape[0] != 3:
-      raise ValueError('*coeff* must be a (3,) array')
-      
-    mean,covariance = _prior_factory(basis,coeff,order)
-    GaussianProcess.__init__(self,mean,covariance,order=order,dim=dim)
-    # A RBFGaussian process has these additional private attributes
-    self._basis = basis
-    self._coeff = coeff
-    
-  def __repr__(self):
-    # make the repr string once and then reuse it.
-    if not hasattr(self,'_repr_string'):
-      # make string for __repr__
-      a = _sigfigs(self._coeff[0],3)
-      b = _sigfigs(self._coeff[1],3)
-      c = 1.0/_sigfigs(1.0/self._coeff[2],3)
-      eps = rbf.basis.get_eps()
-      cov_expr = b*self._basis.expr.subs(eps,c)
-      try:
-        # try to simplify cov_expr to a float. If this is possible, 
-        # then convert NaNs to 0.0 which accounts for the singularity 
-        # with PHS RBFs
-        cov_expr = float(cov_expr)
-        if np.isnan(cov_expr):
-          cov_expr = 0.0
-          
-      except TypeError:  
-        # Just use the expression
-        pass
-    
-      self._repr_string = (
-        '<RBFGaussianProcess : mean = %s, cov = %s, order = %s>' 
-        % (a,str(cov_expr),self.order))
-
-    return self._repr_string
-    
-
-# create alternate name
-class PriorGaussianProcess(RBFGaussianProcess):
-  def __init__(*args,**kwargs):
-    print('*PriorGaussianProcess* has been renamed *RBFGaussianProcess*')
-    RBFGaussianProcess.__init__(*args,**kwargs)
+  coeff = np.asarray(coeff,dtype=float)  
   
+  @Memoize
+  def mean(x,diff):
+    a,b,c = coeff  
+    if sum(diff) == 0:
+      out = np.full(x.shape[0],a,dtype=float)
+    else:
+      out = np.zeros(x.shape[0],dtype=float)
+
+    return out
+      
+  @Memoize
+  def covariance(x1,x2,diff1,diff2):
+    a,b,c = coeff  
+    diff = diff1 + diff2
+    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=c,diff=diff)
+    if not np.all(np.isfinite(out)):
+      raise ValueError(
+        'Encountered a non-finite RBF covariance. This may be '
+        'because the basis function is not sufficiently '
+        'differentiable.')
+
+    return out
+
+  out = GaussianProcess(mean,covariance)
+  return out
+
+
+def gpbasis(basis,coeff=None):
+  ''' 
+  Creates a basis function *GaussianProcess* instance, where 
+  realizations are constrained to the space spanned by the basis 
+  functions.
+  
+  Parameters
+  ----------
+  basis : function
+    Function that takes either one argument, *x*, or two arguments, 
+    *x* and *diff*. *x* is an (N,D) array of positions and *diff* is a 
+    (D,) array specifying the derivative. This function returns an 
+    (N,P) array, where each column is a basis function evaluated at 
+    *x*. 
+  
+  coeff : (mean,sigma), optional  
+    Describes the probability distribution for the basis function 
+    coefficients. *mean* is a (P,) array and *sigma* can either be a 
+    (P,) array or a (P,P) array. If *sigma* is a (P,) array then it 
+    indicates the standard deviations. If *sigma* is a (P,P) array 
+    then it indicates the covariances. If *coeff* is not specified 
+    then the basis functions are assumed to be unconstrained.
+
+  Returns
+  -------
+  out : GaussianProcess
+    
+  '''
+  # make sure basis can take two arguments
+  if _get_arg_count(basis) == 1:
+    # if the basis function only takes one argument then make a 
+    # wrapper for it which takes two arguments.
+    def basis_with_diff(x,diff):
+      if sum(diff) != 0: 
+        raise ValueError(
+          'The basis functions for the *GaussianProcess* instance '
+          'are not differentiable.')
+          
+      return basis(x)
+    
+  else:
+    # otherwise, assume that the function can take two arguments
+    basis_with_diff = basis
+      
+  if coeff is None:
+    # The mean and covariance will be zero and the basis functions 
+    # will be unconstrained
+    out = GaussianProcess(_zero_mean,_zero_covariance,
+                          basis=basis_with_diff)
+  
+  else:  
+    coeff_mean = np.asarray(coeff[0],dtype=float)
+    coeff_sigma = np.asarray(coeff[1],dtype=float)
+    if coeff_sigma.ndim == 1:
+      # if *sigma* is one dimensional then it contains standard 
+      # deviations. These are converted to a covariance matrix.
+      coeff_sigma = np.diag(coeff_sigma**2)
+  
+    def mean(x,diff):
+      G = basis_with_diff(x,diff)
+      out = G.dot(coeff_mean)
+      return out
+    
+    def covariance(x1,x2,diff1,diff2):
+      G1 = basis_with_diff(x1,diff1)
+      G2 = basis_with_diff(x2,diff2)
+      out = G1.dot(coeff_sigma).dot(G2.T)
+      return out
+    
+    out = GaussianProcess(mean,covariance)
+  
+  return out  
+
+
+def gppoly(order):
+  ''' 
+  Returns a basis function *GaussianProcess* which has unconstrained 
+  polynomial basis functions. The mean and covariance functions are 
+  set to zero. If *order* = 0, then the basis functions consists of a 
+  constant term, if *order* = 1 then the basis functions consists of a 
+  constant and linear term, etc.
+  
+  Parameters
+  ----------
+  order : int  
+    Order of the polynomial basis functions
+    
+  Returns
+  -------
+  out : GaussianProcess  
+    
+  '''
+  @Memoize
+  def basis(x,diff):
+    powers = rbf.poly.powers(order,x.shape[1])
+    out = rbf.poly.mvmonos(x,powers,diff)
+    return out
+  
+  out = gpbasis(basis)  
+  return out
