@@ -24,7 +24,6 @@ create your own hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
-
 We define a Gaussian process, :math:`u(x)`, as the combination of a 
 stochastic function, :math:`u_o(x)`, and a set of deterministic basis 
 functions :math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`:
@@ -649,9 +648,9 @@ class GaussianProcess(object):
     functions.
         
   dim : int, optional  
-    Specifies the spatial dimensions of the *GaussianProcess*. This is 
-    used to ensure that method arguments have consistent spatial 
-    dimensions.
+    Fixes the spatial dimensions of the *GaussianProcess* domain. An 
+    error will be raised if method arguments have a conflicting number 
+    of spatial dimensions.
     
   Notes
   -----
@@ -1210,7 +1209,7 @@ class GaussianProcess(object):
     return out  
     
 
-def gpiso(basis,coeff):
+def gpiso(basis,coeff,dim=None):
   ''' 
   Creates an isotropic *GaussianProcess* instance which has a constant 
   mean and a covariance function that is described by a radial basis 
@@ -1229,6 +1228,11 @@ def gpiso(basis,coeff):
     covariance function, and *c* is the shape parameter. When *basis* 
     is set to *rbf.basis.se*, *b* and *c* describe the variance and 
     the characteristic length-scale, respectively.
+  
+  dim : int, optional
+    Fixes the spatial dimensions of the *GaussianProcess* domain. An 
+    error will be raised if method arguments have a conflicting number 
+    of spatial dimensions.
       
   Returns
   -------
@@ -1274,11 +1278,11 @@ def gpiso(basis,coeff):
 
     return out
 
-  out = GaussianProcess(mean,covariance)
+  out = GaussianProcess(mean,covariance,dim=dim)
   return out
 
 
-def gpbasis(basis,coeff=None):
+def gpbasis(basis,coeff=None,dim=None):
   ''' 
   Creates a basis function *GaussianProcess* instance, where 
   realizations are constrained to the space spanned by the basis 
@@ -1300,6 +1304,11 @@ def gpbasis(basis,coeff=None):
     indicates the standard deviations. If *sigma* is a (P,P) array 
     then it indicates the covariances. If *coeff* is not specified 
     then the basis functions are assumed to be unconstrained.
+
+  dim : int, optional
+    Fixes the spatial dimensions of the *GaussianProcess* domain. An 
+    error will be raised if method arguments have a conflicting number 
+    of spatial dimensions.
 
   Returns
   -------
@@ -1326,7 +1335,7 @@ def gpbasis(basis,coeff=None):
     # The mean and covariance will be zero and the basis functions 
     # will be unconstrained
     out = GaussianProcess(_zero_mean,_zero_covariance,
-                          basis=basis_with_diff)
+                          basis=basis_with_diff,dim=dim)
   
   else:  
     coeff_mean = np.asarray(coeff[0],dtype=float)
@@ -1349,7 +1358,7 @@ def gpbasis(basis,coeff=None):
       out = G1.dot(coeff_sigma).dot(G2.T)
       return out
     
-    out = GaussianProcess(mean,covariance)
+    out = GaussianProcess(mean,covariance,dim=dim)
   
   return out  
 
@@ -1366,6 +1375,11 @@ def gppoly(order):
   order : int  
     Order of the polynomial basis functions.
     
+  dim : int, optional
+    Fixes the spatial dimensions of the *GaussianProcess* domain. An 
+    error will be raised if method arguments have a conflicting number 
+    of spatial dimensions.
+
   Returns
   -------
   out : GaussianProcess  
@@ -1377,6 +1391,6 @@ def gppoly(order):
     out = rbf.poly.mvmonos(x,powers,diff)
     return out
   
-  out = gpbasis(basis)  
+  out = gpbasis(basis,dim=dim)  
   return out
 
