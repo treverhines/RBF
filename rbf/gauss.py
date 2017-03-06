@@ -24,16 +24,17 @@ create your own hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
-In this module, we define a Gaussian process, :math:`u(x)`, as the 
-combination of a stochastic function, :math:`u_o(x)`, and a set of 
-deterministic basis functions, :math:`\mathbf{p}_u(x) = 
-\{p_i(x)\}_{i=1}^m`:
+
+We define a Gaussian process, :math:`u(x)`, as the combination of a 
+stochastic function, :math:`u_o(x)`, and a set of deterministic basis 
+functions :math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`:
 
 .. math::
   u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x),
 
 where :math:`\{c_i\}_{i=1}^m` are unconstrained random variables. We 
-define :math:`u_o(x)` in terms of a mean function, 
+thus refer to :math:`\mathbf{p}_u(x)` as the unconstrained basis 
+functions. We define :math:`u_o(x)` in terms of a mean function,
 :math:`\\bar{u}(x)`, and a covariance function, :math:`C_u(x,x')`, as
 
 .. math::
@@ -41,7 +42,7 @@ define :math:`u_o(x)` in terms of a mean function,
 
 Note that :math:`\\bar{u}(x)` and :math:`C_u(x,x')` are the mean and 
 covariance functions for the stochastic component of :math:`u(x)` and 
-not necessarily for :math:`u(x)` itself.
+not necessarily for :math:`u(x)` itself. 
 
 We consider five operations on Gaussian processes: addition, 
 subtraction, scaling, differentiation, and conditioning. Each 
@@ -59,7 +60,8 @@ added as
 .. math::
   u(x) + v(x) = z(x)
 
-where the mean, covariance, and basis functions for :math:`z` are
+where the mean, covariance, and unconstrained basis functions for 
+:math:`z` are
 
 .. math::
   \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
@@ -70,7 +72,7 @@ where the mean, covariance, and basis functions for :math:`z` are
 and 
 
 .. math::
-  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x)
+  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
 
 Subtraction
 -----------
@@ -91,7 +93,7 @@ where
 and 
 
 .. math::
-  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x)
+  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
 
 
 Scaling
@@ -112,24 +114,21 @@ where
 and 
 
 .. math::
-  \mathbf{p}_z(x) = \mathbf{p}_u(x)
+  \mathbf{p}_z(x) = \mathbf{p}_u(x).
 
 
 Differentiation
 ---------------
-A Gaussian process can be differentiated with the differential 
-operator
+A Gaussian process can be differentiated along the direction
+:math:`x_i` with the differential operator
 
 .. math::
-  D_x = \\frac{\partial^{a_1 + a_2 + \dots + a_n}}
-              {\partial x_1^{a_1} \partial x_2^{a_2} \dots 
-              \partial x_n^{a_n}},
+  D_x = \\frac{\partial}{\partial x_i}
 
-where :math:`\{x_i\}_{i=1}^n` are the basis vectors of 
-:math:`\mathbb{R}^n`, as
+as
 
 .. math::
-  D_xu(x) = z(x) 
+  D_xu(x) = z(x), 
 
 where 
 
@@ -152,7 +151,7 @@ A Gaussian process can be conditioned with :math:`q` noisy
 observations of :math:`u(x)`, :math:`\mathbf{d}=\{d_i\}_{i=1}^q`, 
 which have been made at locations :math:`\mathbf{y}=\{y_i\}_{i=1}^q`. 
 These observations have noise with zero mean and covariance described 
-by :math:`\mathbf{C_d}`. The conditioned Gaussian process is 
+by :math:`\mathbf{C_d}`. The conditioned Gaussian process is
 
 .. math::
   u(x) | \mathbf{d} = z(x) 
@@ -236,14 +235,23 @@ and
   C_u(x,x') = b\phi\\left(||x - x'||_2\ ; c\\right), 
 
 Where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis 
-function with shape parameter :math:`\epsilon`, and :math:`a`, 
-:math:`b`, and :math:`c` are distribution parameters.
+function with shape parameter :math:`\epsilon`, and :math:`a`,
+:math:`b`, and :math:`c` are distribution parameters. One common 
+choice for :math:`\phi` is the squared exponential function,
+
+.. math::
+  \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),
+
+which has the useful property of being infinitely differentiable. An 
+isotropic instance of a *GaussianProcess* can be created with the 
+function *gpiso*.
+
 
 Basis Function Gaussian Processes
 ---------------------------------
-It is possible to define a Gaussian process, :math:`u(x)` such that 
-its realizations are constrained to the space spanned by a set of 
-basis functions, :math:`\mathbf{f}(x) = \{f_i(x)\}_{i=1}^m`:
+A basis function Gaussian process, :math:`u(x)`, has realizations that 
+are constrained to the space spanned by a set of basis functions,
+:math:`\mathbf{f}(x) = \{f_i(x)\}_{i=1}^m`. That is to say 
 
 .. math::
   u(x) = \sum_{i=1}^m a_i f_i(x),
@@ -260,13 +268,25 @@ and unconstrained basis functions :math:`\mathbf{f}(x)`. If
 for :math:`u(x)` are described as
 
 .. math::
-  \\bar{u}(x) = \mathbf{f}(x)^T\mathbf{\\bar{a}},
+  \\bar{u}(x) = \mathbf{f}(x)\mathbf{\\bar{a}}^T,
   
 and
 
 .. math::
-  C_u(x,x') = \mathbf{f}(x)^T\mathbf{C_a}\mathbf{f}(x').
+  C_u(x,x') = \mathbf{f}(x)\mathbf{C_a}\mathbf{f}(x')^T.
 
+The basis functions are commonly chosen to be the set of monomial 
+basis functions that span the space of all polynomials with some 
+user-specified degree, :math:`d`. For example, if :math:`x \in 
+\mathbb{R}^2` and :math:`d=1`, then the monomial basis functions would 
+be
+
+.. math::
+  \mathbf{f}(x) = \{1,x,y\}.
+
+A basis function instance of a *GaussianProcess* can be created with 
+the function *gpbasis*. If the basis functions are monomials, then the 
+the *GaussianProcess* can be created with the function *gppoly*.
 
 References
 ==========
@@ -355,7 +375,8 @@ class Memoize(object):
   will be cached and reused if the function is called again with the 
   same arguments. The input arguments for decorated functions must all 
   be numpy arrays. Caches can be cleared with the module-level 
-  function *clear_caches*.
+  function *clear_caches*. This is intendend to decorate the mean, 
+  covariance, and basis functions for *GaussianProcess* instances.
   '''
   # variable controlling the maximum cache size for all memoized 
   # functions
@@ -646,13 +667,6 @@ class GaussianProcess(object):
   functions of its parents. Due to this recursive implementation, the 
   number of generations of children (for lack of a better term) is 
   limited by the maximum recursion depth.
-
-  3. If a Gaussian process contains a unconstrained basis functions, 
-  then its mean and covariance are undefined. When the *mean* or 
-  *covariance* methods are called, the returned values are for the 
-  Gaussian process under the condition that the basis function 
-  coefficients are zero. In other words, the *mean* and *covariance* 
-  functions ignore the presence of a unconstrained basis functions.
   
   '''
   def __init__(self,mean,covariance,basis=None,dim=None):
@@ -970,7 +984,8 @@ class GaussianProcess(object):
 
   def mean(self,x,diff=None,retry=1):
     ''' 
-    Returns the mean of the Gaussian process. 
+    Returns the mean of the stochastic component of the Gaussian 
+    process.
     
     Parameters
     ----------
@@ -1025,7 +1040,8 @@ class GaussianProcess(object):
 
   def covariance(self,x1,x2,diff1=None,diff2=None,retry=1):
     ''' 
-    Returns the covariance of the Gaussian process 
+    Returns the covariance of the stochastic component of the Gaussian 
+    process. 
     
     Parameters
     ----------
@@ -1093,9 +1109,10 @@ class GaussianProcess(object):
     
   def mean_and_sigma(self,x,max_chunk=100):
     ''' 
-    Returns the mean and standard deviation at *x*. This does not 
-    return the full covariance matrix, making it appropriate for 
-    evaluating the Gaussian process at many points.
+    Returns the mean and standard deviation of the stochastic 
+    component at *x*. This does not return the full covariance matrix, 
+    making it appropriate for evaluating the Gaussian process at many 
+    points.
     
     Parameters
     ----------
@@ -1105,18 +1122,18 @@ class GaussianProcess(object):
     max_chunk : int, optional  
       Break *x* into chunks with this size and evaluate the Gaussian 
       process for each chunk. This argument affects the speed and 
-      memory usage of this method, and it does not affect the output. 
+      memory usage of this method, but it does not affect the output. 
       Setting this to a larger value will reduce the number of python 
       function call at the expense of increased memory usage.
     
     Returns
     -------
     out_mean : (N,) array
-      Mean of the Gaussian process at *x*.
+      Mean of the stochastic component of the Gaussian process at *x*.
     
     out_sigma : (N,) array  
-      One standard deviation uncertainty of the Gaussian process at 
-      *x*.
+      One standard deviation uncertainty of the stochastic component 
+      of the Gaussian process at *x*.
       
     '''
     count = 0
@@ -1138,7 +1155,8 @@ class GaussianProcess(object):
 
   def draw_sample(self,x):  
     '''  
-    Draws a random sample from the Gaussian process.
+    Draws a random sample from the stochastic component of the 
+    Gaussian process.
     
     Parameters
     ----------
@@ -1153,10 +1171,9 @@ class GaussianProcess(object):
     -----
     This function does not check if the covariance function at *x* is 
     positive definite. If it is not, then the covariance function is 
-    invalid and then the returned sample will be meaningless. If you 
-    are not confident that the covariance function is positive 
-    definite then call the *is_positive_definite* method with argument 
-    *x*.
+    invalid and the returned sample will be meaningless. If you are 
+    not confident that the covariance function is positive definite 
+    then call the *is_positive_definite* method with argument *x*.
 
     '''
     mean = self.mean(x)
@@ -1171,10 +1188,6 @@ class GaussianProcess(object):
     eigenvalues are real and positive. An affirmative result from this 
     test is necessary but insufficient to ensure that the covariance 
     function is positive definite.
-    
-    If this function returns a False then there was likely an 
-    inappropriate choice for *basis* in the *RBFGaussianProcess*. 
-    Perhaps the chosen basis is not sufficiently differentiable.
     
     Parameters
     ----------
@@ -1217,6 +1230,10 @@ def gpiso(basis,coeff):
     is set to *rbf.basis.se*, *b* and *c* describe the variance and 
     the characteristic length-scale, respectively.
       
+  Returns
+  -------
+  out : GaussianProcess
+
   Notes
   -----
   1. If *basis* is scale invariant, such as for odd order polyharmonic 
@@ -1319,11 +1336,13 @@ def gpbasis(basis,coeff=None):
       # deviations. These are converted to a covariance matrix.
       coeff_sigma = np.diag(coeff_sigma**2)
   
+    @Memoize
     def mean(x,diff):
       G = basis_with_diff(x,diff)
       out = G.dot(coeff_mean)
       return out
     
+    @Memoize
     def covariance(x1,x2,diff1,diff2):
       G1 = basis_with_diff(x1,diff1)
       G2 = basis_with_diff(x2,diff2)
@@ -1338,15 +1357,14 @@ def gpbasis(basis,coeff=None):
 def gppoly(order):
   ''' 
   Returns a basis function *GaussianProcess* which has unconstrained 
-  polynomial basis functions. The mean and covariance functions are 
-  set to zero. If *order* = 0, then the basis functions consists of a 
-  constant term, if *order* = 1 then the basis functions consists of a 
-  constant and linear term, etc.
+  polynomial basis functions. If *order* = 0, then the basis functions 
+  consists of a constant term, if *order* = 1 then the basis functions 
+  consists of a constant and linear term, etc. 
   
   Parameters
   ----------
   order : int  
-    Order of the polynomial basis functions
+    Order of the polynomial basis functions.
     
   Returns
   -------
@@ -1361,3 +1379,4 @@ def gppoly(order):
   
   out = gpbasis(basis)  
   return out
+

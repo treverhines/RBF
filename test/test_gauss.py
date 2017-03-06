@@ -30,13 +30,13 @@ def test_func2d_diffy(x):
 class Test(unittest.TestCase):
   def test_run_mean(self):
     # make sure the mean method runs without failure
-    gp = rbf.gauss.PriorGaussianProcess((1.0,2.0,3.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(1.0,2.0,3.0))  
     gp.mean([[0.0],[1.0],[2.0]],diff=(0,))
     return 
     
   def test_run_covariance(self):
     # make sure the covariance method runs without failure
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     gp.covariance([[0.0],[1.0],[2.0]],[[0.0],[1.0],[2.0]],
                   diff1=(0,),diff2=(0,))
     return 
@@ -44,45 +44,45 @@ class Test(unittest.TestCase):
   def test_run_mean_and_sigma(self):
     # make sure the test_mean_and_sigma methods runs without 
     # failure
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     gp.mean_and_sigma([[0.0],[1.0],[2.0]])
     return 
   
   def test_run_add(self):
     # make sure the add methods runs without failure 
-    gp1 = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
-    gp2 = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp1 = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
+    gp2 = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     out = gp1 + gp2
     return 
     
   def test_run_subtract(self):
     # make sure the subtract method runs without failure 
-    gp1 = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
-    gp2 = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp1 = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
+    gp2 = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     out = gp1 - gp2
     return 
 
   def test_run_scale(self):
     # make sure the scale method runs without failure 
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     out = 1.0*gp
     return 
 
   def test_run_differentiate(self):
     # make sure the differentiate method runs without failure 
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     out = gp.differentiate((1,))
     return 
 
   def test_run_condition(self):
     # make sure the condition method runs without failure 
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     out = gp.condition([[0.0]],[1.0],sigma=[1.0],obs_diff=(0,))
     return 
 
   def test_run_recursive_condition(self):
     # make sure the condition method runs without failure 
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     out = gp.recursive_condition(
             [[0.0],[1.0]],[1.0,2.0],sigma=[1.0,1.0],obs_diff=(0,),
             max_chunk=1)
@@ -90,20 +90,20 @@ class Test(unittest.TestCase):
 
   def test_run_draw_sample(self):
     # make sure the draw_sample method runs without failure 
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     gp.draw_sample([[0.0],[1.0],[2.0]])
     return 
 
   def test_run_is_positive_definite(self):
     # make sure the is_positive_definite method runs without failure 
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     gp.is_positive_definite([[0.0],[1.0],[2.0]])
     return 
     
   def test_condition_and_recursive_condition(self):  
     # make sure condition and recursive_condition produce the same 
     # results
-    gp = rbf.gauss.PriorGaussianProcess((0.0,1.0,1.0))  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
     y = np.array([[0.0],[1.0],[2.0]])
     d = np.array([2.0,3.0,4.0])
     sigma = np.array([1.0,1.5,2.0])
@@ -117,7 +117,7 @@ class Test(unittest.TestCase):
 
   def test_condition(self):  
     # make sure that condition produces an accurate interpolant
-    gp = rbf.gauss.PriorGaussianProcess((0.0,2.0,0.5),order=-1)  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,2.0,0.5))  
     n = 500
     m = 1000
     y = np.linspace(0.0,10.0,n)[:,None]
@@ -144,7 +144,7 @@ class Test(unittest.TestCase):
     x = np.linspace(0.0,10.0,m)[:,None]
     sigma = 0.1*np.ones(n)
     d = test_func1d(y) + np.random.normal(0.0,sigma)
-    gp = rbf.gauss.PriorGaussianProcess((0.0,2.0,0.5),order=-1)  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,2.0,0.5))  
     gp = gp.condition(y,d,sigma) 
     gp = gp.differentiate((1,))
     mean,std = gp(x)
@@ -167,7 +167,7 @@ class Test(unittest.TestCase):
     sigma = 0.1*np.ones(n)
     d = test_func1d(y) + np.random.normal(0.0,sigma)
     d_diff = test_func1d_diffx(y) + np.random.normal(0.0,sigma)    
-    gp = rbf.gauss.PriorGaussianProcess((0.0,2.0,0.5),order=-1)  
+    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,2.0,0.5))  
     gp = gp.condition(y,d,sigma) 
     gp = gp.condition(y,d_diff,sigma,obs_diff=(1,)) 
     mean,std = gp(x)

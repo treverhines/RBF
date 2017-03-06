@@ -1,1 +1,0 @@
-* rename *gpr* to *gauss* 

@@ -42,7 +42,7 @@ def robust_gpr(y,d,s,coeffs,x=None,basis=rbf.basis.se,order=1,tol=3.0):
     prior covariance function
 
   order : int, optional  
-    order of the polynomial null space
+    order of the unconstrained polynomial basis functions
   
   tol : float, optional
     outlier tolerance. Smaller values make the outlier detection 
@@ -57,6 +57,8 @@ def robust_gpr(y,d,s,coeffs,x=None,basis=rbf.basis.se,order=1,tol=3.0):
   if x is None: x = y
   # Initially assume that none of the data are outliers
   is_outlier = np.zeros(d.shape[0],dtype=bool)
+  # the prior gaussian process is an isotropic GP with unconstrained 
+  # polynomial basis functions
   prior = rbf.gauss.gpiso(basis,coeffs) + rbf.gauss.gppoly(order)
   while True:
     # form posterior ignoring detected outliers

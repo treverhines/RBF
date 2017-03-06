@@ -1,7 +1,7 @@
 ''' 
-This script demonstrates how to make a custom Gaussian process by 
-combining PriorGaussianProcess instances. The resulting Gaussian 
-process has two distinct length-scales.
+This script demonstrates how to make a custom *GaussianProcess* by 
+combining *GaussianProcess* instances. The resulting Gaussian process 
+has two distinct length-scales.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
