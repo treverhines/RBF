@@ -11,7 +11,7 @@ if __name__ == '__main__':
                     extra_link_args=['-fopenmp'])]
   ext += [Extension(name='rbf.poly',sources=['rbf/poly.pyx'])]
   setup(name='RBF',
-        version='1.1',
+        version='1.2',
         description='Package containing the tools necessary for radial basis function (RBF) applications',
         author='Trever Hines',
         author_email='treverhines@gmail.com',
