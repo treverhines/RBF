@@ -120,6 +120,13 @@ class RBF(object):
     for polyharmonic splines. If *tol* is not provided then there will 
     be no special treatment for when *x* is close to *c*. Note that 
     computing the limit as *x* -> *c* can be very time intensive.
+
+  max_diff : int, optional    
+    The maximum derivative order for the *RBF*. An error is raised if 
+    the *RBF* is called and the sum of *diff* is greater than 
+    *max_diff*. If this is not assigned then the *RBF* is assumed to 
+    be infinitely differentiable. It *max_diff* is 0 then the function 
+    will not be differentiable.
   
   Examples
   --------
@@ -205,10 +212,11 @@ class RBF(object):
     self._tol = val
     self._cache = {}
 
-  def __init__(self,expr,package='cython',tol=None):
+  def __init__(self,expr,package='cython',tol=None,max_diff=None):
     self.expr = expr
     self.tol = tol
     self.package = package
+    self.max_diff = max_diff
 
   def __call__(self,x,c,eps=1.0,diff=None):
     ''' 
@@ -267,6 +275,10 @@ class RBF(object):
     else:
       # make sure diff is immutable
       diff = tuple(diff)
+    
+    if (self.max_diff is not None) & (sum(diff) > self.max_diff):  
+      raise ValueError(
+        'The *RBF* instance is not sufficiently differentiable')
 
     # make sure the input arguments have the proper dimensions
     if not ((x.ndim == 2) & (c.ndim == 2)):
@@ -362,19 +374,19 @@ class RBF(object):
     
 
 # Instantiate some common RBFs
-phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython')
-phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),package='cython')
-phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),package='cython')
-phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),package='cython')
-phs7 = RBF((_EPS*_R)**7,package='cython')
-phs5 = RBF((_EPS*_R)**5,package='cython')
-phs3 = RBF((_EPS*_R)**3,package='cython')
-phs1 = RBF(_EPS*_R,package='cython')
+phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython',max_diff=7)
+phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),package='cython',max_diff=5)
+phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),package='cython',max_diff=3)
+phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),package='cython',max_diff=1)
+phs7 = RBF((_EPS*_R)**7,package='cython',max_diff=6)
+phs5 = RBF((_EPS*_R)**5,package='cython',max_diff=4)
+phs3 = RBF((_EPS*_R)**3,package='cython',max_diff=2)
+phs1 = RBF(_EPS*_R,package='cython',max_diff=0)
 imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2),package='cython')
 iq = RBF(1/(1+(_EPS*_R)**2),package='cython')
 ga = RBF(sympy.exp(-(_EPS*_R)**2),package='cython')
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2),package='cython')
-exp = RBF(sympy.exp(-_R/_EPS),package='cython')
+exp = RBF(sympy.exp(-_R/_EPS),package='cython',max_diff=0)
 se = RBF(sympy.exp(-(_R/_EPS)**2),package='cython')
 
 

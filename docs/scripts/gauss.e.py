@@ -1,6 +1,6 @@
 ''' 
 This script demonstrates how to create a periodic Gaussian process 
-using the *RBFGaussianProcess* class.
+using the *gpiso* function.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
