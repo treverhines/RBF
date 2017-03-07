@@ -18,13 +18,10 @@ d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
 # form a prior Gaussian process which has a squared exponential basis 
 # function (rbf.basis.se), 0.0 for the mean, 1.0 for the standard 
 # deviation, and 2.0 for the characteristic length scale.
-gp = rbf.gauss.gpiso(rbf.basis.exp,(0.0,1.0,2.0)) 
+gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,2.0)) 
 sample = gp.draw_sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x
 gp_cond = gp.condition(y[:,None],d,sigma=sigma) # condition with data
-gp_cond = gp_cond.differentiate((1,))
-
-#print(gp_cond.is_positive_definite(x[:,None]))
 sample_cond = gp_cond.draw_sample(x[:,None]) 
 mean_cond,std_cond = gp_cond(x[:,None])  
 
