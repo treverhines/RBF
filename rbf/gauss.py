@@ -16,11 +16,12 @@ was written because existing software lacked the ability to 1) include
 unconstrained basis functions in a Gaussian process 2) compute 
 analytical derivatives of a Gaussian process and 3) condition a 
 Gaussian process with derivative constraints. Other software packages 
-have a strong focus on hyperparameter optimization. This module does 
-not include any optimization routines and hyperparameters are always 
-explicitly specified by the user. However, it is not difficult to use 
-functions from *scipy.optimize* with the *GaussianProcess* class to 
-create your own hyperparameter optimization routine.
+have a strong focus on optimizing hyperparameters based on data 
+likelihood. This module does not include any optimization routines and 
+hyperparameters are always explicitly specified by the user. However, 
+the *GaussianProcess* class contains the *likelihood* method which can 
+be used with functions from *scipy.optimize* to construct a 
+hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
@@ -302,6 +303,9 @@ from collections import OrderedDict
 import logging
 import weakref
 import inspect
+from scipy.linalg import solve_triangular as trisolve
+from scipy.linalg import cholesky
+
 logger = logging.getLogger(__name__)
 
 
@@ -335,30 +339,30 @@ def _is_positive_definite(A,tol=1e-10):
   if np.any(np.abs(A - A.T) > tol):
     return False
     
-  val,_ = np.linalg.eig(A)
-  # test if all the eigenvalues are real 
-  if np.any(np.abs(val.imag) > tol):
-    return False
-    
+  # since A is symmetric, we can use eigvalsh to compute the 
+  # eigenvalues
+  vals = np.linalg.eigvalsh(A)
   # test if all the eigenvalues are positive
-  if np.any(val.real < -tol):
+  if np.any(vals < -tol):
     return False
 
   return True  
 
 
-def _draw_sample(mean,cov):
+def _draw_sample(mean,cov,tol=1e-10):
   ''' 
   Draws a random sample from the gaussian process with the specified 
   mean and covariance. 
   '''   
-  mean = np.asarray(mean)  
-  cov = np.asarray(cov)
+  # check for positive definiteness
+  if not _is_positive_definite(cov,tol=tol):
+    raise ValueError(
+      'The covariance matrix is not positive definite and so a '
+      'sample cannot be drawn')
+    
   val,vec = np.linalg.eigh(cov)
-  # ignore any slightly imaginary components
-  val = val.real
-  vec = vec.real
-  # indices of positive eigenvalues
+  # some eigenvalues may be slightly negative. Those eigenvalues and 
+  # corresponding eigenvectors will be ignored.
   idx = val > 0.0
   # generate independent normal random numbers with variance equal to 
   # the eigenvalues
@@ -574,6 +578,46 @@ def _condition(gp,y,d,Cd,obs_diff):
   
   dim = y.shape[1]
   out = GaussianProcess(mean,covariance,dim=dim)
+  return out
+
+
+def _likelihood(gp,y,d,sigma,obs_diff):
+  ''' 
+  returns the marginal likelihood of observing *y* from the *gp*
+  '''
+  # H : (n,m) array, basis functions
+  H = gp.basis(y,diff=obs_diff)
+  n,m = H.shape # number of observations and basis functions
+  # K : (n,n) array, covariance matrix
+  K = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff) + sigma
+  # L : (n,n) array, cholesky decomposition of K
+  L = cholesky(K,lower=True,check_finite=False,overwrite_a=True)
+  # N : (n,) array, inv(L).dot(d)
+  N = trisolve(L,d,lower=True,check_finite=False)
+  if m != 0:
+    # M : (n,m) array, inv(L).dot(H)
+    M = trisolve(L,H,lower=True,check_finite=False)
+    # A : (m,m) array, H.T.dot(inv(K)).dot(H)
+    A = M.T.dot(M)
+    # P : (m,m) array, cholesky decomposition of A
+    P = cholesky(A,lower=True,check_finite=False,overwrite_a=True)
+    # Q : (m,) array, inv(P).dot(M.T.dot(N))
+    Q = trisolve(P,M.T.dot(N))
+  else:
+    # if the gaussian process contains no basis functions then run 
+    # this block
+    P = np.zeros((0,0))
+    Q = np.zeros((0,))
+
+  # data misfit terms
+  term1 = -0.5*N.T.dot(N)
+  term2 =  0.5*Q.T.dot(Q)
+  # determinant terms
+  term3 = -np.sum(np.log(np.diag(L)))
+  term4 = -np.sum(np.log(np.diag(P)))
+  # normalization term
+  term5 = -0.5*(n - m)*np.log(2*np.pi)
+  out = term1 + term2 + term3 + term4 + term5
   return out
 
 
@@ -951,6 +995,63 @@ class GaussianProcess(object):
       
     return out    
 
+  def likelihood(self,y,d,sigma=None,obs_diff=None):
+    ''' 
+    Returns the log marginal likelihood of realizing *y* from this 
+    *GaussianProcess*. *y* can potentially be a noisy realization, which 
+    has uncertainty described by *sigma*. The returned value is 
+    essentially meaningless unless compared to the likelihood of 
+    realizing *y* from another *GaussianProcess* instances. See section 
+    2.7.1 of [1] for details.
+
+    Parameters
+    ----------
+    y : (N,D) array
+      Observation points
+    
+    d : (N,) array
+      Observed values at *y*
+      
+    sigma : (N,) array, optional
+      One standard deviation uncertainty on the observations. This 
+      defaults to zeros (i.e. the data are assumed to be known 
+      perfectly).
+   
+    obs_diff : (D,) tuple, optional
+      Derivative of the observations. For example, use (1,) if the 
+      observations constrain the slope of a 1-D Gaussian process.
+
+    Returns
+    -------
+    out : float
+      log marginal likelihood.
+      
+    References
+    ----------
+    [1] Rasmussen, C., and Williams, C., Gaussian Processes for Machine 
+    Learning. The MIT Press, 2006.
+    '''
+    y = np.asarray(y,dtype=float)
+    _assert_shape(y,(None,self.dim),'y')
+    n,dim = y.shape # number of observations and dimensions
+
+    d = np.asarray(d,dtype=float)
+    _assert_shape(d,(n,),'d')
+
+    if sigma is None:
+      sigma = np.zeros((n,n),dtype=float)
+    else:
+      sigma = np.asarray(sigma,dtype=float)
+      if sigma.ndim == 1:
+        # If sigma is a 1d array then it contains std. dev. uncertainties.  
+        # Convert sigma to a covariance matrix
+        sigma = np.diag(sigma**2)
+
+      _assert_shape(sigma,(n,n),'sigma')
+    
+    out = _likelihood(self,y,d,sigma,obs_diff)  
+    return out
+
   def basis(self,x,diff=None):
     ''' 
     Returns the unconstrained basis vectors evaluated at *x*.
@@ -1152,7 +1253,7 @@ class GaussianProcess(object):
     
     return out_mean,out_sigma
 
-  def draw_sample(self,x):  
+  def draw_sample(self,x,tol=1e-10):  
     '''  
     Draws a random sample from the stochastic component of the 
     Gaussian process.
@@ -1161,6 +1262,10 @@ class GaussianProcess(object):
     ----------
     x : (N,D) array
       Evaluation points
+    
+    tol : float
+      Tolerance used in determining whether a covariance matrix is 
+      positive definite.
       
     Returns
     -------
@@ -1363,7 +1468,7 @@ def gpbasis(basis,coeff=None,dim=None):
   return out  
 
 
-def gppoly(order):
+def gppoly(order,dim=None):
   ''' 
   Returns a basis function *GaussianProcess* which has unconstrained 
   polynomial basis functions. If *order* = 0, then the basis functions 
