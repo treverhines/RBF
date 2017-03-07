@@ -5,7 +5,7 @@ Brownian motion with the *GaussianProcess* class.
 import numpy as np
 import matplotlib.pyplot as plt
 from rbf.gauss import GaussianProcess
-np.random.seed(4)
+np.random.seed(1)
 
 # define mean function
 def brownian_mean(x):
@@ -17,7 +17,7 @@ def brownian_cov(x1,x2):
   c = np.min(np.meshgrid(x2[:,0],x1[:,0]),axis=0)
   return c
 
-t = np.linspace(0,1,500)[:,None]
+t = np.linspace(0.001,1,500)[:,None]
 brown = GaussianProcess(brownian_mean,brownian_cov)
 sample = brown.draw_sample(t) # draw a sample
 mu,sigma = brown(t) # evaluate the mean and std. dev.

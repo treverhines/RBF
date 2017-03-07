@@ -304,7 +304,7 @@ import logging
 import weakref
 import inspect
 from scipy.linalg import solve_triangular as trisolve
-from scipy.linalg import cholesky
+from scipy.linalg import cholesky 
 
 logger = logging.getLogger(__name__)
 
@@ -329,12 +329,15 @@ def _assert_shape(a,shape,label):
         (axis,label,i,j))
 
 
-def _is_positive_definite(A,tol=1e-10):
+def _is_positive_definite(A):
   ''' 
   Tests if *A* is a positive definite matrix. This function returns 
-  True if *A* is symmetric and all of its eigenvalues are real and 
-  positive.  
+  True if *A* is symmetric and all of its eigenvalues are positive (to 
+  within machine precision).
   '''   
+  # set tol according to the distance to the next largest floats.
+  #tol = 1.0e5*np.linalg.norm(np.spacing(A))
+  tol = 1e-10
   # test if A is symmetric
   if np.any(np.abs(A - A.T) > tol):
     return False
@@ -349,27 +352,61 @@ def _is_positive_definite(A,tol=1e-10):
   return True  
 
 
-def _draw_sample(mean,cov,tol=1e-10):
+def _make_numerically_positive_definite(A):
   ''' 
-  Draws a random sample from the gaussian process with the specified 
-  mean and covariance. 
-  '''   
-  # check for positive definiteness
-  if not _is_positive_definite(cov,tol=tol):
-    raise ValueError(
-      'The covariance matrix is not positive definite and so a '
-      'sample cannot be drawn')
+  Iteratively adds a small value to the diagonal components of *A* 
+  until it is numerically positive definite. This function is an 
+  attempt to overcome numerical roundoff errors which cause the 
+  eigenvalues of *A* to have slightly negative values when the true 
+  eigenvalues of *A* should all be positive. It is assumed that *A* is 
+  already nearly positive definite.   
+  '''
+  if not _is_positive_definite(A):
+    raise np.linalg.LinAlgError(
+      'The matrix *A* is not sufficiently close to being positive '
+      'definite.')   
+  
+  itr = 0
+  n = A.shape[0]
+  #eps = 1.0e3*np.linalg.norm(np.spacing(A))
+  eps = 1e-12
+  while np.any(np.linalg.eigvalsh(A) <= 0.0):
+    if itr == 100:
+      raise np.linalg.LinAlgError('Unable to make *A* positive definite.')
+      
+    A[range(n),range(n)] += eps
+    itr += 1
     
-  val,vec = np.linalg.eigh(cov)
-  # some eigenvalues may be slightly negative. Those eigenvalues and 
-  # corresponding eigenvectors will be ignored.
-  idx = val > 0.0
-  # generate independent normal random numbers with variance equal to 
-  # the eigenvalues
-  sample = np.random.normal(0.0,np.sqrt(val[idx]))
-  # map with the eigenvectors and add the mean
-  sample = mean + vec[:,idx].dot(sample)
-  return sample
+  return  
+
+
+def _cholesky(A,*args,**kwargs):
+  ''' 
+  Cholesky decomposition which is more forgiving of matrices that are 
+  not numerically positive definite
+  '''
+  try:
+    return cholesky(A,*args,**kwargs)
+  except np.linalg.LinAlgError:  
+    warnings.warn(
+      'The matrix *A* is not numerically positive definite and the '
+      'Cholesky decomposition could not be computed. Small values '
+      'will be added to the diagonals of *A* until it is numerically '
+      'positive definite. Another attempt will then be made to '
+      'compute the Cholesky decomposition.')
+    _make_numerically_positive_definite(A)   
+    return cholesky(A,*args,**kwargs)
+
+
+def _draw_sample(mean,cov):
+  ''' 
+  Draws a random sample from the Gaussian process with the specified 
+  mean and covariance.
+  '''   
+  L = _cholesky(cov,lower=True,check_finite=False)
+  w = np.random.normal(0.0,1.0,mean.shape[0])
+  u = mean + L.dot(w)
+  return u
 
 
 class Memoize(object):
@@ -591,7 +628,7 @@ def _likelihood(gp,y,d,sigma,obs_diff):
   # K : (n,n) array, covariance matrix
   K = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff) + sigma
   # L : (n,n) array, cholesky decomposition of K
-  L = cholesky(K,lower=True,check_finite=False,overwrite_a=True)
+  L = _cholesky(K,lower=True,check_finite=False)
   # N : (n,) array, inv(L).dot(d)
   N = trisolve(L,d,lower=True,check_finite=False)
   if m != 0:
@@ -600,7 +637,7 @@ def _likelihood(gp,y,d,sigma,obs_diff):
     # A : (m,m) array, H.T.dot(inv(K)).dot(H)
     A = M.T.dot(M)
     # P : (m,m) array, cholesky decomposition of A
-    P = cholesky(A,lower=True,check_finite=False,overwrite_a=True)
+    P = _cholesky(A,lower=True,check_finite=False)
     # Q : (m,) array, inv(P).dot(M.T.dot(N))
     Q = trisolve(P,M.T.dot(N))
   else:
@@ -1253,7 +1290,7 @@ class GaussianProcess(object):
     
     return out_mean,out_sigma
 
-  def draw_sample(self,x,tol=1e-10):  
+  def draw_sample(self,x):  
     '''  
     Draws a random sample from the stochastic component of the 
     Gaussian process.
@@ -1262,10 +1299,6 @@ class GaussianProcess(object):
     ----------
     x : (N,D) array
       Evaluation points
-    
-    tol : float
-      Tolerance used in determining whether a covariance matrix is 
-      positive definite.
       
     Returns
     -------
@@ -1285,24 +1318,19 @@ class GaussianProcess(object):
     out = _draw_sample(mean,cov)
     return out
     
-  def is_positive_definite(self,x,tol=1e-10):
+  def is_positive_definite(self,x):
     '''     
     Tests if the covariance matrix, which is the covariance function 
-    evaluated at *x*, is positive definite by checking if all the 
-    eigenvalues are real and positive. An affirmative result from this 
-    test is necessary but insufficient to ensure that the covariance 
-    function is positive definite.
+    evaluated at *x*, is positive definite. This is done by checking 
+    if the matrix is symmetric and all of its eigenvalues are 
+    positive. An affirmative result from this test is necessary but 
+    insufficient to ensure that the covariance function is positive 
+    definite.
     
     Parameters
     ----------
     x : (N,D) array
       Evaluation points
-    
-    tol : float, optional
-      A matrix which should be positive definite may still have 
-      slightly negative or slightly imaginary eigenvalues because of 
-      numerical rounding error. This arguments sets the tolerance for 
-      negative or imaginary eigenvalues.
 
     Returns
     -------
@@ -1310,7 +1338,7 @@ class GaussianProcess(object):
 
     '''
     cov = self.covariance(x,x)    
-    out = _is_positive_definite(cov,tol)
+    out = _is_positive_definite(cov)
     return out  
     
 

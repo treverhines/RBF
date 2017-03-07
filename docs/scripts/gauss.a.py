@@ -22,6 +22,7 @@ gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,2.0))
 sample = gp.draw_sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x
 gp_cond = gp.condition(y[:,None],d,sigma=sigma) # condition with data
+#print(gp_cond.is_positive_definite(x[:,None]))
 sample_cond = gp_cond.draw_sample(x[:,None]) 
 mean_cond,std_cond = gp_cond(x[:,None])  
 
