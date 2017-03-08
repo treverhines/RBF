@@ -8,11 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fmin
 import rbf
-np.random.seed(2)
+np.random.seed(3)
 
-n = 1000 # number of observations
+n = 500 # number of observations
 t = np.linspace(-5.0,5.0,n)[:,None] # observation points
-sigma = 0.1*np.ones(n) # observation noise 
+sigma = 0.5*np.ones(n) # observation noise 
 
 # True signal which we want to recover. This is a squared exponential 
 # function with mean=0.0, variance=2.0, and time-scale=0.1. For 
@@ -25,9 +25,9 @@ gp_true  = rbf.gauss.gpse((a,b,c))
 d = gp_true.draw_sample(t) + np.random.normal(0.0,sigma)
 
 # find the optimal hyperparameter with a brute force grid search
-b_search = 10**np.linspace(-2,2,25)
-c_search = 10**np.linspace(-2,1,20)
-likelihoods = np.zeros((25,20))
+b_search = 10**np.linspace(-2,2,30)
+c_search = 10**np.linspace(-2,1,30)
+likelihoods = np.zeros((30,30))
 for i,b_test in enumerate(b_search): 
   for j,c_test in enumerate(c_search): 
     gp  = rbf.gauss.gpse((0.0,b_test,c_test))
@@ -59,12 +59,13 @@ ax = axs[0]
 ax.grid(True)
 ax.errorbar(t[:,0],d,sigma,fmt='k.',capsize=0,label='observations')
 ax.set_xlim((-5.0,5.0))
+ax.set_ylim((-5.0,7.0))
 ax.set_xlabel('time',fontsize=10)
 ax.set_ylabel('observations',fontsize=10)
 ax.tick_params(labelsize=10)
-ax.text(0.5,4.0,r"$\bar{u}(x) = a$")
-ax.text(0.5,3.25,r"$C_u(x,x') = b\times\exp(-|x - x'|^2/c^2)$")
-ax.text(0.5,2.5,r"$a = %s$, $b = %s$, $c = %s$" % (a,b,c))
+ax.text(0.55,0.925,r"$\bar{u}(x) = a$",transform=ax.transAxes)
+ax.text(0.55,0.85,r"$C_u(x,x') = b\times\exp(-|x - x'|^2/c^2)$",transform=ax.transAxes)
+ax.text(0.55,0.775,r"$a = %s$, $b = %s$, $c = %s$" % (a,b,c),transform=ax.transAxes)
            
 ax = axs[1]
 ax.set_yscale('log')
