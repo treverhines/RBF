@@ -30,7 +30,7 @@ c_search = 10**np.linspace(-2,1,30)
 likelihoods = np.zeros((30,30))
 for i,b_test in enumerate(b_search): 
   for j,c_test in enumerate(c_search): 
-    gp  = rbf.gauss.gpse((0.0,b_test,c_test))
+    gp = rbf.gauss.gpse((0.0,b_test,c_test))
     likelihoods[i,j] = gp.likelihood(t,d,sigma=sigma)
 
 # find the optimal hyperparameters with a positively constrained 
@@ -48,6 +48,7 @@ def objective(x):
   '''objective function to be minimized'''
   gp  = rbf.gauss.gpse((0.0,x[0],x[1]))
   val = -gp.likelihood(t,d,sigma=sigma)
+  print(val)
   return val
 
 # maximum likelihood estimate

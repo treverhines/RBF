@@ -702,7 +702,7 @@ def _condition(gp,y,d,Cd,obs_diff):
 
 def _likelihood(gp,y,d,sigma,obs_diff):
   ''' 
-  returns the marginal likelihood of observing *y* from the *gp*
+  returns the marginal likelihood of observing *d* from the *gp*
   '''
   # H : (n,m) array, basis functions
   H = gp.basis(y,diff=obs_diff)
@@ -721,7 +721,7 @@ def _likelihood(gp,y,d,sigma,obs_diff):
     # P : (m,m) array, cholesky decomposition of A
     P = _cholesky(A,lower=True,check_finite=False)
     # Q : (m,) array, inv(P).dot(M.T.dot(N))
-    Q = trisolve(P,M.T.dot(N))
+    Q = trisolve(P,M.T.dot(N),lower=True,check_finite=False)
   else:
     # if the gaussian process contains no basis functions then run 
     # this block
