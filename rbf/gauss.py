@@ -1058,20 +1058,45 @@ class GaussianProcess(object):
 
   def likelihood(self,y,d,sigma=None,obs_diff=None):
     ''' 
-    Returns the log marginal likelihood of realizing *y* from this 
-    *GaussianProcess*. *y* can potentially be a noisy realization, which 
-    has uncertainty described by *sigma*. The returned value is 
-    essentially meaningless unless compared to the likelihood of 
-    realizing *y* from another *GaussianProcess* instances. See section 
-    2.7.1 of [1] for details.
+    Returns the log marginal likelihood of drawing the (potentially 
+    noisy) observations *y* from this *GaussianProcess*. The marginal 
+    likelihood is defined as
+    
+    .. math::
+      p(y) = \int p(y|f) p(f) df
+      
+    where *f* is a function realization, *p(f)* is the probability of 
+    drawing *f* from this *GaussianProcess*, and *p(y|f)* is the data 
+    likelihood. The data likelihood is the probability of obtaining 
+    *y* from noisy perturbations to *f*, where the noise is described 
+    by *sigma*.  
+    
+    The value returned by this function is essentially meaningless, 
+    unless it is compared to the marginal likelihood from a different 
+    *GaussianProcess* instance. The marginal likelihood can then be 
+    used to determine the *GaussianProcess* which is most likely to 
+    have generated *y*. Any two *GaussianProcess* instances can be 
+    compared with their marginal likelihoods PROVIDED THAT THEY 
+    CONTAIN THE SAME UNCONSTRAINED BASIS FUNCTIONS! If a 
+    *GaussianProcess* contains an unconstrained basis function then, 
+    from the above integral, p(y) will always be zero. This is not 
+    helpful when we want to compare *GaussianProcess* instances. 
+    Instead, the integral is performed over a subspace that is 
+    orthogonal to the space spanned by the unconstrained basis 
+    functions. Thus, if two *GaussianProcess* instances have different 
+    unconstrained basis functions then their marginal likelihoods will 
+    be computed over different integration domains and any comparisons 
+    will not be informative.
+    
+    See section 2.7.1 of [1] for additional details.
 
     Parameters
     ----------
     y : (N,D) array
-      Observation points
+      Observation points.
     
     d : (N,) array
-      Observed values at *y*
+      Observed values at *y*.
       
     sigma : (N,) or (N,N) float array, optional
       Data uncertainty. If this is an (N,) array then it describes one 
@@ -1496,7 +1521,7 @@ def gpbasis(basis,coeff=None,dim=None):
   ''' 
   Creates a basis function *GaussianProcess* instance, where 
   realizations are constrained to the space spanned by the basis 
-  functions.
+  functions. 
   
   Parameters
   ----------
