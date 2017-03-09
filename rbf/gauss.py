@@ -911,6 +911,19 @@ class GaussianProcess(object):
     '''
     return self.__mul__(c)
 
+  def __or__(self,args):
+    ''' 
+    equivalent to calling *condition* with positional arguments 
+    *args*.
+    '''
+    return self.condition(*args)
+
+  def D(self,diff):
+    ''' 
+    alias for *differentiate*.
+    '''
+    return self.differentiate(diff)
+
   def add(self,other):
     ''' 
     Adds two *GaussianProcess* instances. 
@@ -999,7 +1012,7 @@ class GaussianProcess(object):
   def condition(self,y,d,sigma=None,obs_diff=None):
     ''' 
     Returns a conditional *GaussianProcess* which incorporates the 
-    observed data.
+    observed data, *d*.
     
     Parameters
     ----------
@@ -1056,16 +1069,16 @@ class GaussianProcess(object):
   def likelihood(self,y,d,sigma=None,obs_diff=None):
     ''' 
     Returns the log marginal likelihood of drawing the (potentially 
-    noisy) observations *y* from this *GaussianProcess*. The marginal 
+    noisy) observations *d* from this *GaussianProcess*. The marginal 
     likelihood is defined as
     
     .. math::
-      p(y) = \int p(y|f) p(f) df
+      p(d) = \int p(d|f) p(f) df
       
     where *f* is a function realization, *p(f)* is the probability of 
-    drawing *f* from this *GaussianProcess*, and *p(y|f)* is the data 
+    drawing *f* from this *GaussianProcess*, and *p(d|f)* is the data 
     likelihood. The data likelihood is the probability of obtaining 
-    *y* from noisy perturbations to *f*, where the noise is described 
+    *d* from noisy perturbations to *f*, where the noise is described 
     by *sigma*.  
     
     The value returned by this function is essentially meaningless, 
