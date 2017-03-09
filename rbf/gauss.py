@@ -1521,7 +1521,30 @@ def gpexp(coeff,dim=None):
   return out
 
 
-def gpbasis(basis,coeff=None,dim=None):
+def gpubasis(basis,dim=None):
+  ''' 
+  Creates a *GaussianProcess* instance which just has unconstrained 
+  basis functions and no stochastic component.  
+
+  Parameters
+  ----------
+  basis : function
+    Function that takes either one argument, *x*, or two arguments, 
+    *x* and *diff*. *x* is an (N,D) array of positions and *diff* is a 
+    (D,) array specifying the derivative. This function returns an 
+    (N,P) array, where each column is a basis function evaluated at 
+    *x*. 
+
+  Returns
+  -------
+  out : GaussianProcess
+    
+  '''
+  out = GaussianProcess(_zero_mean,_zero_covariance,basis=basis,dim=dim)
+  return out
+
+
+def gpbasis(basis,mu,sigma,dim=None):
   ''' 
   Creates a basis function *GaussianProcess* instance, where 
   realizations are constrained to the space spanned by the basis 
@@ -1536,13 +1559,13 @@ def gpbasis(basis,coeff=None,dim=None):
     (N,P) array, where each column is a basis function evaluated at 
     *x*. 
   
-  coeff : (mean,sigma), optional  
-    Describes the probability distribution for the basis function 
-    coefficients. *mean* is a (P,) array and *sigma* can either be a 
-    (P,) array or a (P,P) array. If *sigma* is a (P,) array then it 
-    indicates the standard deviations. If *sigma* is a (P,P) array 
-    then it indicates the covariances. If *coeff* is not specified 
-    then the basis functions are assumed to be unconstrained.
+  mu : (P,) array
+    Expected value of the basis function coefficients.
+  
+  sigma : (P,) or (P,P) array   
+    If this is a (P,) array then it indicates the standard deviation 
+    of the basis function coefficients. If it is a (P,P) array then it 
+    indicates the covariances. 
 
   dim : int, optional
     Fixes the spatial dimensions of the *GaussianProcess* domain. An 
@@ -1570,35 +1593,27 @@ def gpbasis(basis,coeff=None,dim=None):
     # otherwise, assume that the function can take two arguments
     basis_with_diff = basis
       
-  if coeff is None:
-    # The mean and covariance will be zero and the basis functions 
-    # will be unconstrained
-    out = GaussianProcess(_zero_mean,_zero_covariance,
-                          basis=basis_with_diff,dim=dim)
-  
-  else:  
-    coeff_mean = np.asarray(coeff[0],dtype=float)
-    coeff_sigma = np.asarray(coeff[1],dtype=float)
-    if coeff_sigma.ndim == 1:
+  mu = np.asarray(mu,dtype=float)
+  sigma = np.asarray(sigma,dtype=float)
+  if sigma.ndim == 1:
       # if *sigma* is one dimensional then it contains standard 
       # deviations. These are converted to a covariance matrix.
-      coeff_sigma = np.diag(coeff_sigma**2)
+      sigma = np.diag(sigma**2)
   
-    @Memoize
-    def mean(x,diff):
-      G = basis_with_diff(x,diff)
-      out = G.dot(coeff_mean)
-      return out
+  @Memoize
+  def mean(x,diff):
+    G = basis_with_diff(x,diff)
+    out = G.dot(mu)
+    return out
     
-    @Memoize
-    def covariance(x1,x2,diff1,diff2):
-      G1 = basis_with_diff(x1,diff1)
-      G2 = basis_with_diff(x2,diff2)
-      out = G1.dot(coeff_sigma).dot(G2.T)
-      return out
+  @Memoize
+  def covariance(x1,x2,diff1,diff2):
+    G1 = basis_with_diff(x1,diff1)
+    G2 = basis_with_diff(x2,diff2)
+    out = G1.dot(sigma).dot(G2.T)
+    return out
     
-    out = GaussianProcess(mean,covariance,dim=dim)
-  
+  out = GaussianProcess(mean,covariance,dim=dim)
   return out  
 
 
@@ -1630,6 +1645,6 @@ def gppoly(order,dim=None):
     out = rbf.poly.mvmonos(x,powers,diff)
     return out
   
-  out = gpbasis(basis,dim=dim)  
+  out = gpubasis(basis,dim=dim)  
   return out
 
