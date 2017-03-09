@@ -48,7 +48,6 @@ def objective(x):
   '''objective function to be minimized'''
   gp  = rbf.gauss.gpse((0.0,x[0],x[1]))
   val = -gp.likelihood(t,d,sigma=sigma)
-  print(val)
   return val
 
 # maximum likelihood estimate
