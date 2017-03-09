@@ -918,12 +918,6 @@ class GaussianProcess(object):
     '''
     return self.condition(*args)
 
-  def D(self,diff):
-    ''' 
-    alias for *differentiate*.
-    '''
-    return self.differentiate(diff)
-
   def add(self,other):
     ''' 
     Adds two *GaussianProcess* instances. 

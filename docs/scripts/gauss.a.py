@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 import rbf
 np.random.seed(1)
 
-y = np.linspace(-7.5,7.5,20) # observation points
+y = np.linspace(-7.5,7.5,25) # observation points
 x = np.linspace(-7.5,7.5,1000) # interpolation points
 u_true = np.exp(-0.3*np.abs(x))*np.sin(x)  # true signal
-sigma = 0.1*np.ones(20) # observation uncertainty
+sigma = 0.1*np.ones(25) # observation uncertainty
 # noisy observations of the signal
 d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
 # form a prior Gaussian process which has a squared exponential basis 
@@ -22,6 +22,7 @@ gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,2.0))
 sample = gp.draw_sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x
 gp_cond = gp.condition(y[:,None],d,sigma=sigma) # condition with data
+
 sample_cond = gp_cond.draw_sample(x[:,None]) 
 mean_cond,std_cond = gp_cond(x[:,None])  
 
