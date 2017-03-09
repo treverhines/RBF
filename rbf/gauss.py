@@ -1079,14 +1079,14 @@ class GaussianProcess(object):
     compared with their marginal likelihoods PROVIDED THAT THEY 
     CONTAIN THE SAME UNCONSTRAINED BASIS FUNCTIONS! If a 
     *GaussianProcess* contains an unconstrained basis function then, 
-    from the above integral, p(y) will always be zero. This is not 
-    helpful when we want to compare *GaussianProcess* instances. 
-    Instead, the integral is performed over a subspace that is 
-    orthogonal to the space spanned by the unconstrained basis 
-    functions. Thus, if two *GaussianProcess* instances have different 
-    unconstrained basis functions then their marginal likelihoods will 
-    be computed over different integration domains and any comparisons 
-    will not be informative.
+    from the above integral, *p(y)* will always be zero. This is not 
+    helpful if we want to make comparisons. Instead, the integral is 
+    performed over a subspace that is orthogonal to the space spanned 
+    by the unconstrained basis functions. Thus, if two 
+    *GaussianProcess* instances have different unconstrained basis 
+    functions then their marginal likelihoods will be computed over 
+    different integration domains and any comparisons will not be 
+    informative.
     
     See section 2.7.1 of [1] for additional details.
 
