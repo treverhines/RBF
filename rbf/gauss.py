@@ -402,23 +402,21 @@ def _assert_shape(a,shape,label):
 
 def _is_positive_definite(A):
   ''' 
-  Tests if *A* is a positive definite matrix. This function returns 
-  True if *A* is symmetric and all of its eigenvalues are positive (to 
-  within some tolerance).
+  Tests if *A* is positive definite or nearly positive definite. If 
+  any of the eigenvalues are significantly negative or complex then 
+  this function return False. 
   '''
-  tol = 1e-8
-  # test if A is symmetric
-  if np.any(np.abs(A - A.T) > tol):
+  vals = np.linalg.eigvals(A)
+  # tolerance for negative or complex eigenvalues
+  min_tol = max(np.linalg.norm(np.spacing(A)),np.sqrt(np.spacing(0)))
+  tol = max(0.0001*vals.real.max(),min_tol)
+  print(tol)
+  if np.any(vals.real < -tol):
     return False
-    
-  # since A is symmetric, we can use eigvalsh to compute the 
-  # eigenvalues
-  vals = np.linalg.eigvalsh(A)
-  # test if all the eigenvalues are positive
-  if np.any(vals < -tol):
+  elif np.any(np.abs(vals.imag) > tol):
     return False
-
-  return True  
+  else:
+    return True
 
 
 def _make_numerically_positive_definite(A):
@@ -443,8 +441,7 @@ def _make_numerically_positive_definite(A):
   # the nearest float. Note that this does not take into account 
   # rounding error that has already accumulated in *A*. Thus the error 
   # is generally larger than this bound.
-  min_eps = max(np.linalg.norm(np.spacing(A)),
-                np.sqrt(np.spacing(0)))
+  min_eps = max(np.linalg.norm(np.spacing(A)),np.sqrt(np.spacing(0)))
   while True:
     vals = np.linalg.eigvalsh(A)
     if not np.any(vals <= 0.0):
