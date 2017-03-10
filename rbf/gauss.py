@@ -325,17 +325,17 @@ contains the function *gpse* for generating a squared exponential
 >>> from rbf.gauss import gpse
 >>> gp = gpse((0.0,1.0,2.0))
 
-The function *gpubasis* is used for generating *GaussianProcess* 
+The function *gpbasisu* is used for generating *GaussianProcess* 
 instances with unconstrained basis functions. It requires the user to 
 specify a function which returns a set of basis functions evaluted at 
 *x*. For example,
 
 >>> from rbf.gauss import gpbasis
 >>> def basis(x): return np.array([np.sin(x[:,0]),np.cos(x[:,0])]).T
->>> gp = gpubasis(basis)
+>>> gp = gpbasisu(basis)
 
 Use the function *gpbasis* to make a *GaussianProcess* with prior 
-constrains on the basis function parameters.
+constrains on the basis function coefficients.
 
 >>> mean = [0.0,0.0] # mean basis function parameters
 >>> sigma = [1.0,1.0] # uncertainty of basis function parameters
@@ -1594,7 +1594,7 @@ def gpbasis(basis,mu,sigma,dim=None):
   return out  
 
 
-def gpubasis(basis,dim=None):
+def gpbasisu(basis,dim=None):
   ''' 
   Creates a *GaussianProcess* instance which has unconstrained basis 
   functions and no stochastic component.
@@ -1650,6 +1650,6 @@ def gppoly(order,dim=None):
     out = rbf.poly.mvmonos(x,powers,diff)
     return out
   
-  out = gpubasis(basis,dim=dim)  
+  out = gpbasisu(basis,dim=dim)  
   return out
 
