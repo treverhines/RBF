@@ -42,10 +42,9 @@ where
 and :math:`\{c_i\}_{i=1}^m` are unconstrained coefficients. We refer 
 to :math:`\mathbf{p}_u(x)` as the unconstrained basis functions. Note 
 that :math:`\\bar{u}(x)` and :math:`C_u(x,x')` are the mean and 
-covariance functions for the stochastic component of :math:`u(x)` and 
-not necessarily for :math:`u(x)`, because the presence of 
-unconstrained basis functions makes the mean and covariance of
-:math:`u(x)` undefined.  
+covariance functions for :math:`u_o(x)` and not necessarily for 
+:math:`u(x)`, since the presence of unconstrained basis functions
+makes the mean and covariance of :math:`u(x)` undefined.
 
 We consider five operations on Gaussian processes: addition, 
 subtraction, scaling, differentiation, and conditioning. Each 
