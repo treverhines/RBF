@@ -26,24 +26,26 @@ hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
+
 We define a Gaussian process, :math:`u(x)`, as the combination of a 
-stochastic function, :math:`u_o(x)`, and a set of deterministic basis 
-functions :math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`:
+stochastic component, :math:`u_o(x)`, and a set of basis functions 
+:math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`:
 
 .. math::
   u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x),
 
-where :math:`\{c_i\}_{i=1}^m` are unconstrained random variables. We 
-thus refer to :math:`\mathbf{p}_u(x)` as the unconstrained basis 
-functions. We define :math:`u_o(x)` in terms of a mean function,
-:math:`\\bar{u}(x)`, and a covariance function, :math:`C_u(x,x')`, as
+where 
 
 .. math::
-  u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
-
-Note that :math:`\\bar{u}(x)` and :math:`C_u(x,x')` are the mean and 
+  u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right),
+  
+and :math:`\{c_i\}_{i=1}^m` are unconstrained coefficients. We refer 
+to :math:`\mathbf{p}_u(x)` as the unconstrained basis functions. Note 
+that :math:`\\bar{u}(x)` and :math:`C_u(x,x')` are the mean and 
 covariance functions for the stochastic component of :math:`u(x)` and 
-not necessarily for :math:`u(x)` itself. 
+not necessarily for :math:`u(x)`, because the presence of 
+unconstrained basis functions makes the mean and covariance of
+:math:`u(x)` undefined.  
 
 We consider five operations on Gaussian processes: addition, 
 subtraction, scaling, differentiation, and conditioning. Each 
@@ -245,7 +247,7 @@ choice for :math:`\phi` is the squared exponential function,
   \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),
 
 which has the useful property of being infinitely differentiable. An 
-isotropic instance of a *GaussianProcess* can be created with the 
+instance of an isotropic *GaussianProcess* can be created with the 
 function *gpiso*.
 
 
@@ -265,7 +267,7 @@ where :math:`\mathbf{a} = \{a_i\}_{i=1}^m` and
   
 If the variance of :math:`\mathbf{a}` is infinite, then :math:`u(x)` 
 can be viewed as a Gaussian process with zero mean, zero covariance, 
-and unconstrained basis functions :math:`\mathbf{f}(x)`. If
+and :math:`\mathbf{f}(x)` are the unconstrained basis functions. If
 :math:`\mathbf{a}` has a finite variance, then the mean and covariance 
 for :math:`u(x)` are described as
 
@@ -277,18 +279,18 @@ and
 .. math::
   C_u(x,x') = \mathbf{f}(x)\mathbf{C_a}\mathbf{f}(x')^T.
 
-The basis functions are commonly chosen to be the set of monomial 
-basis functions that span the space of all polynomials with some 
-user-specified degree, :math:`d`. For example, if :math:`x \in 
-\mathbb{R}^2` and :math:`d=1`, then the monomial basis functions would 
-be
+The basis functions are commonly chosen to be the set of monomials 
+that span the space of all polynomials with some degree, :math:`d`. 
+For example, if :math:`x \in \mathbb{R}^2` and
+:math:`d=1`, then the polynomial basis functions would be
 
 .. math::
   \mathbf{f}(x) = \{1,x,y\}.
 
-A basis function instance of a *GaussianProcess* can be created with 
-the function *gpbasis*. If the basis functions are monomials, then the 
-the *GaussianProcess* can be created with the function *gppoly*.
+An instance of a basis function *GaussianProcess* can be created with 
+the functions *gpbasis* and *gpbasisu*. If the basis functions are 
+monomials, then the the *GaussianProcess* can be created with the 
+function *gppoly*.
 
 
 Instantiating a *GaussianProcesses*
@@ -334,7 +336,7 @@ specify a function which returns a set of basis functions evaluted at
 >>> def basis(x): return np.array([np.sin(x[:,0]),np.cos(x[:,0])]).T
 >>> gp = gpbasisu(basis)
 
-Use the function *gpbasis* to make a *GaussianProcess* with prior 
+Use *gpbasis* to make a basis function *GaussianProcess* with prior 
 constrains on the basis function coefficients.
 
 >>> mean = [0.0,0.0] # mean basis function parameters
