@@ -331,7 +331,7 @@ instances with unconstrained basis functions. It requires the user to
 specify a function which returns a set of basis functions evaluted at 
 *x*. For example,
 
->>> from rbf.gauss import gpbasis
+>>> from rbf.gauss import gpbasis,gpbasisu
 >>> def basis(x): return np.array([np.sin(x[:,0]),np.cos(x[:,0])]).T
 >>> gp = gpbasisu(basis)
 
