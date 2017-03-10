@@ -26,7 +26,7 @@ u_obs = signal(pnts_obs) + np.random.normal(0.0,sigma_obs)
 # find the filtered solution
 cutoff = 0.5
 soln,_ = filter(pnts_obs,u_obs,sigma=sigma_obs,cutoff=cutoff,
-                vert=bnd_vert,smp=bnd_smp,check_all_edges=True)
+                vert=bnd_vert,smp=bnd_smp)
 # plot the results and true signal
 vals = np.linspace(-4,4,200) 
 grid = np.reshape(np.meshgrid(vals,vals),(2,200**2)).T

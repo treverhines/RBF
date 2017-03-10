@@ -42,9 +42,9 @@ def topo_func(x):
   that interpolates a DEM.
   '''
   np.random.seed(3)
-  gp = rbf.gauss.PriorGaussianProcess((0.0,0.01,0.25))
-  gp += rbf.gauss.PriorGaussianProcess((0.0,0.01,0.5))
-  gp += rbf.gauss.PriorGaussianProcess((0.0,0.01,1.0))
+  gp = rbf.gauss.gpse((0.0,0.01,0.25))
+  gp += rbf.gauss.gpse((0.0,0.01,0.5))
+  gp += rbf.gauss.gpse((0.0,0.01,1.0))
   out = gp.draw_sample(x)
   out *= taper_function(x,[0.0,0.0],1.0)
   return out
