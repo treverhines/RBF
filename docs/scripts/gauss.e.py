@@ -15,7 +15,7 @@ var = 1.0 # variance
 r = rbf.basis.get_r() # get symbolic variables
 eps = rbf.basis.get_eps()
 # create a symbolic expression of the periodic covariance function 
-expr = exp(-sin(r*pi/period)**2/eps**2)
+expr = exp(-sin(r*pi/period)**2/eps**2) 
 # define a periodic RBF using the symbolic expression
 basis = rbf.basis.RBF(expr)
 # define a Gaussian process using the periodic RBF

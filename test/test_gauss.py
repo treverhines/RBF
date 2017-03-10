@@ -80,14 +80,6 @@ class Test(unittest.TestCase):
     out = gp.condition([[0.0]],[1.0],sigma=[1.0],obs_diff=(0,))
     return 
 
-  def test_run_recursive_condition(self):
-    # make sure the condition method runs without failure 
-    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
-    out = gp.recursive_condition(
-            [[0.0],[1.0]],[1.0,2.0],sigma=[1.0,1.0],obs_diff=(0,),
-            max_chunk=1)
-    return 
-
   def test_run_draw_sample(self):
     # make sure the draw_sample method runs without failure 
     gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
@@ -100,21 +92,6 @@ class Test(unittest.TestCase):
     gp.is_positive_definite([[0.0],[1.0],[2.0]])
     return 
     
-  def test_condition_and_recursive_condition(self):  
-    # make sure condition and recursive_condition produce the same 
-    # results
-    gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
-    y = np.array([[0.0],[1.0],[2.0]])
-    d = np.array([2.0,3.0,4.0])
-    sigma = np.array([1.0,1.5,2.0])
-    gp1 = gp.condition(y,d,sigma)
-    gp2 = gp.recursive_condition(y,d,sigma,max_chunk=1)
-    x = np.linspace(-1.0,3.0,20)[:,None]
-    mean1,std1 = gp1(x)
-    mean2,std2 = gp2(x)
-    self.assertTrue(allclose(mean1,mean2))    
-    self.assertTrue(allclose(std1,std2))    
-
   def test_condition(self):  
     # make sure that condition produces an accurate interpolant
     gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,2.0,0.5))  

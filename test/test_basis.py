@@ -63,7 +63,6 @@ class Test(unittest.TestCase):
     self.assertTrue(test_odd_phs(rbf.basis.phs7))
     
   def test_x_derivative(self):  
-    self.assertTrue(test_x_derivative(rbf.basis.phs1))
     self.assertTrue(test_x_derivative(rbf.basis.phs2))
     self.assertTrue(test_x_derivative(rbf.basis.phs3))
     self.assertTrue(test_x_derivative(rbf.basis.phs4))
@@ -77,7 +76,6 @@ class Test(unittest.TestCase):
     self.assertTrue(test_x_derivative(rbf.basis.iq))
 
   def test_y_derivative(self):  
-    self.assertTrue(test_y_derivative(rbf.basis.phs1))
     self.assertTrue(test_y_derivative(rbf.basis.phs2))
     self.assertTrue(test_y_derivative(rbf.basis.phs3))
     self.assertTrue(test_y_derivative(rbf.basis.phs4))
