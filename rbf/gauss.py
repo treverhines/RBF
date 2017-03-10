@@ -410,7 +410,6 @@ def _is_positive_definite(A):
   # tolerance for negative or complex eigenvalues
   min_tol = max(np.linalg.norm(np.spacing(A)),np.sqrt(np.spacing(0)))
   tol = max(0.0001*vals.real.max(),min_tol)
-  print(tol)
   if np.any(vals.real < -tol):
     return False
   elif np.any(np.abs(vals.imag) > tol):
@@ -1521,34 +1520,12 @@ def gpexp(coeff,dim=None):
   return out
 
 
-def gpubasis(basis,dim=None):
-  ''' 
-  Creates a *GaussianProcess* instance which just has unconstrained 
-  basis functions and no stochastic component.  
-
-  Parameters
-  ----------
-  basis : function
-    Function that takes either one argument, *x*, or two arguments, 
-    *x* and *diff*. *x* is an (N,D) array of positions and *diff* is a 
-    (D,) array specifying the derivative. This function returns an 
-    (N,P) array, where each column is a basis function evaluated at 
-    *x*. 
-
-  Returns
-  -------
-  out : GaussianProcess
-    
-  '''
-  out = GaussianProcess(_zero_mean,_zero_covariance,basis=basis,dim=dim)
-  return out
-
-
 def gpbasis(basis,mu,sigma,dim=None):
   ''' 
-  Creates a basis function *GaussianProcess* instance, where 
-  realizations are constrained to the space spanned by the basis 
-  functions. 
+  Creates a basis function *GaussianProcess* instance. Realizations of 
+  the *GaussianProcess* are linear combinations of the basis functions 
+  and the basis function coefficients have a distribution described by 
+  *mu* and *sigma*.
   
   Parameters
   ----------
@@ -1617,12 +1594,40 @@ def gpbasis(basis,mu,sigma,dim=None):
   return out  
 
 
+def gpubasis(basis,dim=None):
+  ''' 
+  Creates a *GaussianProcess* instance which has unconstrained basis 
+  functions and no stochastic component.
+
+  Parameters
+  ----------
+  basis : function
+    Function that takes either one argument, *x*, or two arguments, 
+    *x* and *diff*. *x* is an (N,D) array of positions and *diff* is a 
+    (D,) array specifying the derivative. This function returns an 
+    (N,P) array, where each column is a basis function evaluated at 
+    *x*.
+
+  dim : int, optional
+    Fixes the spatial dimensions of the *GaussianProcess* domain. An 
+    error will be raised if method arguments have a conflicting number 
+    of spatial dimensions.
+
+  Returns
+  -------
+  out : GaussianProcess
+    
+  '''
+  out = GaussianProcess(_zero_mean,_zero_covariance,basis=basis,dim=dim)
+  return out
+
+
 def gppoly(order,dim=None):
   ''' 
-  Returns a basis function *GaussianProcess* which has unconstrained 
-  polynomial basis functions. If *order* = 0, then the basis functions 
-  consists of a constant term, if *order* = 1 then the basis functions 
-  consists of a constant and linear term, etc. 
+  Returns a *GaussianProcess* which has unconstrained polynomial basis 
+  functions. If *order* = 0, then the basis functions consists of a 
+  constant term, if *order* = 1 then the basis functions consists of a 
+  constant and linear term, etc.
   
   Parameters
   ----------
