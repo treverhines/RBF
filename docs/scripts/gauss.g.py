@@ -58,7 +58,6 @@ def cov(x1,x2,diff1,diff2):
 
 t = np.linspace(0.0,1,100)[:,None]
 gp = GaussianProcess(mean,cov,dim=1)
-#gp = gp.differentiate((1,))
 sample = gp.draw_sample(t) # draw a sample
 mu,sigma = gp(t) # evaluate the mean and std. dev.
 
