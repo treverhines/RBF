@@ -24,3 +24,6 @@ Examples
 
 .. literalinclude:: ../scripts/gauss.f.py
 .. image:: ../figures/gauss.f.png
+
+.. literalinclude:: ../scripts/gauss.g.py
+.. image:: ../figures/gauss.g.png

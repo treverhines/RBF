@@ -637,7 +637,7 @@ def _differentiate(gp,d):
   return out
 
 
-def _condition(gp,y,d,Cd,obs_diff):
+def _condition(gp,y,d,Cd,obs_diff,basis_vecs):
   '''   
   Returns a conditioned *GaussianProcess*.
   '''
@@ -650,13 +650,14 @@ def _condition(gp,y,d,Cd,obs_diff):
     # compute K_y_inv
     Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
     p_y   = gp._basis(y,obs_diff)
-    q,m = d.shape[0],p_y.shape[1]
-    K_y = np.zeros((q+m,q+m))
+    q,m,v = d.shape[0],p_y.shape[1],basis_vecs.shape[1]
+    p_y = np.hstack((p_y,basis_vecs)) 
+    K_y = np.zeros((q+m+v,q+m+v))
     K_y[:q,:q] = Cu_yy + Cd
     K_y[:q,q:] = p_y
     K_y[q:,:q] = p_y.T
     try:
-      K_y_inv = np.linalg.inv(K_y)
+      K_y_inv = np.linalg.inv(K_y)[:q+m,:q+m]
       
     except np.linalg.LinAlgError:
       raise np.linalg.LinAlgError(
@@ -697,15 +698,16 @@ def _condition(gp,y,d,Cd,obs_diff):
   return out
 
 
-def _likelihood(gp,y,d,sigma,obs_diff):
+def _likelihood(gp,y,d,Cd,obs_diff,basis_vecs):
   ''' 
   returns the marginal likelihood of observing *d* from the *gp*
   '''
   # H : (n,m) array, basis functions
   H = gp.basis(y,diff=obs_diff)
+  H = np.hstack((H,basis_vecs))
   n,m = H.shape # number of observations and basis functions
   # K : (n,n) array, covariance matrix
-  K = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff) + sigma
+  K = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff) + Cd
   # L : (n,n) array, cholesky decomposition of K
   L = _cholesky(K,lower=True,check_finite=False)
   # N : (n,) array, inv(L).dot(d)
@@ -1003,7 +1005,7 @@ class GaussianProcess(object):
     out = _differentiate(self,d)
     return out  
 
-  def condition(self,y,d,sigma=None,obs_diff=None):
+  def condition(self,y,d,sigma=None,obs_diff=None,basis_vecs=None):
     ''' 
     Returns a conditional *GaussianProcess* which incorporates the 
     observed data, *d*.
@@ -1027,6 +1029,12 @@ class GaussianProcess(object):
     obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
+    
+    basis_vecs : (N,P) float array, optional  
+      Noise basis vectors. The data noise is assumed to contain some 
+      unknown linear combination of the columns. For example, set this 
+      to *np.array([np.ones_like(d),y]).T*, if the noise contains an 
+      unknown constant and linear term.
       
     Returns
     -------
@@ -1057,10 +1065,16 @@ class GaussianProcess(object):
 
       _assert_shape(sigma,(q,q),'sigma')
         
-    out = _condition(self,y,d,sigma,obs_diff)
+    if basis_vecs is None:
+      basis_vecs = np.zeros((q,0))
+    else:
+      basis_vecs = np.asarray(basis_vecs,dtype=float)
+      _assert_shape(basis_vecs,(q,None),'basis_vecs')
+      
+    out = _condition(self,y,d,sigma,obs_diff,basis_vecs)
     return out
 
-  def likelihood(self,y,d,sigma=None,obs_diff=None):
+  def likelihood(self,y,d,sigma=None,obs_diff=None,basis_vecs=None):
     ''' 
     Returns the log marginal likelihood of drawing the (potentially 
     noisy) observations *d* from this *GaussianProcess*. The marginal 
@@ -1114,6 +1128,12 @@ class GaussianProcess(object):
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
 
+    basis_vecs : (N,P) float array, optional  
+      Noise basis vectors. The data noise is assumed to contain some 
+      unknown linear combination of the columns. For example, set this 
+      to *np.array([np.ones_like(d),y]).T*, if the noise contains an 
+      unknown constant and linear term.
+
     Returns
     -------
     out : float
@@ -1142,12 +1162,18 @@ class GaussianProcess(object):
 
       _assert_shape(sigma,(n,n),'sigma')
     
-    out = _likelihood(self,y,d,sigma,obs_diff)  
+    if basis_vecs is None:
+      basis_vecs = np.zeros((n,0))
+    else:
+      basis_vecs = np.asarray(basis_vecs,dtype=float)
+      _assert_shape(basis_vecs,(n,None),'basis_vecs')
+
+    out = _likelihood(self,y,d,sigma,obs_diff,basis_vecs)  
     return out
 
   def basis(self,x,diff=None):
     ''' 
-    Returns the unconstrained basis vectors evaluated at *x*.
+    Returns the unconstrained basis functions evaluated at *x*.
     
     Parameters
     ----------
@@ -1398,7 +1424,7 @@ class GaussianProcess(object):
     return out  
     
 
-def gpiso(basis,coeff,dim=None):
+def gpiso(phi,coeff,dim=None):
   ''' 
   Creates an isotropic *GaussianProcess* instance which has a constant 
   mean and a covariance function that is described by a radial basis 
@@ -1406,7 +1432,7 @@ def gpiso(basis,coeff,dim=None):
   
   Parameters
   ----------
-  basis : RBF instance
+  phi : RBF instance
     Radial basis function describing the covariance function. For 
     example, use *rbf.basis.se* for a squared exponential covariance 
     function.
@@ -1414,7 +1440,7 @@ def gpiso(basis,coeff,dim=None):
   coeff : 3-tuple  
     Tuple of three coefficients, *a*, *b*, and *c*, describing the 
     probability distribution. *a* is the mean, *b* scales the 
-    covariance function, and *c* is the shape parameter. When *basis* 
+    covariance function, and *c* is the shape parameter. When *phi* 
     is set to *rbf.basis.se*, *b* and *c* describe the variance and 
     the characteristic length-scale, respectively.
   
@@ -1429,7 +1455,7 @@ def gpiso(basis,coeff,dim=None):
 
   Notes
   -----
-  1. If *basis* is scale invariant, such as for odd order polyharmonic 
+  1. If *phi* is scale invariant, such as for odd order polyharmonic 
   splines, then *b* and *c* have inverse effects on the resulting 
   Gaussian process and thus only one of them needs to be chosen while 
   the other can be fixed at an arbitary value.
@@ -1458,7 +1484,7 @@ def gpiso(basis,coeff,dim=None):
   def covariance(x1,x2,diff1,diff2):
     a,b,c = coeff  
     diff = diff1 + diff2
-    out = b*(-1)**sum(diff2)*basis(x1,x2,eps=c,diff=diff)
+    out = b*(-1)**sum(diff2)*phi(x1,x2,eps=c,diff=diff)
     if not np.all(np.isfinite(out)):
       raise ValueError(
         'Encountered a non-finite RBF covariance. This may be '

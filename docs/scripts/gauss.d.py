@@ -1,6 +1,7 @@
 ''' 
 This script demonstrates how create a Gaussian process describing 
-Brownian motion with the *GaussianProcess* class.
+Brownian motion with the *GaussianProcess* class. Brownian motion has 
+mean u(t) = 0 and covariance cov(t1,t2) = min(t1,t2).
 '''
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ def brownian_mean(x):
 
 # define covariance function
 def brownian_cov(x1,x2):
-  c = np.min(np.meshgrid(x2[:,0],x1[:,0]),axis=0)
+  c = np.min(np.meshgrid(x1[:,0],x2[:,0],indexing='ij'),axis=0)
   return c
 
 t = np.linspace(0.001,1,500)[:,None]
