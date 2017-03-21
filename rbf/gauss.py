@@ -26,30 +26,31 @@ hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
-
-We define a Gaussian process, :math:`u(x)`, as the combination of a 
-stochastic component, :math:`u_o(x)`, and a set of basis functions 
-:math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`:
-
-.. math::
-  u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x),
-
-where 
+A proper Gaussian process, :math:`u_o(x)`, is a continuous function
+that is normally distributed in infinite dimensional space. A Gaussian
+process can be defined in terms of its mean, :math:`\\bar{u}(x)`,
+and its covariance, :math:`C_u(x,x')`, as 
 
 .. math::
-  u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right),
-  
-and :math:`\{c_i\}_{i=1}^m` are unconstrained coefficients. We refer 
-to :math:`\mathbf{p}_u(x)` as the unconstrained basis functions. Note 
-that :math:`\\bar{u}(x)` and :math:`C_u(x,x')` are the mean and 
-covariance functions for :math:`u_o(x)` and not necessarily for 
-:math:`u(x)`, since the presence of unconstrained basis functions
-makes the mean and covariance of :math:`u(x)` undefined.
+  u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
 
-We consider five operations on Gaussian processes: addition, 
-subtraction, scaling, differentiation, and conditioning. Each 
-operation produces another Gaussian process which possesses the same 
-five operations. These operations are described below.
+In this module, we adopt a more general definition which allows for
+improper Gaussian processes (i.e. a Gaussian process which has
+infinite variance along some directions).  We then consider a Gaussian
+process, :math:`u(x)`, to be the combination of a proper Gaussian
+process and a set of basis functions, :math:`\mathbf{p}_u(x) =
+\{p_i(x)\}_{i=1}^m`, whose coefficients, :math:`\{c_i\}_{i=1}^m`, have
+infinite variance. We express :math:`u(x)` as
+
+.. math::
+  u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
+
+Throughout this module, we refer to :math:`\mathbf{p}_u(x)` as the
+improper basis functions. We consider five operations on Gaussian
+processes: addition, subtraction, scaling, differentiation, and
+conditioning. Each operation produces another Gaussian process which
+possesses the same five operations. These operations are described
+below.
 
 
 Operations on Gaussian Processes
@@ -209,10 +210,10 @@ We define the residual vector as
 .. math::
   \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
   
-and :math:`\mathbf{r}^*` is the residual vector which has been 
-suitably padded with zeros. Note that there are no unconstrained basis 
-functions in :math:`z` because it is assumed that there is enough data 
-in :math:`\mathbf{d}` to constrain the basis functions in :math:`u`. 
+and :math:`\mathbf{r}^*` is the residual vector which has been
+suitably padded with zeros. Note that there are no improper basis 
+functions in :math:`z` because it is assumed that there is enough data
+in :math:`\mathbf{d}` to constrain the basis functions in :math:`u`.
 If :math:`\mathbf{d}` is not sufficiently informative then
 :math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but 
 not sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be 
@@ -250,11 +251,12 @@ instance of an isotropic *GaussianProcess* can be created with the
 function *gpiso*.
 
 
-Basis Function Gaussian Processes
----------------------------------
-A basis function Gaussian process, :math:`u(x)`, has realizations that 
-are constrained to the space spanned by a set of basis functions,
-:math:`\mathbf{f}(x) = \{f_i(x)\}_{i=1}^m`. That is to say 
+Basis Function-Constrained Gaussian Processes
+---------------------------------------------
+A basis function-constrained Gaussian process, :math:`u(x)`, has
+realizations that are limited to the space spanned by a set of
+basis functions, :math:`\mathbf{f}(x) = \{f_i(x)\}_{i=1}^m`. That is
+to say
 
 .. math::
   u(x) = \sum_{i=1}^m a_i f_i(x),
@@ -266,7 +268,7 @@ where :math:`\mathbf{a} = \{a_i\}_{i=1}^m` and
   
 If the variance of :math:`\mathbf{a}` is infinite, then :math:`u(x)` 
 can be viewed as a Gaussian process with zero mean, zero covariance, 
-and :math:`\mathbf{f}(x)` are the unconstrained basis functions. If
+and :math:`\mathbf{f}(x)` are the improper basis functions. If
 :math:`\mathbf{a}` has a finite variance, then the mean and covariance 
 for :math:`u(x)` are described as
 
@@ -286,10 +288,10 @@ For example, if :math:`x \in \mathbb{R}^2` and
 .. math::
   \mathbf{f}(x) = \{1,x,y\}.
 
-An instance of a basis function *GaussianProcess* can be created with 
-the functions *gpbasis* and *gpbasisu*. If the basis functions are 
-monomials, then the the *GaussianProcess* can be created with the 
-function *gppoly*.
+An instance of a basis function-constrained *GaussianProcess* can be
+created with the functions *gpbfc* and *gpbfci*. If the basis
+functions are monomials, then the the *GaussianProcess* can be created
+with the function *gppoly*.
 
 
 Instantiating a *GaussianProcesses*
@@ -326,26 +328,26 @@ contains the function *gpse* for generating a squared exponential
 >>> from rbf.gauss import gpse
 >>> gp = gpse((0.0,1.0,2.0))
 
-The function *gpbasisu* is used for generating *GaussianProcess* 
-instances with unconstrained basis functions. It requires the user to 
-specify a function which returns a set of basis functions evaluted at 
+The function *gpbfci* is used for generating *GaussianProcess*
+instances with improper basis functions. It requires the user to
+specify a function which returns a set of basis functions evaluted at
 *x*. For example,
 
->>> from rbf.gauss import gpbasis,gpbasisu
+>>> from rbf.gauss import gpbfc,gpbfci
 >>> def basis(x): return np.array([np.sin(x[:,0]),np.cos(x[:,0])]).T
->>> gp = gpbasisu(basis)
+>>> gp = gpbfci(basis)
 
-Use *gpbasis* to make a basis function *GaussianProcess* with prior 
-constrains on the basis function coefficients.
+Use *gpbfc* to make a basis function-constrained *GaussianProcess*
+which has coefficients with finite variance.
 
 >>> mean = [0.0,0.0] # mean basis function parameters
 >>> sigma = [1.0,1.0] # uncertainty of basis function parameters
->>> gp = gpbasis(basis,mean,sigma)
+>>> gp = gpbfc(basis,mean,sigma)
 
-The function *gppoly* is a helper function for creating unconstrained 
-polynomial basis functions, where the basis functions are the 
-monomials spanning the space of all polynomials with some order. This 
-just requires the user to specify the polynomial order.
+The function *gppoly* is a helper function for creating a Gaussian
+process which has monomials for the improper basis functions. The
+monomials span the space of all polynomials with some order. This just
+requires the user to specify the polynomial order.
 
 >>> from rbf.gauss import gppoly
 >>> gp = gppoly(1)
