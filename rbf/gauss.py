@@ -377,7 +377,7 @@ from collections import OrderedDict
 import logging
 import weakref
 import inspect
-from scipy.linalg import solve_triangular as trisolve
+from scipy.linalg import solve_triangular 
 from scipy.linalg import cholesky 
 
 logger = logging.getLogger(__name__)
@@ -466,6 +466,9 @@ def _cholesky(A,*args,**kwargs):
   Cholesky decomposition which is more forgiving of matrices that are 
   not numerically positive definite
   '''
+  if A.shape == (0,0):
+    return np.zeros((0,0))
+    
   try:
     return cholesky(A,*args,**kwargs)
   except np.linalg.LinAlgError:  
@@ -477,6 +480,17 @@ def _cholesky(A,*args,**kwargs):
       'compute the Cholesky decomposition.')
     _make_numerically_positive_definite(A)   
     return cholesky(A,*args,**kwargs)
+
+
+def _trisolve(G,d,*args,**kwargs):
+  ''' 
+  triangular solve which properly handles zero-length axes
+  '''
+  if any(i == 0 for i in d.shape):
+    return np.zeros(d.shape)
+  
+  else:
+    return solve_triangular(G,d,*args,**kwargs)  
 
 
 def _draw_sample(mean,cov):
@@ -639,7 +653,7 @@ def _differentiate(gp,d):
   return out
 
 
-def _condition(gp,y,d,Cd,obs_diff,basis_vecs):
+def _condition(gp,y,d,sigma_noise,p_noise,obs_diff):
   '''   
   Returns a conditioned *GaussianProcess*.
   '''
@@ -652,10 +666,10 @@ def _condition(gp,y,d,Cd,obs_diff,basis_vecs):
     # compute K_y_inv
     Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
     p_y   = gp._basis(y,obs_diff)
-    q,m,v = d.shape[0],p_y.shape[1],basis_vecs.shape[1]
-    p_y = np.hstack((p_y,basis_vecs)) 
+    q,m,v = d.shape[0],p_y.shape[1],p_noise.shape[1]
+    p_y = np.hstack((p_y,p_noise)) 
     K_y = np.zeros((q+m+v,q+m+v))
-    K_y[:q,:q] = Cu_yy + Cd
+    K_y[:q,:q] = Cu_yy + sigma_noise
     K_y[:q,q:] = p_y
     K_y[q:,:q] = p_y.T
     try:
@@ -700,47 +714,6 @@ def _condition(gp,y,d,Cd,obs_diff,basis_vecs):
   return out
 
 
-def _likelihood(gp,y,d,Cd,obs_diff,basis_vecs):
-  ''' 
-  returns the marginal likelihood of observing *d* from the *gp*
-  '''
-  # H : (n,m) array, basis functions
-  H = gp.basis(y,diff=obs_diff)
-  H = np.hstack((H,basis_vecs))
-  n,m = H.shape # number of observations and basis functions
-  # K : (n,n) array, covariance matrix
-  K = gp.covariance(y,y,diff1=obs_diff,diff2=obs_diff) + Cd
-  # L : (n,n) array, cholesky decomposition of K
-  L = _cholesky(K,lower=True,check_finite=False)
-  # N : (n,) array, inv(L).dot(d)
-  N = trisolve(L,d,lower=True,check_finite=False)
-  if m != 0:
-    # M : (n,m) array, inv(L).dot(H)
-    M = trisolve(L,H,lower=True,check_finite=False)
-    # A : (m,m) array, H.T.dot(inv(K)).dot(H)
-    A = M.T.dot(M)
-    # P : (m,m) array, cholesky decomposition of A
-    P = _cholesky(A,lower=True,check_finite=False)
-    # Q : (m,) array, inv(P).dot(M.T.dot(N))
-    Q = trisolve(P,M.T.dot(N),lower=True,check_finite=False)
-  else:
-    # if the gaussian process contains no basis functions then run 
-    # this block
-    P = np.zeros((0,0))
-    Q = np.zeros((0,))
-
-  # data misfit terms
-  term1 = -0.5*N.T.dot(N)
-  term2 =  0.5*Q.T.dot(Q)
-  # determinant terms
-  term3 = -np.sum(np.log(np.diag(L)))
-  term4 = -np.sum(np.log(np.diag(P)))
-  # normalization term
-  term5 = -0.5*(n - m)*np.log(2*np.pi)
-  out = term1 + term2 + term3 + term4 + term5
-  return out
-
-
 def _get_arg_count(func):
   ''' 
   Returns the number of function arguments. If this cannot be inferred 
@@ -772,7 +745,101 @@ def _empty_basis(x,diff):
   '''empty set of basis functions'''
   return np.zeros((x.shape[0],0),dtype=float)  
   
+
+def likelihood(d,mu,sigma,p=None):
+  ''' 
+  Returns the log likelihood. If *p* is not specified, then the
+  likelihood is the probability of observing *d* from a normally
+  distributed random vector with mean *mu* and covariance *sigma*. If
+  *d* is expected to contain some unknown linear combination of basis
+  vectors (e.g. a constant offset or linear trend), then *p* should be
+  specified with those basis vectors as its columns. When *p* is
+  specified, the restricted likelihood is returned. The restricted
+  likelihood is the probability of observing *R.dot(d)* from a
+  normally distributed random vector with mean *R.dot(mu)* and
+  covariance *R.dot(sigma).dot(R.T)*, where *R* is a matrix with rows
+  that are orthogonal to the columns of *p*. In other words, if *p* is
+  specified then the component of *d* which lies along the columns of
+  *p* will be ignored.
   
+  The restricted likelihood was first described by [1] and it is
+  covered in more general reference books such as [2]. Both [1] and
+  [2] are good sources for additional information.
+  
+  Parameters
+  ----------
+  d : (N,) array
+    observations
+  
+  mu : (N,) array
+    mean of the random vector
+  
+  sigma : (N,) or (N,N) array    
+    If this is an (N,) array then it describes one standard deviation
+    of the random vector. If this is an (N,N) array then it describes
+    the covariances.
+  
+  p : (N,P) array, optional  
+    Improper basis vectors. If specified, then *d* is assumed to
+    contain some unknown linear combination of the columns of *p*.
+
+  References
+  ----------
+  [1] Harville D. (1974). Bayesian Inference of Variance Components
+      Using Only Error Contrasts. Biometrica.
+  [2] Cressie N. (1993). Statistics for Spatial Data. John Wiley &
+      Sons.
+     
+  '''
+  d = np.asarray(d,dtype=float)
+  _assert_shape(d,(None,),'d')
+
+  mu = np.asarray(mu,dtype=float)
+  _assert_shape(mu,(d.shape[0],),'mu')
+  
+  sigma = np.asarray(sigma,dtype=float) # data covariance
+  if sigma.ndim == 1:
+    # convert std. dev. to covariance
+    sigma = np.diag(sigma**2)
+    
+  _assert_shape(sigma,(d.shape[0],d.shape[0]),'sigma')
+
+  if p is None:
+    p = np.zeros((d.shape[0],0))
+  else:  
+    p = np.asarray(p,dtype=float)
+  
+  _assert_shape(p,(d.shape[0],None),'p')
+  
+  n,m = p.shape
+  A = _cholesky(sigma,lower=True)        # A.dot(A.T) = 
+                                         #   sigma
+                                         
+  B = _trisolve(A,p,lower=True)          # B.T.dot(B) = 
+                                         #   p.T.dot(inv(sigma)).dot(p)
+                                         
+  C = _cholesky(B.T.dot(B),lower=True)   # C.dot(C.T) = 
+                                         #   p.T.dot(inv(sigma)).dot(p)
+                                         
+  D = _cholesky(p.T.dot(p),lower=True)   # D.dot(D.T) = 
+                                         #   p.T.dot(p)
+                                         
+  a = _trisolve(A,d-mu,lower=True)       # a.T.dot(a) = 
+                                         #   (d-mu).T.dot(inv(sigma)).dot(d-mu)
+                                         
+  b = _trisolve(C,B.T.dot(a),lower=True) # b.T.dot(b) = 
+                                         #   (d-mu).T.dot(inv(sigma)).dot(p).dot(
+                                         #   inv( p.T.dot(inv(sigma)).dot(p) )).dot(
+                                         #   p.T.dot(inv(sigma)).dot(d - mu)   
+  out = (np.sum(np.log(np.diag(D))) -
+         np.sum(np.log(np.diag(A))) -
+         np.sum(np.log(np.diag(C))) -
+         0.5*a.T.dot(a) +
+         0.5*b.T.dot(b) -
+         0.5*(n-m)*np.log(2*np.pi))
+  return out
+
+
 class GaussianProcess(object):
   ''' 
   A *GaussianProcess* instance represents a stochastic process which 
@@ -1007,7 +1074,7 @@ class GaussianProcess(object):
     out = _differentiate(self,d)
     return out  
 
-  def condition(self,y,d,sigma=None,obs_diff=None,basis_vecs=None):
+  def condition(self,y,d,sigma=None,p=None,obs_diff=None):
     ''' 
     Returns a conditional *GaussianProcess* which incorporates the 
     observed data, *d*.
@@ -1028,15 +1095,16 @@ class GaussianProcess(object):
       having zero uncertainty can result in numerically unstable 
       calculations for large N.
 
+    p : (N,P) float array, optional  
+    	Improper basis vectors for the noise. The data noise is assumed
+    	to contain some unknown linear combination of the columns of
+    	*p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
+    	if the noise contains an unknown constant and linear term.
+
     obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
     
-    basis_vecs : (N,P) float array, optional  
-      Noise basis vectors. The data noise is assumed to contain some 
-      unknown linear combination of the columns. For example, set this 
-      to *np.array([np.ones_like(d),y]).T*, if the noise contains an 
-      unknown constant and linear term.
       
     Returns
     -------
@@ -1046,69 +1114,44 @@ class GaussianProcess(object):
     ## Check the input for errors 
     y = np.asarray(y,dtype=float)
     _assert_shape(y,(None,self.dim),'y')
-    q,dim = y.shape
+		# number of observations and spatial dimensions
+    n,dim = y.shape 
 
     d = np.asarray(d,dtype=float)
-    _assert_shape(d,(q,),'d')
+    _assert_shape(d,(n,),'d')
 
-    if obs_diff is None:
-      obs_diff = np.zeros(dim,dtype=int)
-    else:
-      obs_diff = np.asarray(obs_diff,dtype=int)
-      _assert_shape(obs_diff,(dim,),'obs_diff')
-    
     if sigma is None:
-      sigma = np.zeros((q,q),dtype=float)      
+      sigma = np.zeros((n,n),dtype=float)      
     else:
       sigma = np.asarray(sigma,dtype=float)
       if sigma.ndim == 1:
         # convert standard deviations to covariances
         sigma = np.diag(sigma**2)
 
-      _assert_shape(sigma,(q,q),'sigma')
+      _assert_shape(sigma,(n,n),'sigma')
         
-    if basis_vecs is None:
-      basis_vecs = np.zeros((q,0))
+    if p is None:
+      p = np.zeros((n,0))
     else:
-      basis_vecs = np.asarray(basis_vecs,dtype=float)
-      _assert_shape(basis_vecs,(q,None),'basis_vecs')
+      p = np.asarray(p,dtype=float)
+      _assert_shape(p,(n,None),'p')
       
-    out = _condition(self,y,d,sigma,obs_diff,basis_vecs)
+    if obs_diff is None:
+      obs_diff = np.zeros(dim,dtype=int)
+    else:
+      obs_diff = np.asarray(obs_diff,dtype=int)
+      _assert_shape(obs_diff,(dim,),'obs_diff')
+    
+    out = _condition(self,y,d,sigma,p,obs_diff)
     return out
 
-  def likelihood(self,y,d,sigma=None,obs_diff=None,basis_vecs=None):
+  def likelihood(self,y,d,sigma=None,p=None,obs_diff=None):
     ''' 
-    Returns the log marginal likelihood of drawing the (potentially 
-    noisy) observations *d* from this *GaussianProcess*. The marginal 
-    likelihood is defined as
-    
-    .. math::
-      p(d) = \int p(d|f) p(f) df
-      
-    where *f* is a function realization, *p(f)* is the probability of 
-    drawing *f* from this *GaussianProcess*, and *p(d|f)* is the data 
-    likelihood. The data likelihood is the probability of obtaining 
-    *d* from noisy perturbations to *f*, where the noise is described 
-    by *sigma*.  
-    
-    The value returned by this function is essentially meaningless, 
-    unless it is compared to the marginal likelihood from a different 
-    *GaussianProcess* instance. The marginal likelihood can then be 
-    used to determine the *GaussianProcess* which is most likely to 
-    have generated *y*. Any two *GaussianProcess* instances can be 
-    compared with their marginal likelihoods PROVIDED THAT THEY 
-    CONTAIN THE SAME UNCONSTRAINED BASIS FUNCTIONS! If a 
-    *GaussianProcess* contains an unconstrained basis function then, 
-    from the above integral, *p(y)* will always be zero. This is not 
-    helpful if we want to make comparisons. Instead, the integral is 
-    performed over a subspace that is orthogonal to the space spanned 
-    by the unconstrained basis functions. Thus, if two 
-    *GaussianProcess* instances have different unconstrained basis 
-    functions then their marginal likelihoods will be computed over 
-    different integration domains and any comparisons will not be 
-    informative.
-    
-    See section 2.7.1 of [1] for additional details.
+  	Returns the log likelihood of drawing the observations *d* from
+  	this *GaussianProcess*. If the Gaussian process contains any
+  	improper basis functions or if *p* is specified, then the
+  	restricted likelihood is returned. For more information, see the
+  	documentation for *rbf.gauss.likelihood* and references therein.
 
     Parameters
     ----------
@@ -1126,25 +1169,21 @@ class GaussianProcess(object):
       having zero uncertainty can result in numerically unstable 
       calculations for large N.
    
+    p : (N,P) float array, optional  
+    	Improper basis vectors for the noise. The data noise is assumed
+      to contain some unknown linear combination of the columns of
+      *p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
+      if the noise contains an unknown constant and linear term.
+
     obs_diff : (D,) tuple, optional
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
 
-    basis_vecs : (N,P) float array, optional  
-      Noise basis vectors. The data noise is assumed to contain some 
-      unknown linear combination of the columns. For example, set this 
-      to *np.array([np.ones_like(d),y]).T*, if the noise contains an 
-      unknown constant and linear term.
-
     Returns
     -------
     out : float
-      log marginal likelihood.
+      log likelihood.
       
-    References
-    ----------
-    [1] Rasmussen, C., and Williams, C., Gaussian Processes for Machine 
-    Learning. The MIT Press, 2006.
     '''
     y = np.asarray(y,dtype=float)
     _assert_shape(y,(None,self.dim),'y')
@@ -1164,13 +1203,24 @@ class GaussianProcess(object):
 
       _assert_shape(sigma,(n,n),'sigma')
     
-    if basis_vecs is None:
-      basis_vecs = np.zeros((n,0))
+    if p is None:
+      p = np.zeros((n,0))
     else:
-      basis_vecs = np.asarray(basis_vecs,dtype=float)
-      _assert_shape(basis_vecs,(n,None),'basis_vecs')
+      p = np.asarray(p,dtype=float)
+      _assert_shape(p,(n,None),'p')
 
-    out = _likelihood(self,y,d,sigma,obs_diff,basis_vecs)  
+    if obs_diff is None:
+      obs_diff = np.zeros(dim,dtype=int)
+    else:
+      obs_diff = np.asarray(obs_diff,dtype=int)
+      _assert_shape(obs_diff,(dim,),'obs_diff')
+
+	  # find the mean, covariance, and improper basis for the combination
+  	# of the Gaussian process and the noise.
+    mu = self._mean(y,obs_diff)
+    sigma = self._covariance(y,y,obs_diff,obs_diff) + sigma
+    p = np.hstack((self._basis(y,obs_diff),p))
+    out = likelihood(d,mu,sigma,p=p)
     return out
 
   def basis(self,x,diff=None):

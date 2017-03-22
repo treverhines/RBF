@@ -31,6 +31,7 @@ ax.fill_between(t[:,0],mu+sigma,mu-sigma,color='b',alpha=0.2,edgecolor='none',la
 ax.plot(t[:,0],sample,'k',label='sample')
 ax.set_xlabel('time',fontsize=10)
 ax.set_title('Brownian motion',fontsize=10)
+ax.set_xlim((0,1))
 ax.tick_params(labelsize=10)
 fig.tight_layout()
 plt.savefig('../figures/gauss.d.png')
