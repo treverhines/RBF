@@ -1148,7 +1148,7 @@ class GaussianProcess(object):
 
   def likelihood(self,y,d,sigma=None,p=None,obs_diff=None):
     ''' 
- 	  Returns the log likelihood of drawing the observations *d* from
+    Returns the log likelihood of drawing the observations *d* from
  	  this *GaussianProcess*. The observations could potentially have
  	  noise which is described by *sigma* and *p*. If the Gaussian
  	  process contains any improper basis functions or if *p* is
@@ -1165,11 +1165,11 @@ class GaussianProcess(object):
       Observed values at *y*.
       
     sigma : (N,) or (N,N) float array, optional
-      Data uncertainty. If this is an (N,) array then it describes one 
-      standard deviation of the data error. If this is an (N,N) array 
-      then it describes the covariances of the data error. If nothing 
-      is provided then the error is assumed to be zero. Note that 
-      having zero uncertainty can result in numerically unstable 
+      Data uncertainty. If this is an (N,) array then it describes one
+      standard deviation of the data error. If this is an (N,N) array
+      then it describes the covariances of the data error. If nothing
+      is provided then the error is assumed to be zero. Note that
+      having zero uncertainty can result in numerically unstable
       calculations for large N.
    
     p : (N,P) float array, optional 
