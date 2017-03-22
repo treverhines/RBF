@@ -1097,16 +1097,15 @@ class GaussianProcess(object):
       calculations for large N.
 
     p : (N,P) float array, optional  
-    	Improper basis vectors for the noise. The data noise is assumed
-    	to contain some unknown linear combination of the columns of
-    	*p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
-    	if the noise contains an unknown constant and linear term.
+      Improper basis vectors for the noise. The data noise is assumed
+      to contain some unknown linear combination of the columns of
+      *p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
+      if the noise contains an unknown constant and linear term.
 
     obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
     
-      
     Returns
     -------
     out : GaussianProcess
@@ -1149,12 +1148,11 @@ class GaussianProcess(object):
   def likelihood(self,y,d,sigma=None,p=None,obs_diff=None):
     ''' 
     Returns the log likelihood of drawing the observations *d* from
- 	  this *GaussianProcess*. The observations could potentially have
- 	  noise which is described by *sigma* and *p*. If the Gaussian
- 	  process contains any improper basis functions or if *p* is
- 	  specified, then the restricted likelihood is returned. For more
- 	  information, see the documentation for *rbf.gauss.likelihood* and
- 	  references therein.
+    this *GaussianProcess*. The observations could potentially have noise
+    which is described by *sigma* and *p*. If the Gaussian process
+    contains any improper basis functions or if *p* is specified, then the
+    restricted likelihood is returned. For more information, see the
+    documentation for *rbf.gauss.likelihood* and references therein.
 
     Parameters
     ----------
@@ -1177,7 +1175,7 @@ class GaussianProcess(object):
       to contain some unknown linear combination of the columns of
       *p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
       if the noise contains an unknown constant and linear term.
-
+      
     obs_diff : (D,) tuple, optional
       Derivative of the observations. For example, use (1,) if the 
       observations constrain the slope of a 1-D Gaussian process.
