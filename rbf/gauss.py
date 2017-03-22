@@ -786,9 +786,10 @@ def likelihood(d,mu,sigma,p=None):
   References
   ----------
   [1] Harville D. (1974). Bayesian Inference of Variance Components
-      Using Only Error Contrasts. Biometrica.
+  Using Only Error Contrasts. Biometrica.
+  
   [2] Cressie N. (1993). Statistics for Spatial Data. John Wiley &
-      Sons.
+  Sons.
      
   '''
   d = np.asarray(d,dtype=float)
@@ -1147,11 +1148,13 @@ class GaussianProcess(object):
 
   def likelihood(self,y,d,sigma=None,p=None,obs_diff=None):
     ''' 
-  	Returns the log likelihood of drawing the observations *d* from
-  	this *GaussianProcess*. If the Gaussian process contains any
-  	improper basis functions or if *p* is specified, then the
-  	restricted likelihood is returned. For more information, see the
-  	documentation for *rbf.gauss.likelihood* and references therein.
+ 	  Returns the log likelihood of drawing the observations *d* from
+ 	  this *GaussianProcess*. The observations could potentially have
+ 	  noise which is described by *sigma* and *p*. If the Gaussian
+ 	  process contains any improper basis functions or if *p* is
+ 	  specified, then the restricted likelihood is returned. For more
+ 	  information, see the documentation for *rbf.gauss.likelihood* and
+ 	  references therein.
 
     Parameters
     ----------
@@ -1169,8 +1172,8 @@ class GaussianProcess(object):
       having zero uncertainty can result in numerically unstable 
       calculations for large N.
    
-    p : (N,P) float array, optional  
-    	Improper basis vectors for the noise. The data noise is assumed
+    p : (N,P) float array, optional 
+      Improper basis vectors for the noise. The data noise is assumed
       to contain some unknown linear combination of the columns of
       *p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
       if the noise contains an unknown constant and linear term.
