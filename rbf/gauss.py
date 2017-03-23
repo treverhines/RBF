@@ -305,7 +305,7 @@ For example, the below code block demonstrates how to create a
 >>> import numpy as np
 >>> from rbf.gauss import GaussianProcess
 >>> def mean(x): return np.zeros(x.shape[0]) 
->>> def cov(x1,x2): return np.min(np.meshgrid(x1[:,0],x2[:,0]),axis=0)
+>>> def cov(x1,x2): return np.min(np.meshgrid(x1[:,0],x2[:,0],indexing='ij'),axis=0)
 >>> gp = GaussianProcess(mean,cov,dim=1) # Brownian motion is 1D
 
 This module contains a helper function for generating isotropic 
