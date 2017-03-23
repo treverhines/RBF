@@ -2,7 +2,7 @@
 This module defines a class, *GaussianProcess*, which is an 
 abstraction that allows one to easily work with Gaussian processes. 
 One main use for the *GaussianProcess* class is Gaussian process 
-regression (GPR).  GPR is also known as Kriging or Least Squares 
+regression (GPR). GPR is also known as Kriging or Least Squares 
 Collocation.  It is a technique for constructing a continuous function 
 from discrete observations by incorporating a stochastic prior model 
 for the underlying function.  GPR is performed with the *condition* 
@@ -10,18 +10,17 @@ method of a *GaussianProcess* instance. In addition to GPR, the
 *GaussianProcess* class can be used for basic arithmetic with Gaussian 
 processes and for generating random samples of a Gaussian process.
 
-There are several existing python packages for Gaussian processes (See 
-www.gaussianprocess.org for an updated list of packages). This module 
-was written because existing software lacked the ability to 1) include 
-unconstrained basis functions in a Gaussian process 2) compute 
-analytical derivatives of a Gaussian process and 3) condition a 
-Gaussian process with derivative constraints. Other software packages 
-have a strong focus on optimizing hyperparameters based on data 
-likelihood. This module does not include any optimization routines and 
-hyperparameters are always explicitly specified by the user. However, 
-the *GaussianProcess* class contains the *likelihood* method which can 
-be used with functions from *scipy.optimize* to construct a 
-hyperparameter optimization routine.
+There are several existing python packages for Gaussian processes (See
+www.gaussianprocess.org for an updated list of packages). This module
+was written because existing software lacked the ability to 1) create
+improper Gaussian processes 2) compute analytical derivatives of a
+Gaussian process and 3) condition a Gaussian process with derivative
+constraints. Other software packages have a strong focus on optimizing
+hyperparameters based on data likelihood. This module does not include
+any optimization routines and hyperparameters are always explicitly
+specified by the user. However, the *GaussianProcess* class contains
+the *likelihood* method which can be used with functions from
+*scipy.optimize* to construct a hyperparameter optimization routine.
 
 
 Gaussian Processes
@@ -180,7 +179,7 @@ and
   \mathbf{p}_z(x) = \emptyset.
 
 In the above equations we use the augmented covariance matrices, 
-:math:`\mathbf{k}` and :math:`\mathbf{K}`, which are defined as
+:math:`\mathbf{k}` and :math:`\mathbf{K}`, whose entries are
 
 .. math::
   \mathbf{k}(x,\mathbf{y}) = 
@@ -511,7 +510,7 @@ class Memoize(object):
   same arguments. The input arguments for decorated functions must all 
   be numpy arrays. Caches can be cleared with the module-level 
   function *clear_caches*. This is intendend to decorate the mean, 
-  covariance, and basis functions for *GaussianProcess* instances.
+  covariance, and basis functions for *GaussianProcess* instances. 
   '''
   # variable controlling the maximum cache size for all memoized 
   # functions
@@ -1226,7 +1225,7 @@ class GaussianProcess(object):
 
   def basis(self,x,diff=None):
     ''' 
-    Returns the unconstrained basis functions evaluated at *x*.
+    Returns the improper basis functions evaluated at *x*.
     
     Parameters
     ----------
@@ -1256,8 +1255,7 @@ class GaussianProcess(object):
 
   def mean(self,x,diff=None,retry=1):
     ''' 
-    Returns the mean of the stochastic component of the 
-    *GaussianProcess*.
+    Returns the mean of the proper component of the *GaussianProcess*.
     
     Parameters
     ----------
@@ -1312,7 +1310,7 @@ class GaussianProcess(object):
 
   def covariance(self,x1,x2,diff1=None,diff2=None,retry=1):
     ''' 
-    Returns the covariance of the stochastic component of the 
+    Returns the covariance of the proper component of the
     *GaussianProcess*.
     
     Parameters
@@ -1381,10 +1379,9 @@ class GaussianProcess(object):
     
   def mean_and_sigma(self,x,max_chunk=100):
     ''' 
-    Returns the mean and standard deviation of the stochastic 
-    component at *x*. This does not return the full covariance matrix, 
-    making it appropriate for evaluating the *GaussianProcess* at many 
-    points.
+    Returns the mean and standard deviation of the proper component at
+    *x*. This does not return the full covariance matrix, making it
+    appropriate for evaluating the *GaussianProcess* at many points.
     
     Parameters
     ----------
@@ -1427,7 +1424,7 @@ class GaussianProcess(object):
 
   def draw_sample(self,x):  
     '''  
-    Draws a random sample from the stochastic component of the 
+    Draws a random sample from the proper component of the
     *GaussianProcess*.
     
     Parameters
@@ -1439,14 +1436,6 @@ class GaussianProcess(object):
     -------
     out : (N,) array      
     
-    Notes
-    -----
-    This function does not check if the covariance function at *x* is 
-    positive definite. If it is not, then the covariance function is 
-    invalid and the returned sample will be meaningless. If you are 
-    not confident that the covariance function is positive definite 
-    then call the *is_positive_definite* method with argument *x*.
-
     '''
     mean = self.mean(x)
     cov = self.covariance(x,x)
@@ -1455,12 +1444,11 @@ class GaussianProcess(object):
     
   def is_positive_definite(self,x):
     '''     
-    Tests if the covariance matrix, which is the covariance function 
-    evaluated at *x*, is positive definite. This is done by checking 
-    if the matrix is symmetric and all of its eigenvalues are 
-    positive. An affirmative result from this test is necessary but 
-    insufficient to ensure that the covariance function is positive 
-    definite.
+    Tests if the covariance matrix, which is the covariance function
+    evaluated at *x*, is positive definite. This is done by checking
+    if all of its eigenvalues are positive. An affirmative result from
+    this test is necessary but insufficient to ensure that the
+    covariance function is positive definite.
     
     Parameters
     ----------
@@ -1510,7 +1498,7 @@ def gpiso(phi,coeff,dim=None):
   -----
   1. If *phi* is scale invariant, such as for odd order polyharmonic 
   splines, then *b* and *c* have inverse effects on the resulting 
-  Gaussian process and thus only one of them needs to be chosen while 
+  *GaussianProcess* and thus only one of them needs to be chosen while 
   the other can be fixed at an arbitary value.
   
   2. Not all radial basis functions are positive definite, which means 
@@ -1600,12 +1588,12 @@ def gpexp(coeff,dim=None):
   return out
 
 
-def gpbasis(basis,mu,sigma,dim=None):
+def gpbfc(basis,mu,sigma,dim=None):
   ''' 
-  Creates a basis function *GaussianProcess* instance. Realizations of 
-  the *GaussianProcess* are linear combinations of the basis functions 
-  and the basis function coefficients have a distribution described by 
-  *mu* and *sigma*.
+  Creates a basis function-constrained *GaussianProcess* instance.
+  Realizations of the *GaussianProcess* are linear combinations of the
+  basis functions and the basis function coefficients have a
+  distribution described by *mu* and *sigma*.
   
   Parameters
   ----------
@@ -1674,10 +1662,9 @@ def gpbasis(basis,mu,sigma,dim=None):
   return out  
 
 
-def gpbasisu(basis,dim=None):
+def gpbfci(basis,dim=None):
   ''' 
-  Creates a *GaussianProcess* instance which has unconstrained basis 
-  functions and no stochastic component.
+  Creates an *GaussianProcess* consisting of improper basis functions.
 
   Parameters
   ----------
@@ -1704,15 +1691,16 @@ def gpbasisu(basis,dim=None):
 
 def gppoly(order,dim=None):
   ''' 
-  Returns a *GaussianProcess* which has unconstrained polynomial basis 
-  functions. If *order* = 0, then the basis functions consists of a 
-  constant term, if *order* = 1 then the basis functions consists of a 
-  constant and linear term, etc.
+  Returns a *GaussianProcess* consisting of monomial improper basis
+  functions. The monomials span the space of all polynomials with a
+  user-specified order. If *order* = 0, then the improper basis
+  functions consists of a constant term, if *order* = 1 then the basis
+  functions consists of a constant and linear term, etc.
   
   Parameters
   ----------
   order : int  
-    Order of the polynomial basis functions.
+    Order of the basis functions.
     
   dim : int, optional
     Fixes the spatial dimensions of the *GaussianProcess* domain. An 
@@ -1730,6 +1718,6 @@ def gppoly(order,dim=None):
     out = rbf.poly.mvmonos(x,powers,diff)
     return out
   
-  out = gpbasisu(basis,dim=dim)  
+  out = gpbfci(basis,dim=dim)  
   return out
 

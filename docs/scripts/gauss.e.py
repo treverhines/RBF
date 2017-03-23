@@ -25,14 +25,14 @@ sample = gp.draw_sample(t) # draw a sample
 mu,sigma = gp(t) # evaluate mean and std. dev.
 
 # plot the results
-fig,ax = plt.subplots(figsize=(6,5))
+fig,ax = plt.subplots(figsize=(6,4))
 ax.grid(True)
 ax.plot(t[:,0],mu,'b-',label='mean')
 ax.fill_between(t[:,0],mu-sigma,mu+sigma,color='b',alpha=0.2,edgecolor='none',label='std. dev.')
 ax.plot(t,sample,'k',label='sample')
 ax.set_xlim((-10.0,10.0))
 ax.set_ylim((-2.5*var,2.5*var))
-ax.legend(frameon=False,loc=4,fontsize=10)
+ax.legend(loc=4,fontsize=10)
 ax.tick_params(labelsize=10)
 ax.set_xlabel('time',fontsize=10)
 ax.set_title('periodic Gaussian process',fontsize=10)

@@ -88,12 +88,12 @@ d = np.exp(-0.3*np.abs(y))*np.sin(y) + noise  # observations
 # find the mean and uncertainty of the posterior
 u,us = robust_gpr(y[:,None],d,s,(0.0,100.0,2.0),x=x[:,None]) 
 # plot the results
-fig,ax = plt.subplots() 
+fig,ax = plt.subplots(figsize=(6,4)) 
 ax.errorbar(y,d,s,fmt='k.',capsize=0.0,label='observations') 
 ax.plot(x,u,'b-',label='posterior mean') 
 ax.fill_between(x,u-us,u+us,color='b',alpha=0.2,edgecolor='none',label='posterior uncertainty') 
 ax.plot(x,d_true,'k-',label='true signal') 
-ax.legend(frameon=False,fontsize=10)
+ax.legend(fontsize=10)
 ax.set_xlim((-7.5,7.5))
 ax.grid(True)
 fig.tight_layout()

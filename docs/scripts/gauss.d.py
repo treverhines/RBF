@@ -24,7 +24,7 @@ sample = brown.draw_sample(t) # draw a sample
 mu,sigma = brown(t) # evaluate the mean and std. dev.
 
 # plot the results
-fig,ax = plt.subplots(figsize=(6,5))
+fig,ax = plt.subplots(figsize=(6,4))
 ax.grid(True)
 ax.plot(t[:,0],mu,'b-',label='mean')
 ax.fill_between(t[:,0],mu+sigma,mu-sigma,color='b',alpha=0.2,edgecolor='none',label='std. dev.')

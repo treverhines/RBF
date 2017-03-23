@@ -37,24 +37,23 @@ for i,b_test in enumerate(b_search):
 # downhill simplex method
 def fmin_pos(func,x0,*args,**kwargs):
   '''fmin with positivity constraint''' 
-  def pos_func(x):
-    return func(np.exp(x))
+  def pos_func(x,*blargs):
+    return func(np.exp(x),*blargs)
 
   out = fmin(pos_func,np.log(x0),*args,**kwargs)
   out = np.exp(out)
   return out
 
-def objective(x):
+def objective(x,t,d,sigma):
   '''objective function to be minimized'''
   gp  = rbf.gauss.gpse((0.0,x[0],x[1]))
-  val = -gp.likelihood(t,d,sigma=sigma)
-  return val
+  return -gp.likelihood(t,d,sigma=sigma)
 
 # maximum likelihood estimate
-b_mle,c_mle = fmin_pos(objective,[1.0,1.0])
+b_mle,c_mle = fmin_pos(objective,[1.0,1.0],args=(t,d,sigma))
 
 # plot the results
-fig,axs = plt.subplots(2,1,figsize=(7,8))
+fig,axs = plt.subplots(2,1,figsize=(6,6))
 ax = axs[0]
 ax.grid(True)
 ax.errorbar(t[:,0],d,sigma,fmt='k.',capsize=0,label='observations')

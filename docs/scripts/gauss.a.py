@@ -28,7 +28,7 @@ mean_cond,std_cond = gp_cond(x[:,None])
 
 ## Plotting
 #####################################################################
-fig,axs = plt.subplots(2,1,figsize=(7,8))
+fig,axs = plt.subplots(2,1,figsize=(6,6))
 ax = axs[0]
 ax.tick_params(labelsize=10)
 ax.set_title('Prior Gaussian Process',fontsize=10)
@@ -38,7 +38,7 @@ ax.fill_between(x,mean-std,mean+std,color='b',
 ax.plot(x,sample,'b--',label='sample')
 ax.set_xlim((-7.5,7.5))
 ax.set_ylim((-2.0,2.0))
-ax.legend(loc=2,frameon=False,fontsize=10)
+ax.legend(loc=2,fontsize=10)
 ax = axs[1]
 ax.tick_params(labelsize=10)
 ax.set_title('Conditioned Gaussian Process',fontsize=10)
@@ -50,7 +50,7 @@ ax.fill_between(x,mean_cond-std_cond,mean_cond+std_cond,color='b',
                 alpha=0.2,edgecolor='none',label='standard deviation')
 ax.set_xlim((-7.5,7.5))
 ax.set_ylim((-0.75,1.0))
-ax.legend(loc=2,frameon=False,fontsize=10)
+ax.legend(loc=2,fontsize=10)
 plt.tight_layout()
 plt.savefig('../figures/gauss.a.png')
 plt.show()
