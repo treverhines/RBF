@@ -25,10 +25,10 @@ the *likelihood* method which can be used with functions from
 
 Gaussian Processes
 ==================
-A proper Gaussian process, :math:`u_o(x)`, is a continuous function
+A proper Gaussian process, :math:`u_o(x)`, is a stochastic function
 that is normally distributed in infinite dimensional space. A Gaussian
-process can be defined in terms of its mean, :math:`\\bar{u}(x)`,
-and its covariance, :math:`C_u(x,x')`, as 
+process can be defined in terms of its mean, :math:`\\bar{u}(x)`, and
+its covariance, :math:`C_u(x,x')`, as
 
 .. math::
   u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
