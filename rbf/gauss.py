@@ -13,7 +13,7 @@ processes and for generating random samples of a Gaussian process.
 There are several existing python packages for Gaussian processes (See
 www.gaussianprocess.org for an updated list of packages). This module
 was written because existing software lacked the ability to 1) create
-improper Gaussian processes 2) compute analytical derivatives of a
+improper Gaussian processes 2) compute analytical derivatives of a 
 Gaussian process and 3) condition a Gaussian process with derivative
 constraints. Other software packages have a strong focus on optimizing
 hyperparameters based on data likelihood. This module does not include
