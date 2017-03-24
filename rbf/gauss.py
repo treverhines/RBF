@@ -954,9 +954,9 @@ class GaussianProcess(object):
   
   def __call__(self,*args,**kwargs):
     ''' 
-    equivalent to calling *mean_and_sigma*
+    equivalent to calling *meansd*
     '''
-    return self.mean_and_sigma(*args,**kwargs)
+    return self.meansd(*args,**kwargs)
 
   def __add__(self,other):
     ''' 
@@ -1377,11 +1377,12 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
     
-  def mean_and_sigma(self,x,max_chunk=100):
+  def meansd(self,x,max_chunk=100):
     ''' 
-    Returns the mean and standard deviation of the proper component at
-    *x*. This does not return the full covariance matrix, making it
-    appropriate for evaluating the *GaussianProcess* at many points.
+    Returns the mean and standard deviation of the proper component of
+    the *GaussianProcess*. This does not return the full covariance
+    matrix, making it appropriate for evaluating the *GaussianProcess*
+    at many points.
     
     Parameters
     ----------
@@ -1400,7 +1401,7 @@ class GaussianProcess(object):
     out_mean : (N,) array
       Mean of the stochastic component of the *GaussianProcess* at *x*.
     
-    out_sigma : (N,) array  
+    out_sd : (N,) array  
       One standard deviation uncertainty of the stochastic component 
       of the *GaussianProcess* at *x*.
       
@@ -1409,18 +1410,18 @@ class GaussianProcess(object):
     x = np.asarray(x,dtype=float)
     q = x.shape[0]
     out_mean = np.zeros(q,dtype=float)
-    out_sigma = np.zeros(q,dtype=float)
+    out_sd = np.zeros(q,dtype=float)
     while True:
       idx = range(count,min(count+max_chunk,q))
       out_mean[idx] = self.mean(x[idx])
       cov = self.covariance(x[idx],x[idx])
       var = np.diag(cov)
-      out_sigma[idx] = np.sqrt(var)
+      out_sd[idx] = np.sqrt(var)
       count = min(count+max_chunk,q)
       if count == q:
         break
     
-    return out_mean,out_sigma
+    return out_mean,out_sd
 
   def draw_sample(self,x):  
     '''  
@@ -1720,4 +1721,3 @@ def gppoly(order,dim=None):
   
   out = gpbfci(basis,dim=dim)  
   return out
-
