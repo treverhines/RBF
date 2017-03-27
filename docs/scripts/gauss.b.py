@@ -18,7 +18,7 @@ acov_long = gp_long.covariance(dx,[[0.0]])
 acov_short = gp_short.covariance(dx,[[0.0]])
 acov = gp.covariance(dx,[[0.0]])
 # draw 3 samples
-sample = gp.draw_sample(x) 
+sample = gp.sample(x) 
 # mean and uncertainty of the new gp
 mean,sigma = gp(x)
 # plot the autocovariance functions

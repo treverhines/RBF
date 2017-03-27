@@ -492,7 +492,7 @@ def _trisolve(G,d,*args,**kwargs):
     return solve_triangular(G,d,*args,**kwargs)  
 
 
-def _draw_sample(mean,cov):
+def _sample(mean,cov):
   ''' 
   Draws a random sample from the Gaussian process with the specified 
   mean and covariance.
@@ -1423,24 +1423,34 @@ class GaussianProcess(object):
     
     return out_mean,out_sd
 
-  def draw_sample(self,x):  
+  def sample(self,x,c=None):  
     '''  
-    Draws a random sample from the proper component of the
-    *GaussianProcess*.
+    Draws a random sample from the *GaussianProcess*.  
     
     Parameters
     ----------
     x : (N,D) array
-      Evaluation points
+      Evaluation points.
+    
+    c : (P,) array, optional
+      Coefficients for the improper basis functions. If this is not
+      specified then they are set to zero.
       
     Returns
     -------
     out : (N,) array      
     
     '''
-    mean = self.mean(x)
-    cov = self.covariance(x,x)
-    out = _draw_sample(mean,cov)
+    mu = self.mean(x)
+    sigma = self.covariance(x,x)
+    p = self.basis(x)
+    if c is not None:
+      c = np.asarray(c,dtype=float)
+    else:
+      c = np.zeros(p.shape[1])  
+      
+    _assert_shape(c,(p.shape[1],),'c')    
+    out = _sample(mu,sigma) + p.dot(c)
     return out
     
   def is_positive_definite(self,x):

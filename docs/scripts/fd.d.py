@@ -45,7 +45,7 @@ def topo_func(x):
   gp = rbf.gauss.gpse((0.0,0.01,0.25))
   gp += rbf.gauss.gpse((0.0,0.01,0.5))
   gp += rbf.gauss.gpse((0.0,0.01,1.0))
-  out = gp.draw_sample(x)
+  out = gp.sample(x)
   out *= taper_function(x,[0.0,0.0],1.0)
   return out
 

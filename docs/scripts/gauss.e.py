@@ -21,7 +21,7 @@ basis = rbf.basis.RBF(expr)
 # define a Gaussian process using the periodic RBF
 gp = rbf.gauss.gpiso(basis,(0.0,var,cls))
 t = np.linspace(-10,10,1000)[:,None]
-sample = gp.draw_sample(t) # draw a sample
+sample = gp.sample(t) # draw a sample
 mu,sigma = gp(t) # evaluate mean and std. dev.
 
 # plot the results

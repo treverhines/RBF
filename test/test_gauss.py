@@ -80,10 +80,10 @@ class Test(unittest.TestCase):
     out = gp.condition([[0.0]],[1.0],sigma=[1.0],obs_diff=(0,))
     return 
 
-  def test_run_draw_sample(self):
-    # make sure the draw_sample method runs without failure 
+  def test_run_sample(self):
+    # make sure the sample method runs without failure 
     gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0))  
-    gp.draw_sample([[0.0],[1.0],[2.0]])
+    gp.sample([[0.0],[1.0],[2.0]])
     return 
 
   def test_run_is_positive_definite(self):

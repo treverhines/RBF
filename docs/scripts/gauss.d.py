@@ -20,7 +20,7 @@ def brownian_cov(x1,x2):
 
 t = np.linspace(0.001,1,500)[:,None]
 brown = GaussianProcess(brownian_mean,brownian_cov)
-sample = brown.draw_sample(t) # draw a sample
+sample = brown.sample(t) # draw a sample
 mu,sigma = brown(t) # evaluate the mean and std. dev.
 
 # plot the results

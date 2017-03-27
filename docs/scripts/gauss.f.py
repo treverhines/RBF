@@ -18,7 +18,7 @@ gp  = rbf.gauss.gpexp((a,b,c))
 
 n = 500 # number of observations
 time = np.linspace(-5.0,5.0,n)[:,None] # observation points
-data = gp.draw_sample(time) # signal which we want to describe
+data = gp.sample(time) # signal which we want to describe
 
 # find the optimal hyperparameter with a brute force grid search
 b_search = 10**np.linspace(-2,2,30)
