@@ -63,7 +63,7 @@ added as
 .. math::
   u(x) + v(x) = z(x)
 
-where the mean, covariance, and unconstrained basis functions for 
+where the mean, covariance, and improper basis functions for 
 :math:`z` are
 
 .. math::
@@ -842,11 +842,11 @@ def likelihood(d,mu,sigma,p=None):
 
 class GaussianProcess(object):
   ''' 
-  A *GaussianProcess* instance represents a stochastic process which 
-  is defined in terms of a mean function, a covariance function, and 
-  (optionally) a set of unconstrained basis functions. This class is 
-  used to perform basic operations on Gaussian processes which include 
-  addition, subtraction, scaling, differentiation, sampling, and 
+  A *GaussianProcess* instance represents a stochastic process which
+  is defined in terms of a mean function, a covariance function, and
+  (optionally) a set of improper basis functions. This class is used
+  to perform basic operations on Gaussian processes which include
+  addition, subtraction, scaling, differentiation, sampling, and
   conditioning.
     
   Parameters
@@ -860,23 +860,22 @@ class GaussianProcess(object):
     return an (N,) array.
 
   covariance : function
-    Covariance function for the Gaussian process. This takes either 
-    two arguments, *x1* and *x2*, or four arguments, *x1*, *x2*, 
-    *diff1* and *diff2*. *x1* and *x2* are (N,D) and (M,D) arrays of 
-    positions, respectively. *diff1* and *diff2* are (D,) arrays 
-    specifying the derivatives with respect to *x1* and *x2*, 
-    respectively. If the function only takes two arguments, then the 
-    function is assumed to not be differentiable. The function should 
+    Covariance function for the Gaussian process. This takes either
+    two arguments, *x1* and *x2*, or four arguments, *x1*, *x2*,
+    *diff1* and *diff2*. *x1* and *x2* are (N,D) and (M,D) arrays of
+    positions, respectively. *diff1* and *diff2* are (D,) arrays
+    specifying the derivatives with respect to *x1* and *x2*,
+    respectively. If the function only takes two arguments, then the
+    function is assumed to not be differentiable. The function should
     return an (N,M) array.
 
   basis : function, optional
-    Unconstrained basis functions. This function takes either one 
-    argument, *x*, or two arguments, *x* and *diff*. *x* is an (N,D) 
-    array of positions and *diff* is a (D,) array specifying the 
-    derivative. This function should return an (N,P) array, where each 
-    column is a basis function evaluated at *x*. By default, a 
-    *GaussianProcess* instance contains no unconstrained basis 
-    functions.
+    Improper basis functions. This function takes either one argument,
+    *x*, or two arguments, *x* and *diff*. *x* is an (N,D) array of
+    positions and *diff* is a (D,) array specifying the derivative.
+    This function should return an (N,P) array, where each column is a
+    basis function evaluated at *x*. By default, a *GaussianProcess*
+    instance contains no improper basis functions.
         
   dim : int, optional  
     Fixes the spatial dimensions of the *GaussianProcess* domain. An 
@@ -940,7 +939,7 @@ class GaussianProcess(object):
       def basis_with_diff(x,diff):
         if sum(diff) != 0: 
           raise ValueError(
-            'The unconstrained basis functions for the *GaussianProcess* '
+            'The improper basis functions for the *GaussianProcess* '
             'are not differentiable')
           
         return basis(x)
