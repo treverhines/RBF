@@ -308,11 +308,11 @@ For example, the below code block demonstrates how to create a
 >>> def cov(x1,x2): return np.min(np.meshgrid(x1[:,0],x2[:,0],indexing='ij'),axis=0)
 >>> gp = GaussianProcess(mean,cov,dim=1) # Brownian motion is 1D
 
-This module contains a helper function for generating isotropic 
-*GaussianProcess* instances, which is named *gpiso*. It requires the 
-user to specify a positive-definite *RBF* instance and the three 
-distribution coefficients mentioned above. For example, the below code 
-generates a squared exponential Gaussian process with a=0.0, b=1.0, 
+This module contains a helper function for generating isotropic
+*GaussianProcess* instances, which is named *gpiso*. It requires the
+user to specify a positive-definite *RBF* instance and the three
+distribution parameters mentioned above. For example, the below code
+generates a squared exponential Gaussian process with a=0.0, b=1.0,
 and c=2.0.
 
 >>> from rbf.basis import se
@@ -339,8 +339,8 @@ specify a function which returns a set of basis functions evaluted at
 Use *gpbfc* to make a basis function-constrained *GaussianProcess*
 which has coefficients with finite variance.
 
->>> mean = [0.0,0.0] # mean basis function parameters
->>> sigma = [1.0,1.0] # uncertainty of basis function parameters
+>>> mean = [0.0,0.0] # mean basis function coefficients
+>>> sigma = [1.0,1.0] # uncertainty of basis function coefficients
 >>> gp = gpbfc(basis,mean,sigma)
 
 The function *gppoly* is a helper function for creating a Gaussian
@@ -1475,7 +1475,7 @@ class GaussianProcess(object):
     return out  
     
 
-def gpiso(phi,coeff,dim=None):
+def gpiso(phi,params,dim=None):
   ''' 
   Creates an isotropic *GaussianProcess* instance which has a constant 
   mean and a covariance function that is described by a radial basis 
@@ -1488,12 +1488,12 @@ def gpiso(phi,coeff,dim=None):
     example, use *rbf.basis.se* for a squared exponential covariance 
     function.
 
-  coeff : 3-tuple  
-    Tuple of three coefficients, *a*, *b*, and *c*, describing the 
-    probability distribution. *a* is the mean, *b* scales the 
-    covariance function, and *c* is the shape parameter. When *phi* 
-    is set to *rbf.basis.se*, *b* and *c* describe the variance and 
-    the characteristic length-scale, respectively.
+  params : 3-tuple  
+    Tuple of three parameters, *a*, *b*, and *c*, describing the
+    probability distribution. *a* is the mean, *b* scales the
+    covariance function, and *c* is the shape parameter. When *phi* is
+    set to *rbf.basis.se*, *b* and *c* describe the variance and the
+    characteristic length-scale, respectively.
   
   dim : int, optional
     Fixes the spatial dimensions of the *GaussianProcess* domain. An 
@@ -1519,11 +1519,11 @@ def gpiso(phi,coeff,dim=None):
   *rbf.basis.ga*, *rbf.basis.exp*, *rbf.basis.iq*, *rbf.basis.imq*.
 
   '''
-  coeff = np.asarray(coeff,dtype=float)  
+  params = np.asarray(params,dtype=float)  
   
   @Memoize
   def mean(x,diff):
-    a,b,c = coeff  
+    a,b,c = params  
     if sum(diff) == 0:
       out = np.full(x.shape[0],a,dtype=float)
     else:
@@ -1533,7 +1533,7 @@ def gpiso(phi,coeff,dim=None):
       
   @Memoize
   def covariance(x1,x2,diff1,diff2):
-    a,b,c = coeff  
+    a,b,c = params  
     diff = diff1 + diff2
     out = b*(-1)**sum(diff2)*phi(x1,x2,eps=c,diff=diff)
     if not np.all(np.isfinite(out)):
@@ -1548,16 +1548,16 @@ def gpiso(phi,coeff,dim=None):
   return out
 
 
-def gpse(coeff,dim=None):
+def gpse(params,dim=None):
   ''' 
   Creates an isotropic *GaussianProcess* with a squared exponential 
   covariance function. 
   
   Parameters
   ----------
-  coeff : 3-tuple  
-    Tuple of three distribution coefficients, *a*, *b*, and *c*. They 
-    describe the mean, variance, and the characteristic length-scale, 
+  params : 3-tuple  
+    Tuple of three distribution parameters, *a*, *b*, and *c*. They
+    describe the mean, variance, and the characteristic length-scale,
     respectively.
   
   dim : int, optional
@@ -1569,19 +1569,19 @@ def gpse(coeff,dim=None):
   -------
   out : GaussianProcess
   '''
-  out = gpiso(rbf.basis.se,coeff,dim=dim)
+  out = gpiso(rbf.basis.se,params,dim=dim)
   return out
 
 
-def gpexp(coeff,dim=None):
+def gpexp(params,dim=None):
   ''' 
   Creates an isotropic *GaussianProcess* with an exponential 
   covariance function.
   
   Parameters
   ----------
-  coeff : 3-tuple  
-    Tuple of three distribution coefficients, *a*, *b*, and *c*. They 
+  params : 3-tuple  
+    Tuple of three distribution parameters, *a*, *b*, and *c*. They 
     describe the mean, variance, and the characteristic length-scale, 
     respectively.
   
@@ -1594,7 +1594,7 @@ def gpexp(coeff,dim=None):
   -------
   out : GaussianProcess
   '''
-  out = gpiso(rbf.basis.exp,coeff,dim=dim)
+  out = gpiso(rbf.basis.exp,params,dim=dim)
   return out
 
 
