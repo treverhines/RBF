@@ -1097,8 +1097,7 @@ class GaussianProcess(object):
     p : (N,P) float array, optional  
       Improper basis vectors for the noise. The data noise is assumed
       to contain some unknown linear combination of the columns of
-      *p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
-      if the noise contains an unknown constant and linear term.
+      *p*.
 
     obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the 
@@ -1171,8 +1170,7 @@ class GaussianProcess(object):
     p : (N,P) float array, optional 
       Improper basis vectors for the noise. The data noise is assumed
       to contain some unknown linear combination of the columns of
-      *p*. For example, set this to *np.array([np.ones_like(d),y]).T*,
-      if the noise contains an unknown constant and linear term.
+      *p*. 
       
     obs_diff : (D,) tuple, optional
       Derivative of the observations. For example, use (1,) if the 
