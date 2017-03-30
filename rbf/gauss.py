@@ -472,10 +472,10 @@ def _cholesky(A,*args,**kwargs):
     return cholesky(A,*args,**kwargs)
   except np.linalg.LinAlgError:  
     warnings.warn(
-      'Failed to compute the Cholesky decomposition of *A*. This is may '
+      'Failed to compute the Cholesky decomposition of *A*. This may '
       'be because *A* has slightly negative eigenvalues as a result of '
       'numerical rounding error. Small values will be added to the '
-      'diagonals *A* of and the decomposition will be attempted again.')
+      'diagonals of *A* and the decomposition will be attempted again.')
     _make_numerically_positive_definite(A)   
     return cholesky(A,*args,**kwargs)
 
