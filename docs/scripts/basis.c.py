@@ -18,7 +18,7 @@ x = np.linspace(0.0,3.0,500)[:,None]
 center = np.array([[0.0]])
 
 fig,ax = plt.subplots()
-for nu in [0.5,1.0,2.0]:
+for nu in [0.5,1.5,2.5]:
   mat = make_matern(nu)
   ax.plot(x,mat(x,center),label='$\\nu = $%s' % str(nu))
   
