@@ -11,3 +11,6 @@ Examples
 
 .. literalinclude:: ../scripts/basis.b.py
 .. image:: ../figures/basis.b.png
+
+.. literalinclude:: ../scripts/basis.c.py
+.. image:: ../figures/basis.c.png

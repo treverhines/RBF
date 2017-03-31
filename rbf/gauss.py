@@ -13,14 +13,15 @@ processes and for generating random samples of a Gaussian process.
 There are several existing python packages for Gaussian processes (See
 www.gaussianprocess.org for an updated list of packages). This module
 was written because existing software lacked the ability to 1) create
-improper Gaussian processes 2) compute analytical derivatives of a 
-Gaussian process and 3) condition a Gaussian process with derivative
-constraints. Other software packages have a strong focus on optimizing
-hyperparameters based on data likelihood. This module does not include
-any optimization routines and hyperparameters are always explicitly
-specified by the user. However, the *GaussianProcess* class contains
-the *likelihood* method which can be used with functions from
-*scipy.optimize* to construct a hyperparameter optimization routine.
+partially improper Gaussian processes 2) compute analytical
+derivatives of a Gaussian process and 3) condition a Gaussian process
+with derivative constraints. Other software packages have a strong
+focus on optimizing hyperparameters based on data likelihood. This
+module does not include any optimization routines and hyperparameters
+are always explicitly specified by the user. However, the
+*GaussianProcess* class contains the *likelihood* method which can be
+used with functions from *scipy.optimize* to construct a
+hyperparameter optimization routine.
 
 
 Gaussian Processes
@@ -34,12 +35,12 @@ its covariance, :math:`C_u(x,x')`, as
   u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
 
 In this module, we adopt a more general definition which allows for
-improper Gaussian processes (i.e. a Gaussian process which has
-infinite variance along some directions).  We then consider a Gaussian
-process, :math:`u(x)`, to be the combination of a proper Gaussian
-process and a set of basis functions, :math:`\mathbf{p}_u(x) =
-\{p_i(x)\}_{i=1}^m`, whose coefficients, :math:`\{c_i\}_{i=1}^m`, have
-infinite variance. We express :math:`u(x)` as
+partially improper Gaussian processes (i.e. a Gaussian process which
+has infinite variance along some directions).  We then consider a
+Gaussian process, :math:`u(x)`, to be the combination of a proper
+Gaussian process and a set of basis functions, :math:`\mathbf{p}_u(x)
+= \{p_i(x)\}_{i=1}^m`, whose coefficients, :math:`\{c_i\}_{i=1}^m`,
+have infinite variance. We express :math:`u(x)` as
 
 .. math::
   u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
@@ -376,30 +377,10 @@ from collections import OrderedDict
 import logging
 import weakref
 import inspect
+from rbf.basis import _assert_shape
 from scipy.linalg import solve_triangular 
 from scipy.linalg import cholesky 
-
 logger = logging.getLogger(__name__)
-
-
-def _assert_shape(a,shape,label):  
-  ''' 
-  Raises an error if *a* does not have the specified shape. If an 
-  element in *shape* is *None* then that axis can have any length.
-  '''
-  if len(a.shape) != len(shape):
-    raise ValueError(
-      '*%s* is a %s dimensional array but it should be a %s dimensional array' % 
-      (label,len(a.shape),len(shape))) 
-  
-  for axis,(i,j) in enumerate(zip(a.shape,shape)):    
-    if j is None:
-      continue
-    
-    if i != j:      
-      raise ValueError(
-        'axis %s of *%s* has length %s but it should have length %s.' % 
-        (axis,label,i,j))
 
 
 def _is_positive_definite(A):
@@ -891,7 +872,7 @@ class GaussianProcess(object):
   
   2. A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
   *differentiate*, and *condition* has *mean*, *covariance*, and 
-  *null* function which calls the *mean*, *covariance*, and *null* 
+  *basis* function which calls the *mean*, *covariance*, and *basis* 
   functions of its parents. Due to this recursive implementation, the 
   number of generations of children (for lack of a better term) is 
   limited by the maximum recursion depth.

@@ -26,15 +26,45 @@ Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1
 Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
 Exponential                        exp           :math:`\exp(-r/\epsilon)`
 Squared Exponential                se            :math:`\exp(-(r/\epsilon)^2)`
+Matern (v = 3/2)                   mat32         :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
+Matern (v = 5/2)                   mat52         :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
 =================================  ============  ======================================
 
 ''' 
 from __future__ import division 
+from scipy.special import kv,iv
 import sympy 
-from sympy.utilities.autowrap import ufuncify 
 import numpy as np 
 import warnings
 
+# lookup table to find numerical equivalents to symbolic functions.
+# This only defines functions which are not part of numpy.
+_LAMBDIFY_LUT = {'besselk':kv,
+                 'besseli':iv}
+
+
+def _assert_shape(a,shape,label):
+  ''' 
+  Raises an error if *a* does not have the specified shape. If an 
+  element in *shape* is *None* then that axis can have any length.
+  '''
+  ashape = np.shape(a)
+  if len(ashape) != len(shape):
+    raise ValueError(
+      '*%s* is a %s dimensional array but it should be a %s dimensional array' %
+      (label,len(ashape),len(shape)))
+
+  for axis,(i,j) in enumerate(zip(ashape,shape)):
+    if j is None:
+      continue
+
+    if i != j:
+      raise ValueError(
+        'axis %s of *%s* has length %s but it should have length %s.' %
+        (axis,label,i,j))
+
+  return
+  
 
 def _replace_nan(x):
   ''' 
@@ -95,22 +125,13 @@ class RBF(object):
   Parameters
   ----------
   expr : sympy expression
-    Symbolic expression of the RBF. This must be a function of the 
-    symbolic variable *r*, which can be obtained by calling *get_r()* 
-    or *sympy.symbols('r')*. *r* is the radial distance to the RBF 
-    center.  The expression may optionally be a function of *eps*, 
-    which is a shape parameter obtained by calling *get_eps()* or 
-    *sympy.symbols('eps')*.  If *eps* is not provided then *r* is 
+    Sympy expression for the RBF. This must be a function of the
+    symbolic variable *r*, which can be obtained by calling *get_r()*
+    or *sympy.symbols('r')*. *r* is the radial distance to the RBF
+    center.  The expression may optionally be a function of *eps*,
+    which is a shape parameter obtained by calling *get_eps()* or
+    *sympy.symbols('eps')*.  If *eps* is not provided then *r* is
     substituted with *r* * *eps*.
-  
-  package : string, optional  
-    Controls how the symbolic expressions are converted into numerical 
-    functions. This can be either 'numpy' or 'cython'. If 'numpy' then 
-    the symbolic expression is converted using *sympy.lambdify*. If 
-    'cython' then the expression if converted using 
-    *sympy.utilities.autowrap.ufuncify*, which converts the expression 
-    to cython code and then compiles it. Note that there is a ~1 
-    second overhead to compile the cython code.
   
   tol : float, optional  
     If an evaluation point, *x*, is within *tol* of an RBF center, 
@@ -152,63 +173,33 @@ class RBF(object):
          [ 0.        ],
          [ 0.84147098]])
 
-  >>> sinc.tol = 1e-10 # set *tol* 
+  >>> sinc = RBF(sinc_expr,tol=1e-10) # instantiate specifying *tol*
   >>> sinc(x,c) # this now correctly evaluates to 1.0 at the center
   array([[ 0.84147098],
          [ 1.        ],
          [ 0.84147098]])
   
   '''
-  @property
-  def expr(self):
-    return self._expr
-  
-  @expr.setter
-  def expr(self,val):
-    # make sure that *val* does not contain any symbols other than 
+  def __init__(self,expr,tol=None):
+    # make sure that *expr* does not contain any symbols other than 
     # *_R* and *_EPS*
-    other_symbols = val.free_symbols.difference({_R,_EPS})
+    other_symbols = expr.free_symbols.difference({_R,_EPS})
     if len(other_symbols) != 0:
       raise ValueError(
         '*expr* cannot contain any symbols other than *r* and *eps*')
         
-    if not val.has(_R):
+    if not expr.has(_R):
       raise ValueError(
         '*expr* must be a sympy expression containing the symbolic '
         'variable returned by *rbf.basis.get_r()*')
     
-    if not val.has(_EPS):
+    if not expr.has(_EPS):
       # if eps is not in the expression then substitute eps*r for r
-      val = val.subs(_R,_EPS*_R)
+      expr = expr.subs(_R,_EPS*_R)
       
-    self._expr = val
+    self._expr = expr
+    self._tol = tol
     self._cache = {}
-
-  @property
-  def package(self):
-    return self._package
-  
-  @package.setter
-  def package(self,val):  
-    if val in ['cython','numpy']:
-      self._package = val
-      self._cache = {}
-    else:
-      raise ValueError('package must either be "cython" or "numpy" ')  
-    
-  @property
-  def tol(self):
-    return self._tol
-  
-  @tol.setter    
-  def tol(self,val):
-    self._tol = val
-    self._cache = {}
-
-  def __init__(self,expr,package='cython',tol=None):
-    self.expr = expr
-    self.tol = tol
-    self.package = package
 
   def __call__(self,x,c,eps=1.0,diff=None):
     ''' 
@@ -255,12 +246,17 @@ class RBF(object):
 
     '''
     x = np.asarray(x,dtype=float)
+    _assert_shape(x,(None,None),'x')
     c = np.asarray(c,dtype=float)
+    _assert_shape(c,(None,x.shape[1]),'c')
+
     if np.isscalar(eps):
       # makes eps an array of constant values
       eps = np.full(c.shape[0],eps,dtype=float)
     else:  
       eps = np.asarray(eps,dtype=float)
+
+    _assert_shape(eps,(c.shape[0],),'eps')
 
     if diff is None:
       diff = (0,)*x.shape[1]
@@ -268,25 +264,7 @@ class RBF(object):
       # make sure diff is immutable
       diff = tuple(diff)
     
-    # make sure the input arguments have the proper dimensions
-    if not ((x.ndim == 2) & (c.ndim == 2)):
-      raise ValueError(
-        '*x* and *c* must be two-dimensional arrays')
-
-    if not (x.shape[1] == c.shape[1]):
-      raise ValueError(
-        '*x* and *c* must have the same number of spatial dimensions')
-
-    if not ((eps.ndim == 1) & (eps.shape[0] == c.shape[0])):
-      raise ValueError(
-        '*eps* must be a one-dimensional array with length equal to '
-        'the number of rows in *c*')
-    
-    if not (len(diff) == x.shape[1]):
-      raise ValueError(
-        '*diff* must have the same length as the number of spatial '
-        'dimensions in *x* and *c*')
-
+    _assert_shape(diff,(x.shape[1],),'diff')
     # expand to allow for broadcasting
     x = x.T[:,:,None] 
     c = c.T[:,None,:]
@@ -307,7 +285,7 @@ class RBF(object):
     return out
 
   def __repr__(self):
-    out = '<RBF : %s>' % str(self.expr)
+    out = '<RBF : %s>' % str(self._expr)
     return out
      
   def add_diff_to_cache(self,diff):
@@ -325,18 +303,20 @@ class RBF(object):
         
     '''   
     diff = tuple(diff)
+    _assert_shape(diff,(None,),'diff')
+
     dim = len(diff)
     c_sym = sympy.symbols('c:%s' % dim)
     x_sym = sympy.symbols('x:%s' % dim)    
     r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
     # differentiate the RBF 
-    expr = self.expr.subs(_R,r_sym)            
+    expr = self._expr.subs(_R,r_sym)            
     for xi,order in zip(x_sym,diff):
       if order == 0:
         continue
       expr = expr.diff(*(xi,)*order)
 
-    if self.tol is not None:
+    if self._tol is not None:
       # find the limit of the differentiated expression as x->c. This 
       # is necessary for polyharmonic splines, which have removable 
       # singularities. NOTE: this finds the limit from only one 
@@ -348,33 +328,28 @@ class RBF(object):
 
       # create a piecewise symbolic function which is center_expr when 
       # _R<tol and expr otherwise
-      expr = sympy.Piecewise((center_expr,r_sym<self.tol),
+      expr = sympy.Piecewise((center_expr,r_sym<self._tol),
                              (expr,True)) 
       
-    if self.package == 'numpy':
-      func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,'numpy')
-      func = _fix_lambdified_output(func)
-      self._cache[diff] = func
-
-    elif self.package == 'cython':        
-      func = ufuncify(x_sym+c_sym+(_EPS,),expr)
-      self._cache[diff] = func
+    func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,['numpy',_LAMBDIFY_LUT])
+    func = _fix_lambdified_output(func)
+    self._cache[diff] = func
     
 
 # Instantiate some common RBFs
-phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),package='cython')
-phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),package='cython')
-phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),package='cython')
-phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),package='cython')
-phs7 = RBF((_EPS*_R)**7,package='cython')
-phs5 = RBF((_EPS*_R)**5,package='cython')
-phs3 = RBF((_EPS*_R)**3,package='cython')
-phs1 = RBF(_EPS*_R,package='cython')
-imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2),package='cython')
-iq = RBF(1/(1+(_EPS*_R)**2),package='cython')
-ga = RBF(sympy.exp(-(_EPS*_R)**2),package='cython')
-mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2),package='cython')
-exp = RBF(sympy.exp(-_R/_EPS),package='cython')
-se = RBF(sympy.exp(-(_R/_EPS)**2),package='cython')
-
-
+phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
+phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
+phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
+phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R))
+phs7 = RBF((_EPS*_R)**7)
+phs5 = RBF((_EPS*_R)**5)
+phs3 = RBF((_EPS*_R)**3)
+phs1 = RBF(_EPS*_R)
+imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
+iq = RBF(1/(1+(_EPS*_R)**2))
+ga = RBF(sympy.exp(-(_EPS*_R)**2))
+mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
+exp = RBF(sympy.exp(-_R/_EPS))
+se = RBF(sympy.exp(-(_R/_EPS)**2))
+mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS))
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS))

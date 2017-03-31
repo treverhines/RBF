@@ -213,7 +213,7 @@ def weights(x,s,diffs,coeffs=None,
   else:
     coeffs = np.asarray(coeffs,dtype=float)
     if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
-      raise ValueError('coeffs and diffs have incompatible shapes')
+      raise ValueError('*coeffs* and *diffs* have incompatible shapes')
 
   max_order = _max_poly_order(N,D)
   if order is None:
