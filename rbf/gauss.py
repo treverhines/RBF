@@ -27,7 +27,7 @@ hyperparameter optimization routine.
 Gaussian Processes
 ==================
 A proper Gaussian process, :math:`u_o(x)`, is a stochastic function
-that is normally distributed in infinite dimensional space. A Gaussian
+that is normally distributed in the space of all functions. A Gaussian
 process can be defined in terms of its mean, :math:`\\bar{u}(x)`, and
 its covariance, :math:`C_u(x,x')`, as
 
