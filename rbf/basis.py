@@ -25,7 +25,7 @@ Inverse multiquadratic             imq           :math:`(1 + (\epsilon r)^2)^{-1
 Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1}`
 Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
 Exponential                        exp           :math:`\exp(-r/\epsilon)`
-Squared Exponential                se            :math:`\exp(-(r/\epsilon)^2)`
+Squared Exponential                se            :math:`\exp(-r^2/(2\epsilon^2))`
 Matern (v = 3/2)                   mat32         :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
 Matern (v = 5/2)                   mat52         :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
 =================================  ============  ======================================
@@ -350,6 +350,6 @@ iq = RBF(1/(1+(_EPS*_R)**2))
 ga = RBF(sympy.exp(-(_EPS*_R)**2))
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
 exp = RBF(sympy.exp(-_R/_EPS))
-se = RBF(sympy.exp(-(_R/_EPS)**2))
+se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS),tol=1e-10)
 mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS),tol=1e-10)
