@@ -540,18 +540,15 @@ def _add(gp1,gp2):
   Returns a *GaussianProcess* which is the sum of two 
   *GaussianProcess* instances.
   '''
-  @Memoize
   def mean(x,diff):
     out = gp1._mean(x,diff) + gp2._mean(x,diff)
     return out       
 
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out
 
-  @Memoize
   def basis(x,diff):
     out = np.hstack((gp1._basis(x,diff),
                      gp2._basis(x,diff)))
@@ -567,18 +564,15 @@ def _subtract(gp1,gp2):
   Returns a *GaussianProcess* which is the difference of two 
   *GaussianProcess* instances.
   '''
-  @Memoize
   def mean(x,diff):
     out = gp1._mean(x,diff) - gp2._mean(x,diff)
     return out
       
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
-  @Memoize
   def basis(x,diff):
     out = np.hstack((gp1._basis(x,diff),
                      gp2._basis(x,diff)))
@@ -593,12 +587,10 @@ def _scale(gp,c):
   '''   
   Returns a scaled *GaussianProcess*.
   '''
-  @Memoize
   def mean(x,diff):
     out = c*gp._mean(x,diff)
     return out
 
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = c**2*gp._covariance(x1,x2,diff1,diff2)
     return out
@@ -612,17 +604,14 @@ def _differentiate(gp,d):
   '''   
   Differentiates a *GaussianProcess*.
   '''
-  @Memoize
   def mean(x,diff):
     out = gp._mean(x,diff + d)
     return out 
 
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     out = gp._covariance(x1,x2,diff1+d,diff2+d)
     return out
       
-  @Memoize
   def basis(x,diff):
     out = gp._basis(x,diff + d)
     return out 
@@ -666,7 +655,6 @@ def _condition(gp,y,d,sigma_noise,p_noise,obs_diff):
     r[:q] = d - gp._mean(y,obs_diff)
     return K_y_inv,r
     
-  @Memoize
   def mean(x,diff):
     K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
@@ -675,7 +663,6 @@ def _condition(gp,y,d,sigma_noise,p_noise,obs_diff):
     out   = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     K_y_inv,r = precompute()
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
@@ -1499,7 +1486,6 @@ def gpiso(phi,params,dim=None):
   '''
   params = np.asarray(params,dtype=float)  
   
-  @Memoize
   def mean(x,diff):
     a,b,c = params  
     if sum(diff) == 0:
@@ -1633,13 +1619,11 @@ def gpbfc(basis,mu,sigma,dim=None):
       # deviations. These are converted to a covariance matrix.
       sigma = np.diag(sigma**2)
   
-  @Memoize
   def mean(x,diff):
     G = basis_with_diff(x,diff)
     out = G.dot(mu)
     return out
     
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     G1 = basis_with_diff(x1,diff1)
     G2 = basis_with_diff(x2,diff2)
