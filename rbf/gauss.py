@@ -1495,7 +1495,6 @@ def gpiso(phi,params,dim=None):
 
     return out
       
-  @Memoize
   def covariance(x1,x2,diff1,diff2):
     a,b,c = params  
     diff = diff1 + diff2
@@ -1684,7 +1683,6 @@ def gppoly(order,dim=None):
   out : GaussianProcess  
     
   '''
-  @Memoize
   def basis(x,diff):
     powers = rbf.poly.powers(order,x.shape[1])
     out = rbf.poly.mvmonos(x,powers,diff)
