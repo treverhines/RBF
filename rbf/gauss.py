@@ -428,7 +428,7 @@ def _make_numerically_positive_definite(A):
     vals = np.linalg.eigvalsh(A)
     if not np.any(vals <= 0.0):
       # exit successfully
-      return
+      return A
     
     if itr == maxitr:
       # exit with error
@@ -437,8 +437,8 @@ def _make_numerically_positive_definite(A):
         % maxitr)
       
     eps = max(-2*vals.min(),min_eps)
-    # add diagonal components inplace 
-    A += eps*np.eye(n)
+    # add diagonal components to A. but NOT inplace 
+    A = A + eps*np.eye(n)
     itr += 1
 
 
@@ -455,14 +455,14 @@ def _cholesky(A,retry=True,**kwargs):
   if info > 0:  
     # info > 0 means that *A* is not positive definite
     if retry:
-      warnings.warn(
+      logger.info(
         'The leading minor of order %s is not positive definite, and '
         'the factorization could not be completed. This may be the '
         'result of numerical rounding error. Small values will be '
         'added to the diagonal and the decomposition will be '
         'attempted again.' % info)
     
-      _make_numerically_positive_definite(A)   
+      A = _make_numerically_positive_definite(A)   
       return _cholesky(A,retry=False,**kwargs)
     
     else:
