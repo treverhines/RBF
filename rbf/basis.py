@@ -33,6 +33,7 @@ Matern (v = 5/2)                   mat52         Yes                :math:`(1 + 
 ''' 
 from __future__ import division 
 from scipy.special import kv,iv
+from rbf.poly import powers
 import sympy 
 import numpy as np 
 import warnings
@@ -293,7 +294,7 @@ class RBF(object):
       warnings.simplefilter("ignore")
       out = self.cache[diff](*args)
       out = _replace_nan(out) 
-
+      
     return out
 
   def __repr__(self):
@@ -366,30 +367,55 @@ ga = RBF(sympy.exp(-(_EPS*_R)**2))
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
 exp = RBF(sympy.exp(-_R/_EPS))
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
+mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS))
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS))
 
-mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS),
-            tol=1e-10,
-            limits={(0,):1.0,
-                    (1,):0.0,
-                    (2,):-3.0,
-                    (0,0):1.0,
-                    (1,0):0.0,
-                    (0,1):0.0,
-                    (2,0):-3.0,
-                    (0,2):-3.0,
-                    (1,1):0.0})
+# set some known limits so that sympy does not need to compute them
+#phs1.tol = 1e-10
+#for i in powers(0,1): phs1.limits[tuple(i)] = 0.0
+#for i in powers(0,2): phs1.limits[tuple(i)] = 0.0
+#for i in powers(0,3): phs1.limits[tuple(i)] = 0.0
+#
+#phs2.tol = 1e-10
+#for i in powers(1,1): phs2.limits[tuple(i)] = 0.0
+#for i in powers(1,2): phs2.limits[tuple(i)] = 0.0
+#for i in powers(1,3): phs2.limits[tuple(i)] = 0.0
+#
+#phs3.tol = 1e-10
+#for i in powers(2,1): phs3.limits[tuple(i)] = 0.0
+#for i in powers(2,2): phs3.limits[tuple(i)] = 0.0
+#for i in powers(2,3): phs3.limits[tuple(i)] = 0.0
+#
+#phs4.tol = 1e-10
+#for i in powers(3,1): phs4.limits[tuple(i)] = 0.0
+#for i in powers(3,2): phs4.limits[tuple(i)] = 0.0
+#for i in powers(3,3): phs4.limits[tuple(i)] = 0.0
+#
+#phs5.tol = 1e-10
+#for i in powers(4,1): phs5.limits[tuple(i)] = 0.0
+#for i in powers(4,2): phs5.limits[tuple(i)] = 0.0
+#for i in powers(4,3): phs5.limits[tuple(i)] = 0.0
+#
+#phs6.tol = 1e-10
+#for i in powers(5,1): phs6.limits[tuple(i)] = 0.0
+#for i in powers(5,2): phs6.limits[tuple(i)] = 0.0
+#for i in powers(5,3): phs6.limits[tuple(i)] = 0.0
+#
+#phs7.tol = 1e-10
+#for i in powers(6,1): phs7.limits[tuple(i)] = 0.0
+#for i in powers(6,2): phs7.limits[tuple(i)] = 0.0
+#for i in powers(6,3): phs7.limits[tuple(i)] = 0.0
+#
+#phs8.tol = 1e-10
+#for i in powers(7,1): phs8.limits[tuple(i)] = 0.0
+#for i in powers(7,2): phs8.limits[tuple(i)] = 0.0
+#for i in powers(7,3): phs8.limits[tuple(i)] = 0.0
 
-mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS),
-            tol=1e-10,
-            limits={(0,):1.0,
-                    (1,):0.0,
-                    (2,):-5.0/3.0,
-                    (3,):0.0,
-                    (4,):25.0,
-                    (0,0):1.0,
-                    (1,0):0.0,
-                    (0,1):0.0,
-                    (2,0):-5.0/3.0,
-                    (0,2):-5.0/3.0,
-                    (1,1):0.0})
+mat32.tol = 1e-10
+mat32.limits = {(0,):1.0, (1,):0.0, (2,):-3.0,
+                (0,0):1.0, (1,0):0.0, (0,1):0.0, (2,0):-3.0, (0,2):-3.0, (1,1):0.0}
+
+mat52.tol = 1e-10
+mat52.limits = {(0,):1.0, (1,):0.0, (2,):-5.0/3.0, (3,):0.0, (4,):25.0,
+                (0,0):1.0, (1,0):0.0, (0,1):0.0, (2,0):-5.0/3.0, (0,2):-5.0/3.0, (1,1):0.0}
                      
