@@ -9,26 +9,26 @@ shown in the table below. For each expression in the table,
 function centers, respectively. The names of the predefined *RBF* 
 instances are given in the abbreviation column. 
 
-=================================  ============  ======================================
-Name                               Abbreviation  Expression
-=================================  ============  ======================================
-Eighth-order polyharmonic spline   phs8          :math:`(\epsilon r)^8\log(\epsilon r)`
-Seventh-order polyharmonic spline  phs7          :math:`(\epsilon r)^7`
-Sixth-order polyharmonic spline    phs6          :math:`(\epsilon r)^6\log(\epsilon r)`
-Fifth-order polyharmonic spline    phs5          :math:`(\epsilon r)^5`
-Fourth-order polyharmonic spline   phs4          :math:`(\epsilon r)^4\log(\epsilon r)`
-Third-order polyharmonic spline    phs3          :math:`(\epsilon r)^3`
-Second-order polyharmonic spline   phs2          :math:`(\epsilon r)^2\log(\epsilon r)`
-First-order polyharmonic spline    phs1          :math:`\epsilon r`
-Multiquadratic                     mq            :math:`(1 + (\epsilon r)^2)^{1/2}`
-Inverse multiquadratic             imq           :math:`(1 + (\epsilon r)^2)^{-1/2}`
-Inverse quadratic                  iq            :math:`(1 + (\epsilon r)^2)^{-1}`
-Gaussian                           ga            :math:`\exp(-(\epsilon r)^2)`
-Exponential                        exp           :math:`\exp(-r/\epsilon)`
-Squared Exponential                se            :math:`\exp(-r^2/(2\epsilon^2))`
-Matern (v = 3/2)                   mat32         :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
-Matern (v = 5/2)                   mat52         :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
-=================================  ============  ======================================
+=================================  ============  =================  ======================================
+Name                               Abbreviation  Positive Definite  Expression
+=================================  ============  =================  ======================================
+Eighth-order polyharmonic spline   phs8          No                 :math:`(\epsilon r)^8\log(\epsilon r)`
+Seventh-order polyharmonic spline  phs7          No                 :math:`(\epsilon r)^7`
+Sixth-order polyharmonic spline    phs6          No                 :math:`(\epsilon r)^6\log(\epsilon r)`
+Fifth-order polyharmonic spline    phs5          No                 :math:`(\epsilon r)^5`
+Fourth-order polyharmonic spline   phs4          No                 :math:`(\epsilon r)^4\log(\epsilon r)`
+Third-order polyharmonic spline    phs3          No                 :math:`(\epsilon r)^3`
+Second-order polyharmonic spline   phs2          No                 :math:`(\epsilon r)^2\log(\epsilon r)`
+First-order polyharmonic spline    phs1          No                 :math:`\epsilon r`
+Multiquadratic                     mq            No                 :math:`(1 + (\epsilon r)^2)^{1/2}`
+Inverse multiquadratic             imq           Yes                :math:`(1 + (\epsilon r)^2)^{-1/2}`
+Inverse quadratic                  iq            Yes                :math:`(1 + (\epsilon r)^2)^{-1}`
+Gaussian                           ga            Yes                :math:`\exp(-(\epsilon r)^2)`
+Exponential                        exp           Yes                :math:`\exp(-r/\epsilon)`
+Squared Exponential                se            Yes                :math:`\exp(-r^2/(2\epsilon^2))`
+Matern (v = 3/2)                   mat32         Yes                :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
+Matern (v = 5/2)                   mat52         Yes                :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
+=================================  ============  =================  ======================================
 
 ''' 
 from __future__ import division 
@@ -39,8 +39,8 @@ import warnings
 
 # lookup table to find numerical equivalents to symbolic functions.
 # This only defines functions which are not part of numpy.
-_LAMBDIFY_LUT = {'besselk':kv,
-                 'besseli':iv}
+LAMBDIFY_LUT = {'besselk':kv,
+                'besseli':iv}
 
 
 def _assert_shape(a,shape,label):
@@ -142,6 +142,14 @@ class RBF(object):
     be no special treatment for when *x* is close to *c*. Note that 
     computing the limit as *x* -> *c* can be very time intensive.
 
+  limits : dict, optional
+    Contains the limiting value of the RBF as *x* -> *c* for various
+    derivative specifications. For example, *{(0,1):2.0}* indicates
+    that the limit of the y derivative in two-dimensional space is
+    2.0. If this dictionary is provided and *tol* is not None, then it
+    will be searched before attempting to symbolically compute the
+    limits.
+    
   Examples
   --------
   Instantiate an inverse quadratic RBF
@@ -180,7 +188,7 @@ class RBF(object):
          [ 0.84147098]])
   
   '''
-  def __init__(self,expr,tol=None):
+  def __init__(self,expr,tol=None,limits=None):
     # make sure that *expr* does not contain any symbols other than 
     # *_R* and *_EPS*
     other_symbols = expr.free_symbols.difference({_R,_EPS})
@@ -197,9 +205,13 @@ class RBF(object):
       # if eps is not in the expression then substitute eps*r for r
       expr = expr.subs(_R,_EPS*_R)
       
-    self._expr = expr
-    self._tol = tol
-    self._cache = {}
+    if limits is None:
+      limits = {}
+      
+    self.expr = expr
+    self.tol = tol
+    self.cache = {}
+    self.limits = limits
 
   def __call__(self,x,c,eps=1.0,diff=None):
     ''' 
@@ -269,7 +281,7 @@ class RBF(object):
     x = x.T[:,:,None] 
     c = c.T[:,None,:]
     # add function to cache if not already
-    if diff not in self._cache:
+    if diff not in self.cache:
       self.add_diff_to_cache(diff)
  
     args = (tuple(x)+tuple(c)+(eps,))
@@ -279,13 +291,13 @@ class RBF(object):
     # handle the singularity is by specifying *tol*.
     with warnings.catch_warnings():
       warnings.simplefilter("ignore")
-      out = self._cache[diff](*args)
+      out = self.cache[diff](*args)
       out = _replace_nan(out) 
 
     return out
 
   def __repr__(self):
-    out = '<RBF : %s>' % str(self._expr)
+    out = '<RBF : %s>' % str(self.expr)
     return out
      
   def add_diff_to_cache(self,diff):
@@ -310,30 +322,33 @@ class RBF(object):
     x_sym = sympy.symbols('x:%s' % dim)    
     r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
     # differentiate the RBF 
-    expr = self._expr.subs(_R,r_sym)            
+    expr = self.expr.subs(_R,r_sym)            
     for xi,order in zip(x_sym,diff):
       if order == 0:
         continue
+
       expr = expr.diff(*(xi,)*order)
 
-    if self._tol is not None:
-      # find the limit of the differentiated expression as x->c. This 
-      # is necessary for polyharmonic splines, which have removable 
-      # singularities. NOTE: this finds the limit from only one 
-      # direction and the limit may change when using a different 
-      # direction.
-      center_expr = expr
-      for xi,ci in zip(x_sym,c_sym):
-        center_expr = center_expr.limit(xi,ci)
+    if self.tol is not None:
+      if diff in self.limits:
+        # use a user-specified limit if available      
+        lim = self.limits[diff]
+      
+      else:  
+        # Symbolically find the limit of the differentiated expression
+        # as x->c. NOTE: this finds the limit from only one direction
+        # and the limit may change when using a different direction.
+        lim = expr
+        for xi,ci in zip(x_sym,c_sym):
+          lim = lim.limit(xi,ci)
 
       # create a piecewise symbolic function which is center_expr when 
       # _R<tol and expr otherwise
-      expr = sympy.Piecewise((center_expr,r_sym<self._tol),
-                             (expr,True)) 
+      expr = sympy.Piecewise((lim,r_sym<self.tol),(expr,True)) 
       
-    func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,['numpy',_LAMBDIFY_LUT])
+    func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,['numpy',LAMBDIFY_LUT])
     func = _fix_lambdified_output(func)
-    self._cache[diff] = func
+    self.cache[diff] = func
     
 
 # Instantiate some common RBFs
@@ -351,5 +366,30 @@ ga = RBF(sympy.exp(-(_EPS*_R)**2))
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
 exp = RBF(sympy.exp(-_R/_EPS))
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
-mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS),tol=1e-10)
-mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS),tol=1e-10)
+
+mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS),
+            tol=1e-10,
+            limits={(0,):1.0,
+                    (1,):0.0,
+                    (2,):-3.0,
+                    (0,0):1.0,
+                    (1,0):0.0,
+                    (0,1):0.0,
+                    (2,0):-3.0,
+                    (0,2):-3.0,
+                    (1,1):0.0})
+
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS),
+            tol=1e-10,
+            limits={(0,):1.0,
+                    (1,):0.0,
+                    (2,):-5.0/3.0,
+                    (3,):0.0,
+                    (4,):25.0,
+                    (0,0):1.0,
+                    (1,0):0.0,
+                    (0,1):0.0,
+                    (2,0):-5.0/3.0,
+                    (0,2):-5.0/3.0,
+                    (1,1):0.0})
+                     

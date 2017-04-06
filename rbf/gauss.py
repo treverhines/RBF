@@ -379,7 +379,7 @@ import weakref
 import inspect
 from rbf.basis import _assert_shape
 from scipy.linalg import solve_triangular 
-from scipy.linalg import cholesky 
+from scipy.linalg.lapack import dpotri,dpotrf
 logger = logging.getLogger(__name__)
 
 
@@ -437,28 +437,103 @@ def _make_numerically_positive_definite(A):
         % maxitr)
       
     eps = max(-2*vals.min(),min_eps)
-    A[range(n),range(n)] += eps
+    # add diagonal components inplace 
+    A += eps*np.eye(n)
     itr += 1
 
 
-def _cholesky(A,*args,**kwargs):
+def _cholesky(A,retry=True,**kwargs):
   ''' 
-  Cholesky decomposition which is more forgiving of matrices that are 
-  not numerically positive definite
+  Cholesky decomposition which is more forgiving of matrices that are
+  not numerically positive definite. It is assumed that *A* is a
+  double precision numpy array.
   '''
   if A.shape == (0,0):
-    return np.zeros((0,0))
+    return np.zeros((0,0),dtype=float)
     
-  try:
-    return cholesky(A,*args,**kwargs)
-  except np.linalg.LinAlgError:  
-    warnings.warn(
-      'Failed to compute the Cholesky decomposition of *A*. This may '
-      'be because *A* has slightly negative eigenvalues as a result of '
-      'numerical rounding error. Small values will be added to the '
-      'diagonals of *A* and the decomposition will be attempted again.')
-    _make_numerically_positive_definite(A)   
-    return cholesky(A,*args,**kwargs)
+  L,info = dpotrf(A,**kwargs)
+  if info > 0:  
+    # info > 0 means that *A* is not positive definite
+    if retry:
+      warnings.warn(
+        'The leading minor of order %s is not positive definite, and '
+        'the factorization could not be completed. This may be the '
+        'result of numerical rounding error. Small values will be '
+        'added to the diagonal and the decomposition will be '
+        'attempted again.' % info)
+    
+      _make_numerically_positive_definite(A)   
+      return _cholesky(A,retry=False,**kwargs)
+    
+    else:
+      raise np.linalg.LinAlgError(
+        'The leading minor of order %s is not positive definite, and '
+        'the factorization could not be completed. ' % info)
+
+  elif info < 0:
+    raise np.linalg.LinAlgError(
+      'The %s-th argument has an illegal value.' % (-info))
+      
+  else:
+    # the decomposition exited successfully
+    return L
+
+
+def _cholesky_inv(A):
+  ''' 
+  Returns the inverse of the positive definite matrix. It is assumed
+  that A is a double precision numpy array.
+  '''
+  if A.shape == (0,0):
+    return np.zeros((0,0),dtype=float)
+
+  L = _cholesky(A,lower=True,overwrite_a=False)
+  Ainv_lower,info = dpotri(L,lower=True,overwrite_c=True)
+  if info < 0:
+    raise np.linalg.LinAlgError(
+      'The %s-th argument had an illegal value.' % (-info))
+
+  elif info > 0:
+    raise np.linalg.LinAlgError(
+      'The (%s,%s) element of the factor U or L is zero, and the '
+      'inverse could not be computed.' % (info,info))
+
+  else:
+    # the decomposition exited successfully
+    # reflect Ainv_lower over the diagonal      
+    Ainv = Ainv_lower + Ainv_lower.T - np.diag(Ainv_lower.diagonal())
+    return Ainv
+
+
+def _cholesky_block_inv(P,Q):
+  ''' 
+  Efficiently inverts the matrix
+  
+         | P   Q | 
+    A =  | Q.T 0 |
+    
+  Where P is a (n,n) positive definite matrix and Q is a (m,n) matrix.
+  This is done by partitioning the matrix inverse and then using the
+  cholesky decomposition to compute each components of the inverse. It
+  is assumed that *P* and *Q* are double precision numpy arrays.
+  '''
+  n,m = Q.shape
+  if n < m:
+    raise np.linalg.LinAlgError(
+      'There are fewer rows than columns in *Q*. This makes the '
+      'block matrix singular, and its inverse cannot be computed.')
+
+  Pinv  =  _cholesky_inv(P)
+  PinvQ =  Pinv.dot(Q)
+  B     = -_cholesky_inv(Q.T.dot(PinvQ))
+  C     = -PinvQ.dot(B)
+
+  out   = np.empty((n+m,n+m))
+  out[:n,:n] = Pinv - C.dot(PinvQ.T)
+  out[:n,n:] = C
+  out[n:,:n] = C.T
+  out[n:,n:] = B
+  return out
 
 
 def _trisolve(G,d,*args,**kwargs):
@@ -477,7 +552,7 @@ def _sample(mean,cov):
   Draws a random sample from the Gaussian process with the specified 
   mean and covariance.
   '''   
-  L = _cholesky(cov,lower=True,check_finite=False)
+  L = _cholesky(cov,lower=True)
   w = np.random.normal(0.0,1.0,mean.shape[0])
   u = mean + L.dot(w)
   return u
@@ -621,35 +696,26 @@ def _differentiate(gp,d):
   return out
 
 
-def _condition(gp,y,d,sigma_noise,p_noise,obs_diff):
+def _condition(gp,y,d,sigma,p,obs_diff):
   '''   
   Returns a conditioned *GaussianProcess*.
   '''
   @Memoize
   def precompute():
     ''' 
-    do as many calculations as possible without yet knowning where the 
-    interpolation points will be.
+    do as many calculations as possible without yet knowning where the
+    interpolation points will be. 
     '''
-    # compute K_y_inv
+    # This function is memoized so that I can easily dereference the
+    # kernel inverse matrix with "clear_caches". 
     Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
-    p_y   = gp._basis(y,obs_diff)
-    q,m,v = d.shape[0],p_y.shape[1],p_noise.shape[1]
-    p_y = np.hstack((p_y,p_noise)) 
-    K_y = np.zeros((q+m+v,q+m+v))
-    K_y[:q,:q] = Cu_yy + sigma_noise
-    K_y[:q,q:] = p_y
-    K_y[q:,:q] = p_y.T
-    try:
-      K_y_inv = np.linalg.inv(K_y)[:q+m,:q+m]
-      
-    except np.linalg.LinAlgError:
-      raise np.linalg.LinAlgError(
-        'Failed to compute the inverse of K. This could be because '
-        'the data is not able to constrain the basis functions. This '
-        'error could also be caused by noise-free observations that '
-        'are inconsistent with the Gaussian process.')
-
+    p_y = gp._basis(y,obs_diff)
+    q = y.shape[0] # number of observations
+    m = p_y.shape[1] # number of signal basis vectors
+    A = Cu_yy + sigma # covariance for signal and noise
+    B = np.hstack((p_y,p)) # basis vectors for signal and noise
+    # compute kernel inverse
+    K_y_inv = _cholesky_block_inv(A,B)[:q+m,:q+m]
     # compute r
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
@@ -658,20 +724,20 @@ def _condition(gp,y,d,sigma_noise,p_noise,obs_diff):
   def mean(x,diff):
     K_y_inv,r = precompute()
     Cu_xy = gp._covariance(x,y,diff,obs_diff)
-    p_x   = gp._basis(x,diff)
-    k_xy  = np.hstack((Cu_xy,p_x))
-    out   = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
+    p_x = gp._basis(x,diff)
+    k_xy = np.hstack((Cu_xy,p_x))
+    out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
   def covariance(x1,x2,diff1,diff2):
     K_y_inv,r = precompute()
     Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
-    Cu_x1y  = gp._covariance(x1,y,diff1,obs_diff)
-    Cu_x2y  = gp._covariance(x2,y,diff2,obs_diff)
-    p_x1    = gp._basis(x1,diff1)
-    p_x2    = gp._basis(x2,diff2)
-    k_x1y   = np.hstack((Cu_x1y,p_x1))
-    k_x2y   = np.hstack((Cu_x2y,p_x2))
+    Cu_x1y = gp._covariance(x1,y,diff1,obs_diff)
+    Cu_x2y = gp._covariance(x2,y,diff2,obs_diff)
+    p_x1 = gp._basis(x1,diff1)
+    p_x2 = gp._basis(x2,diff2)
+    k_x1y = np.hstack((Cu_x1y,p_x1))
+    k_x2y = np.hstack((Cu_x2y,p_x2))
     out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
   
@@ -1439,6 +1505,17 @@ class GaussianProcess(object):
     out = _is_positive_definite(cov)
     return out  
     
+  def memoize(self):
+    ''' 
+    Memoizes the *_mean*, *_covariance*, and *_basis* methods for this
+    *GaussianProcess*. This can improve performance by cutting out
+    redundant computations, but it may also increase memory
+    consumption.
+    '''
+    self._mean = Memoize(self._mean)
+    self._covariance = Memoize(self._covariance)
+    self._basis = Memoize(self._basis)
+
 
 def gpiso(phi,params,dim=None):
   ''' 
