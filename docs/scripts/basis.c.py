@@ -1,5 +1,7 @@
 ''' 
 In this script we define and plot a Matern RBF.
+
+THIS SCRIPT IS CURRENTLY BROKEN!
 '''
 import numpy as np
 from sympy import besselk,Piecewise,exp

@@ -35,13 +35,14 @@ from __future__ import division
 from scipy.special import kv,iv
 from rbf.poly import powers
 import sympy 
+from sympy.utilities.autowrap import ufuncify
 import numpy as np 
-import warnings
 
+# NO LONGER USED
 # lookup table to find numerical equivalents to symbolic functions.
 # This only defines functions which are not part of numpy.
-LAMBDIFY_LUT = {'besselk':kv,
-                'besseli':iv}
+_LAMBDIFY_LUT = {'besselk':kv,
+                 'besseli':iv}
 
 
 def _assert_shape(a,shape,label):
@@ -69,6 +70,8 @@ def _assert_shape(a,shape,label):
 
 def _replace_nan(x):
   ''' 
+  NO LONGER USED
+  
   this is orders of magnitude faster than np.nan_to_num
   '''
   x[np.isnan(x)] = 0.0
@@ -77,6 +80,8 @@ def _replace_nan(x):
 
 def _fix_lambdified_output(fin):
   ''' 
+  NO LONGER USED
+  
   when lambdifying a sympy expression, the output is a scalar if the 
   expression is independent of R. This function checks the output of a 
   lambdified function and if the output is a scalar then it expands 
@@ -145,11 +150,11 @@ class RBF(object):
 
   limits : dict, optional
     Contains the limiting value of the RBF as *x* -> *c* for various
-    derivative specifications. For example, *{(0,1):2.0}* indicates
-    that the limit of the y derivative in two-dimensional space is
-    2.0. If this dictionary is provided and *tol* is not None, then it
-    will be searched before attempting to symbolically compute the
-    limits.
+    derivative specifications. For example, *{(0,1):2*eps}* indicates
+    that the limit of the derivative along the second basis direction
+    in two-dimensional space is *2*eps*. If this dictionary is
+    provided and *tol* is not None, then it will be searched before
+    attempting to symbolically compute the limits.
     
   Examples
   --------
@@ -249,14 +254,6 @@ class RBF(object):
     cached and then reused when this function is called again with the 
     same derivative specification.
 
-    2. All NaNs are replaced with zeros and divide by zero warnings 
-    are suppressed. This is an ad-hoc, but fast, way to handle the 
-    removable singularity with polyharmonic splines, and it does not 
-    require symbolically calculating the limit at the singularity. 
-    This is not guaranteed to produce the correct result at the 
-    singularity, and one may prefer to handle the singularity 
-    separately by setting a value for *tol*.
-
     '''
     x = np.asarray(x,dtype=float)
     _assert_shape(x,(None,None),'x')
@@ -266,6 +263,7 @@ class RBF(object):
     if np.isscalar(eps):
       # makes eps an array of constant values
       eps = np.full(c.shape[0],eps,dtype=float)
+
     else:  
       eps = np.asarray(eps,dtype=float)
 
@@ -273,6 +271,7 @@ class RBF(object):
 
     if diff is None:
       diff = (0,)*x.shape[1]
+
     else:
       # make sure diff is immutable
       diff = tuple(diff)
@@ -286,15 +285,7 @@ class RBF(object):
       self.add_diff_to_cache(diff)
  
     args = (tuple(x)+tuple(c)+(eps,))
-    # ignore divide by zero warnings and then replace nans with zeros. 
-    # This is an ad-hoc (but fast!) way of handling the removable 
-    # singularity in polyharmonic splines. A more appropriate way to 
-    # handle the singularity is by specifying *tol*.
-    with warnings.catch_warnings():
-      warnings.simplefilter("ignore")
-      out = self.cache[diff](*args)
-      out = _replace_nan(out) 
-      
+    out = self.cache[diff](*args)
     return out
 
   def __repr__(self):
@@ -347,8 +338,7 @@ class RBF(object):
       # _R<tol and expr otherwise
       expr = sympy.Piecewise((lim,r_sym<self.tol),(expr,True)) 
       
-    func = sympy.lambdify(x_sym+c_sym+(_EPS,),expr,['numpy',LAMBDIFY_LUT])
-    func = _fix_lambdified_output(func)
+    func = ufuncify(x_sym+c_sym+(_EPS,),expr)
     self.cache[diff] = func
     
 
@@ -371,51 +361,51 @@ mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS))
 mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS))
 
 # set some known limits so that sympy does not need to compute them
-#phs1.tol = 1e-10
-#for i in powers(0,1): phs1.limits[tuple(i)] = 0.0
-#for i in powers(0,2): phs1.limits[tuple(i)] = 0.0
-#for i in powers(0,3): phs1.limits[tuple(i)] = 0.0
-#
-#phs2.tol = 1e-10
-#for i in powers(1,1): phs2.limits[tuple(i)] = 0.0
-#for i in powers(1,2): phs2.limits[tuple(i)] = 0.0
-#for i in powers(1,3): phs2.limits[tuple(i)] = 0.0
-#
-#phs3.tol = 1e-10
-#for i in powers(2,1): phs3.limits[tuple(i)] = 0.0
-#for i in powers(2,2): phs3.limits[tuple(i)] = 0.0
-#for i in powers(2,3): phs3.limits[tuple(i)] = 0.0
-#
-#phs4.tol = 1e-10
-#for i in powers(3,1): phs4.limits[tuple(i)] = 0.0
-#for i in powers(3,2): phs4.limits[tuple(i)] = 0.0
-#for i in powers(3,3): phs4.limits[tuple(i)] = 0.0
-#
-#phs5.tol = 1e-10
-#for i in powers(4,1): phs5.limits[tuple(i)] = 0.0
-#for i in powers(4,2): phs5.limits[tuple(i)] = 0.0
-#for i in powers(4,3): phs5.limits[tuple(i)] = 0.0
-#
-#phs6.tol = 1e-10
-#for i in powers(5,1): phs6.limits[tuple(i)] = 0.0
-#for i in powers(5,2): phs6.limits[tuple(i)] = 0.0
-#for i in powers(5,3): phs6.limits[tuple(i)] = 0.0
-#
-#phs7.tol = 1e-10
-#for i in powers(6,1): phs7.limits[tuple(i)] = 0.0
-#for i in powers(6,2): phs7.limits[tuple(i)] = 0.0
-#for i in powers(6,3): phs7.limits[tuple(i)] = 0.0
-#
-#phs8.tol = 1e-10
-#for i in powers(7,1): phs8.limits[tuple(i)] = 0.0
-#for i in powers(7,2): phs8.limits[tuple(i)] = 0.0
-#for i in powers(7,3): phs8.limits[tuple(i)] = 0.0
+phs1.tol = 1e-10
+for i in powers(0,1): phs1.limits[tuple(i)] = 0
+for i in powers(0,2): phs1.limits[tuple(i)] = 0
+for i in powers(0,3): phs1.limits[tuple(i)] = 0
+
+phs2.tol = 1e-10
+for i in powers(1,1): phs2.limits[tuple(i)] = 0
+for i in powers(1,2): phs2.limits[tuple(i)] = 0
+for i in powers(1,3): phs2.limits[tuple(i)] = 0
+
+phs3.tol = 1e-10
+for i in powers(2,1): phs3.limits[tuple(i)] = 0
+for i in powers(2,2): phs3.limits[tuple(i)] = 0
+for i in powers(2,3): phs3.limits[tuple(i)] = 0
+
+phs4.tol = 1e-10
+for i in powers(3,1): phs4.limits[tuple(i)] = 0
+for i in powers(3,2): phs4.limits[tuple(i)] = 0
+for i in powers(3,3): phs4.limits[tuple(i)] = 0
+
+phs5.tol = 1e-10
+for i in powers(4,1): phs5.limits[tuple(i)] = 0
+for i in powers(4,2): phs5.limits[tuple(i)] = 0
+for i in powers(4,3): phs5.limits[tuple(i)] = 0
+
+phs6.tol = 1e-10
+for i in powers(5,1): phs6.limits[tuple(i)] = 0
+for i in powers(5,2): phs6.limits[tuple(i)] = 0
+for i in powers(5,3): phs6.limits[tuple(i)] = 0
+
+phs7.tol = 1e-10
+for i in powers(6,1): phs7.limits[tuple(i)] = 0
+for i in powers(6,2): phs7.limits[tuple(i)] = 0
+for i in powers(6,3): phs7.limits[tuple(i)] = 0
+
+phs8.tol = 1e-10
+for i in powers(7,1): phs8.limits[tuple(i)] = 0
+for i in powers(7,2): phs8.limits[tuple(i)] = 0
+for i in powers(7,3): phs8.limits[tuple(i)] = 0
 
 mat32.tol = 1e-10
-mat32.limits = {(0,):1.0, (1,):0.0, (2,):-3.0,
-                (0,0):1.0, (1,0):0.0, (0,1):0.0, (2,0):-3.0, (0,2):-3.0, (1,1):0.0}
+mat32.limits = {(0,):1, (1,):0, (2,):-3/_EPS**2,
+                (0,0):1, (1,0):0, (0,1):0, (2,0):-3/_EPS**2, (0,2):-3/_EPS**2, (1,1):0}
 
 mat52.tol = 1e-10
-mat52.limits = {(0,):1.0, (1,):0.0, (2,):-5.0/3.0, (3,):0.0, (4,):25.0,
-                (0,0):1.0, (1,0):0.0, (0,1):0.0, (2,0):-5.0/3.0, (0,2):-5.0/3.0, (1,1):0.0}
+mat52.limits = {(0,):1, (1,):0, (2,):-5/(3*_EPS**2), (3,):0, (4,):25/_EPS**4,
+                (0,0):1, (1,0):0, (0,1):0, (2,0):-5/(3*_EPS**2), (0,2):-5/(3*_EPS**2), (1,1):0}
                      
