@@ -182,9 +182,9 @@ class RBF(object):
   >>> sinc = RBF(sinc_expr) # instantiate WITHOUT specifying *tol*
   >>> x = np.array([[-1.0],[0.0],[1.0]])
   >>> c = np.array([[0.0]])
-  >>> sinc(x,c) # this incorrectly evaluates to 0.0 at the center
+  >>> sinc(x,c) # this incorrectly evaluates to nan at the center
   array([[ 0.84147098],
-         [ 0.        ],
+         [        nan],
          [ 0.84147098]])
 
   >>> sinc = RBF(sinc_expr,tol=1e-10) # instantiate specifying *tol*
