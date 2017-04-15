@@ -479,15 +479,16 @@ def _cholesky(A,retry=True,**kwargs):
     return L
 
 
-def _cholesky_inv(A):
+def _cholesky_inv(A,**kwargs):
   ''' 
   Returns the inverse of the positive definite matrix. It is assumed
-  that A is a double precision numpy array.
+  that A is a double precision numpy array. additional arguments
+  passed to _cholesky.
   '''
   if A.shape == (0,0):
     return np.zeros((0,0),dtype=float)
 
-  L = _cholesky(A,lower=True,overwrite_a=False)
+  L = _cholesky(A,lower=True,**kwargs)
   Ainv_lower,info = dpotri(L,lower=True,overwrite_c=True)
   if info < 0:
     raise np.linalg.LinAlgError(
@@ -505,7 +506,7 @@ def _cholesky_inv(A):
     return Ainv
 
 
-def _cholesky_block_inv(P,Q):
+def _cholesky_block_inv(P,Q,overwrite_p=False,retry=True):
   ''' 
   Efficiently inverts the matrix
   
@@ -516,6 +517,7 @@ def _cholesky_block_inv(P,Q):
   This is done by partitioning the matrix inverse and then using the
   cholesky decomposition to compute each components of the inverse. It
   is assumed that *P* and *Q* are double precision numpy arrays.
+  Additional arguments passed to _cholesky_inv.
   '''
   n,m = Q.shape
   if n < m:
@@ -523,9 +525,9 @@ def _cholesky_block_inv(P,Q):
       'There are fewer rows than columns in *Q*. This makes the '
       'block matrix singular, and its inverse cannot be computed.')
 
-  Pinv  =  _cholesky_inv(P)
+  Pinv  =  _cholesky_inv(P,overwrite_a=overwrite_p,retry=retry)
   PinvQ =  Pinv.dot(Q)
-  B     = -_cholesky_inv(Q.T.dot(PinvQ))
+  B     = -_cholesky_inv(Q.T.dot(PinvQ),overwrite_a=True,retry=retry)
   C     = -PinvQ.dot(B)
 
   out   = np.empty((n+m,n+m))
@@ -552,7 +554,7 @@ def _sample(mean,cov):
   Draws a random sample from the Gaussian process with the specified 
   mean and covariance.
   '''   
-  L = _cholesky(cov,lower=True)
+  L = _cholesky(cov,lower=True,overwrite_a=True)
   w = np.random.normal(0.0,1.0,mean.shape[0])
   u = mean + L.dot(w)
   return u
@@ -715,7 +717,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     A = Cu_yy + sigma # covariance for signal and noise
     B = np.hstack((p_y,p)) # basis vectors for signal and noise
     # compute kernel inverse
-    K_y_inv = _cholesky_block_inv(A,B)[:q+m,:q+m]
+    K_y_inv = _cholesky_block_inv(A,B,overwrite_p=True)[:q+m,:q+m]
     # compute r
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
@@ -851,10 +853,10 @@ def likelihood(d,mu,sigma,p=None):
   B = _trisolve(A,p,lower=True)          # B.T.dot(B) = 
                                          #   p.T.dot(inv(sigma)).dot(p)
                                          
-  C = _cholesky(B.T.dot(B),lower=True)   # C.dot(C.T) = 
+  C = _cholesky(B.T.dot(B),lower=True,overwrite_a=True)   # C.dot(C.T) = 
                                          #   p.T.dot(inv(sigma)).dot(p)
                                          
-  D = _cholesky(p.T.dot(p),lower=True)   # D.dot(D.T) = 
+  D = _cholesky(p.T.dot(p),lower=True,overwrite_a=True)   # D.dot(D.T) = 
                                          #   p.T.dot(p)
                                          
   a = _trisolve(A,d-mu,lower=True)       # a.T.dot(a) = 
