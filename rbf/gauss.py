@@ -479,7 +479,7 @@ def _cholesky(A,retry=True,**kwargs):
     return L
 
 
-def _cholesky_inv(A,**kwargs):
+def _cholesky_inv(A,overwrite_a=False,retry=True):
   ''' 
   Returns the inverse of the positive definite matrix. It is assumed
   that A is a double precision numpy array. additional arguments
@@ -488,8 +488,8 @@ def _cholesky_inv(A,**kwargs):
   if A.shape == (0,0):
     return np.zeros((0,0),dtype=float)
 
-  L = _cholesky(A,lower=True,**kwargs)
-  Ainv_lower,info = dpotri(L,lower=True,overwrite_c=True)
+  L = _cholesky(A,lower=True,overwrite_a=overwrite_a,retry=retry)
+  Ainv,info = dpotri(L,lower=True,overwrite_c=True)
   if info < 0:
     raise np.linalg.LinAlgError(
       'The %s-th argument had an illegal value.' % (-info))
@@ -501,8 +501,13 @@ def _cholesky_inv(A,**kwargs):
 
   else:
     # the decomposition exited successfully
-    # reflect Ainv_lower over the diagonal      
-    Ainv = Ainv_lower + Ainv_lower.T - np.diag(Ainv_lower.diagonal())
+    # reflect Ainv over the diagonal      
+    Ainv += Ainv.T
+    # The diagonal is twice what it should be
+    d = Ainv.diagonal()
+    # d is a read-only vector of the diagonals of Ainv
+    d.flags.writeable = True
+    d /= 2.0
     return Ainv
 
 
@@ -554,7 +559,7 @@ def _sample(mean,cov):
   Draws a random sample from the Gaussian process with the specified 
   mean and covariance.
   '''   
-  L = _cholesky(cov,lower=True,overwrite_a=True)
+  L = _cholesky(cov,lower=True)
   w = np.random.normal(0.0,1.0,mean.shape[0])
   u = mean + L.dot(w)
   return u
@@ -717,7 +722,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     A = Cu_yy + sigma # covariance for signal and noise
     B = np.hstack((p_y,p)) # basis vectors for signal and noise
     # compute kernel inverse
-    K_y_inv = _cholesky_block_inv(A,B,overwrite_p=True)[:q+m,:q+m]
+    K_y_inv = _cholesky_block_inv(A,B)[:q+m,:q+m]
     # compute r
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
@@ -853,10 +858,10 @@ def likelihood(d,mu,sigma,p=None):
   B = _trisolve(A,p,lower=True)          # B.T.dot(B) = 
                                          #   p.T.dot(inv(sigma)).dot(p)
                                          
-  C = _cholesky(B.T.dot(B),lower=True,overwrite_a=True)   # C.dot(C.T) = 
+  C = _cholesky(B.T.dot(B),lower=True)   # C.dot(C.T) = 
                                          #   p.T.dot(inv(sigma)).dot(p)
                                          
-  D = _cholesky(p.T.dot(p),lower=True,overwrite_a=True)   # D.dot(D.T) = 
+  D = _cholesky(p.T.dot(p),lower=True)   # D.dot(D.T) = 
                                          #   p.T.dot(p)
                                          
   a = _trisolve(A,d-mu,lower=True)       # a.T.dot(a) = 
