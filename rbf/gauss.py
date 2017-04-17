@@ -504,7 +504,10 @@ def _cholesky_inv(A,overwrite_a=False,retry=True):
     # the decomposition exited successfully
     # reflect Ainv over the diagonal      
     Ainv = Ainv_lower + Ainv_lower.T
-    Ainv[range(n),range(n)] /= 2.0
+    # the diagonals are twice as big as they should be
+    d = Ainv.diagonal()
+    d.flags.writeable = True
+    d /= 2.0
     return Ainv
 
 
