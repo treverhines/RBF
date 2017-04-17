@@ -485,11 +485,12 @@ def _cholesky_inv(A,overwrite_a=False,retry=True):
   that A is a double precision numpy array. additional arguments
   passed to _cholesky.
   '''
-  if A.shape == (0,0):
+  n,m = A.shape
+  if (n,m) == (0,0):
     return np.zeros((0,0),dtype=float)
 
   L = _cholesky(A,lower=True,overwrite_a=overwrite_a,retry=retry)
-  Ainv,info = dpotri(L,lower=True,overwrite_c=True)
+  Ainv_lower,info = dpotri(L,lower=True,overwrite_c=True)
   if info < 0:
     raise np.linalg.LinAlgError(
       'The %s-th argument had an illegal value.' % (-info))
@@ -502,12 +503,8 @@ def _cholesky_inv(A,overwrite_a=False,retry=True):
   else:
     # the decomposition exited successfully
     # reflect Ainv over the diagonal      
-    Ainv += Ainv.T
-    # The diagonal is twice what it should be
-    d = Ainv.diagonal()
-    # d is a read-only vector of the diagonals of Ainv
-    d.flags.writeable = True
-    d /= 2.0
+    Ainv = Ainv_lower + Ainv_lower.T
+    Ainv[range(n),range(n)] /= 2.0
     return Ainv
 
 
