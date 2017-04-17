@@ -479,15 +479,17 @@ def _cholesky(A,retry=True,**kwargs):
     return L
 
 
-def _cholesky_inv(A):
+def _cholesky_inv(A,overwrite_a=False,retry=True):
   ''' 
   Returns the inverse of the positive definite matrix. It is assumed
-  that A is a double precision numpy array.
+  that A is a double precision numpy array. additional arguments
+  passed to _cholesky.
   '''
-  if A.shape == (0,0):
+  n,m = A.shape
+  if (n,m) == (0,0):
     return np.zeros((0,0),dtype=float)
 
-  L = _cholesky(A,lower=True,overwrite_a=False)
+  L = _cholesky(A,lower=True,overwrite_a=overwrite_a,retry=retry)
   Ainv_lower,info = dpotri(L,lower=True,overwrite_c=True)
   if info < 0:
     raise np.linalg.LinAlgError(
@@ -500,12 +502,13 @@ def _cholesky_inv(A):
 
   else:
     # the decomposition exited successfully
-    # reflect Ainv_lower over the diagonal      
-    Ainv = Ainv_lower + Ainv_lower.T - np.diag(Ainv_lower.diagonal())
+    # reflect Ainv over the diagonal      
+    Ainv = Ainv_lower + Ainv_lower.T
+    Ainv[range(n),range(n)] /= 2.0
     return Ainv
 
 
-def _cholesky_block_inv(P,Q):
+def _cholesky_block_inv(P,Q,overwrite_p=False,retry=True):
   ''' 
   Efficiently inverts the matrix
   
@@ -516,6 +519,7 @@ def _cholesky_block_inv(P,Q):
   This is done by partitioning the matrix inverse and then using the
   cholesky decomposition to compute each components of the inverse. It
   is assumed that *P* and *Q* are double precision numpy arrays.
+  Additional arguments passed to _cholesky_inv.
   '''
   n,m = Q.shape
   if n < m:
@@ -523,9 +527,9 @@ def _cholesky_block_inv(P,Q):
       'There are fewer rows than columns in *Q*. This makes the '
       'block matrix singular, and its inverse cannot be computed.')
 
-  Pinv  =  _cholesky_inv(P)
+  Pinv  =  _cholesky_inv(P,overwrite_a=overwrite_p,retry=retry)
   PinvQ =  Pinv.dot(Q)
-  B     = -_cholesky_inv(Q.T.dot(PinvQ))
+  B     = -_cholesky_inv(Q.T.dot(PinvQ),overwrite_a=True,retry=retry)
   C     = -PinvQ.dot(B)
 
   out   = np.empty((n+m,n+m))
