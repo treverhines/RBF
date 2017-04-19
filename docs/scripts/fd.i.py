@@ -60,7 +60,6 @@ u_itp[~contains(points,vert,smp)] = np.nan
 ug = u_itp.reshape((400,400)) # fold back into a grid
 # make a contour plot of the solution
 fig,ax = plt.subplots()
-ax.scatter(nodes[:,0],nodes[:,1],s=20,c=u_soln)
 p = ax.contourf(xg,yg,ug,cmap='viridis')
 ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
 for s in smp:
