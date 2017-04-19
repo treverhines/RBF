@@ -15,6 +15,7 @@ from scipy.sparse import vstack,hstack
 from scipy.integrate import ode
 from scipy.interpolate import griddata
 from scipy.sparse.linalg import spsolve
+from scipy.sparse import csr_matrix
 import rbf.domain
 
 # lame parameters
@@ -24,7 +25,7 @@ vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],
                  [1.0,1.0],[1.0,2.0],[0.0,2.0]])
 smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]])
 times = np.linspace(0.0,1.0,5) # output times
-N = 50000 # total number of nodes
+N = 5000 # total number of nodes
 nodes,smpid = menodes(N,vert,smp) # generate nodes
 interior = np.nonzero(smpid==-1)[0].tolist() # identify boundary nodes
 boundary = np.nonzero(smpid>=0)[0].tolist() # identify boundary nodes
@@ -39,7 +40,7 @@ ghost = range(N,N+len(boundary)) # ghost node indices
 # create differentiation matrices for the interior and boundary nodes
 D = elastic2d_body_force(nodes[interior+boundary],nodes,lamb=lamb,mu=mu,n=30)
 D = vstack([hstack(d) for d in D])
-dD = elastic2d_surface_force(nodes[boundary],normals,nodes,lamb=lamb,mu=mu,n=4)
+dD = elastic2d_surface_force(nodes[boundary],normals,nodes,lamb=lamb,mu=mu,n=30)
 dD_fuck = vstack([hstack(d) for d in dD]).tocsr()
 dD1 = vstack([hstack([i[:,ghost] for i in j]) for j in dD]).tocsr()
 dD2 = vstack([hstack([i[:,interior+boundary] for i in j]) for j in dD]).tocsr()

@@ -5,6 +5,9 @@ FD (Radial Basis Function Finite Differences)
 
 Examples
 --------
+.. literalinclude:: ../scripts/fd.i.py
+.. image:: ../figures/fd.i.png
+
 .. literalinclude:: ../scripts/fd.a.py
 .. image:: ../figures/fd.a.png
 
