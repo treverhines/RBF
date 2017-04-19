@@ -159,10 +159,6 @@ class RBFInterpolant(object):
 
   Notes
   -----
-  This function involves solving a dense system of equations, which 
-  will be prohibitive for large data sets. See *rbf.filter* for 
-  smoothing large data sets. 
-  
   This function does not make any estimates of the uncertainties on 
   the interpolated values.  See *rbf.gauss* for interpolation with 
   uncertainties.
