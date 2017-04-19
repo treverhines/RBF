@@ -93,7 +93,6 @@ Smoothing Scattered Data
 
 Solving PDEs
 ------------
-
 There are two methods for solving PDEs with RBFs: the spectral method
 and the RBF-FD method. The spectral method has been touted as having
 remarkable accuracy; however it is only applicable for small scale
@@ -104,8 +103,7 @@ polyharmonic splines to generate the weights), and higher order
 accuracy can be attained by simply increasing the stencil size or
 increasing the order of the polynomial used to generate the weights.
 In short, the RBF-FD method should always be preferred over the
-spectral RBF method. An example of the two problems is provided below.
-
+spectral RBF method. An example of the two methods is provided below.
 
 .. code-block:: python
 
