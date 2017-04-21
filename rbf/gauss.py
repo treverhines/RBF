@@ -489,8 +489,11 @@ def _cholesky_inv(A,retry=True):
   if (n,m) == (0,0):
     return np.zeros((0,0),dtype=float)
 
+  # L is now the Cholesky decomposition
   L = _cholesky(A,lower=True,retry=retry)
-  Ainv_lower,info = dpotri(L,lower=True)
+  # L is now the lower components of the inverse. The Cholesky decomp
+  # is being dereferenced and the memory should be freed up
+  L,info = dpotri(L,lower=True)
   if info < 0:
     raise np.linalg.LinAlgError(
       'The %s-th argument had an illegal value.' % (-info))
@@ -502,13 +505,13 @@ def _cholesky_inv(A,retry=True):
 
   else:
     # the decomposition exited successfully
-    # reflect Ainv over the diagonal      
-    Ainv = Ainv_lower + Ainv_lower.T
+    # reflect L over the diagonal      
+    L = L + L.T
     # the diagonals are twice as big as they should be
-    d = Ainv.diagonal()
+    d = L.diagonal()
     d.flags.writeable = True
     d /= 2.0
-    return Ainv
+    return L
 
 
 def _cholesky_block_inv(P,Q,retry=True):
@@ -713,6 +716,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     do as many calculations as possible without yet knowning where the
     interpolation points will be. 
     '''
+    logger.debug('Calculating and caching kernel inverse ...')
     # This function is memoized so that I can easily dereference the
     # kernel inverse matrix with "clear_caches". 
     K_y = gp._covariance(y,y,obs_diff,obs_diff)
@@ -728,6 +732,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
     # return K_y_inv and r
+    logger.debug('Done')
     return K_y,r
     
   def mean(x,diff):
