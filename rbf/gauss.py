@@ -904,6 +904,126 @@ def likelihood(d,mu,sigma,p=None):
   return out
 
 
+def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
+  ''' 
+  Uses a data editing algorithm to identify outliers in *d*. Outliers
+  are considered to be the data that are abnormally inconsistent with
+  the Gaussian process described by *mu* (mean), *sigma* (covariance),
+  and *p* (basis vectors).
+
+  The data editing algorithm first conditions the Gaussian process
+  with the observations, then it compares each residual (*d* minus the
+  expected value of the posterior divided by *sigma*) to the RMS of
+  residuals. Data with residuals greater than *tol* times the RMS are
+  identified as outliers. This process is then repeated using the
+  subset of *d* which were not flagged as outliers. If no new outliers
+  are detected in an iteration then the algorithms stops.
+
+  Parameters
+  ----------  
+  d : (N,) float array
+    Observations
+  
+  s : (N,) float array
+    One standard deviation uncertainty on the observations. INF
+    indicates that the datum should be ignored.
+  
+  mu : (N,) float array, optional
+    Mean of the Gaussian process at the observation points. Defaults
+    to zeros.
+
+  sigma : (N,N) float array, optional
+    Covariance of the Gaussian process at the observation points.
+    Defaults to zeros.
+  
+  p : (N,P) float array, optional
+    Improper basis vectors for the Gaussian process evaluated at the
+    observation points. Defaults to an (N,0) array.
+  
+  tol : float, optional
+    Outlier tolerance. Smaller values make the algorithm more likely
+    to identify outliers. A good value is 4.0 and this should not be
+    set any lower than 2.0.
+  
+  return_fit : bool, optional
+    Indicates whether to also return the expected value of the
+    posterior. 
+    
+  Returns
+  -------
+  out : (N,) bool array
+    Array indicating which data are outliers
+
+  '''
+  d = np.asarray(d,dtype=float)
+  _assert_shape(d,(None,),'d')
+  n = d.shape[0]
+
+  s = np.asarray(s,dtype=float)
+  _assert_shape(s,(n,),'s')
+
+  if mu is None:
+    mu = np.zeros((n,),dtype=float)
+  else:  
+    mu = np.asarray(mu,dtype=float)
+    _assert_shape(mu,(n,),'mu')
+
+  if sigma is None:
+    sigma = np.zeros((n,n),dtype=float)
+  else:
+    sigma = np.asarray(sigma,dtype=float)
+    _assert_shape(sigma,(n,n),'sigma')
+  
+  if p is None:  
+    p = np.zeros((n,0),dtype=float)
+  else:  
+    p = np.asarray(p,dtype=float)
+    _assert_shape(p,(n,None),'p')
+  
+  itr = 1
+  out = np.zeros(d.shape[0],dtype=bool)
+  while True:
+    logger.debug('Starting iteration %s of outlier detection routine' % itr)
+    # mask indicating missing data and outliers
+    mask = np.isinf(s) | out
+    q = sum(~mask)
+
+    # K is the data and gp covariance
+    K = sigma[np.ix_(~mask,~mask)]
+    _diag_add(K,s[~mask]**2)
+
+    # Kinv is the inverse of K augmented with p
+    Kinv = _cholesky_block_inv(K,p[~mask])
+    del K
+
+    # residual of observed and mean 
+    r = np.zeros(q+p.shape[1])
+    r[:q] = d[~mask] - mu[~mask]
+    # dot residual with inverse of the covariances
+    v = Kinv.dot(r)
+    del Kinv,r
+
+    # form prediction vector 
+    fit = mu + sigma[:,~mask].dot(v[:q]) + p.dot(v[q:])
+    res = np.abs(fit - d)/s
+    res[np.isinf(s)] = np.inf
+    rms = np.sqrt(np.mean(res[~mask]**2))
+    if np.all(mask == (res > tol*rms)):
+      break
+
+    else:
+      out = (res > tol*rms) & ~np.isinf(s)
+      itr += 1
+
+  logger.debug('Detected %s outliers out of %s observations' %
+               (sum(out),sum(~np.isinf(s))))
+
+  if return_fit:
+    out = (out,fit)
+    
+  return out
+
+
 class GaussianProcess(object):
   ''' 
   A *GaussianProcess* instance represents a stochastic process which
@@ -1206,7 +1326,7 @@ class GaussianProcess(object):
     out = _condition(self,y,d,sigma,p,obs_diff)
     return out
 
-  def likelihood(self,y,d,sigma=None,p=None,obs_diff=None):
+  def likelihood(self,y,d,sigma=None,p=None):
     ''' 
     Returns the log likelihood of drawing the observations *d* from
     this *GaussianProcess*. The observations could potentially have noise
@@ -1236,10 +1356,6 @@ class GaussianProcess(object):
       to contain some unknown linear combination of the columns of
       *p*. 
       
-    obs_diff : (D,) tuple, optional
-      Derivative of the observations. For example, use (1,) if the 
-      observations constrain the slope of a 1-D Gaussian process.
-
     Returns
     -------
     out : float
@@ -1270,11 +1386,7 @@ class GaussianProcess(object):
       p = np.asarray(p,dtype=float)
       _assert_shape(p,(n,None),'p')
 
-    if obs_diff is None:
-      obs_diff = np.zeros(dim,dtype=int)
-    else:
-      obs_diff = np.asarray(obs_diff,dtype=int)
-      _assert_shape(obs_diff,(dim,),'obs_diff')
+    obs_diff = np.zeros(dim,dtype=int)
 
 	  # find the mean, covariance, and improper basis for the combination
   	# of the Gaussian process and the noise.
@@ -1284,6 +1396,65 @@ class GaussianProcess(object):
     out = likelihood(d,mu,sigma,p=p)
     return out
 
+  def outliers(self,y,d,sigma,tol=4.0):  
+    ''' 
+    Uses a data editing algorithm to identify outliers in *d*.
+    Outliers are considered to be the data that are abnormally
+    inconsistent with the *GaussianProcess*. This method can only be
+    used for data that has nonzero, uncorrelated noise.
+
+    The data editing algorithm first conditions the *GaussianProcess*
+    with the observations, then it compares each residual (*d* minus
+    the expected value of the posterior divided by *sigma*) to the RMS
+    of residuals. Data with residuals greater than *tol* times the RMS
+    are identified as outliers. This process is then repeated using
+    the subset of *d* which were not flagged as outliers. If no new
+    outliers are detected in an iteration then the algorithms stops.
+    
+    Parameters
+    ----------
+    y : (N,D) float array
+      Observation points.
+    
+    d : (N,) float array
+      Observed values at *y*
+    
+    sigma : (N,) float array
+      One standard deviation uncertainty on *d* 
+    
+    tol : float
+      Outlier tolerance. Smaller values make the algorithm more likely
+      to identify outliers. A good value is 4.0 and this should not be
+      set any lower than 2.0.
+    
+    Returns
+    -------
+    out : (N,) bool array
+      Boolean array indicating which data are outliers
+    
+    '''
+    y = np.asarray(y,dtype=float)
+    _assert_shape(y,(None,self.dim),'y')
+    n,dim = y.shape # number of observations and dimensions
+
+    d = np.asarray(d,dtype=float)
+    _assert_shape(d,(n,),'d')
+
+    sigma = np.asarray(sigma,dtype=float)
+    _assert_shape(sigma,(n,),'sigma')
+    
+    obs_diff = np.zeros(dim,dtype=int)
+   
+	  # find the mean, covariance, and improper basis for the combination
+  	# of the Gaussian process and the noise.
+    gp_mu = self._mean(y,obs_diff)
+    gp_sigma = self._covariance(y,y,obs_diff,obs_diff)
+    gp_p = self._basis(y,obs_diff)
+    out = outliers(d,sigma,
+                   mu=gp_mu,sigma=gp_sigma,
+                   p=gp_p,tol=tol)
+    return out
+    
   def basis(self,x,diff=None):
     ''' 
     Returns the improper basis functions evaluated at *x*.
