@@ -479,7 +479,7 @@ def _cholesky(A,retry=True,**kwargs):
     return L
 
 
-def _cholesky_inv(A,overwrite_a=False,retry=True):
+def _cholesky_inv(A,retry=True):
   ''' 
   Returns the inverse of the positive definite matrix. It is assumed
   that A is a double precision numpy array. additional arguments
@@ -489,8 +489,8 @@ def _cholesky_inv(A,overwrite_a=False,retry=True):
   if (n,m) == (0,0):
     return np.zeros((0,0),dtype=float)
 
-  L = _cholesky(A,lower=True,overwrite_a=overwrite_a,retry=retry)
-  Ainv_lower,info = dpotri(L,lower=True,overwrite_c=True)
+  L = _cholesky(A,lower=True,retry=retry)
+  Ainv_lower,info = dpotri(L,lower=True)
   if info < 0:
     raise np.linalg.LinAlgError(
       'The %s-th argument had an illegal value.' % (-info))
@@ -511,7 +511,7 @@ def _cholesky_inv(A,overwrite_a=False,retry=True):
     return Ainv
 
 
-def _cholesky_block_inv(P,Q,overwrite_p=False,retry=True):
+def _cholesky_block_inv(P,Q,retry=True):
   ''' 
   Efficiently inverts the matrix
   
@@ -530,9 +530,9 @@ def _cholesky_block_inv(P,Q,overwrite_p=False,retry=True):
       'There are fewer rows than columns in *Q*. This makes the '
       'block matrix singular, and its inverse cannot be computed.')
 
-  Pinv  =  _cholesky_inv(P,overwrite_a=overwrite_p,retry=retry)
+  Pinv  =  _cholesky_inv(P,retry=retry)
   PinvQ =  Pinv.dot(Q)
-  B     = -_cholesky_inv(Q.T.dot(PinvQ),overwrite_a=True,retry=retry)
+  B     = -_cholesky_inv(Q.T.dot(PinvQ),retry=retry)
   C     = -PinvQ.dot(B)
 
   out   = np.empty((n+m,n+m))
@@ -715,37 +715,39 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     '''
     # This function is memoized so that I can easily dereference the
     # kernel inverse matrix with "clear_caches". 
-    Cu_yy = gp._covariance(y,y,obs_diff,obs_diff)
+    K_y = gp._covariance(y,y,obs_diff,obs_diff)
     p_y = gp._basis(y,obs_diff)
-    q = y.shape[0] # number of observations
+    q = K_y.shape[0] # number of observations
     m = p_y.shape[1] # number of signal basis vectors
-    A = Cu_yy + sigma # covariance for signal and noise
-    B = np.hstack((p_y,p)) # basis vectors for signal and noise
-    # compute kernel inverse
-    K_y_inv = _cholesky_block_inv(A,B)[:q+m,:q+m]
+    K_y = K_y + sigma # covariance for signal and noise
+    p_y = np.hstack((p_y,p)) # basis vectors for signal and noise
+    # compute kernel inverse (but keep the name K_y to dereference old
+    # matrix)
+    K_y = _cholesky_block_inv(K_y,p_y)[:q+m,:q+m]
     # compute r
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
-    return K_y_inv,r
+    # return K_y_inv and r
+    return K_y,r
     
   def mean(x,diff):
     K_y_inv,r = precompute()
-    Cu_xy = gp._covariance(x,y,diff,obs_diff)
+    k_xy = gp._covariance(x,y,diff,obs_diff)
     p_x = gp._basis(x,diff)
-    k_xy = np.hstack((Cu_xy,p_x))
+    k_xy = np.hstack((k_xy,p_x))
     out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
     return out
 
   def covariance(x1,x2,diff1,diff2):
     K_y_inv,r = precompute()
-    Cu_x1x2 = gp._covariance(x1,x2,diff1,diff2)
-    Cu_x1y = gp._covariance(x1,y,diff1,obs_diff)
-    Cu_x2y = gp._covariance(x2,y,diff2,obs_diff)
+    k_x1x2 = gp._covariance(x1,x2,diff1,diff2)
+    k_x1y = gp._covariance(x1,y,diff1,obs_diff)
+    k_x2y = gp._covariance(x2,y,diff2,obs_diff)
     p_x1 = gp._basis(x1,diff1)
     p_x2 = gp._basis(x2,diff2)
-    k_x1y = np.hstack((Cu_x1y,p_x1))
-    k_x2y = np.hstack((Cu_x2y,p_x2))
-    out = Cu_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
+    k_x1y = np.hstack((k_x1y,p_x1))
+    k_x2y = np.hstack((k_x2y,p_x2))
+    out = k_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
     return out
   
   dim = y.shape[1]
