@@ -383,6 +383,27 @@ from scipy.linalg.lapack import dpotri,dpotrf
 logger = logging.getLogger(__name__)
 
 
+def _diag_add(A,d):
+  ''' 
+  Efficiently adds *d* to the diagonals of *A*. *A* is assumed to be a
+  numpy array
+  '''
+  Adiag = A.diagonal()
+  Adiag.flags.writeable=True
+  Adiag += d
+  return 
+
+def _diag_mul(A,d):
+  ''' 
+  Efficiently multiply the diagonals of *A* by *d*. *A* is assumed to
+  be a numpy array
+  '''
+  Adiag = A.diagonal()
+  Adiag.flags.writeable=True
+  Adiag *= d
+  return 
+
+
 def _is_positive_definite(A):
   ''' 
   Tests if *A* is positive definite or nearly positive definite. If 
@@ -417,7 +438,6 @@ def _make_numerically_positive_definite(A):
   
   itr = 0
   maxitr = 10
-  n = A.shape[0]
   # minimum value to add to the diagonals. This is a bound on the 
   # eigenvalue error which results from rounding the values in *A* to 
   # the nearest float. Note that this does not take into account 
@@ -428,7 +448,7 @@ def _make_numerically_positive_definite(A):
     vals = np.linalg.eigvalsh(A)
     if not np.any(vals <= 0.0):
       # exit successfully
-      return A
+      return 
     
     if itr == maxitr:
       # exit with error
@@ -437,11 +457,11 @@ def _make_numerically_positive_definite(A):
         % maxitr)
       
     eps = max(-2*vals.min(),min_eps)
-    # add diagonal components to A. but NOT inplace 
-    A = A + eps*np.eye(n)
+    # add diagonal components to A inplace
+    _diag_add(A,eps)
     itr += 1
 
-
+  
 def _cholesky(A,retry=True,**kwargs):
   ''' 
   Cholesky decomposition which is more forgiving of matrices that are
@@ -462,7 +482,7 @@ def _cholesky(A,retry=True,**kwargs):
         'added to the diagonal and the decomposition will be '
         'attempted again.' % info)
     
-      A = _make_numerically_positive_definite(A)   
+      _make_numerically_positive_definite(A)   
       return _cholesky(A,retry=False,**kwargs)
     
     else:
@@ -489,11 +509,11 @@ def _cholesky_inv(A,retry=True):
   if (n,m) == (0,0):
     return np.zeros((0,0),dtype=float)
 
-  # L is now the Cholesky decomposition
   L = _cholesky(A,lower=True,retry=retry)
-  # L is now the lower components of the inverse. The Cholesky decomp
-  # is being dereferenced and the memory should be freed up
-  L,info = dpotri(L,lower=True)
+  # Linv is the lower triangular components of the inverse.
+  Linv,info = dpotri(L,lower=True)
+  del L
+  
   if info < 0:
     raise np.linalg.LinAlgError(
       'The %s-th argument had an illegal value.' % (-info))
@@ -505,13 +525,11 @@ def _cholesky_inv(A,retry=True):
 
   else:
     # the decomposition exited successfully
-    # reflect L over the diagonal      
-    L = L + L.T
+    # reflect Linv over the diagonal      
+    Linv = Linv + Linv.T
     # the diagonals are twice as big as they should be
-    d = L.diagonal()
-    d.flags.writeable = True
-    d /= 2.0
-    return L
+    _diag_mul(Linv,0.5)
+    return Linv
 
 
 def _cholesky_block_inv(P,Q,retry=True):
@@ -725,15 +743,14 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     m = p_y.shape[1] # number of signal basis vectors
     K_y = K_y + sigma # covariance for signal and noise
     p_y = np.hstack((p_y,p)) # basis vectors for signal and noise
-    # compute kernel inverse (but keep the name K_y to dereference old
-    # matrix)
-    K_y = _cholesky_block_inv(K_y,p_y)[:q+m,:q+m]
+    # compute kernel inverse
+    K_y_inv = _cholesky_block_inv(K_y,p_y)[:q+m,:q+m]
     # compute r
     r = np.zeros(q+m)
     r[:q] = d - gp._mean(y,obs_diff)
     # return K_y_inv and r
     logger.debug('Done')
-    return K_y,r
+    return K_y_inv,r
     
   def mean(x,diff):
     K_y_inv,r = precompute()
