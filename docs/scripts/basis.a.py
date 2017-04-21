@@ -39,7 +39,7 @@ u[~contains(points,vert,smp)] = np.nan # mask outside points
 ug = u.reshape((400,400)) # fold back into a grid
 # make a contour plot of the solution
 fig,ax = plt.subplots()
-p = ax.contourf(xg,yg,ug,cmap='viridis')
+p = ax.contourf(xg,yg,ug,np.linspace(0.0,0.16,9),cmap='viridis')
 ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
 for s in smp:
   ax.plot(vert[s,0],vert[s,1],'k-',lw=2)

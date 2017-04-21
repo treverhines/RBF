@@ -909,7 +909,8 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
   Uses a data editing algorithm to identify outliers in *d*. Outliers
   are considered to be the data that are abnormally inconsistent with
   the Gaussian process described by *mu* (mean), *sigma* (covariance),
-  and *p* (basis vectors).
+  and *p* (basis vectors). THis function can only be used for data
+  with nonzero, uncorrelated noise.
 
   The data editing algorithm first conditions the Gaussian process
   with the observations, then it compares each residual (*d* minus the
@@ -917,7 +918,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
   residuals. Data with residuals greater than *tol* times the RMS are
   identified as outliers. This process is then repeated using the
   subset of *d* which were not flagged as outliers. If no new outliers
-  are detected in an iteration then the algorithms stops.
+  are detected in an iteration then the algorithm stops.
 
   Parameters
   ----------  
