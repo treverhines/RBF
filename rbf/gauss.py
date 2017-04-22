@@ -475,7 +475,7 @@ def _cholesky(A,retry=True,**kwargs):
   if info > 0:  
     # info > 0 means that *A* is not positive definite
     if retry:
-      logger.info(
+      warnings.warn(
         'The leading minor of order %s is not positive definite, and '
         'the factorization could not be completed. This may be the '
         'result of numerical rounding error. Small values will be '
