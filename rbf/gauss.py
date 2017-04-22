@@ -909,7 +909,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
   Uses a data editing algorithm to identify outliers in *d*. Outliers
   are considered to be the data that are abnormally inconsistent with
   the Gaussian process described by *mu* (mean), *sigma* (covariance),
-  and *p* (basis vectors). THis function can only be used for data
+  and *p* (basis vectors). This function can only be used for data
   with nonzero, uncorrelated noise.
 
   The data editing algorithm first conditions the Gaussian process
@@ -926,8 +926,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
     Observations
   
   s : (N,) float array
-    One standard deviation uncertainty on the observations. INF
-    indicates that the datum should be ignored.
+    One standard deviation uncertainty on the observations. 
   
   mu : (N,) float array, optional
     Mean of the Gaussian process at the observation points. Defaults
@@ -985,31 +984,28 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
   out = np.zeros(d.shape[0],dtype=bool)
   while True:
     logger.debug('Starting iteration %s of outlier detection routine' % itr)
-    # mask indicating missing data and outliers
-    mask = np.isinf(s) | out
-    q = sum(~mask)
+    q = sum(~out)
 
     # K is the data and gp covariance
-    K = sigma[np.ix_(~mask,~mask)]
-    _diag_add(K,s[~mask]**2)
+    K = sigma[np.ix_(~out,~out)]
+    _diag_add(K,s[~out]**2)
 
     # Kinv is the inverse of K augmented with p
-    Kinv = _cholesky_block_inv(K,p[~mask])
+    Kinv = _cholesky_block_inv(K,p[~out])
     del K
 
     # residual of observed and mean 
     r = np.zeros(q+p.shape[1])
-    r[:q] = d[~mask] - mu[~mask]
+    r[:q] = d[~out] - mu[~out]
     # dot residual with inverse of the covariances
     v = Kinv.dot(r)
     del Kinv,r
 
     # form prediction vector 
-    fit = mu + sigma[:,~mask].dot(v[:q]) + p.dot(v[q:])
+    fit = mu + sigma[:,~out].dot(v[:q]) + p.dot(v[q:])
     res = np.abs(fit - d)/s
-    res[np.isinf(s)] = np.inf
-    rms = np.sqrt(np.mean(res[~mask]**2))
-    if np.all(mask == (res > tol*rms)):
+    rms = np.sqrt(np.mean(res[~out]**2))
+    if np.all(out == (res > tol*rms)):
       break
 
     else:
@@ -1017,7 +1013,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
       itr += 1
 
   logger.debug('Detected %s outliers out of %s observations' %
-               (sum(out),sum(~np.isinf(s))))
+               (sum(out),len(out)))
 
   if return_fit:
     out = (out,fit)
