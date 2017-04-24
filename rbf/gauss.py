@@ -904,7 +904,7 @@ def likelihood(d,mu,sigma,p=None):
   return out
 
 
-def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
+def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   ''' 
   Uses a data editing algorithm to identify outliers in *d*. Outliers
   are considered to be the data that are abnormally inconsistent with
@@ -945,10 +945,6 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
     to identify outliers. A good value is 4.0 and this should not be
     set any lower than 2.0.
   
-  return_fit : bool, optional
-    Indicates whether to also return the expected value of the
-    posterior. 
-    
   Returns
   -------
   out : (N,) bool array
@@ -1015,9 +1011,6 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,return_fit=False):
   logger.debug('Detected %s outliers out of %s observations' %
                (sum(out),len(out)))
 
-  if return_fit:
-    out = (out,fit)
-    
   return out
 
 
