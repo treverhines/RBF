@@ -846,6 +846,13 @@ def likelihood(d,mu,sigma,p=None):
     Improper basis vectors. If specified, then *d* is assumed to
     contain some unknown linear combination of the columns of *p*.
 
+  Notes
+  -----
+  Unlike other functions in this module, if the covariance matrix is
+  not numerically positive definite then this function will fail with
+  an error rather than trying to coerce it into a positive definite
+  matrix.
+
   References
   ----------
   [1] Harville D. (1974). Bayesian Inference of Variance Components
@@ -876,16 +883,16 @@ def likelihood(d,mu,sigma,p=None):
   _assert_shape(p,(d.shape[0],None),'p')
   
   n,m = p.shape
-  A = _cholesky(sigma,lower=True)        # A.dot(A.T) = 
+  A = _cholesky(sigma,lower=True,retry=False)        # A.dot(A.T) = 
                                          #   sigma
                                          
   B = _trisolve(A,p,lower=True)          # B.T.dot(B) = 
                                          #   p.T.dot(inv(sigma)).dot(p)
                                          
-  C = _cholesky(B.T.dot(B),lower=True)   # C.dot(C.T) = 
+  C = _cholesky(B.T.dot(B),lower=True,retry=False)   # C.dot(C.T) = 
                                          #   p.T.dot(inv(sigma)).dot(p)
                                          
-  D = _cholesky(p.T.dot(p),lower=True)   # D.dot(D.T) = 
+  D = _cholesky(p.T.dot(p),lower=True,retry=False)   # D.dot(D.T) = 
                                          #   p.T.dot(p)
                                          
   a = _trisolve(A,d-mu,lower=True)       # a.T.dot(a) = 
