@@ -1048,7 +1048,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   # total number of outlier detection iterations
   itr = 1
   # boolean array indicating outliers
-  out = np.zeros(d.shape[0],dtype=bool)
+  out = np.zeros(n,dtype=bool)
   while True:
     logger.debug('Starting iteration %s of outlier detection routine' % itr)
     # C is the data and gp covariance
