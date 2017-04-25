@@ -587,23 +587,6 @@ def _cholesky_block_inv(P,Q,retry=True):
   return out
 
 
-def _block_transpose(A):
-  ''' 
-  Block matrix transpose
-  
-  Parameters
-  ----------
-  A : (N,M) nested list of numpy arrays 
-  '''
-  Arow,Acol = np.shape(A)
-  out = [[None for i in range(Arow)] for j in range(Acol)]
-  for i in range(Arow):
-    for j in range(Acol):
-      out[j][i] = A[i][j].transpose()
-
-  return out
-
-
 def _block_dot(A,B):
   ''' 
   Block matrix multiplication. 
@@ -625,10 +608,6 @@ def _block_dot(A,B):
       # allocate array for the dot product
       out[i][j] = np.zeros((A[i][0].shape[0],B[0][j].shape[1])) 
       for k in range(Acol):
-        print('A')
-        print(A[i][k].shape)
-        print('B')
-        print(B[k][j].shape)
         # do inplace addition if possible
         out[i][j] += A[i][k].dot(B[k][j])
 
