@@ -1078,7 +1078,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
       break
 
     else:
-      out = (res > tol*rms) & ~np.isinf(s)
+      out = res > tol*rms
       itr += 1
 
   logger.debug('Detected %s outliers out of %s observations' %
