@@ -139,14 +139,15 @@ class RBF(object):
     *sympy.symbols('eps')*.  If *eps* is not provided then *r* is
     substituted with *r* * *eps*.
   
-  tol : float, optional  
-    If an evaluation point, *x*, is within *tol* of an RBF center, 
-    *c*, then *x* is considered equal to *c*. The returned value is 
-    the RBF at the symbolically evaluated limit as *x* -> *c*. This is 
-    only useful when there is a removable singularity at *c*, such as 
-    for polyharmonic splines. If *tol* is not provided then there will 
-    be no special treatment for when *x* is close to *c*. Note that 
+  tol : float or sympy expression, optional  
+    If an evaluation point, *x*, is within *tol* of an RBF center,
+    *c*, then *x* is considered equal to *c*. The returned value is
+    the RBF at the symbolically evaluated limit as *x* -> *c*. This is
+    useful when there is a removable singularity at *c*, such as for
+    polyharmonic splines. If *tol* is not provided then there will be
+    no special treatment for when *x* is close to *c*. Note that
     computing the limit as *x* -> *c* can be very time intensive.
+    *tol* can be a float or a sympy expression containing *eps*.
 
   limits : dict, optional
     Contains the limiting value of the RBF as *x* -> *c* for various
@@ -210,6 +211,14 @@ class RBF(object):
     if not expr.has(_EPS):
       # if eps is not in the expression then substitute eps*r for r
       expr = expr.subs(_R,_EPS*_R)
+      
+    if tol is not None:
+      # make sure *tol* is a scalar or a sympy expression of *eps*
+      tol = sympy.sympify(tol)
+      other_symbols = tol.free_symbols.difference({_EPS})
+      if len(other_symbols) != 0:
+        raise ValueError(
+          '*tol* cannot contain any symbols other than *eps*')
       
     if limits is None:
       limits = {}
@@ -401,11 +410,11 @@ for i in powers(7,1): phs8.limits[tuple(i)] = 0
 for i in powers(7,2): phs8.limits[tuple(i)] = 0
 for i in powers(7,3): phs8.limits[tuple(i)] = 0
 
-mat32.tol = 1e-10
+mat32.tol = 1e-10*_EPS
 mat32.limits = {(0,):1, (1,):0, (2,):-3/_EPS**2,
                 (0,0):1, (1,0):0, (0,1):0, (2,0):-3/_EPS**2, (0,2):-3/_EPS**2, (1,1):0}
 
-mat52.tol = 1e-10
+mat52.tol = 1e-10*_EPS
 mat52.limits = {(0,):1, (1,):0, (2,):-5/(3*_EPS**2), (3,):0, (4,):25/_EPS**4,
                 (0,0):1, (1,0):0, (0,1):0, (2,0):-5/(3*_EPS**2), (0,2):-5/(3*_EPS**2), (1,1):0}
                      
