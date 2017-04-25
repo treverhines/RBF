@@ -378,8 +378,7 @@ import logging
 import weakref
 import inspect
 from rbf.basis import _assert_shape
-from scipy.linalg import solve_triangular 
-from scipy.linalg.lapack import dpotri,dpotrf
+from scipy.linalg.lapack import dpotri,dpotrf,dtrtrs
 logger = logging.getLogger(__name__)
 
 
@@ -416,8 +415,10 @@ def _is_positive_definite(A):
   tol = max(0.0001*vals.real.max(),min_tol)
   if np.any(vals.real < -tol):
     return False
+ 
   elif np.any(np.abs(vals.imag) > tol):
     return False
+
   else:
     return True
 
@@ -462,6 +463,31 @@ def _make_numerically_positive_definite(A):
     itr += 1
 
   
+def _trisolve(G,d,**kwargs):
+  ''' 
+  Solve the triangular system of equations. *G* and *d* are both
+  double precision numpy arrays. arguments get passed to the lapack
+  function *dtrtrs*
+  '''
+  if any(i == 0 for i in d.shape):
+    return np.zeros(d.shape)
+  
+  else:
+    soln,info = dtrtrs(G,d,**kwargs)  
+    if info < 0:
+      raise np.linalg.LinAlgError(
+        'The %s-th argument had an illegal value' % (-info))
+
+    elif info > 0:
+      raise np.linalg.LinAlgError(
+        'The %s-th diagonal element of A is zero, indicating that '
+        'the matrix is singular and the solutions X have not been '
+        'computed.' % info)
+
+    else:
+      return soln
+
+
 def _cholesky(A,retry=True,**kwargs):
   ''' 
   Cholesky decomposition which is more forgiving of matrices that are
@@ -555,24 +581,58 @@ def _cholesky_block_inv(P,Q,retry=True):
   PinvQ =  Pinv.dot(Q)
   B     = -_cholesky_inv(Q.T.dot(PinvQ),retry=retry)
   C     = -PinvQ.dot(B)
-
-  out   = np.empty((n+m,n+m))
-  out[:n,:n] = Pinv - C.dot(PinvQ.T)
-  out[:n,n:] = C
-  out[n:,:n] = C.T
-  out[n:,n:] = B
+  A     = Pinv - C.dot(PinvQ.T)
+  out   = [[  A, C],
+           [C.T, B]]  
   return out
 
 
-def _trisolve(G,d,*args,**kwargs):
+def _block_transpose(A):
   ''' 
-  triangular solve which properly handles zero-length axes
-  '''
-  if any(i == 0 for i in d.shape):
-    return np.zeros(d.shape)
+  Block matrix transpose
   
-  else:
-    return solve_triangular(G,d,*args,**kwargs)  
+  Parameters
+  ----------
+  A : (N,M) nested list of numpy arrays 
+  '''
+  Arow,Acol = np.shape(A)
+  out = [[None for i in range(Arow)] for j in range(Acol)]
+  for i in range(Arow):
+    for j in range(Acol):
+      out[j][i] = A[i][j].transpose()
+
+  return out
+
+
+def _block_dot(A,B):
+  ''' 
+  Block matrix multiplication. 
+  
+  Parameters
+  ----------
+  A : (N,K) nested list of 2D numpy arrays
+  B : (K,M) nested list of 2D numpy arrays
+  '''
+  Arow,Acol = len(A),len(A[0])
+  Brow,Bcol = len(B),len(B[0])
+  if Acol != Brow:
+    raise ValueError('Block matrices have incompatible shapes')
+
+  # set None placeholders
+  out = [[None for i in range(Bcol)] for j in range(Arow)]
+  for i in range(Arow):
+    for j in range(Bcol):
+      # allocate array for the dot product
+      out[i][j] = np.zeros((A[i][0].shape[0],B[0][j].shape[1])) 
+      for k in range(Acol):
+        print('A')
+        print(A[i][k].shape)
+        print('B')
+        print(B[k][j].shape)
+        # do inplace addition if possible
+        out[i][j] += A[i][k].dot(B[k][j])
+
+  return out
 
 
 def _sample(mean,cov):
@@ -730,34 +790,44 @@ def _condition(gp,y,d,sigma,p,obs_diff):
   '''
   @Memoize
   def precompute():
-    ''' 
-    do as many calculations as possible without yet knowning where the
-    interpolation points will be. 
-    '''
+    # do as many calculations as possible without yet knowning where
+    # the interpolation points will be. This function is memoized so
+    # that I can easily dereference the kernel inverse matrix with
+    # "clear_caches".
     logger.debug('Calculating and caching kernel inverse ...')
-    # This function is memoized so that I can easily dereference the
-    # kernel inverse matrix with "clear_caches". 
-    K_y = gp._covariance(y,y,obs_diff,obs_diff)
-    p_y = gp._basis(y,obs_diff)
-    q = K_y.shape[0] # number of observations
-    m = p_y.shape[1] # number of signal basis vectors
-    K_y = K_y + sigma # covariance for signal and noise
-    p_y = np.hstack((p_y,p)) # basis vectors for signal and noise
-    # compute kernel inverse
-    K_y_inv = _cholesky_block_inv(K_y,p_y)[:q+m,:q+m]
-    # compute r
-    r = np.zeros(q+m)
-    r[:q] = d - gp._mean(y,obs_diff)
-    # return K_y_inv and r
+    # GP mean at the observation points
+    mu_y = gp._mean(y,obs_diff)
+    # GP covariance at the observation points
+    C_y = gp._covariance(y,y,obs_diff,obs_diff)
+    # GP basis functions at the observation points
+    p_y = gp._basis(y,obs_diff)    
+    m = p_y.shape[1] # number of GP basis functions
+    # add data noise to the covariance matrix
+    C_y = C_y + sigma
+    # append the data noise basis vectors 
+    p_y = np.hstack((p_y,p)) 
+    # compute kernel block inverse
+    K_y_inv = _cholesky_block_inv(C_y,p_y)
+    # throw out components of the block inverse that correspond to the
+    #noise basis vectors 
+    K_y_inv[0][1] = K_y_inv[0][1][:,:m]
+    K_y_inv[1][0] = K_y_inv[1][0][:m,:]
+    K_y_inv[1][1] = K_y_inv[1][1][:m,:m]
+    # create block residual vector augmented with zeros
+    r = [[d[:,None] - mu_y[:,None]],[np.zeros((m,1))]]
     logger.debug('Done')
     return K_y_inv,r
     
   def mean(x,diff):
     K_y_inv,r = precompute()
-    k_xy = gp._covariance(x,y,diff,obs_diff)
+    mu_x = gp._mean(x,diff)
+    C_xy = gp._covariance(x,y,diff,obs_diff)
     p_x = gp._basis(x,diff)
-    k_xy = np.hstack((k_xy,p_x))
-    out = gp._mean(x,diff) + k_xy.dot(K_y_inv.dot(r))
+    k_xy = [[C_xy,p_x]]
+    # intermediate block vector
+    vec = _block_dot(K_y_inv,r)
+    vec = _block_dot(k_xy,vec)
+    out = mu_x + vec[0][0][:,0]
     return out
 
   def covariance(x1,x2,diff1,diff2):
@@ -767,9 +837,12 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     k_x2y = gp._covariance(x2,y,diff2,obs_diff)
     p_x1 = gp._basis(x1,diff1)
     p_x2 = gp._basis(x2,diff2)
-    k_x1y = np.hstack((k_x1y,p_x1))
-    k_x2y = np.hstack((k_x2y,p_x2))
-    out = k_x1x2 - k_x1y.dot(K_y_inv).dot(k_x2y.T) 
+    k_x1y = [[k_x1y,p_x1]]
+    k_x2y_T = [[k_x2y.T],[p_x2.T]]
+    # intermediate block matrices
+    mat = _block_dot(K_y_inv,k_x2y_T)
+    mat = _block_dot(k_x1y,mat)
+    out = k_x1x2 - mat[0][0]
     return out
   
   dim = y.shape[1]
@@ -883,25 +956,12 @@ def likelihood(d,mu,sigma,p=None):
   _assert_shape(p,(d.shape[0],None),'p')
   
   n,m = p.shape
-  A = _cholesky(sigma,lower=True,retry=False)        # A.dot(A.T) = 
-                                         #   sigma
-                                         
-  B = _trisolve(A,p,lower=True)          # B.T.dot(B) = 
-                                         #   p.T.dot(inv(sigma)).dot(p)
-                                         
-  C = _cholesky(B.T.dot(B),lower=True,retry=False)   # C.dot(C.T) = 
-                                         #   p.T.dot(inv(sigma)).dot(p)
-                                         
-  D = _cholesky(p.T.dot(p),lower=True,retry=False)   # D.dot(D.T) = 
-                                         #   p.T.dot(p)
-                                         
-  a = _trisolve(A,d-mu,lower=True)       # a.T.dot(a) = 
-                                         #   (d-mu).T.dot(inv(sigma)).dot(d-mu)
-                                         
-  b = _trisolve(C,B.T.dot(a),lower=True) # b.T.dot(b) = 
-                                         #   (d-mu).T.dot(inv(sigma)).dot(p).dot(
-                                         #   inv( p.T.dot(inv(sigma)).dot(p) )).dot(
-                                         #   p.T.dot(inv(sigma)).dot(d - mu)   
+  A = _cholesky(sigma,lower=True,retry=False)
+  B = _trisolve(A,p,lower=True)        
+  C = _cholesky(B.T.dot(B),lower=True,retry=False)   
+  D = _cholesky(p.T.dot(p),lower=True,retry=False)   
+  a = _trisolve(A,d-mu,lower=True)    
+  b = _trisolve(C,B.T.dot(a),lower=True) 
   out = (np.sum(np.log(np.diag(D))) -
          np.sum(np.log(np.diag(A))) -
          np.sum(np.log(np.diag(C))) -
@@ -983,29 +1043,35 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     p = np.asarray(p,dtype=float)
     _assert_shape(p,(n,None),'p')
   
+  # number of basis functions
+  m = p.shape[1]
+  # total number of outlier detection iterations
   itr = 1
+  # boolean array indicating outliers
   out = np.zeros(d.shape[0],dtype=bool)
   while True:
     logger.debug('Starting iteration %s of outlier detection routine' % itr)
-    q = sum(~out)
-
-    # K is the data and gp covariance
-    K = sigma[np.ix_(~out,~out)]
-    _diag_add(K,s[~out]**2)
-
-    # Kinv is the inverse of K augmented with p
-    Kinv = _cholesky_block_inv(K,p[~out])
-    del K
-
+    # C is the data and gp covariance
+    C = sigma[np.ix_(~out,~out)]
+    _diag_add(C,s[~out]**2)
+    # Kinv is the inverse of C augmented with p
+    Kinv = _cholesky_block_inv(C,p[~out])
     # residual of observed and mean 
-    r = np.zeros(q+p.shape[1])
-    r[:q] = d[~out] - mu[~out]
-    # dot residual with inverse of the covariances
-    v = Kinv.dot(r)
-    del Kinv,r
+    r = [[d[~out,None] - mu[~out,None]],[np.zeros((m,1))]]
+    # intermediate block vector
+    vec = _block_dot(Kinv,r)
 
-    # form prediction vector 
-    fit = mu + sigma[:,~out].dot(v[:q]) + p.dot(v[q:])
+    del C,Kinv # remove big arrays
+
+    # make prediction vector
+    k = [[sigma[:,~out],p]] 
+    # find fit with the non-outliers
+    vec = _block_dot(k,vec)
+    fit = mu + vec[0][0][:,0]
+
+    del k # remove big arrays
+    
+    # find new outliers
     res = np.abs(fit - d)/s
     rms = np.sqrt(np.mean(res[~out]**2))
     if np.all(out == (res > tol*rms)):
