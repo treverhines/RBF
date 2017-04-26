@@ -528,8 +528,7 @@ def _cholesky(A,retry=True,**kwargs):
 def _cholesky_inv(A,retry=True):
   ''' 
   Returns the inverse of the positive definite matrix. It is assumed
-  that A is a double precision numpy array. additional arguments
-  passed to _cholesky.
+  that A is a double precision numpy array. 
   '''
   n,m = A.shape
   if (n,m) == (0,0):
@@ -569,7 +568,6 @@ def _cholesky_block_inv(P,Q,retry=True):
   This is done by partitioning the matrix inverse and then using the
   cholesky decomposition to compute each components of the inverse. It
   is assumed that *P* and *Q* are double precision numpy arrays.
-  Additional arguments passed to _cholesky_inv.
   '''
   n,m = Q.shape
   if n < m:
@@ -793,7 +791,8 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     K_y_inv[1][0] = K_y_inv[1][0][:m,:]
     K_y_inv[1][1] = K_y_inv[1][1][:m,:m]
     # create block residual vector augmented with zeros
-    r = [[d[:,None] - mu_y[:,None]],[np.zeros((m,1))]]
+    r = [[d[:,None] - mu_y[:,None]],
+         [np.zeros((m,1))]]
     logger.debug('Done')
     return K_y_inv,r
     
@@ -1030,26 +1029,26 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   out = np.zeros(n,dtype=bool)
   while True:
     logger.debug('Starting iteration %s of outlier detection routine' % itr)
-    # C is the data and gp covariance
-    C = sigma[np.ix_(~out,~out)]
-    _diag_add(C,s[~out]**2)
-    # Kinv is the inverse of C augmented with p
-    Kinv = _cholesky_block_inv(C,p[~out])
+    mu_i = mu[~out]
+    sigma_i = sigma[np.ix_(~out,~out)]
+    p_i = p[~out]
+    d_i = d[~out]
+    s_i = s[~out]
+    # add data covariance to GP covariance
+    _diag_add(sigma_i,s_i**2)
+    Kinv = _cholesky_block_inv(sigma_i,p_i)
     # residual of observed and mean 
-    r = [[d[~out,None] - mu[~out,None]],[np.zeros((m,1))]]
+    r = [[d_i[:,None] - mu_i[:,None]],
+         [np.zeros((m,1))]]
     # intermediate block vector
     vec = _block_dot(Kinv,r)
-
-    del C,Kinv # remove big arrays
-
-    # make prediction vector
+    # dereference everything that we no longer need
+    del mu_i,sigma_i,p_i,d_i,s_i,Kinv 
     k = [[sigma[:,~out],p]] 
-    # find fit with the non-outliers
     vec = _block_dot(k,vec)
+    # fit to the data
     fit = mu + vec[0][0][:,0]
-
-    del k # remove big arrays
-    
+    del k 
     # find new outliers
     res = np.abs(fit - d)/s
     rms = np.sqrt(np.mean(res[~out]**2))
