@@ -816,7 +816,8 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     p_x1 = gp._basis(x1,diff1)
     p_x2 = gp._basis(x2,diff2)
     k_x1y = [[k_x1y,p_x1]]
-    k_x2y_T = [[k_x2y.T],[p_x2.T]]
+    k_x2y_T = [[k_x2y.T],
+               [p_x2.T]]
     # intermediate block matrices
     mat = _block_dot(K_y_inv,k_x2y_T)
     mat = _block_dot(k_x1y,mat)
@@ -1043,7 +1044,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     # intermediate block vector
     vec = _block_dot(Kinv,r)
     # dereference everything that we no longer need
-    del mu_i,sigma_i,p_i,d_i,s_i,Kinv 
+    del mu_i,sigma_i,p_i,d_i,s_i,Kinv,r 
     k = [[sigma[:,~out],p]] 
     vec = _block_dot(k,vec)
     # fit to the data
