@@ -392,6 +392,7 @@ def _diag_add(A,d):
   Adiag += d
   return 
 
+
 def _diag_mul(A,d):
   ''' 
   Efficiently multiply the diagonals of *A* by *d*. *A* is assumed to
@@ -1527,7 +1528,7 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
 
-  def mean(self,x,diff=None,retry=1):
+  def mean(self,x,diff=None,retry=0):
     ''' 
     Returns the mean of the proper component of the *GaussianProcess*.
     
@@ -1582,7 +1583,7 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
 
-  def covariance(self,x1,x2,diff1=None,diff2=None,retry=1):
+  def covariance(self,x1,x2,diff1=None,diff2=None,retry=0):
     ''' 
     Returns the covariance of the proper component of the
     *GaussianProcess*.
