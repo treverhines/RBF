@@ -322,7 +322,7 @@ class RBF(object):
 
     # add numerical function to cache if not already
     if diff not in self.cache:
-      self._cache_diff(diff)
+      self._add_diff_to_cache(diff)
  
     out = self.cache[diff](*args)
 
@@ -336,7 +336,7 @@ class RBF(object):
     out = '<RBF : %s>' % str(self.expr)
     return out
      
-  def _cache_diff(self,diff):
+  def _add_diff_to_cache(self,diff):
     '''     
     Symbolically differentiates the RBF and then converts the
     expression to a function which can be evaluated numerically.

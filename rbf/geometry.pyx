@@ -92,7 +92,6 @@ from scipy.special import factorial
 # cython imports
 cimport numpy as np
 from cython cimport boundscheck,wraparound,cdivision
-#from cython.parallel import prange
 from libc.stdlib cimport malloc,free
 from libc.stdlib cimport rand
 
