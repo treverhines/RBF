@@ -32,17 +32,23 @@ Matern (v = 5/2)                   mat52         Yes                :math:`(1 + 
 
 ''' 
 from __future__ import division 
-from scipy.special import kv,iv
 from rbf.poly import powers
 import sympy 
 from sympy.utilities.autowrap import ufuncify
 import numpy as np 
 
-# NO LONGER USED
-# lookup table to find numerical equivalents to symbolic functions.
-# This only defines functions which are not part of numpy.
-_LAMBDIFY_LUT = {'besselk':kv,
-                 'besseli':iv}
+
+class _CallbackDict(dict):
+  ''' 
+  dictionary that calls a function after __setitem__ is called
+  '''
+  def __init__(self,value,callback):
+    dict.__init__(self,value)
+    self.callback = callback
+  
+  def __setitem__(self,key,value):  
+    dict.__setitem__(self,key,value)
+    self.callback()
 
 
 def _assert_shape(a,shape,label):
@@ -67,39 +73,6 @@ def _assert_shape(a,shape,label):
 
   return
   
-
-def _replace_nan(x):
-  ''' 
-  NO LONGER USED
-  
-  this is orders of magnitude faster than np.nan_to_num
-  '''
-  x[np.isnan(x)] = 0.0
-  return x
-
-
-def _fix_lambdified_output(fin):
-  ''' 
-  NO LONGER USED
-  
-  when lambdifying a sympy expression, the output is a scalar if the 
-  expression is independent of R. This function checks the output of a 
-  lambdified function and if the output is a scalar then it expands 
-  the output to the proper output size. The proper output size is 
-  (N,M) where N is the number of collocation points and M is the 
-  number of basis functions
-  '''
-  def fout(*args,**kwargs):
-    out = fin(*args,**kwargs)
-    x = args[0]
-    eps = args[-1]
-    if np.isscalar(out):
-      out = np.full((x.shape[0],eps.shape[0]),out,dtype=float)
-
-    return out
-
-  return fout  
-
 
 def get_r():
   ''' 
@@ -137,7 +110,7 @@ class RBF(object):
     center.  The expression may optionally be a function of *eps*,
     which is a shape parameter obtained by calling *get_eps()* or
     *sympy.symbols('eps')*.  If *eps* is not provided then *r* is
-    substituted with *r* * *eps*.
+    substituted with *r*eps*.
   
   tol : float or sympy expression, optional  
     If an evaluation point, *x*, is within *tol* of an RBF center,
@@ -150,12 +123,16 @@ class RBF(object):
     *tol* can be a float or a sympy expression containing *eps*.
 
   limits : dict, optional
-    Contains the limiting value of the RBF as *x* -> *c* for various
-    derivative specifications. For example, *{(0,1):2*eps}* indicates
-    that the limit of the derivative along the second basis direction
-    in two-dimensional space is *2*eps*. If this dictionary is
-    provided and *tol* is not None, then it will be searched before
-    attempting to symbolically compute the limits.
+    Contains the limiting value of the RBF or its derivatives as *x*
+    -> *c*. For example, *{(0,1):2*eps}* indicates that the limit of
+    the derivative along the second Cartesian direction is *2*eps*. If
+    this dictionary is provided and *tol* is not *None*, then it will
+    be searched before attempting to symbolically compute the limits.
+    
+  backend : str, optional
+    Backend used to convert the symbolic expression into a numerical
+    function. This can be any of the backends supported by sympy's
+    *ufuncify*. Available backends are 'numpy', 'cython', and 'f2py'.
     
   Examples
   --------
@@ -194,8 +171,65 @@ class RBF(object):
          [ 1.        ],
          [ 0.84147098]])
   
+
+  Notes
+  -----
+  The attributes *tol*, *backend*, and *limits* can be safely replaced
+  with new values. It is also safe to change the entries in *limits*
+  through the *__setitem__* method. Such changes will cause the cache
+  of numerical functions to be cleared.
+  
   '''
-  def __init__(self,expr,tol=None,limits=None):
+  @property
+  def expr(self):
+    # *expr* is read-only. 
+    return self._expr
+
+  @property
+  def backend(self):
+    return self._backend
+
+  @property
+  def tol(self):
+    return self._tol
+
+  @property
+  def limits(self):
+    return self._limits
+
+  @backend.setter
+  def backend(self,value):
+    # let *ufuncify* decide whether *value* is appropriate
+    self._backend = value
+    # reset *cache* now that we have a new *backend*
+    self.clear_cache()
+
+  @tol.setter
+  def tol(self,value):
+    if value is not None:
+      # make sure *tol* is a scalar or a sympy expression of *eps*
+      value = sympy.sympify(value)
+      other_symbols = value.free_symbols.difference({_EPS})
+      if len(other_symbols) != 0:
+        raise ValueError(
+          '*tol* cannot contain any symbols other than *eps*')
+  
+    self._tol = value
+    # reset *cache* now that we have a new *tol*
+    self.clear_cache()
+  
+  @limits.setter
+  def limits(self,value):
+    if value is None:
+      value = {}
+      
+    # if *limits* is ever changed through *__setitem__* then
+    # *clear_cache* is called
+    self._limits = _CallbackDict(value,self.clear_cache)
+    # reset *cache* now that we have a new *limits*
+    self.clear_cache()
+
+  def __init__(self,expr,tol=None,limits=None,backend='numpy'):
     # make sure that *expr* does not contain any symbols other than 
     # *_R* and *_EPS*
     other_symbols = expr.free_symbols.difference({_R,_EPS})
@@ -212,56 +246,38 @@ class RBF(object):
       # if eps is not in the expression then substitute eps*r for r
       expr = expr.subs(_R,_EPS*_R)
       
-    if tol is not None:
-      # make sure *tol* is a scalar or a sympy expression of *eps*
-      tol = sympy.sympify(tol)
-      other_symbols = tol.free_symbols.difference({_EPS})
-      if len(other_symbols) != 0:
-        raise ValueError(
-          '*tol* cannot contain any symbols other than *eps*')
-      
-    if limits is None:
-      limits = {}
-      
-    self.expr = expr
+    self._expr = expr
     self.tol = tol
-    self.cache = {}
     self.limits = limits
+    self.backend = backend
+    self.cache = {}
 
   def __call__(self,x,c,eps=1.0,diff=None):
     ''' 
-    Evaluates the RBF
+    Numerically evaluates the RBF or its derivatives.
     
     Parameters                                       
     ----------                                         
     x : (N,D) float array 
-      evaluation points
+      Evaluation points
                                                                        
     c : (M,D) float array 
       RBF centers 
         
     eps : float or (M,) float array, optional
-      shape parameters for each RBF. Defaults to 1.0
+      Shape parameters for each RBF. Defaults to 1.0
                                                                            
     diff : (D,) int array, optional
-      Tuple indicating the derivative order for each spatial 
-      dimension. For example, if there are three spatial dimensions 
-      then providing (2,0,1) would return the RBF after 
-      differentiating it twice along the first axis and once along the 
+      Specifies the derivative order for each Cartesian direction. For
+      example, if there are three spatial dimensions then providing
+      (2,0,1) would cause this function to return the RBF after
+      differentiating it twice along the first axis and once along the
       third axis.
 
     Returns
     -------
     out : (N,M) float array
       Returns the RBFs with centers *c* evaluated at *x*
-
-    Notes
-    -----
-    1. This function evaluates the RBF derivatives symbolically, if a 
-    derivative was specified, and then the symbolic expression is 
-    converted to a numerical function. The numerical function is 
-    cached and then reused when this function is called again with the 
-    same derivative specification.
 
     '''
     x = np.asarray(x,dtype=float)
@@ -286,34 +302,44 @@ class RBF(object):
       diff = tuple(diff)
     
     _assert_shape(diff,(x.shape[1],),'diff')
+
     # expand to allow for broadcasting
     x = x.T[:,:,None] 
     c = c.T[:,None,:]
-    # add function to cache if not already
+
+    if self.backend.lower() in ['cython','f2py']:
+      # broadcasting is not allowed for these backends and we must
+      # expand and flatten *x*, *c*, and *eps*
+      x = x.repeat(c.shape[2],axis=2)
+      c = c.repeat(x.shape[1],axis=1)
+      eps = eps[None,:].repeat(x.shape[1],axis=0)
+      args = (tuple(i.ravel() for i in x) + 
+              tuple(i.ravel() for i in c) + 
+              (eps.ravel(),))
+
+    else: 
+      args = (tuple(x)+tuple(c)+(eps,))
+
+    # add numerical function to cache if not already
     if diff not in self.cache:
-      self.add_diff_to_cache(diff)
+      self._cache_diff(diff)
  
-    args = (tuple(x)+tuple(c)+(eps,))
     out = self.cache[diff](*args)
+
+    if self.backend.lower() in ['cython','f2py']:
+      # fold the 1d array into a 2d array
+      out = out.reshape((x.shape[1],c.shape[2]))
+    
     return out
 
   def __repr__(self):
     out = '<RBF : %s>' % str(self.expr)
     return out
      
-  def add_diff_to_cache(self,diff):
+  def _cache_diff(self,diff):
     '''     
-    Symbolically evaluates the specified derivative and then compiles 
-    it to a function which can be evaluated numerically. The numerical 
-    function is cached for later use. It is not necessary to use this 
-    method directly because it is called as needed by the *__call__* 
-    method.
-    
-    Parameters
-    ----------
-    diff : (D,) int array
-      Derivative specification
-        
+    Symbolically differentiates the RBF and then converts the
+    expression to a function which can be evaluated numerically.
     '''   
     diff = tuple(diff)
     _assert_shape(diff,(None,),'diff')
@@ -347,8 +373,14 @@ class RBF(object):
       # _R<tol and expr otherwise
       expr = sympy.Piecewise((lim,r_sym<self.tol),(expr,True)) 
       
-    func = ufuncify(x_sym+c_sym+(_EPS,),expr)
+    func = ufuncify(x_sym+c_sym+(_EPS,),expr,backend=self.backend)
     self.cache[diff] = func
+    
+  def clear_cache(self):
+    ''' 
+    Clears the cache of numerical functions.
+    '''
+    self.cache = {}
     
 
 # Instantiate some common RBFs
