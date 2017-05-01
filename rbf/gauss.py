@@ -1528,7 +1528,7 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
 
-  def mean(self,x,diff=None,retry=0):
+  def mean(self,x,diff=None):
     ''' 
     Returns the mean of the proper component of the *GaussianProcess*.
     
@@ -1539,14 +1539,6 @@ class GaussianProcess(object):
         
     diff : (D,) tuple
       Derivative specification    
-      
-    retry : int, optional
-      If the mean of the Gaussian process evaluates to a non-finite 
-      value then this many attempts will be made to recompute it. This 
-      option was added because my CPU is surprisingly unreliable when 
-      using multiple cores and my data occassionally gets corrupted. 
-      Hopefully, I can resolve my own computer problems and this 
-      option will not be needed.
       
     Returns
     -------
@@ -1563,27 +1555,11 @@ class GaussianProcess(object):
       _assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._mean(x,diff)
-    # If *out* is not finite then warn the user and attempt to compute 
-    # it again. An error is raised after *retry* attempts.
-    if not np.all(np.isfinite(out)):
-      if retry > 0:
-        warnings.warn(
-          'Encountered non-finite value in the mean of the Gaussian '
-          'process. This may be due to a CPU fluke. Memoized function ' 
-          'caches will be cleared and another attempt will be made to '
-          'compute the mean.')
-        clear_caches()  
-        return self.mean(x,diff=diff,retry=retry-1)
-      else:    
-        raise ValueError(
-          'Encountered non-finite value in the mean of the Gaussian '
-          'process.')     
-
     # return a copy of *out* that is safe to write to
     out = np.array(out,copy=True)
     return out
 
-  def covariance(self,x1,x2,diff1=None,diff2=None,retry=0):
+  def covariance(self,x1,x2,diff1=None,diff2=None):
     ''' 
     Returns the covariance of the proper component of the
     *GaussianProcess*.
@@ -1599,14 +1575,6 @@ class GaussianProcess(object):
       how the Gaussian process at *x1* covaries with the derivative of 
       the Gaussian process at *x2*.
 
-    retry : int, optional
-      If the covariance of the Gaussian process evaluates to a 
-      non-finite value then this many attempts will be made to 
-      recompute it. This option was added because my CPU is 
-      surprisingly unreliable when using multiple cores and my data 
-      occassionally gets corrupted. Hopefully, I can resolve my own 
-      computer problems and this option will not be needed.
-      
     Returns
     -------
     out : (N,N) array    
@@ -1631,23 +1599,6 @@ class GaussianProcess(object):
       _assert_shape(diff2,(x1.shape[1],),'diff2')
       
     out = self._covariance(x1,x2,diff1,diff2)
-    # If *out* is not finite then warn the user and attempt to compute 
-    # it again. An error is raised after *retry* attempts.
-    if not np.all(np.isfinite(out)):
-      if retry > 0:
-        warnings.warn(
-          'Encountered non-finite value in the covariance of the '
-          'Gaussian process. This may be due to a CPU fluke. Memoized ' 
-          'function caches will be cleared and another attempt will '
-          'be made to compute the covariance.')
-        clear_caches()  
-        return self.covariance(x1,x2,diff1=diff1,diff2=diff2,
-                               retry=retry-1)
-      else:    
-        raise ValueError(
-          'Encountered non-finite value in the covariance of the '
-          'Gaussian process.')     
-
     # return a copy of *out* that is safe to write to
     out = np.array(out,copy=True)
     return out
