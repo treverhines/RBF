@@ -204,7 +204,7 @@ class RBFInterpolant(object):
     self._eps = eps
     self.extrapolate = extrapolate
 
-  def __call__(self,x,diff=None,max_chunk=100000):
+  def __call__(self,x,diff=None,chunk_size=1000):
     ''' 
     Evaluates the interpolant at *x*
 
@@ -216,7 +216,7 @@ class RBFInterpolant(object):
     diff : (D,) int array, optional
       Derivative order for each spatial dimension.
         
-    max_chunk : int, optional  
+    chunk_size : int, optional  
       Break *x* into chunks with this size and evaluate the 
       interpolant for each chunk.  Smaller values result in decreased 
       memory usage but also decreased speed.
@@ -227,19 +227,18 @@ class RBFInterpolant(object):
       Values of the interpolant at *x*
       
     '''
-    n = 0
-    x = np.asarray(x) 
-    q = x.shape[0]
+    count = 0
+    x = np.asarray(x,dtype=float) 
+    xlen = x.shape[0]
     # allocate output array
-    out = np.zeros(q)
-    while n < q:
-      # xitp indices for this chunk
-      idx = range(n,min(n+max_chunk,q))
-      A = _interpolation_matrix(x[idx],self._y,
-                                diff,self._eps,
-                                self._basis,self._order)
-      out[idx] = A.dot(self._coeff) 
-      n += max_chunk
+    out = np.zeros(xlen,dtype=float)
+    while count < xlen:
+      start,stop = count,count+chunk_size
+      A = _interpolation_matrix(x[start:stop],self._y,
+                                diff,self._eps,self._basis,
+                                self._order)
+      out[start:stop] = A.dot(self._coeff) 
+      count += chunk_size
 
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed

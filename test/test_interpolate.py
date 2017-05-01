@@ -42,11 +42,11 @@ class Test(unittest.TestCase):
     val = test_func2d(obs)
 
     I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=3)
-    valitp1 = I(itp,max_chunk=10*P)
-    valitp2 = I(itp,max_chunk=P)
-    valitp3 = I(itp,max_chunk=100)
-    valitp4 = I(itp,max_chunk=33)
-    valitp5 = I(itp,max_chunk=1)
+    valitp1 = I(itp,chunk_size=10*P)
+    valitp2 = I(itp,chunk_size=P)
+    valitp3 = I(itp,chunk_size=100)
+    valitp4 = I(itp,chunk_size=33)
+    valitp5 = I(itp,chunk_size=1)
     
     self.assertTrue(np.all(np.isclose(valitp1,valitp2)))
     self.assertTrue(np.all(np.isclose(valitp1,valitp3)))

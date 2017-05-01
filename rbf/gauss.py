@@ -1616,7 +1616,7 @@ class GaussianProcess(object):
     out = np.array(out,copy=True)
     return out
     
-  def meansd(self,x,max_chunk=100):
+  def meansd(self,x,chunk_size=100):
     ''' 
     Returns the mean and standard deviation of the proper component of
     the *GaussianProcess*. This does not return the full covariance
@@ -1628,7 +1628,7 @@ class GaussianProcess(object):
     x : (N,D) array
       Evaluation points
       
-    max_chunk : int, optional  
+    chunk_size : int, optional  
       Break *x* into chunks with this size and evaluate the Gaussian 
       process for each chunk. This argument affects the speed and 
       memory usage of this method, but it does not affect the output. 
@@ -1647,18 +1647,16 @@ class GaussianProcess(object):
     '''
     count = 0
     x = np.asarray(x,dtype=float)
-    q = x.shape[0]
-    out_mean = np.zeros(q,dtype=float)
-    out_sd = np.zeros(q,dtype=float)
-    while True:
-      idx = range(count,min(count+max_chunk,q))
-      out_mean[idx] = self.mean(x[idx])
-      cov = self.covariance(x[idx],x[idx])
+    xlen = x.shape[0]
+    out_mean = np.zeros(xlen,dtype=float)
+    out_sd = np.zeros(xlen,dtype=float)
+    while count < xlen:
+      start,stop = count,count+chunk_size
+      out_mean[start:stop] = self.mean(x[start:stop])
+      cov = self.covariance(x[start:stop],x[start:stop])
       var = np.diag(cov)
-      out_sd[idx] = np.sqrt(var)
-      count = min(count+max_chunk,q)
-      if count == q:
-        break
+      out_sd[start:stop] = np.sqrt(var)
+      count += chunk_size
     
     return out_mean,out_sd
 
