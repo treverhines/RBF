@@ -626,12 +626,26 @@ def _sample(mean,cov):
 
 class Memoize(object):
   ''' 
-  Memoizing decorator. The output for calls to decorated functions 
-  will be cached and reused if the function is called again with the 
-  same arguments. The input arguments for decorated functions must all 
-  be numpy arrays. Caches can be cleared with the module-level 
-  function *clear_caches*. This is intendend to decorate the mean, 
-  covariance, and basis functions for *GaussianProcess* instances. 
+  Memoizing decorator. The output for calls to decorated functions
+  will be cached and reused if the function is called again with the
+  same arguments. This is intendend to decorate the mean, covariance,
+  and basis functions for *GaussianProcess* instances.
+
+  Parameters
+  ----------
+  fin : function
+    Function that takes numpy arrays as input.
+  
+  Returns
+  -------
+  fout : function
+    Memoized function.
+  
+  Notes
+  -----
+  1. Caches can be cleared with the module-level function
+  *clear_caches*.
+      
   '''
   # variable controlling the maximum cache size for all memoized 
   # functions
@@ -652,12 +666,11 @@ class Memoize(object):
     '''
     key = tuple(a.tobytes() for a in args)
     if key not in self.cache:
-      output = self.fin(*args)
       # make sure there is room for the new entry
       while len(self.cache) >= Memoize.MAX_CACHE_SIZE:
         self.cache.popitem(0)
         
-      self.cache[key] = output
+      self.cache[key] = self.fin(*args)
       
     return self.cache[key]
 
