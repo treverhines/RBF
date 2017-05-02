@@ -16,9 +16,9 @@ u_true = np.exp(-0.3*np.abs(x))*np.sin(x)  # true signal
 sigma = 0.1*np.ones(25) # observation uncertainty
 # noisy observations of the signal
 d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
-# form a prior Gaussian process which has a squared exponential basis 
-# function (rbf.basis.se), 0.0 for the mean, 1.0 for the standard 
-# deviation, and 2.0 for the characteristic length scale.
+# form a prior Gaussian process which has a squared exponential
+# covariance function (rbf.basis.se), 0.0 for the mean, 1.0 for the
+# standard deviation, and 1.0 for the characteristic length scale.
 gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0)) 
 sample = gp.sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x

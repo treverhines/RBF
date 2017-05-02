@@ -36,6 +36,8 @@ from rbf.poly import powers
 import sympy 
 from sympy.utilities.autowrap import ufuncify
 import numpy as np 
+import logging
+logger = logging.getLogger(__name__)
 
 
 class _CallbackDict(dict):
@@ -365,6 +367,11 @@ class RBF(object):
         # Symbolically find the limit of the differentiated expression
         # as x->c. NOTE: this finds the limit from only one direction
         # and the limit may change when using a different direction.
+        logger.info(
+          'Symbolically computing the limit as *x* -> *c*. This may '
+          'take a while. Consider manually adding the limit to the '
+          '*limits* dictionary.') 
+        
         lim = expr
         for xi,ci in zip(x_sym,c_sym):
           lim = lim.limit(xi,ci)

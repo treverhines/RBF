@@ -371,8 +371,6 @@ Learning. The MIT Press, 2006.
 import numpy as np
 import rbf.poly
 import rbf.basis
-import warnings
-import rbf.mp
 from collections import OrderedDict
 import logging
 import weakref
@@ -406,62 +404,17 @@ def _diag_mul(A,d):
 
 def _is_positive_definite(A):
   ''' 
-  Tests if *A* is positive definite or nearly positive definite. If 
-  any of the eigenvalues are significantly negative or complex then 
-  this function return False. 
+  Tests if *A* is positive definite. This is done by testing whether
+  the Cholesky decomposition finishes successfully
   '''
-  vals = np.linalg.eigvals(A)
-  # tolerance for negative or complex eigenvalues
-  min_tol = max(np.linalg.norm(np.spacing(A)),np.sqrt(np.spacing(0)))
-  tol = max(0.0001*vals.real.max(),min_tol)
-  if np.any(vals.real < -tol):
+  try:
+    _cholesky(A)
+
+  except np.linalg.LinAlgError:  
+    # LinAlgError is only raised if A is not positive definite
     return False
- 
-  elif np.any(np.abs(vals.imag) > tol):
-    return False
-
-  else:
-    return True
-
-
-def _make_numerically_positive_definite(A):
-  ''' 
-  Iteratively adds a small value to the diagonal components of *A* 
-  until it is numerically positive definite. This function is an 
-  attempt to overcome numerical roundoff errors which cause the 
-  eigenvalues of *A* to have slightly negative values when the true 
-  eigenvalues of *A* should all be positive. It is assumed that *A* is 
-  already nearly positive definite.   
-  '''
-  if not _is_positive_definite(A):
-    raise np.linalg.LinAlgError(
-      'The matrix *A* is not sufficiently close to being positive '
-      'definite.')   
   
-  itr = 0
-  maxitr = 10
-  # minimum value to add to the diagonals. This is a bound on the 
-  # eigenvalue error which results from rounding the values in *A* to 
-  # the nearest float. Note that this does not take into account 
-  # rounding error that has already accumulated in *A*. Thus the error 
-  # is generally larger than this bound.
-  min_eps = max(np.linalg.norm(np.spacing(A)),np.sqrt(np.spacing(0)))
-  while True:
-    vals = np.linalg.eigvalsh(A)
-    if not np.any(vals <= 0.0):
-      # exit successfully
-      return 
-    
-    if itr == maxitr:
-      # exit with error
-      raise np.linalg.LinAlgError(
-        'Unable to make *A* positive definite after %s iterations.' 
-        % maxitr)
-      
-    eps = max(-2*vals.min(),min_eps)
-    # add diagonal components to A inplace
-    _diag_add(A,eps)
-    itr += 1
+  return True
 
   
 def _trisolve(G,d,**kwargs):
@@ -476,7 +429,7 @@ def _trisolve(G,d,**kwargs):
   else:
     soln,info = dtrtrs(G,d,**kwargs)  
     if info < 0:
-      raise np.linalg.LinAlgError(
+      raise ValueError(
         'The %s-th argument had an illegal value' % (-info))
 
     elif info > 0:
@@ -489,36 +442,22 @@ def _trisolve(G,d,**kwargs):
       return soln
 
 
-def _cholesky(A,retry=True,**kwargs):
+def _cholesky(A,**kwargs):
   ''' 
-  Cholesky decomposition which is more forgiving of matrices that are
-  not numerically positive definite. It is assumed that *A* is a
-  double precision numpy array.
+  Cholesky decomposition. It is assumed that *A* is a double precision
+  numpy array.  
   '''
   if A.shape == (0,0):
     return np.zeros((0,0),dtype=float)
     
   L,info = dpotrf(A,**kwargs)
   if info > 0:  
-    # info > 0 means that *A* is not positive definite
-    if retry:
-      warnings.warn(
-        'The leading minor of order %s is not positive definite, and '
-        'the factorization could not be completed. This may be the '
-        'result of numerical rounding error. Small values will be '
-        'added to the diagonal and the decomposition will be '
-        'attempted again.' % info)
-    
-      _make_numerically_positive_definite(A)   
-      return _cholesky(A,retry=False,**kwargs)
-    
-    else:
-      raise np.linalg.LinAlgError(
-        'The leading minor of order %s is not positive definite, and '
-        'the factorization could not be completed. ' % info)
+    raise np.linalg.LinAlgError(
+      'The leading minor of order %s is not positive definite, and '
+      'the factorization could not be completed. ' % info)
 
   elif info < 0:
-    raise np.linalg.LinAlgError(
+    raise ValueError(
       'The %s-th argument has an illegal value.' % (-info))
       
   else:
@@ -526,22 +465,22 @@ def _cholesky(A,retry=True,**kwargs):
     return L
 
 
-def _cholesky_inv(A,retry=True):
+def _cholesky_inv(A):
   ''' 
   Returns the inverse of the positive definite matrix. It is assumed
-  that A is a double precision numpy array. 
+  that *A* is a double precision numpy array. 
   '''
   n,m = A.shape
   if (n,m) == (0,0):
     return np.zeros((0,0),dtype=float)
 
-  L = _cholesky(A,lower=True,retry=retry)
+  L = _cholesky(A,lower=True)
   # Linv is the lower triangular components of the inverse.
   Linv,info = dpotri(L,lower=True)
   del L
   
   if info < 0:
-    raise np.linalg.LinAlgError(
+    raise ValueError(
       'The %s-th argument had an illegal value.' % (-info))
 
   elif info > 0:
@@ -558,7 +497,7 @@ def _cholesky_inv(A,retry=True):
     return Linv
 
 
-def _cholesky_block_inv(P,Q,retry=True):
+def _cholesky_block_inv(P,Q):
   ''' 
   Efficiently inverts the matrix
   
@@ -576,9 +515,9 @@ def _cholesky_block_inv(P,Q,retry=True):
       'There are fewer rows than columns in *Q*. This makes the '
       'block matrix singular, and its inverse cannot be computed.')
 
-  Pinv  =  _cholesky_inv(P,retry=retry)
+  Pinv  =  _cholesky_inv(P)
   PinvQ =  Pinv.dot(Q)
-  B     = -_cholesky_inv(Q.T.dot(PinvQ),retry=retry)
+  B     = -_cholesky_inv(Q.T.dot(PinvQ))
   C     = -PinvQ.dot(B)
   A     = Pinv - C.dot(PinvQ.T)
   out   = [[  A, C],
@@ -613,14 +552,26 @@ def _block_dot(A,B):
   return out
 
 
-def _sample(mean,cov):
+def _sample(mean,cov,use_cholesky=False):
   ''' 
   Draws a random sample from the Gaussian process with the specified 
-  mean and covariance.
+  mean and covariance. 
   '''   
-  L = _cholesky(cov,lower=True)
-  w = np.random.normal(0.0,1.0,mean.shape[0])
-  u = mean + L.dot(w)
+  if use_cholesky:
+    # draw a sample using a cholesky decomposition. This assumes that
+    # *cov* is numerically positive definite (i.e. no small negative
+    # eigenvalues from rounding error).
+    L = _cholesky(cov,lower=True)
+    w = np.random.normal(0.0,1.0,mean.shape[0])
+    u = mean + L.dot(w)
+  else:
+    # otherwise use an eigenvalue decomposition, ignoring negative
+    # eigenvalues
+    s,Q = np.linalg.eigh(cov)
+    keep = (s > 0.0)
+    w = np.random.normal(0.0,np.sqrt(s[keep]))
+    u = mean + Q[:,keep].dot(w)
+     
   return u
 
 
@@ -949,10 +900,10 @@ def likelihood(d,mu,sigma,p=None):
   _assert_shape(p,(d.shape[0],None),'p')
   
   n,m = p.shape
-  A = _cholesky(sigma,lower=True,retry=False)
+  A = _cholesky(sigma,lower=True)
   B = _trisolve(A,p,lower=True)        
-  C = _cholesky(B.T.dot(B),lower=True,retry=False)   
-  D = _cholesky(p.T.dot(p),lower=True,retry=False)   
+  C = _cholesky(B.T.dot(B),lower=True)   
+  D = _cholesky(p.T.dot(p),lower=True)   
   a = _trisolve(A,d-mu,lower=True)    
   b = _trisolve(C,B.T.dot(a),lower=True) 
   out = (np.sum(np.log(np.diag(D))) -
@@ -1660,7 +1611,7 @@ class GaussianProcess(object):
     
     return out_mean,out_sd
 
-  def sample(self,x,c=None):  
+  def sample(self,x,c=None,use_cholesky=False):  
     '''  
     Draws a random sample from the *GaussianProcess*.  
     
@@ -1672,6 +1623,13 @@ class GaussianProcess(object):
     c : (P,) array, optional
       Coefficients for the improper basis functions. If this is not
       specified then they are set to zero.
+    
+    use_cholesky : bool, optional
+      Indicates whether to use the Cholesky decomposition to create
+      the sample. The Cholesky decomposition is faster but it assumes
+      that the covariance matrix is numerically positive definite
+      (i.e. there are no slightly negative eigenvalues due to rounding
+      error).
       
     Returns
     -------
@@ -1687,16 +1645,15 @@ class GaussianProcess(object):
       c = np.zeros(p.shape[1])  
       
     _assert_shape(c,(p.shape[1],),'c')    
-    out = _sample(mu,sigma) + p.dot(c)
+    out = _sample(mu,sigma,use_cholesky=use_cholesky) + p.dot(c)
     return out
     
   def is_positive_definite(self,x):
     '''     
     Tests if the covariance matrix, which is the covariance function
-    evaluated at *x*, is positive definite. This is done by checking
-    if all of its eigenvalues are positive. An affirmative result from
-    this test is necessary but insufficient to ensure that the
-    covariance function is positive definite.
+    evaluated at *x*, is positive definite. This is done by testing if
+    the Cholesky decomposition of the covariance matrix finishes
+    successfully. 
     
     Parameters
     ----------
@@ -1707,6 +1664,14 @@ class GaussianProcess(object):
     -------
     out : bool
 
+
+    Notes
+    -----
+    1. This function may return *False* even if the covariance
+    function is positive definite. This is because some of the
+    eigenvalues for the matrix are so small that they become slightly
+    negative due to numerical rounding error. This is most notably the
+    case for the squared exponential covariance function.    
     '''
     cov = self.covariance(x,x)    
     out = _is_positive_definite(cov)
@@ -1815,6 +1780,15 @@ def gpse(params,dim=None):
   Returns
   -------
   out : GaussianProcess
+  
+  Notes
+  -----
+  1. Some of the eigenvalues for squared exponential covariance
+  matrices are very small and may be slightly negative due to
+  numerical rounding error. Consequently, the Cholesky decomposition
+  for a squared exponential covariance matrix will often fail. This
+  becomes a problem when conditioning a squared exponential
+  *GaussianProcess* with noise-free data.
   '''
   out = gpiso(rbf.basis.se,params,dim=dim)
   return out
