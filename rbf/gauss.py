@@ -1602,6 +1602,11 @@ class GaussianProcess(object):
     out_mean = np.zeros(xlen,dtype=float)
     out_sd = np.zeros(xlen,dtype=float)
     while count < xlen:
+      # only log the progress if the mean and sd are being build in
+      # multiple chunks
+      if xlen > chunk_size:
+        logger.debug('Computing the mean and std. dev. : %3d%% complete' % ((100.0*count)/xlen))
+      
       start,stop = count,count+chunk_size
       out_mean[start:stop] = self.mean(x[start:stop])
       cov = self.covariance(x[start:stop],x[start:stop])
@@ -1609,6 +1614,9 @@ class GaussianProcess(object):
       out_sd[start:stop] = np.sqrt(var)
       count += chunk_size
     
+    if xlen > chunk_size:
+      logger.debug('Computing the mean and std. dev. : 100% complete')
+
     return out_mean,out_sd
 
   def sample(self,x,c=None,use_cholesky=False):  
