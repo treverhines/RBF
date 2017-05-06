@@ -41,6 +41,8 @@ Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)  :math:`(1 
 from __future__ import division 
 from rbf.poly import powers
 import sympy 
+from scipy.sparse import csr_matrix
+from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
 import numpy as np 
 import logging
@@ -396,6 +398,76 @@ class RBF(object):
     '''
     self.cache = {}
     
+
+class SparseRBF(RBF):
+  ''' 
+  Experimental
+  '''
+  @property
+  def supp(self):
+    return self._supp
+    
+  @supp.setter
+  def supp(self,value):
+    # make sure *supp* is a scalar or a sympy expression of *eps*
+    value = sympy.sympify(value)
+    other_symbols = value.free_symbols.difference({_EPS})
+    if len(other_symbols) != 0:
+      raise ValueError(
+        '*supp* cannot contain any symbols other than *eps*')
+  
+    self._supp = value
+    # reset *cache* now that we have a new *supp*
+    self.clear_cache()
+  
+  def __init__(self,expr,supp,**kwargs):
+    self.supp = supp      
+    RBF.__init__(self,expr,**kwargs)
+
+  def __call__(self,x,c,eps=1.0,**kwargs):
+    x = np.asarray(x,dtype=float)
+    _assert_shape(x,(None,None),'x')
+    c = np.asarray(c,dtype=float)
+    _assert_shape(c,(None,x.shape[1]),'c')
+
+    if not np.isscalar(eps):
+      raise NotImplementedError(
+        '*eps* must be a scalar for *SparseRBF* instances')
+    
+    # convert self.supp from a sympy expression to a float
+    supp = float(self.supp.subs(_EPS,eps))
+
+    nx,nc = x.shape[0],c.shape[0]
+    xtree = cKDTree(x)
+    ctree = cKDTree(c)
+    # *idx* contains the indices of *x* which are within
+    # *supp* of each node in *c*
+    idx = ctree.query_ball_tree(xtree,supp)
+    # total nonzero entries in the output array
+    nnz = sum(len(i) for i in idx)
+    data = np.zeros(nnz,dtype=float)
+    rows = np.zeros(nnz,dtype=float)
+    cols = np.zeros(nnz,dtype=float)
+    # *n* is the total number of data entries thus far
+    n = 0
+    for i,idxi in enumerate(idx):
+      # *m* is the number of nodes in *x* close to *ci*
+      m = len(idxi)
+      data[n:n+m] = RBF.__call__(self,x[idxi,:],c[[i]],eps=eps,
+                                 **kwargs)[:,0]
+      rows[n:n+m] = idxi
+      cols[n:n+m] = i
+      n += m
+
+    # convert to a csr_matrix
+    out = csr_matrix((data,(rows,cols)),(nx,nc))
+    return out
+
+  def __repr__(self):
+    out = ('<SparseRBF : %s (support = %s)>' % 
+           (str(self.expr),str(self.supp)))
+    return out
+
 
 def _pos(expr):
   ''' 
