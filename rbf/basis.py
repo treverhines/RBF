@@ -9,26 +9,33 @@ shown in the table below. For each expression in the table,
 function centers, respectively. The names of the predefined *RBF* 
 instances are given in the abbreviation column. 
 
-=================================  ============  =================  ======================================
-Name                               Abbreviation  Positive Definite  Expression
-=================================  ============  =================  ======================================
-Eighth-order polyharmonic spline   phs8          No                 :math:`(\epsilon r)^8\log(\epsilon r)`
-Seventh-order polyharmonic spline  phs7          No                 :math:`(\epsilon r)^7`
-Sixth-order polyharmonic spline    phs6          No                 :math:`(\epsilon r)^6\log(\epsilon r)`
-Fifth-order polyharmonic spline    phs5          No                 :math:`(\epsilon r)^5`
-Fourth-order polyharmonic spline   phs4          No                 :math:`(\epsilon r)^4\log(\epsilon r)`
-Third-order polyharmonic spline    phs3          No                 :math:`(\epsilon r)^3`
-Second-order polyharmonic spline   phs2          No                 :math:`(\epsilon r)^2\log(\epsilon r)`
-First-order polyharmonic spline    phs1          No                 :math:`\epsilon r`
-Multiquadratic                     mq            No                 :math:`(1 + (\epsilon r)^2)^{1/2}`
-Inverse multiquadratic             imq           Yes                :math:`(1 + (\epsilon r)^2)^{-1/2}`
-Inverse quadratic                  iq            Yes                :math:`(1 + (\epsilon r)^2)^{-1}`
-Gaussian                           ga            Yes                :math:`\exp(-(\epsilon r)^2)`
-Exponential                        exp           Yes                :math:`\exp(-r/\epsilon)`
-Squared Exponential                se            Yes                :math:`\exp(-r^2/(2\epsilon^2))`
-Matern (v = 3/2)                   mat32         Yes                :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
-Matern (v = 5/2)                   mat52         Yes                :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
-=================================  ============  =================  ======================================
+=================================  ============  ===================  ======================================
+Name                               Abbreviation  Positive Definite    Expression
+=================================  ============  ===================  ======================================
+Eighth-order polyharmonic spline   phs8          No                   :math:`(\epsilon r)^8\log(\epsilon r)`
+Seventh-order polyharmonic spline  phs7          No                   :math:`(\epsilon r)^7`
+Sixth-order polyharmonic spline    phs6          No                   :math:`(\epsilon r)^6\log(\epsilon r)`
+Fifth-order polyharmonic spline    phs5          No                   :math:`(\epsilon r)^5`
+Fourth-order polyharmonic spline   phs4          No                   :math:`(\epsilon r)^4\log(\epsilon r)`
+Third-order polyharmonic spline    phs3          No                   :math:`(\epsilon r)^3`
+Second-order polyharmonic spline   phs2          No                   :math:`(\epsilon r)^2\log(\epsilon r)`
+First-order polyharmonic spline    phs1          No                   :math:`\epsilon r`
+Multiquadratic                     mq            No                   :math:`(1 + (\epsilon r)^2)^{1/2}`
+Inverse multiquadratic             imq           Yes                  :math:`(1 + (\epsilon r)^2)^{-1/2}`
+Inverse quadratic                  iq            Yes                  :math:`(1 + (\epsilon r)^2)^{-1}`
+Gaussian                           ga            Yes                  :math:`\exp(-(\epsilon r)^2)`
+Exponential                        exp           Yes                  :math:`\exp(-r/\epsilon)`
+Squared Exponential                se            Yes                  :math:`\exp(-r^2/(2\epsilon^2))`
+Matern (v = 3/2)                   mat32         Yes                  :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
+Matern (v = 5/2)                   mat52         Yes                  :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
+Wendland (d=1, k=0)                wen10         Yes (1-D only)       :math:`(1 - r/\epsilon)_+`
+Wendland (d=1, k=1)                wen11         Yes (1-D only)       :math:`(1 - r/\epsilon)_+^3(3r/\epsilon + 1)`
+Wendland (d=1, k=2)                wen12         Yes (1-D only)       :math:`(1 - r/\epsilon)_+^5(8r^2/\epsilon^2 + 5r/\epsilon + 1)`
+Wendland (d=3, k=0)                wen30         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^2`
+Wendland (d=3, k=1)                wen31         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^4(4r/\epsilon + 1)`
+Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^6(35r^2/\epsilon^2 + 18r/\epsilon + 3)/3`
+=================================  ============  ===================  ======================================
+
 
 ''' 
 from __future__ import division 
@@ -390,6 +397,13 @@ class RBF(object):
     self.cache = {}
     
 
+def _pos(expr):
+  ''' 
+  returns a piecewise expression that is *expr* when *expr* is
+  positive and zero otherwise
+  '''
+  return sympy.Piecewise((expr,expr > 0.0),(0.0,True))
+  
 # Instantiate some common RBFs
 phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
 phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
@@ -407,6 +421,12 @@ exp = RBF(sympy.exp(-_R/_EPS))
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS))
 mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS))
+wen10 = RBF(_pos(1 - _R/_EPS))
+wen11 = RBF(_pos(1 - _R/_EPS)**3*(3*_R/_EPS + 1))
+wen12 = RBF(_pos(1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1))
+wen30 = RBF(_pos(1 - _R/_EPS)**2)
+wen31 = RBF(_pos(1 - _R/_EPS)**4*(4*_R/_EPS + 1))
+wen32 = RBF(_pos(1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3)
 
 # set some known limits so that sympy does not need to compute them
 phs1.tol = 1e-10
@@ -451,9 +471,11 @@ for i in powers(7,3): phs8.limits[tuple(i)] = 0
 
 mat32.tol = 1e-10*_EPS
 mat32.limits = {(0,):1, (1,):0, (2,):-3/_EPS**2,
-                (0,0):1, (1,0):0, (0,1):0, (2,0):-3/_EPS**2, (0,2):-3/_EPS**2, (1,1):0}
+                (0,0):1, (1,0):0, (0,1):0, (2,0):-3/_EPS**2, 
+                (0,2):-3/_EPS**2, (1,1):0}
 
 mat52.tol = 1e-10*_EPS
-mat52.limits = {(0,):1, (1,):0, (2,):-5/(3*_EPS**2), (3,):0, (4,):25/_EPS**4,
-                (0,0):1, (1,0):0, (0,1):0, (2,0):-5/(3*_EPS**2), (0,2):-5/(3*_EPS**2), (1,1):0}
+mat52.limits = {(0,):1, (1,):0, (2,):-5/(3*_EPS**2), (3,):0, 
+                (4,):25/_EPS**4,(0,0):1, (1,0):0, (0,1):0, 
+                (2,0):-5/(3*_EPS**2), (0,2):-5/(3*_EPS**2), (1,1):0}
                      
