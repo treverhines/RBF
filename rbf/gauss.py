@@ -375,32 +375,162 @@ from collections import OrderedDict
 import logging
 import weakref
 import inspect
+import scipy.sparse as sp
 from rbf.basis import _assert_shape
 from scipy.linalg.lapack import dpotri,dpotrf,dtrtrs
 logger = logging.getLogger(__name__)
 
+try:
+  from sksparse import cholmod
+  HAS_CHOLMOD = True
+  
+except ImportError:
+  HAS_CHOLMOD = False
+  logger.info(
+    'Could not import CHOLMOD. Sparse matrices will be converted to '
+    'dense for all Cholesky decompositions. To install CHOLMOD and its '
+    'python wrapper, follow the instructions at '
+    'https://scikit-sparse.readthedocs.io')
+    
 
-def _diag_add(A,d):
+
+def _asarray(A,dtype=None,copy=False):
   ''' 
-  Efficiently adds *d* to the diagonals of *A*. *A* is assumed to be a
-  numpy array
+  If *A* is a scipy sparse matrix then return it as a csc matrix.
+  Otherwise, return it as a numpy array.
   '''
-  Adiag = A.diagonal()
-  Adiag.flags.writeable=True
-  Adiag += d
-  return 
+  if sp.issparse(A):
+    return sp.csc_matrix(A,dtype=dtype,copy=copy)
+  
+  else: 
+    return np.array(A,dtype=dtype,copy=copy)  
 
 
-def _diag_mul(A,d):
+def _all_is_finite(A):
   ''' 
-  Efficiently multiply the diagonals of *A* by *d*. *A* is assumed to
-  be a numpy array
+  returns True if all values in *A* are finite. *A* can be a numpy
+  array or a scipy sparse matrix.
   '''
-  Adiag = A.diagonal()
-  Adiag.flags.writeable=True
-  Adiag *= d
-  return 
+  return TODO
 
+  
+def _diag_add(A,val,inplace=False):
+  ''' 
+  Add *val* to the diagonals of *A*
+  '''
+  return TODO
+  
+
+def _diag_mul(A,val,inplace=False):
+  ''' 
+  Multiply the diagonals of *A* by *val*
+  '''
+  return TODO
+  
+
+def _remove_rows(A,toss):
+  ''' 
+  Returns the matrix *A* with the rows from *toss* removed. *A* can be
+  a numpy array or scipy sparse matrix.
+  ''' 
+  return TODO
+
+def _remove_cols(A,toss):
+  ''' 
+  Returns the matrix *A* with the rows from *toss* removed. *A* can be
+  a numpy array or scipy sparse matrix.
+  ''' 
+  return TODO
+  
+
+def _remove_rows_and_cols(A,toss):
+  ''' 
+  Returns the matrix *A* with the rows and columns from *toss*
+  removed. *A* can be a numpy array or scipy sparse matrix.
+  ''' 
+  return TODO
+
+
+def _hstack(tup):
+  ''' 
+  hstack that works for numpy arrays and sparse matrices. Sparsity is
+  preserved if all input arrays are sparse
+  '''
+  return TODO
+  
+
+def _cholesky(A):
+  ''' 
+  Returns the Cholesky decomposition of *A*. *A* can be a numpy array
+  or a sparse array. The output array will have the same type as the
+  input array.
+  '''
+  return TODO
+
+
+class InverseL(object):
+  ''' 
+  Emulates the inverse of a Cholesky decomposition *L* without
+  actually computing the inverse
+  '''
+  def __init__(self,L):
+    TODO
+  
+  def dot(self,b):
+    TODO  
+
+
+class InverseLLT(object):
+  ''' 
+  Emulates the inverse of a positive definite matrix *A*, which has
+  Cholesky decomposition *L*, without actually computing the inverse.
+  '''
+  def __init__(self,L):
+    TODO
+  
+  def dot(self,b):
+    TODO  
+
+
+class InversePartitioned(A,B):
+  ''' 
+  Emulates the inverse of the partitioned matrix
+  
+    | A   B |
+    | B.T 0 |,
+
+  where A is a positive definite matrix, without actually computing
+  the inverse.
+  '''
+  def __init__(self,A,B):
+    TODO
+  
+  def dot(self,a,b):
+    TODO  
+  
+  
+# REPLACE THESE WITH 
+#def _diag_add(A,d):
+#  ''' 
+#  Efficiently adds *d* to the diagonals of *A*. *A* is assumed to be a
+#  numpy array
+#  '''
+#  Adiag = A.diagonal()
+#  Adiag.flags.writeable=True
+#  Adiag += d
+#  return 
+#
+#
+#def _diag_mul(A,d):
+#  ''' 
+#  Efficiently multiply the diagonals of *A* by *d*. *A* is assumed to
+#  be a numpy array
+#  '''
+#  Adiag = A.diagonal()
+#  Adiag.flags.writeable=True
+#  Adiag *= d
+#  return 
+#
 
 def _is_positive_definite(A):
   ''' 
@@ -515,6 +645,11 @@ def _cholesky_block_inv(P,Q):
       'There are fewer rows than columns in *Q*. This makes the '
       'block matrix singular, and its inverse cannot be computed.')
 
+  # NOTE array.dot(sparse) converts the sparse matrix to an array but
+  # sparse.dot(array) does not
+  # L = _cholesky(P)
+  # Pinv = InverseLLT(L)
+  
   Pinv  =  _cholesky_inv(P)
   PinvQ =  Pinv.dot(Q)
   B     = -_cholesky_inv(Q.T.dot(PinvQ))
@@ -564,9 +699,14 @@ def _sample(mean,cov,use_cholesky=False):
     L = _cholesky(cov,lower=True)
     w = np.random.normal(0.0,1.0,mean.shape[0])
     u = mean + L.dot(w)
+  
   else:
     # otherwise use an eigenvalue decomposition, ignoring negative
-    # eigenvalues
+    # eigenvalues. If *cov* is sparse then begrudgingly make it dense.
+    # TODO: an LDL^T decomposition would be better suited for this.
+    if sp.issparse(cov):
+      cov = cov.toarray()
+      
     s,Q = np.linalg.eigh(cov)
     keep = (s > 0.0)
     w = np.random.normal(0.0,np.sqrt(s[keep]))
@@ -655,8 +795,8 @@ def _add(gp1,gp2):
     return out
 
   def basis(x,diff):
-    out = np.hstack((gp1._basis(x,diff),
-                     gp2._basis(x,diff)))
+    out = _hstack((gp1._basis(x,diff),
+                   gp2._basis(x,diff)))
     return out                     
             
   dim = max(gp1.dim,gp2.dim)
@@ -679,8 +819,8 @@ def _subtract(gp1,gp2):
     return out       
             
   def basis(x,diff):
-    out = np.hstack((gp1._basis(x,diff),
-                     gp2._basis(x,diff)))
+    out = _hstack((gp1._basis(x,diff),
+                   gp2._basis(x,diff)))
     return out                     
 
   dim = max(gp1.dim,gp2.dim)
@@ -743,21 +883,12 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     C_y = gp._covariance(y,y,obs_diff,obs_diff)
     # GP basis functions at the observation points
     p_y = gp._basis(y,obs_diff)    
-    m = p_y.shape[1] # number of GP basis functions
     # add data noise to the covariance matrix
     C_y = C_y + sigma
     # append the data noise basis vectors 
-    p_y = np.hstack((p_y,p)) 
-    # compute kernel block inverse
-    K_y_inv = _cholesky_block_inv(C_y,p_y)
-    # throw out components of the block inverse that correspond to the
-    #noise basis vectors 
-    K_y_inv[0][1] = K_y_inv[0][1][:,:m]
-    K_y_inv[1][0] = K_y_inv[1][0][:m,:]
-    K_y_inv[1][1] = K_y_inv[1][1][:m,:m]
-    # create block residual vector augmented with zeros
-    r = [[d[:,None] - mu_y[:,None]],
-         [np.zeros((m,1))]]
+    p_y = _hstack((p_y,p)) 
+    K_y_inv = InversePartitioned(C_y,p_y)
+    r  = d - mu_y
     logger.debug('Done')
     return K_y_inv,r
     
@@ -765,28 +896,32 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     K_y_inv,r = precompute()
     mu_x = gp._mean(x,diff)
     C_xy = gp._covariance(x,y,diff,obs_diff)
+
+    # pad p_x with as many zero columns as there are noise basis vectors
     p_x = gp._basis(x,diff)
-    k_xy = [[C_xy,p_x]]
-    # intermediate block vector
-    vec = _block_dot(K_y_inv,r)
-    vec = _block_dot(k_xy,vec)
-    out = mu_x + vec[0][0][:,0]
+    p_x_pad = sp.csc_matrix((p_x.shape[0],p.shape[1]),dtype=float)
+    p_x = _hstack((p_x,p_x_pad))
+
+    vec1,vec2 = K_y_inv.dot(r,np.zeros(p_x.shape[1]))
+    out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
     return out
 
   def covariance(x1,x2,diff1,diff2):
     K_y_inv,r = precompute()
-    k_x1x2 = gp._covariance(x1,x2,diff1,diff2)
-    k_x1y = gp._covariance(x1,y,diff1,obs_diff)
-    k_x2y = gp._covariance(x2,y,diff2,obs_diff)
+    C_x1x2 = gp._covariance(x1,x2,diff1,diff2)
+    C_x1y = gp._covariance(x1,y,diff1,obs_diff)
+    C_x2y = gp._covariance(x2,y,diff2,obs_diff)
+
     p_x1 = gp._basis(x1,diff1)
+    p_x1_pad = sp.csc_matrix((p_x1.shape[0],p.shape[1]),dtype=float)
+    p_x1 = _hstack((p_x1,p_x1_pad))
+
     p_x2 = gp._basis(x2,diff2)
-    k_x1y = [[k_x1y,p_x1]]
-    k_x2y_T = [[k_x2y.T],
-               [p_x2.T]]
-    # intermediate block matrices
-    mat = _block_dot(K_y_inv,k_x2y_T)
-    mat = _block_dot(k_x1y,mat)
-    out = k_x1x2 - mat[0][0]
+    p_x2_pad = sp.csc_matrix((p_x2.shape[0],p.shape[1]),dtype=float)
+    p_x2 = _hstack((p_x2,p_x2_pad))
+
+    mat1,mat2 = K_y_inv.dot(C_x2y.T,p_x2.T)
+    out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
     return out
   
   dim = y.shape[1]
@@ -818,12 +953,12 @@ def _zero_mean(x,diff):
 
 def _zero_covariance(x1,x2,diff1,diff2):
   '''covariance function that returns zeros'''
-  return np.zeros((x1.shape[0],x2.shape[0]),dtype=float)  
+  return sp.csc_matrix((x1.shape[0],x2.shape[0]),dtype=float)  
 
 
 def _empty_basis(x,diff):
   '''empty set of basis functions'''
-  return np.zeros((x.shape[0],0),dtype=float)  
+  return sp.csc_matrix((x.shape[0],0),dtype=float)  
   
 
 def likelihood(d,mu,sigma,p=None):
@@ -854,12 +989,12 @@ def likelihood(d,mu,sigma,p=None):
   mu : (N,) array
     mean of the random vector
   
-  sigma : (N,) or (N,N) array    
+  sigma : (N,) array, (N,N) array, or (N,N) scipy sparse matrix    
     If this is an (N,) array then it describes one standard deviation
     of the random vector. If this is an (N,N) array then it describes
     the covariances.
   
-  p : (N,P) array, optional  
+  p : (N,P) array or (N,P) scipy sparse matrix optional  
     Improper basis vectors. If specified, then *d* is assumed to
     contain some unknown linear combination of the columns of *p*.
 
@@ -885,30 +1020,38 @@ def likelihood(d,mu,sigma,p=None):
   mu = np.asarray(mu,dtype=float)
   _assert_shape(mu,(d.shape[0],),'mu')
   
-  sigma = np.asarray(sigma,dtype=float) # data covariance
+  sigma = _asarray(sigma,dtype=float)
   if sigma.ndim == 1:
-    # convert std. dev. to covariance
-    sigma = np.diag(sigma**2)
+    # convert std. dev. to a csc sparse covariance matrix
+    sigma = sp.diags(sigma**2).tocsc()
     
   _assert_shape(sigma,(d.shape[0],d.shape[0]),'sigma')
 
   if p is None:
-    p = np.zeros((d.shape[0],0))
+    p = sp.csc_matrix((d.shape[0],0),dtype=float)
+  
   else:  
-    p = np.asarray(p,dtype=float)
+    p = _asarray(p,dtype=float)
   
   _assert_shape(p,(d.shape[0],None),'p')
   
   n,m = p.shape
   A = _cholesky(sigma,lower=True)
-  B = _trisolve(A,p,lower=True)        
+  Ainv = InverseL(A,lower=True,build_inverse=False)
+
+  B = Ainv.dot(p)
+
   C = _cholesky(B.T.dot(B),lower=True)   
+  Cinv = InverseL(C,lower=True,build_inverse=False)
+
   D = _cholesky(p.T.dot(p),lower=True)   
-  a = _trisolve(A,d-mu,lower=True)    
-  b = _trisolve(C,B.T.dot(a),lower=True) 
-  out = (np.sum(np.log(np.diag(D))) -
-         np.sum(np.log(np.diag(A))) -
-         np.sum(np.log(np.diag(C))) -
+
+  a = Ainv.dot(d - mu)
+  b = Cinv.dot(B.T.dot(a))
+
+  out = (np.sum( np.log( D.diagonal() ) ) -
+         np.sum( np.log( A.diagonal() ) ) -
+         np.sum( np.log( C.diagonal() ) ) -
          0.5*a.T.dot(a) +
          0.5*b.T.dot(b) -
          0.5*(n-m)*np.log(2*np.pi))
@@ -943,11 +1086,11 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     Mean of the Gaussian process at the observation points. Defaults
     to zeros.
 
-  sigma : (N,N) float array, optional
+  sigma : (N,N) float array or (N,N) scipy sparse matrix, optional
     Covariance of the Gaussian process at the observation points.
     Defaults to zeros.
   
-  p : (N,P) float array, optional
+  p : (N,P) float array or (N,P) scipy sparse matrix, optional
     Improper basis vectors for the Gaussian process evaluated at the
     observation points. Defaults to an (N,0) array.
   
@@ -971,20 +1114,23 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
 
   if mu is None:
     mu = np.zeros((n,),dtype=float)
+  
   else:  
     mu = np.asarray(mu,dtype=float)
     _assert_shape(mu,(n,),'mu')
 
   if sigma is None:
-    sigma = np.zeros((n,n),dtype=float)
+    sigma = sp.csc_matrix((n,n),dtype=float)
+  
   else:
-    sigma = np.asarray(sigma,dtype=float)
+    sigma = _asarray(sigma,dtype=float)
     _assert_shape(sigma,(n,n),'sigma')
   
   if p is None:  
-    p = np.zeros((n,0),dtype=float)
+    p = sp.csc_matrix((n,0),dtype=float)
+  
   else:  
-    p = np.asarray(p,dtype=float)
+    p = _asarray(p,dtype=float)
     _assert_shape(p,(n,None),'p')
   
   # number of basis functions
@@ -995,26 +1141,19 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   out = np.zeros(n,dtype=bool)
   while True:
     logger.debug('Starting iteration %s of outlier detection routine' % itr)
+    sigma_i = _remove_rows_and_cols(sigma,out)
+    p_i = _remove_rows(p,out)
     mu_i = mu[~out]
-    sigma_i = sigma[np.ix_(~out,~out)]
-    p_i = p[~out]
     d_i = d[~out]
     s_i = s[~out]
     # add data covariance to GP covariance
-    _diag_add(sigma_i,s_i**2)
-    Kinv = _cholesky_block_inv(sigma_i,p_i)
-    # residual of observed and mean 
-    r = [[d_i[:,None] - mu_i[:,None]],
-         [np.zeros((m,1))]]
-    # intermediate block vector
-    vec = _block_dot(Kinv,r)
+    sigma_i = _diag_add(sigma_i,s_i**2)
+    Kinv = InversePartitioned(sigma_i,p_i)
+    # intermediate vectors
+    vec1,vec2 = Kinv.dot(d_i - mu_i,np.zeros(m))
     # dereference everything that we no longer need
-    del mu_i,sigma_i,p_i,d_i,s_i,Kinv,r 
-    k = [[sigma[:,~out],p]] 
-    vec = _block_dot(k,vec)
-    # fit to the data
-    fit = mu + vec[0][0][:,0]
-    del k 
+    #del mu_i,sigma_i,p_i,d_i,s_i,Kinv
+    fit = mu + _remove_cols(sigma,out).dot(vec1) + p.dot(vec2)
     # find new outliers
     res = np.abs(fit - d)/s
     rms = np.sqrt(np.mean(res[~out]**2))
@@ -1048,7 +1187,7 @@ class GaussianProcess(object):
     array of positions and *diff* is a (D,) array specifying the 
     derivative. If the function only takes one argument, then the 
     function is assumed to not be differentiable. The function should 
-    return an (N,) array.
+    return an (N,) numpy array.
 
   covariance : function
     Covariance function for the Gaussian process. This takes either
@@ -1058,15 +1197,16 @@ class GaussianProcess(object):
     specifying the derivatives with respect to *x1* and *x2*,
     respectively. If the function only takes two arguments, then the
     function is assumed to not be differentiable. The function should
-    return an (N,M) array.
+    return an (N,M) numpy array or an (N,M) scipy sparse matrix.
 
   basis : function, optional
     Improper basis functions. This function takes either one argument,
     *x*, or two arguments, *x* and *diff*. *x* is an (N,D) array of
     positions and *diff* is a (D,) array specifying the derivative.
-    This function should return an (N,P) array, where each column is a
-    basis function evaluated at *x*. By default, a *GaussianProcess*
-    instance contains no improper basis functions.
+    This function should return an (N,P) numpy array or an (N,P) scipy
+    sparse matrix, where each column is a basis function evaluated at
+    *x*. By default, a *GaussianProcess* instance contains no improper
+    basis functions.
         
   dim : int, optional  
     Fixes the spatial dimensions of the *GaussianProcess* domain. An 
@@ -1087,7 +1227,6 @@ class GaussianProcess(object):
   functions of its parents. Due to this recursive implementation, the 
   number of generations of children (for lack of a better term) is 
   limited by the maximum recursion depth.
-  
   '''
   def __init__(self,mean,covariance,basis=None,dim=None):
     if _get_arg_count(mean) == 1:
@@ -1101,6 +1240,7 @@ class GaussianProcess(object):
         return mean(x)
     
       self._mean = mean_with_diff
+
     else:
       # otherwise, assume that the function can take two arguments
       self._mean = mean  
@@ -1117,6 +1257,7 @@ class GaussianProcess(object):
         return covariance(x1,x2)
 
       self._covariance = covariance_with_diff
+
     else:
       # otherwise, assume that the function can take four arguuments
       self._covariance = covariance
@@ -1136,6 +1277,7 @@ class GaussianProcess(object):
         return basis(x)
     
       self._basis = basis_with_diff
+    
     else:
       # otherwise, assume that the function can take two arguments
       self._basis = basis
@@ -1277,7 +1419,7 @@ class GaussianProcess(object):
     d : (N,) float array
       Observed values at *y*
       
-    sigma : (N,) or (N,N) float array, optional
+    sigma : (N,) array, (N,N) array, or (N,N) scipy sparse matrix, optional
       Data uncertainty. If this is an (N,) array then it describes one 
       standard deviation of the data error. If this is an (N,N) array 
       then it describes the covariances of the data error. If nothing 
@@ -1285,7 +1427,7 @@ class GaussianProcess(object):
       having zero uncertainty can result in numerically unstable 
       calculations for large N.
 
-    p : (N,P) float array, optional  
+    p : (N,P) array or (N,P) scipy sparse matrix, optional  
       Improper basis vectors for the noise. The data noise is assumed
       to contain some unknown linear combination of the columns of
       *p*.
@@ -1309,23 +1451,26 @@ class GaussianProcess(object):
     _assert_shape(d,(n,),'d')
 
     if sigma is None:
-      sigma = np.zeros((n,n),dtype=float)      
+      sigma = sp.csc_matrix((n,n),dtype=float)
+    
     else:
-      sigma = np.asarray(sigma,dtype=float)
+      sigma = _asarray(sigma,dtype=float)
       if sigma.ndim == 1:
         # convert standard deviations to covariances
-        sigma = np.diag(sigma**2)
+        sigma = sp.diags(sigma**2).tocsc()
 
       _assert_shape(sigma,(n,n),'sigma')
         
     if p is None:
-      p = np.zeros((n,0))
+      p = sp.csc_matrix((n,0),dtype=float)
+    
     else:
-      p = np.asarray(p,dtype=float)
+      p = _asarray(p,dtype=float)
       _assert_shape(p,(n,None),'p')
       
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
+    
     else:
       obs_diff = np.asarray(obs_diff,dtype=int)
       _assert_shape(obs_diff,(dim,),'obs_diff')
@@ -1377,20 +1522,22 @@ class GaussianProcess(object):
     _assert_shape(d,(n,),'d')
 
     if sigma is None:
-      sigma = np.zeros((n,n),dtype=float)
+      sigma = sp.csc_matrix((n,n),dtype=float)
+
     else:
-      sigma = np.asarray(sigma,dtype=float)
+      sigma = _asarray(sigma,dtype=float)
       if sigma.ndim == 1:
         # If sigma is a 1d array then it contains std. dev. uncertainties.  
         # Convert sigma to a covariance matrix
-        sigma = np.diag(sigma**2)
+        sigma = sp.diags(sigma**2).tocsc()
 
       _assert_shape(sigma,(n,n),'sigma')
     
     if p is None:
-      p = np.zeros((n,0))
+      p = sp.csc_matrix((n,0),dtype=float)
+
     else:
-      p = np.asarray(p,dtype=float)
+      p = _asarray(p,dtype=float)
       _assert_shape(p,(n,None),'p')
 
     obs_diff = np.zeros(dim,dtype=int)
@@ -1399,7 +1546,7 @@ class GaussianProcess(object):
   	# of the Gaussian process and the noise.
     mu = self._mean(y,obs_diff)
     sigma = self._covariance(y,y,obs_diff,obs_diff) + sigma
-    p = np.hstack((self._basis(y,obs_diff),p))
+    p = _hstack((self._basis(y,obs_diff),p))
     out = likelihood(d,mu,sigma,p=p)
     return out
 
@@ -1484,12 +1631,19 @@ class GaussianProcess(object):
     
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
+
     else:
       diff = np.asarray(diff,dtype=int)
       _assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._basis(x,diff)
-    out = np.array(out,copy=True)
+    # return a dense copy of out
+    if sp.issparse(out):
+      out = out.toarray()
+
+    else:
+      out = np.array(out,copy=True)
+      
     return out
 
   def mean(self,x,diff=None):
@@ -1514,13 +1668,19 @@ class GaussianProcess(object):
     
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
+
     else:
       diff = np.asarray(diff,dtype=int)
       _assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._mean(x,diff)
-    # return a copy of *out* that is safe to write to
-    out = np.array(out,copy=True)
+    # return a dense copy of out
+    if sp.issparse(out):
+      out = out.toarray()
+
+    else:
+      out = np.array(out,copy=True)
+
     return out
 
   def covariance(self,x1,x2,diff1=None,diff2=None):
@@ -1552,19 +1712,26 @@ class GaussianProcess(object):
 
     if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
+
     else:
       diff1 = np.asarray(diff1,dtype=int)
       _assert_shape(diff1,(x1.shape[1],),'diff1')
 
     if diff2 is None:  
       diff2 = np.zeros(x2.shape[1],dtype=int)
+
     else:
       diff2 = np.asarray(diff2,dtype=int)
       _assert_shape(diff2,(x1.shape[1],),'diff2')
       
     out = self._covariance(x1,x2,diff1,diff2)
-    # return a copy of *out* that is safe to write to
-    out = np.array(out,copy=True)
+    # return a dense copy of out
+    if sp.issparse(out):
+      out = out.toarray()
+
+    else:
+      out = np.array(out,copy=True)
+
     return out
     
   def meansd(self,x,chunk_size=100):
@@ -1607,11 +1774,12 @@ class GaussianProcess(object):
       if xlen > chunk_size:
         logger.debug('Computing the mean and std. dev. : %3d%% complete' % ((100.0*count)/xlen))
       
-      start,stop = count,count+chunk_size
-      out_mean[start:stop] = self.mean(x[start:stop])
-      cov = self.covariance(x[start:stop],x[start:stop])
-      var = np.diag(cov)
-      out_sd[start:stop] = np.sqrt(var)
+      start,stop = count,count+chunk_size 
+      # TODO use _mean and _covariance
+      out_mean[start:stop] = self.mean(x[start:stop]) 
+      cov = self.covariance(x[start:stop],x[start:stop]) 
+      var = cov.diagonal()
+      out_sd[start:stop] = np.sqrt(var) 
       count += chunk_size
     
     if xlen > chunk_size:
@@ -1644,15 +1812,23 @@ class GaussianProcess(object):
     out : (N,) array      
     
     '''
-    mu = self.mean(x)
-    sigma = self.covariance(x,x)
-    p = self.basis(x)
+    x = np.asarray(x,dtype=float)
+    _assert_shape(x,(None,self.dim),'x')
+    # derivative of the sample will be zero
+    diff = np.zeros(x.shape[1],dtype=int)
+
+    mu = self._mean(x,diff)
+    sigma = self._covariance(x,x,diff,diff)
+    p = self._basis(x,diff)
+    
     if c is not None:
       c = np.asarray(c,dtype=float)
+    
     else:
       c = np.zeros(p.shape[1])  
-      
+
     _assert_shape(c,(p.shape[1],),'c')    
+
     out = _sample(mu,sigma,use_cholesky=use_cholesky) + p.dot(c)
     return out
     
@@ -1681,7 +1857,11 @@ class GaussianProcess(object):
     negative due to numerical rounding error. This is most notably the
     case for the squared exponential covariance function.    
     '''
-    cov = self.covariance(x,x)    
+    x = np.asarray(x,dtype=float)
+    _assert_shape(x,(None,self.dim),'x')
+    diff = np.zeros(x.shape[1],dtype=int)
+
+    cov = self._covariance(x,x,diff,diff)    
     out = _is_positive_definite(cov)
     return out  
     
@@ -1747,6 +1927,7 @@ def gpiso(phi,params,dim=None):
     a,b,c = params  
     if sum(diff) == 0:
       out = np.full(x.shape[0],a,dtype=float)
+    
     else:
       out = np.zeros(x.shape[0],dtype=float)
 
@@ -1756,7 +1937,8 @@ def gpiso(phi,params,dim=None):
     a,b,c = params  
     diff = diff1 + diff2
     out = b*(-1)**sum(diff2)*phi(x1,x2,eps=c,diff=diff)
-    if not np.all(np.isfinite(out)):
+    
+    if not _all_is_finite(out):
       raise ValueError(
         'Encountered a non-finite RBF covariance. This may be '
         'because the basis function is not sufficiently '
@@ -1846,7 +2028,7 @@ def gpbfc(basis,mu,sigma,dim=None):
   mu : (P,) array
     Expected value of the basis function coefficients.
   
-  sigma : (P,) or (P,P) array   
+  sigma : (P,) or (P,P) array w
     If this is a (P,) array then it indicates the standard deviation 
     of the basis function coefficients. If it is a (P,P) array then it 
     indicates the covariances. 

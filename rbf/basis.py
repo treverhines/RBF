@@ -451,7 +451,7 @@ class SparseRBF(RBF):
     # *n* is the total number of data entries thus far
     n = 0
     for i,idxi in enumerate(idx):
-      # *m* is the number of nodes in *x* close to *ci*
+      # *m* is the number of nodes in *x* close to *c[[i]]*
       m = len(idxi)
       data[n:n+m] = RBF.__call__(self,x[idxi,:],c[[i]],eps=eps,
                                  **kwargs)[:,0]
@@ -476,7 +476,9 @@ def _pos(expr):
   '''
   return sympy.Piecewise((expr,expr > 0.0),(0.0,True))
   
-# Instantiate some common RBFs
+## Instantiate some common RBFs
+#####################################################################
+# polyharmonic splines
 phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R))
 phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R))
 phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R))
@@ -485,20 +487,35 @@ phs7 = RBF((_EPS*_R)**7)
 phs5 = RBF((_EPS*_R)**5)
 phs3 = RBF((_EPS*_R)**3)
 phs1 = RBF(_EPS*_R)
+# inverse multiquadratic
 imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
+# inverse quadratic
 iq = RBF(1/(1+(_EPS*_R)**2))
+# Gaussian
 ga = RBF(sympy.exp(-(_EPS*_R)**2))
+# multiquadratic
 mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
+# exponential
 exp = RBF(sympy.exp(-_R/_EPS))
+# squared exponential
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
+# Matern
 mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS))
 mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS))
+# Wendland 
 wen10 = RBF(_pos(1 - _R/_EPS))
 wen11 = RBF(_pos(1 - _R/_EPS)**3*(3*_R/_EPS + 1))
 wen12 = RBF(_pos(1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1))
 wen30 = RBF(_pos(1 - _R/_EPS)**2)
 wen31 = RBF(_pos(1 - _R/_EPS)**4*(4*_R/_EPS + 1))
 wen32 = RBF(_pos(1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3)
+# sparse Wendland 
+spwen10 = SparseRBF(_pos(1 - _R/_EPS),_EPS)
+spwen11 = SparseRBF(_pos(1 - _R/_EPS)**3*(3*_R/_EPS + 1),_EPS)
+spwen12 = SparseRBF(_pos(1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1),_EPS)
+spwen30 = SparseRBF(_pos(1 - _R/_EPS)**2,_EPS)
+spwen31 = SparseRBF(_pos(1 - _R/_EPS)**4*(4*_R/_EPS + 1),_EPS)
+spwen32 = SparseRBF(_pos(1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3,_EPS)
 
 # set some known limits so that sympy does not need to compute them
 phs1.tol = 1e-10
