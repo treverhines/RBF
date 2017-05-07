@@ -373,6 +373,7 @@ import rbf.poly
 import rbf.basis
 from collections import OrderedDict
 import logging
+import warnings
 import weakref
 import inspect
 import scipy.sparse as sp
@@ -393,6 +394,12 @@ except ImportError:
     'https://scikit-sparse.readthedocs.io')
     
 
+class NotPositiveDefiniteError(Exception):
+  ''' 
+  Error raised when Cholesky decompositions fails
+  '''  
+  pass
+
 
 def _asarray(A,dtype=None,copy=False):
   ''' 
@@ -411,61 +418,84 @@ def _all_is_finite(A):
   returns True if all values in *A* are finite. *A* can be a numpy
   array or a scipy sparse matrix.
   '''
-  return TODO
+  if sp.issparse(A):
+    # get all the nonzero entries
+    return np.all(np.isfinite(A.data))
+    
+  else:
+    return np.all(np.isfinite(A))
 
   
-def _diag_add(A,val,inplace=False):
-  ''' 
-  Add *val* to the diagonals of *A*
-  '''
-  return TODO
-  
-
-def _diag_mul(A,val,inplace=False):
-  ''' 
-  Multiply the diagonals of *A* by *val*
-  '''
-  return TODO
-  
-
-def _remove_rows(A,toss):
-  ''' 
-  Returns the matrix *A* with the rows from *toss* removed. *A* can be
-  a numpy array or scipy sparse matrix.
-  ''' 
-  return TODO
-
-def _remove_cols(A,toss):
-  ''' 
-  Returns the matrix *A* with the rows from *toss* removed. *A* can be
-  a numpy array or scipy sparse matrix.
-  ''' 
-  return TODO
-  
-
-def _remove_rows_and_cols(A,toss):
-  ''' 
-  Returns the matrix *A* with the rows and columns from *toss*
-  removed. *A* can be a numpy array or scipy sparse matrix.
-  ''' 
-  return TODO
-
-
 def _hstack(tup):
   ''' 
   hstack that works for numpy arrays and sparse matrices. Sparsity is
   preserved if all input arrays are sparse
   '''
-  return TODO
+  if all(sp.issparse(i) for i in tup):
+    # if all inputs are sparse then stack with sp.hstack
+    out = sp.hstack(tup).tocsc()
+  
+  else:
+    # convert sparse arrays to dense arrays and then stack
+    gen = (i.toarray() if sp.issparse(i) else i for i in tup)
+    out = np.hstack(gen)
+  
+  return out
   
 
 def _cholesky(A):
   ''' 
   Returns the Cholesky decomposition of *A*. *A* can be a numpy array
-  or a sparse array. The output array will have the same type as the
-  input array.
+  or a sparse array. The output will have the same type as the input.
   '''
-  return TODO
+  # if CHOLMOD is not available then make *A* dense if it is sparse  
+  if sp.issparse(A) & (not HAS_CHOLMOD):
+    warnings.warn(
+      'Could not import CHOLMOD. Sparse matrices will be converted to '
+      'dense for all Cholesky decompositions. To install CHOLMOD and its '
+      'python wrapper, follow the instructions at '
+      'https://scikit-sparse.readthedocs.io')
+    A = A.toarray()    
+
+  if sp.issparse(A):
+    # Cholesky decomposition for sparse matrix using CHOLMOD
+    A = A.tocsc()
+    try:
+      L = cholmod.cholesky(As).L()
+
+    except cholmod.CholmodNotPositiveDefiniteError as err:  
+      raise NotPositiveDefiniteError(err.args[0])
+  
+  else:
+    # Cholesky decomposition for numpy array using LAPACK
+    if A.shape == (0,0):
+      return np.zeros((0,0),dtype=float)
+      
+    L,info = dpotrf(A,lower=True) 
+    if info > 0:  
+      raise NotPositiveDefiniteError(
+        'The leading minor of order %s is not positive definite, and '
+        'the factorization could not be completed. ' % info)
+  
+    elif info < 0:
+      raise ValueError(
+        'The %s-th argument has an illegal value.' % (-info))
+        
+  return L
+
+
+def _is_positive_definite(A):
+  ''' 
+  Tests if *A* is positive definite. This is done by testing whether
+  the Cholesky decomposition finishes successfully
+  '''
+  try:
+    _cholesky(A)
+
+  except NotPositiveDefiniteError:  
+    return False
+  
+  return True
 
 
 class InverseL(object):
@@ -492,7 +522,7 @@ class InverseLLT(object):
     TODO  
 
 
-class InversePartitioned(A,B):
+class InversePartitioned(object):
   ''' 
   Emulates the inverse of the partitioned matrix
   
@@ -509,42 +539,6 @@ class InversePartitioned(A,B):
     TODO  
   
   
-# REPLACE THESE WITH 
-#def _diag_add(A,d):
-#  ''' 
-#  Efficiently adds *d* to the diagonals of *A*. *A* is assumed to be a
-#  numpy array
-#  '''
-#  Adiag = A.diagonal()
-#  Adiag.flags.writeable=True
-#  Adiag += d
-#  return 
-#
-#
-#def _diag_mul(A,d):
-#  ''' 
-#  Efficiently multiply the diagonals of *A* by *d*. *A* is assumed to
-#  be a numpy array
-#  '''
-#  Adiag = A.diagonal()
-#  Adiag.flags.writeable=True
-#  Adiag *= d
-#  return 
-#
-
-def _is_positive_definite(A):
-  ''' 
-  Tests if *A* is positive definite. This is done by testing whether
-  the Cholesky decomposition finishes successfully
-  '''
-  try:
-    _cholesky(A)
-
-  except np.linalg.LinAlgError:  
-    # LinAlgError is only raised if A is not positive definite
-    return False
-  
-  return True
 
   
 def _trisolve(G,d,**kwargs):
@@ -570,29 +564,6 @@ def _trisolve(G,d,**kwargs):
 
     else:
       return soln
-
-
-def _cholesky(A,**kwargs):
-  ''' 
-  Cholesky decomposition. It is assumed that *A* is a double precision
-  numpy array.  
-  '''
-  if A.shape == (0,0):
-    return np.zeros((0,0),dtype=float)
-    
-  L,info = dpotrf(A,**kwargs)
-  if info > 0:  
-    raise np.linalg.LinAlgError(
-      'The leading minor of order %s is not positive definite, and '
-      'the factorization could not be completed. ' % info)
-
-  elif info < 0:
-    raise ValueError(
-      'The %s-th argument has an illegal value.' % (-info))
-      
-  else:
-    # the decomposition exited successfully
-    return L
 
 
 def _cholesky_inv(A):
@@ -660,32 +631,6 @@ def _cholesky_block_inv(P,Q):
   return out
 
 
-def _block_dot(A,B):
-  ''' 
-  Block matrix multiplication. 
-  
-  Parameters
-  ----------
-  A : (N,K) nested list of 2D numpy arrays
-  B : (K,M) nested list of 2D numpy arrays
-  '''
-  Arow,Acol = len(A),len(A[0])
-  Brow,Bcol = len(B),len(B[0])
-  if Acol != Brow:
-    raise ValueError('Block matrices have incompatible shapes')
-
-  # set None placeholders
-  out = [[None for i in range(Bcol)] for j in range(Arow)]
-  for i in range(Arow):
-    for j in range(Bcol):
-      # allocate array for the dot product
-      out[i][j] = np.zeros((A[i][0].shape[0],B[0][j].shape[1])) 
-      for k in range(Acol):
-        # do inplace addition if possible
-        out[i][j] += A[i][k].dot(B[k][j])
-
-  return out
-
 
 def _sample(mean,cov,use_cholesky=False):
   ''' 
@@ -696,7 +641,7 @@ def _sample(mean,cov,use_cholesky=False):
     # draw a sample using a cholesky decomposition. This assumes that
     # *cov* is numerically positive definite (i.e. no small negative
     # eigenvalues from rounding error).
-    L = _cholesky(cov,lower=True)
+    L = _cholesky(cov)
     w = np.random.normal(0.0,1.0,mean.shape[0])
     u = mean + L.dot(w)
   
@@ -1036,15 +981,15 @@ def likelihood(d,mu,sigma,p=None):
   _assert_shape(p,(d.shape[0],None),'p')
   
   n,m = p.shape
-  A = _cholesky(sigma,lower=True)
+  A = _cholesky(sigma)
   Ainv = InverseL(A,lower=True,build_inverse=False)
 
   B = Ainv.dot(p)
 
-  C = _cholesky(B.T.dot(B),lower=True)   
+  C = _cholesky(B.T.dot(B))   
   Cinv = InverseL(C,lower=True,build_inverse=False)
 
-  D = _cholesky(p.T.dot(p),lower=True)   
+  D = _cholesky(p.T.dot(p))   
 
   a = Ainv.dot(d - mu)
   b = Cinv.dot(B.T.dot(a))
@@ -1141,19 +1086,21 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   out = np.zeros(n,dtype=bool)
   while True:
     logger.debug('Starting iteration %s of outlier detection routine' % itr)
-    sigma_i = _remove_rows_and_cols(sigma,out)
-    p_i = _remove_rows(p,out)
+    # remove rows and cols where *out* is True
+    sigma_i = sigma[:,~out][~out,:]
+    p_i = p_i[~out]
     mu_i = mu[~out]
     d_i = d[~out]
     s_i = s[~out]
     # add data covariance to GP covariance
-    sigma_i = _diag_add(sigma_i,s_i**2)
+    sigma_i = sigma_i + sp.diags(s_i**2).tocsc()
     Kinv = InversePartitioned(sigma_i,p_i)
-    # intermediate vectors
     vec1,vec2 = Kinv.dot(d_i - mu_i,np.zeros(m))
+
     # dereference everything that we no longer need
-    #del mu_i,sigma_i,p_i,d_i,s_i,Kinv
-    fit = mu + _remove_cols(sigma,out).dot(vec1) + p.dot(vec2)
+    del sigma_i,mu_i,p_i,d_i,s_i,Kinv
+    
+    fit = mu + sigma[:,~out].dot(vec1) + p.dot(vec2)
     # find new outliers
     res = np.abs(fit - d)/s
     rms = np.sqrt(np.mean(res[~out]**2))

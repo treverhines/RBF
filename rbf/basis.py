@@ -36,12 +36,11 @@ Wendland (d=3, k=1)                wen31         Yes (1, 2, and 3-D)  :math:`(1 
 Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^6(35r^2/\epsilon^2 + 18r/\epsilon + 3)/3`
 =================================  ============  ===================  ======================================
 
-
 ''' 
 from __future__ import division 
 from rbf.poly import powers
 import sympy 
-from scipy.sparse import csr_matrix
+from scipy.sparse import csc_matrix
 from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
 import numpy as np 
@@ -51,16 +50,47 @@ logger = logging.getLogger(__name__)
 
 class _CallbackDict(dict):
   ''' 
-  dictionary that calls a function after __setitem__ is called
+  dictionary that calls a function after any method is called that
+  could change its content.
   '''
   def __init__(self,value,callback):
+    ''' 
+    Parameters
+    ----------
+    value : dict
+    callback : function
+    '''
     dict.__init__(self,value)
     self.callback = callback
   
+  def __delitem__(self,key):  
+    dict.__delitem__(self,key)
+    self.callback()
+
   def __setitem__(self,key,value):  
     dict.__setitem__(self,key,value)
     self.callback()
+    
+  def pop(self,*args):
+    dict.pop(self,*args)
+    self.callback()
 
+  def popitem(self):
+    dict.popitem(self)
+    self.callback()
+
+  def clear(self):
+    dict.clear(self)
+    self.callback()
+  
+  def setdefault(self,*args):
+    dict.setdefault(self,*args)  
+    self.callback()
+
+  def update(self,*args,**kwargs):    
+    dict.update(self,*args,**kwargs)
+    self.callback()
+  
 
 def _assert_shape(a,shape,label):
   ''' 
@@ -140,11 +170,6 @@ class RBF(object):
     this dictionary is provided and *tol* is not *None*, then it will
     be searched before attempting to symbolically compute the limits.
     
-  backend : str, optional
-    Backend used to convert the symbolic expression into a numerical
-    function. This can be any of the backends supported by sympy's
-    *ufuncify*. Available backends are 'numpy', 'cython', and 'f2py'.
-    
   Examples
   --------
   Instantiate an inverse quadratic RBF
@@ -185,20 +210,13 @@ class RBF(object):
 
   Notes
   -----
-  The attributes *tol*, *backend*, and *limits* can be safely replaced
-  with new values. It is also safe to change the entries in *limits*
-  through the *__setitem__* method. Such changes will cause the cache
-  of numerical functions to be cleared.
-  
+  It is safe to change the attributes *tol* and *limits*. Changes will
+  cause the cache of numerical functions to be cleared.
   '''
   @property
   def expr(self):
     # *expr* is read-only. 
     return self._expr
-
-  @property
-  def backend(self):
-    return self._backend
 
   @property
   def tol(self):
@@ -207,13 +225,6 @@ class RBF(object):
   @property
   def limits(self):
     return self._limits
-
-  @backend.setter
-  def backend(self,value):
-    # let *ufuncify* decide whether *value* is appropriate
-    self._backend = value
-    # reset *cache* now that we have a new *backend*
-    self.clear_cache()
 
   @tol.setter
   def tol(self,value):
@@ -234,13 +245,12 @@ class RBF(object):
     if value is None:
       value = {}
       
-    # if *limits* is ever changed through *__setitem__* then
-    # *clear_cache* is called
+    # if *limits* is ever changed then *clear_cache* is called
     self._limits = _CallbackDict(value,self.clear_cache)
     # reset *cache* now that we have a new *limits*
     self.clear_cache()
 
-  def __init__(self,expr,tol=None,limits=None,backend='numpy'):
+  def __init__(self,expr,tol=None,limits=None):
     # make sure that *expr* does not contain any symbols other than 
     # *_R* and *_EPS*
     other_symbols = expr.free_symbols.difference({_R,_EPS})
@@ -260,7 +270,6 @@ class RBF(object):
     self._expr = expr
     self.tol = tol
     self.limits = limits
-    self.backend = backend
     self.cache = {}
 
   def __call__(self,x,c,eps=1.0,diff=None):
@@ -314,33 +323,15 @@ class RBF(object):
     
     _assert_shape(diff,(x.shape[1],),'diff')
 
-    # expand to allow for broadcasting
-    x = x.T[:,:,None] 
-    c = c.T[:,None,:]
-
-    if self.backend.lower() in ['cython','f2py']:
-      # broadcasting is not allowed for these backends and we must
-      # expand and flatten *x*, *c*, and *eps*
-      x = x.repeat(c.shape[2],axis=2)
-      c = c.repeat(x.shape[1],axis=1)
-      eps = eps[None,:].repeat(x.shape[1],axis=0)
-      args = (tuple(i.ravel() for i in x) + 
-              tuple(i.ravel() for i in c) + 
-              (eps.ravel(),))
-
-    else: 
-      args = (tuple(x)+tuple(c)+(eps,))
-
     # add numerical function to cache if not already
     if diff not in self.cache:
       self._add_diff_to_cache(diff)
- 
-    out = self.cache[diff](*args)
 
-    if self.backend.lower() in ['cython','f2py']:
-      # fold the 1d array into a 2d array
-      out = out.reshape((x.shape[1],c.shape[2]))
-    
+    # expand to allow for broadcasting
+    x = x.T[:,:,None] 
+    c = c.T[:,None,:]
+    args = (tuple(x)+tuple(c)+(eps,))
+    out = self.cache[diff](*args)
     return out
 
   def __repr__(self):
@@ -389,12 +380,13 @@ class RBF(object):
       # _R<tol and expr otherwise
       expr = sympy.Piecewise((lim,r_sym<self.tol),(expr,True)) 
       
-    func = ufuncify(x_sym+c_sym+(_EPS,),expr,backend=self.backend)
+    func = ufuncify(x_sym+c_sym+(_EPS,),expr,backend='numpy')
     self.cache[diff] = func
     
   def clear_cache(self):
     ''' 
-    Clears the cache of numerical functions.
+    Clears the cache of numerical functions. Makes a cache dictionary
+    if it does not already exist
     '''
     self.cache = {}
     
@@ -424,7 +416,10 @@ class SparseRBF(RBF):
     self.supp = supp      
     RBF.__init__(self,expr,**kwargs)
 
-  def __call__(self,x,c,eps=1.0,**kwargs):
+  def __call__(self,x,c,eps=1.0,diff=None):
+    ''' 
+    Returns a sparse matrix
+    '''
     x = np.asarray(x,dtype=float)
     _assert_shape(x,(None,None),'x')
     c = np.asarray(c,dtype=float)
@@ -433,18 +428,37 @@ class SparseRBF(RBF):
     if not np.isscalar(eps):
       raise NotImplementedError(
         '*eps* must be a scalar for *SparseRBF* instances')
-    
-    # convert self.supp from a sympy expression to a float
-    supp = float(self.supp.subs(_EPS,eps))
 
+    # convert scalar to (1,) array
+    eps = np.array([eps],dtype=float)
+
+    if diff is None:
+      diff = (0,)*x.shape[1]
+
+    else:
+      # make sure diff is immutable
+      diff = tuple(diff)
+    
+    # add numerical function to cache if not already
+    if diff not in self.cache:
+      self._add_diff_to_cache(diff)
+
+    _assert_shape(diff,(x.shape[1],),'diff')
+
+    # convert self.supp from a sympy expression to a float
+    supp = float(self.supp.subs(_EPS,eps[0]))
+
+    # find the nonzero entries based on distances between *x* and *c*
     nx,nc = x.shape[0],c.shape[0]
     xtree = cKDTree(x)
     ctree = cKDTree(c)
     # *idx* contains the indices of *x* which are within
     # *supp* of each node in *c*
     idx = ctree.query_ball_tree(xtree,supp)
+
     # total nonzero entries in the output array
     nnz = sum(len(i) for i in idx)
+    # allocate sparse matrix data
     data = np.zeros(nnz,dtype=float)
     rows = np.zeros(nnz,dtype=float)
     cols = np.zeros(nnz,dtype=float)
@@ -453,14 +467,17 @@ class SparseRBF(RBF):
     for i,idxi in enumerate(idx):
       # *m* is the number of nodes in *x* close to *c[[i]]*
       m = len(idxi)
-      data[n:n+m] = RBF.__call__(self,x[idxi,:],c[[i]],eps=eps,
-                                 **kwargs)[:,0]
+      # properly shape *x* and *c* for broadcasting
+      xi = x.T[:,idxi,None]
+      ci = c.T[:,None,i][:,:,None]
+      args = (tuple(xi) + tuple(ci) + (eps,))
+      data[n:n+m] = self.cache[diff](*args)[:,0]
       rows[n:n+m] = idxi
       cols[n:n+m] = i
       n += m
 
-    # convert to a csr_matrix
-    out = csr_matrix((data,(rows,cols)),(nx,nc))
+    # convert to a csc_matrix
+    out = csc_matrix((data,(rows,cols)),(nx,nc))
     return out
 
   def __repr__(self):
@@ -519,52 +536,65 @@ spwen32 = SparseRBF(_pos(1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3,_
 
 # set some known limits so that sympy does not need to compute them
 phs1.tol = 1e-10
-for i in powers(0,1): phs1.limits[tuple(i)] = 0
-for i in powers(0,2): phs1.limits[tuple(i)] = 0
-for i in powers(0,3): phs1.limits[tuple(i)] = 0
+phs1.limits.update((tuple(i),0) for i in powers(0,1))
+phs1.limits.update((tuple(i),0) for i in powers(0,2))
+phs1.limits.update((tuple(i),0) for i in powers(0,3))
 
 phs2.tol = 1e-10
-for i in powers(1,1): phs2.limits[tuple(i)] = 0
-for i in powers(1,2): phs2.limits[tuple(i)] = 0
-for i in powers(1,3): phs2.limits[tuple(i)] = 0
+phs2.limits.update((tuple(i),0) for i in powers(1,1))
+phs2.limits.update((tuple(i),0) for i in powers(1,2))
+phs2.limits.update((tuple(i),0) for i in powers(1,3))
 
 phs3.tol = 1e-10
-for i in powers(2,1): phs3.limits[tuple(i)] = 0
-for i in powers(2,2): phs3.limits[tuple(i)] = 0
-for i in powers(2,3): phs3.limits[tuple(i)] = 0
+phs3.limits.update((tuple(i),0) for i in powers(2,1))
+phs3.limits.update((tuple(i),0) for i in powers(2,2))
+phs3.limits.update((tuple(i),0) for i in powers(2,3))
 
 phs4.tol = 1e-10
-for i in powers(3,1): phs4.limits[tuple(i)] = 0
-for i in powers(3,2): phs4.limits[tuple(i)] = 0
-for i in powers(3,3): phs4.limits[tuple(i)] = 0
+phs4.limits.update((tuple(i),0) for i in powers(3,1))
+phs4.limits.update((tuple(i),0) for i in powers(3,2))
+phs4.limits.update((tuple(i),0) for i in powers(3,3))
 
 phs5.tol = 1e-10
-for i in powers(4,1): phs5.limits[tuple(i)] = 0
-for i in powers(4,2): phs5.limits[tuple(i)] = 0
-for i in powers(4,3): phs5.limits[tuple(i)] = 0
+phs5.limits.update((tuple(i),0) for i in powers(4,1))
+phs5.limits.update((tuple(i),0) for i in powers(4,2))
+phs5.limits.update((tuple(i),0) for i in powers(4,3))
 
 phs6.tol = 1e-10
-for i in powers(5,1): phs6.limits[tuple(i)] = 0
-for i in powers(5,2): phs6.limits[tuple(i)] = 0
-for i in powers(5,3): phs6.limits[tuple(i)] = 0
+phs6.limits.update((tuple(i),0) for i in powers(5,1))
+phs6.limits.update((tuple(i),0) for i in powers(5,2))
+phs6.limits.update((tuple(i),0) for i in powers(5,3))
 
 phs7.tol = 1e-10
-for i in powers(6,1): phs7.limits[tuple(i)] = 0
-for i in powers(6,2): phs7.limits[tuple(i)] = 0
-for i in powers(6,3): phs7.limits[tuple(i)] = 0
+phs7.limits.update((tuple(i),0) for i in powers(6,1))
+phs7.limits.update((tuple(i),0) for i in powers(6,2))
+phs7.limits.update((tuple(i),0) for i in powers(6,3))
 
 phs8.tol = 1e-10
-for i in powers(7,1): phs8.limits[tuple(i)] = 0
-for i in powers(7,2): phs8.limits[tuple(i)] = 0
-for i in powers(7,3): phs8.limits[tuple(i)] = 0
+phs8.limits.update((tuple(i),0) for i in powers(7,1))
+phs8.limits.update((tuple(i),0) for i in powers(7,2))
+phs8.limits.update((tuple(i),0) for i in powers(7,3))
 
 mat32.tol = 1e-10*_EPS
-mat32.limits = {(0,):1, (1,):0, (2,):-3/_EPS**2,
-                (0,0):1, (1,0):0, (0,1):0, (2,0):-3/_EPS**2, 
-                (0,2):-3/_EPS**2, (1,1):0}
-
+mat32.limits.update({(0,):1, 
+                     (1,):0, 
+                     (2,):-3/_EPS**2,
+                     (0,0):1, 
+                     (1,0):0, 
+                     (0,1):0, 
+                     (2,0):-3/_EPS**2, 
+                     (0,2):-3/_EPS**2, 
+                     (1,1):0})
+      
 mat52.tol = 1e-10*_EPS
-mat52.limits = {(0,):1, (1,):0, (2,):-5/(3*_EPS**2), (3,):0, 
-                (4,):25/_EPS**4,(0,0):1, (1,0):0, (0,1):0, 
-                (2,0):-5/(3*_EPS**2), (0,2):-5/(3*_EPS**2), (1,1):0}
+mat52.limits.update({(0,):1, 
+                     (1,):0, 
+                     (2,):-5/(3*_EPS**2), 
+                     (3,):0, 
+                     (4,):25/_EPS**4,(0,0):1, 
+                     (1,0):0, 
+                     (0,1):0, 
+                     (2,0):-5/(3*_EPS**2), 
+                     (0,2):-5/(3*_EPS**2), 
+                     (1,1):0})
                      
