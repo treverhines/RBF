@@ -873,6 +873,8 @@ def _add(gp1,gp2):
     return out       
 
   def covariance(x1,x2,diff1,diff2):
+    # TODO if adding a sparse matrix and an array, the result is a
+    # matrix. fuck that.
     out = (gp1._covariance(x1,x2,diff1,diff2) + 
            gp2._covariance(x1,x2,diff1,diff2))
     return out
