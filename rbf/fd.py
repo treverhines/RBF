@@ -6,26 +6,8 @@ import numpy as np
 import rbf.basis
 import rbf.poly
 import rbf.stencil
+import rbf._lapack
 import scipy.sparse
-from scipy.linalg.lapack import dgetrf,dgetrs
-
-def _lapack_solve(A,b):
-  ''' 
-  Solves the system of equations Ax=b, using the lapack LU routines. 
-  This is faster than np.linalg.solve because it does fewer checks. A 
-  and b must be double precision numpy arrays 
-  '''
-  lu,piv,info = dgetrf(A,overwrite_a=True)
-  if info != 0:
-    raise np.linalg.LinAlgError(
-      'LAPACK routine *dgetrf* exited with error code %s' % info)
-
-  x,info = dgetrs(lu,piv,b,overwrite_b=True)
-  if info != 0:
-    raise np.linalg.LinAlgError(
-      'LAPACK routine *dgetrs* exited with error code %s' % info)
-
-  return x
 
 def _reshape_diffs(diffs):
   ''' 
@@ -236,7 +218,9 @@ def weights(x,s,diffs,coeffs=None,
 
   else:  
     try:
-      out = _lapack_solve(lhs,rhs)[:N]
+      out = rbf._lapack.solve_lu(lhs,rhs,
+                                 overwrite_a=True,
+                                 overwrite_b=True)[:N]
     
     except np.linalg.LinAlgError:
       raise np.linalg.LinAlgError(
@@ -357,7 +341,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
         sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp)
         break 
 
-      except rbf.stencil.StencilError as err:
+      except rbf.stencil.StencilError:
         n -= 1
   else:
     sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp)

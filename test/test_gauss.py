@@ -3,6 +3,7 @@ import numpy as np
 import rbf
 import unittest
 import matplotlib.pyplot as plt
+import scipy.sparse as sp
 np.random.seed(1)
 
 def allclose(a,b,**kwargs):
@@ -156,3 +157,118 @@ class Test(unittest.TestCase):
     #plt.fill_between(x[:,0],mean-std,mean+std,color='b',alpha=0.2)
     #plt.plot(x,test_func1d(x),'k-')
     #plt.show()
+
+  def test_permutation(self):
+    P = rbf.gauss._Permutation([2,0,1])
+    A = np.array([[1,2],[3,4],[5,6]]) 
+    PA = P.dot(A)
+    PA_soln = np.array([[5, 6],[1, 2],[3, 4]])
+    self.assertTrue(np.all(PA == PA_soln))
+    # The transpose should return PA to A
+    self.assertTrue(np.all(np.isclose(P.T.dot(PA),A)))
+
+  def test_permutation_sparse(self):
+    P = rbf.gauss._Permutation([2,0,1])
+    A = np.array([[1,2],[3,4],[5,6]]) 
+    A = sp.csc_matrix(A)
+    PA = P.dot(A)
+    PA_soln = np.array([[5, 6],[1, 2],[3, 4]])
+    self.assertTrue(np.all(np.isclose(PA.A,PA_soln)))
+    
+  def test_inverse_permuted_triangular(self):
+    # make a lower triangular matrix and permutation matrix
+    P = rbf.gauss._Permutation([2,0,1])
+    L = np.array([[1.0,0.0,0.0],
+                  [2.0,3.0,0.0],
+                  [4.0,5.0,6.0]])
+    b = np.array([1.0,2.0,3.0])                  
+    PTLinv = rbf.gauss._InversePermutedTriangular(L,P,lower=True)
+    soln1 = PTLinv.dot(b)
+    PTLinv = np.linalg.inv(P.T.dot(L))
+    soln2 = PTLinv.dot(b)
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+    # test again for upper triangular
+    U = L.T
+    UPTinv = rbf.gauss._InversePermutedTriangular(U,P,lower=False)
+    soln1 = UPTinv.dot(b)
+    UPTinv = P.dot(np.linalg.inv(U))
+    soln2 = UPTinv.dot(b)
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+
+  def test_inverse_permuted_triangular_sparse(self):
+    # make a lower triangular matrix and permutation matrix
+    P = rbf.gauss._Permutation([2,0,1])
+    L = np.array([[1.0,0.0,0.0],
+                  [2.0,3.0,0.0],
+                  [4.0,5.0,6.0]])
+    L = sp.csc_matrix(L) # make L sparse
+    b = np.array([1.0,2.0,3.0])                  
+    PTLinv = rbf.gauss._InversePermutedTriangular(L,P,lower=True)
+    soln1 = PTLinv.dot(b)
+    PTLinv = np.linalg.inv(P.T.dot(L.A))
+    soln2 = PTLinv.dot(b)
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+    # test again for upper triangular
+    U = L.T
+    UPTinv = rbf.gauss._InversePermutedTriangular(U,P,lower=False)
+    soln1 = UPTinv.dot(b)
+    UPTinv = P.dot(np.linalg.inv(U.A))
+    soln2 = UPTinv.dot(b)
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+
+  def test_inverse_positive_definite(self):    
+    A = np.random.random((4,4))
+    A = A.T.dot(A) # A is now P.D.
+    b = np.random.random((4,))
+    Ainv = rbf.gauss._InversePositiveDefinite(A)
+    soln1 = Ainv.dot(b)
+    Ainv = np.linalg.inv(A)
+    soln2 = Ainv.dot(b)
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+
+  def test_inverse_positive_definite_sparse(self):    
+    A = np.random.random((4,4))
+    A = A.T.dot(A) # A is now P.D.
+    A = sp.csc_matrix(A)
+    b = np.random.random((4,))
+    Ainv = rbf.gauss._InversePositiveDefinite(A)
+    soln1 = Ainv.dot(b)
+    Ainv = np.linalg.inv(A.A)
+    soln2 = Ainv.dot(b)
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+    
+  def test_inverse_partitioned(self):    
+    A = np.random.random((4,4))
+    A = A.T.dot(A) # A is now P.D.
+    B = np.random.random((4,2))
+    a = np.random.random((4,))
+    b = np.random.random((2,))
+    Cinv = rbf.gauss._InversePartitioned(A,B)
+    soln1a,soln1b = Cinv.dot(a,b)
+    soln1 = np.hstack((soln1a,soln1b))
+
+    Cinv = np.linalg.inv(
+             np.vstack(
+               (np.hstack((A,B)),
+                np.hstack((B.T,np.zeros((2,2)))))))
+    soln2 = Cinv.dot(np.hstack((a,b)))
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+
+  def test_inverse_partitioned_sparse(self):    
+    A = np.random.random((4,4))
+    A = A.T.dot(A) # A is now P.D.
+    A = sp.csc_matrix(A) # A is now sparse
+    B = np.random.random((4,2))
+    a = np.random.random((4,))
+    b = np.random.random((2,))
+    Cinv = rbf.gauss._InversePartitioned(A,B)
+    soln1a,soln1b = Cinv.dot(a,b)
+    soln1 = np.hstack((soln1a,soln1b))
+    Cinv = np.linalg.inv(
+             np.vstack(
+               (np.hstack((A.A,B)),
+                np.hstack((B.T,np.zeros((2,2)))))))
+    soln2 = Cinv.dot(np.hstack((a,b)))
+    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+    
+                  

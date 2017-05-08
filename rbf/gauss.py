@@ -371,6 +371,7 @@ Learning. The MIT Press, 2006.
 import numpy as np
 import rbf.poly
 import rbf.basis
+import rbf._lapack
 from collections import OrderedDict
 import logging
 import warnings
@@ -379,8 +380,6 @@ import inspect
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 from rbf.basis import _assert_shape
-from scipy.linalg.lapack import dpotri,dpotrf,dtrtrs
-from code import InteractiveConsole
 logger = logging.getLogger(__name__)
 
 try:
@@ -403,98 +402,47 @@ class NotPositiveDefiniteError(Exception):
   pass
 
 
-def _lapack_cholesky(A,**kwargs):  
-  ''' 
-  Computes the cholesky decomposition of *A* using LAPACK. kwargs are
-  passed to *dpotrf*.
-  '''
-  if A.shape == (0,0):
-    return np.zeros((0,0),dtype=float)
-    
-  L,info = dpotrf(A,**kwargs) 
-  if info > 0:  
-    raise NotPositiveDefiniteError(
-      'The leading minor of order %s is not positive definite, and '
-      'the factorization could not be completed. ' % info)
-
-  elif info < 0:
-    raise ValueError(
-      'The %s-th argument has an illegal value.' % (-info))
-  
-  else:
-    # finished successfully
-    return L    
-
-
-def _lapack_cholesky_inv(A):
-  ''' 
-  Returns the inverse of the positive definite matrix using LAPACK. It
-  is assumed that *A* is a double precision numpy array.
-  '''
-  n,m = A.shape
-  if (n,m) == (0,0):
-    return np.zeros((0,0),dtype=float)
-
-  L = _lapack_cholesky(A,lower=True)
-  # Linv is the lower triangular components of the inverse.
-  Linv,info = dpotri(L,lower=True)
-  
-  if info < 0:
-    raise ValueError(
-      'The %s-th argument had an illegal value.' % (-info))
-
-  elif info > 0:
-    raise np.linalg.LinAlgError(
-      'The (%s,%s) element of the factor U or L is zero, and the '
-      'inverse could not be computed.' % (info,info))
-
-  else:
-    # the decomposition exited successfully
-    # reflect Linv over the diagonal      
-    Linv = Linv + Linv.T
-    # the diagonals are twice as big as they should be
-    diag = Linv.diagonal()
-    diag.flags.writeable = True
-    diag *= 0.5
-    return Linv
-
-
-def _lapack_solve_triangular(G,d,**kwargs):
-  ''' 
-  Solve the triangular system of equations. *G* and *d* are both
-  double precision numpy arrays. arguments get passed to the LAPACK
-  function *dtrtrs*
-  '''
-  if any(i == 0 for i in d.shape):
-    return np.zeros(d.shape)
-  
-  soln,info = dtrtrs(G,d,**kwargs)  
-  if info < 0:
-    raise ValueError(
-      'The %s-th argument had an illegal value' % (-info))
-
-  elif info > 0:
-    raise np.linalg.LinAlgError(
-      'The %s-th diagonal element of A is zero, indicating that '
-      'the matrix is singular and the solutions X have not been '
-      'computed.' % info)
-
-  else:
-    # finished successfully
-    return soln
-
-
-def _asarray(A,dtype=None,copy=False):
+def _as_sparse_or_array(A,dtype=None,copy=False):
   ''' 
   If *A* is a scipy sparse matrix then return it as a csc matrix.
-  Otherwise, return it as a numpy array.
+  Otherwise, return it as an array.
   '''
   if sp.issparse(A):
-    return sp.csc_matrix(A,dtype=dtype,copy=copy)
+    # This does not make a copy if A is csc, has the same dtype and
+    # copy is false.
+    A = sp.csc_matrix(A,dtype=dtype,copy=copy)
   
   else: 
-    return np.array(A,dtype=dtype,copy=copy)  
+    A = np.array(A,dtype=dtype,copy=copy)  
+  
+  return A  
 
+
+def _as_array(A,dtype=None,copy=False):
+  ''' 
+  Return *A* as an array if it is not already. This properly
+  handles when *A* is sparse.
+  '''
+  if sp.issparse(A):
+    A = A.toarray()
+  
+  A = np.array(A,dtype=dtype,copy=copy)  
+  return A
+
+
+def _as_covariance(sigma):
+  ''' 
+  Return *sigma* as a covariance matrix. If *sigma* is a 1-D array
+  then square it and make it a scipy sparse diagonal matrix. Otherwise
+  run *sigma* through *_as_sparse_or_array*
+  '''
+  if np.ndim(sigma) == 1:
+    sigma = np.array(sigma,dtype=float,copy=False)
+    sigma = sp.diags(sigma**2).tocsc()
+
+  sigma = _as_sparse_or_array(sigma,dtype=float)
+  return sigma
+  
 
 def _all_is_finite(A):
   ''' 
@@ -511,32 +459,31 @@ def _all_is_finite(A):
 
 def _cholesky(A):
   ''' 
-  Returns the Cholesky decomposition of a sparsity-preserving
-  permutation of *A*. See the documentation of sksparse.cholmod for
-  clarification.
+  Returns the Cholesky decomposition of *P.dot(A).dot(P.T)*, where *P*
+  is a sparsity-preserving permutation matrix. If *A* is sparse then
+  the output will be sparse.
   
   Parameters
   ----------
-  A : (N,N) numpy array or sparse matrix
+  A : (N,N) array or sparse matrix
   
   Returns
   -------
-  L : (N,N) numpy array or sparse matrix
+  L : (N,N) array or sparse matrix
     cholesky decomposition of permuted *A*
     
-  perm : (N,) int array
-    permutation indices of *A*
+  P : _Permutation instance
     
   Notes
   -----
   To recover the matrix from the decompositon:
 
-    >>> L,perm = _cholesky(A)
-    >>> perm_inv = np.argsort(perm)
-    >>> A_recovered = L[perm_inv,:].dot(L[perm_inv,:].T)
+    >>> L,P = _cholesky(A)
+    >>> P.T.dot(L).dot(P.T.dot(L).T)
     
+  Returns a *NotPositiveDefiniteError* if *A* is not positive
+  definite.
   '''
-  n = A.shape[0]
   # if CHOLMOD is not available then make *A* dense if it is sparse  
   if sp.issparse(A) & (not HAS_CHOLMOD):
     warnings.warn(
@@ -548,22 +495,30 @@ def _cholesky(A):
 
   if sp.issparse(A):
     # Cholesky decomposition for sparse matrix using CHOLMOD
+    # convert to csc because it is more efficient
     A = A.tocsc()
     try:
       factor = cholmod.cholesky(A)
       L = factor.L()
-      perm = factor.P()
 
     except cholmod.CholmodNotPositiveDefiniteError as err:  
       raise NotPositiveDefiniteError(err.args[0])
+
+    perm = factor.P()
   
   else:
     # Cholesky decomposition for numpy array using LAPACK
-    L = _lapack_cholesky(A,lower=True)
-    # make permutation matrix an idenity matrix
-    perm = np.arange(n).astype(np.int32)
+    try:
+      L = rbf._lapack.cholesky(A,lower=True)
+    
+    except np.linalg.LinAlgError as err:
+      raise NotPositiveDefiniteError(err.args[0])
+      
+    # make permutation matrix an identity matrix
+    perm = np.arange(A.shape[0]).astype(np.int32)
 
-  return L,perm
+  P = _Permutation(perm)
+  return L,P
 
 
 def _is_positive_definite(A):
@@ -580,81 +535,135 @@ def _is_positive_definite(A):
   return True
 
 
+class _Permutation(object):
+  ''' 
+  Emulates a permutation matrix. When left-multiplying *A* by a
+  permutation matrix, *P*, the product will consist of permuted rows
+  of *A*.
+
+  Example
+  -------
+  The following demonstrates how to create a permutation matrix that
+  reverses the row order of (3,3) arrays
+  
+    >>> P = _Permutation([2,0,1])
+    >>> A = np.array([[1,2],[3,4],[5,6]]) 
+    >>> P.dot(A)
+    array([[5, 6],
+           [1, 2],
+           [3, 4]])
+  '''
+  @property
+  def T(self):
+    return self.transpose()
+  
+  def __init__(self,perm):
+    ''' 
+    Parameters
+    ----------
+    perm : (N,) int array
+    '''
+    self.perm = perm
+
+  def dot(self,A):
+    ''' 
+    Parameters
+    ----------
+    A : (N,*) array or sparse matrix
+
+    Returns
+    -------
+    out : (N,*) array or sparse matrix
+    '''
+    return A[self.perm]
+  
+  def transpose(self):
+    ''' 
+    Returns the inverse permutation matrix.
+    '''
+    perm_inv = np.argsort(self.perm)
+    return _Permutation(perm_inv)
+
+
 class _InversePermutedTriangular(object):
   ''' 
   Emulates the inverse of a permuted lower or upper triangular matrix.
-  Lower triangular matrices are permuted as *P.T.dot(L)*, and upper
-  triangular matrices are permuted as *U.dot(P.T)*. The user specifies
-  *L* and the permutation indices *perm*. 
-  
-  Note
-  ----
-  These two code blocks should produce equivalent results
 
-    >>> L,perm = _cholesky(A)
-    >>> PTLinv = _InversePermutedTriangular(L,perm,lower=True)
-    >>> PTLinv.dot(np.random.random(A.shape[0]))
+    * Lower triangular matrices are permuted as *P.T.dot(L)* and thus
+      this class emulates *inv(L).dot(P)*
+    * Upper triangular matrices are permuted as *U.dot(P.T)* and thus
+      this class emulates *P.dot(inv(U))*
   
-    >>> L,perm = _cholesky(A)
-    >>> perm_inv = np.argsort(perm)
-    >>> PTLinv = np.linalg.inv(L[perm_inv,:])
-    >>> PTLinv.dot(np.random.random(A.shape[0]))
+  Example
+  -------
+  These two code blocks should produce equivalent results for a lower
+  triangular matrix *L* and permutation matrix *P*
 
+    >>> PTLinv = _InversePermutedTriangular(L,P,lower=True)
+    >>> PTLinv.dot(np.random.random(L.shape[0]))
+
+    >>> PTLinv = np.linalg.inv(P.T.dot(L))
+    >>> PTLinv.dot(np.random.random(L.shape[0]))
+    
+  And for an upper triangular matrix *U*  
+
+    >>> UPTinv = _InversePermutedTriangular(U,P,lower=False)
+    >>> UPTinv.dot(np.random.random(U.shape[0]))
+
+    >>> UPTinv = P.dot(np.linalg.inv(U))
+    >>> UPTinv.dot(np.random.random(U.shape[0]))
+    
   ''' 
-  def __init__(self,L,perm,lower=True,build_inverse=False):
+  def __init__(self,L,P,lower=True,build=False):
     ''' 
     Parameters
     ----------
     L : (N,N) array or (N,N) sparse matrix
-
-    perm : (N,) int array
-      permutations. A[perm] == P.dot(A)
-      
+    P : _Permutation instance
     lower : bool
-    
-    build_inverse : bool, optional
-      actually construct the inverse
+    build : bool, optional
     '''   
     if sp.issparse(L):
-      # csr is more efficient for the sparse solver
+      # Convert to csr since it is more efficient. If L is not csr,
+      # then tocsr() makes a copy.
       L = L.tocsr()
         
     self.L = L
-    self.perm = perm
+    self.P = P
     self.lower = lower
-    if build_inverse:
-      self._inverse = self.dot(np.eye(L.shape[0]))
+    if build:
+      self.A = self.dot(np.eye(L.shape[0]))
 
   def dot(self,b):
     ''' 
     Parameters
     ----------
-    b : (N,*) array
+    b : (N,*) array or sparse matrix
+
+    Returns
+    -------
+    out : (N,*) array
     '''
-    # if *b* is a sparse matrix convert it to an array. Otherwise the
-    # solvers may not understand the input.
-    if sp.issparse(b):
-      b = b.toarray()
-    
-    if hasattr(self,'_inverse'):
-      # if the inverse has been built then use it
-      out = self._inverse.dot(b)
+    b = _as_array(b)
+    if hasattr(self,'A'):
+      # if the dense form has been built then use it
+      out = self.A.dot(b)
       
     else:
-      # permutation is done on the right side if lower 
       if self.lower:
-        b = b[self.perm]
-       
+        # permutation is done on the right side if lower 
+        b = self.P.dot(b)
+
       if sp.issparse(self.L):
         #out = spla.spsolve(self.L,b)
         out = spla.spsolve_triangular(self.L,b,lower=self.lower)
-      
+    
       else:
-        out = _lapack_solve_triangular(self.L,b,lower=self.lower)    
+        out = rbf._lapack.solve_triangular(self.L,b,lower=self.lower)    
       
-      # permutation is done on the left side if upper
       if not self.lower:
-        out = out[self.perm]
+        # permutation is done on the left side if upper
+        out = self.P.dot(out)
         
     return out
 
@@ -664,36 +673,40 @@ class _InversePositiveDefinite(object):
   Emulates the inverse of a positive definite matrix *A*, which is
   internally decomposed as
 
-      A^-1 = (L^T * P)^-1 * (P^T * L)^-1
-             ------------   ------------
-              upper tri.     lower tri.
+      inv(A) = inv( L.T.dot(P) ).dot( inv( P.T.dot(L) ) )
+                 ------------           ------------
+                  upper tri.             lower tri.
   '''
-  def __init__(self,A,build_inverse=False):
+  def __init__(self,A,build=False):
     ''' 
     Parameters
     ----------
-    A : (N,N) numpy array or sparse matrix
-
-    build_inverse : bool, optional
-      actually construct the inverse
+    A : (N,N) array or sparse matrix
+    build : bool, optional
     '''
-    L,perm = _cholesky(A)
-    perm_inv = np.argsort(perm) 
-    self.lower_inv = _InversePermutedTriangular(L,perm,lower=True)
-    self.upper_inv = _InversePermutedTriangular(L.T,perm_inv,lower=False)
-    if build_inverse:
-      self._inverse = self.dot(np.eye(A.shape[0]))
+    L,P = _cholesky(A)
+    self.PTLinv = _InversePermutedTriangular(L,P,lower=True)
+    self.LTPinv = _InversePermutedTriangular(L.T,P.T,lower=False)
+    if build:
+      self.A = self.dot(np.eye(A.shape[0]))
   
   def dot(self,b):
-    if sp.issparse(b):
-      b = b.toarray()
+    ''' 
+    Parameters
+    ----------
+    b : (N,*) array or sparse matrix
 
-    if hasattr(self,'_inverse'):
+    Returns
+    -------
+    out : (N,*) array
+    '''
+    b = _as_array(b)
+    if hasattr(self,'A'):
       # if the inverse has been built then use it
-      out = self._inverse.dot(b)
+      out = self.A.dot(b)
 
     else:
-      out = self.upper_inv.dot(self.lower_inv.dot(b))
+      out = self.LTPinv.dot(self.PTLinv.dot(b))
 
     return out
     
@@ -720,26 +733,24 @@ class _InversePartitioned(object):
     E = - (B^T * A^-1 * B)^-1
   
   '''
-  def __init__(self,A,B,build_inverse=False):
+  def __init__(self,A,B,build=False):
     ''' 
     Parameters
     ----------
     A : (N,N) array or sparse matrix
-    B : (N,P) array 
+    B : (N,P) array or sparse matrix
     '''
-    # B should never be sparse... but just incase
-    if sp.issparse(B):
-      B = B.toarray()
-
+    # make B dense because we cannot take advantage of its sparsity 
+    B = _as_array(B)
     n,p = B.shape
     if n < p:
       raise np.linalg.LinAlgError(
         'There are fewer rows than columns in *B*. This makes the '
         'block matrix singular, and its inverse cannot be computed.')
     
-    Ainv = _InversePositiveDefinite(A,build_inverse=build_inverse)  
+    Ainv = _InversePositiveDefinite(A,build=build)  
     AinvB = Ainv.dot(B) 
-    E = -_lapack_cholesky_inv(B.T.dot(AinvB)) 
+    E = -rbf._lapack.cholesky_inv(B.T.dot(AinvB)) 
     D = -AinvB.dot(E) 
     # NOTE that AinvB, E, and D are all dense arrays since they
     # relatively smaller than C
@@ -750,21 +761,22 @@ class _InversePartitioned(object):
     
   def dot(self,a,b):   
     ''' 
-    Dot an (N,*) array and (P,*) array with the inverse matrix. The
-    solution is returned in two parts.
+    Parameters
+    ----------
+    a : (N,*) array or sparse matrix
+    b : (P,*) array or sparse matrix
+    
+    Returns
+    -------
+    out1 : (N,*) array
+    out2 : (P,*) array
     '''
-    if sp.issparse(a):
-      a = a.toarray()
-
-    if sp.issparse(b):
-      b = b.toarray()
-
+    a = _as_array(a)
+    b = _as_array(b)
     out1  = (self.Ainv.dot(a) - 
              self.D.dot(self.AinvB.T.dot(a)) +
              self.D.dot(b))
     out2  = self.D.T.dot(a) + self.E.dot(b)
-
-        
     return out1,out2
     
 
@@ -777,19 +789,15 @@ def _sample(mean,cov,use_cholesky=False):
     # draw a sample using a cholesky decomposition. This assumes that
     # *cov* is numerically positive definite (i.e. no small negative
     # eigenvalues from rounding error).
-    L,perm = _cholesky(cov)
-    # perm_inv is effectively P.T
-    perm_inv = np.argsort(perm)
+    L,P = _cholesky(cov)
     w = np.random.normal(0.0,1.0,mean.shape[0])
-    u = mean + L[perm_inv].dot(w)
+    u = mean + P.T.dot(L).dot(w)
   
   else:
     # otherwise use an eigenvalue decomposition, ignoring negative
     # eigenvalues. If *cov* is sparse then begrudgingly make it dense.
     # TODO: an LDL^T decomposition would be better suited for this.
-    if sp.issparse(cov):
-      cov = cov.toarray()
-      
+    cov = _as_array(cov)
     s,Q = np.linalg.eigh(cov)
     keep = (s > 0.0)
     w = np.random.normal(0.0,np.sqrt(s[keep]))
@@ -808,7 +816,7 @@ class Memoize(object):
   Parameters
   ----------
   fin : function
-    Function that takes numpy arrays as input.
+    Function that takes arrays as input.
   
   Returns
   -------
@@ -873,10 +881,12 @@ def _add(gp1,gp2):
     return out       
 
   def covariance(x1,x2,diff1,diff2):
-    # TODO if adding a sparse matrix and an array, the result is a
-    # matrix. fuck that.
-    out = (gp1._covariance(x1,x2,diff1,diff2) + 
-           gp2._covariance(x1,x2,diff1,diff2))
+    # _as_sparse_or_array is needed because if a sparse matrix is
+    # added to an array then the result is a matrix, which is not a
+    # valid covariance output.
+    out = _as_sparse_or_array(
+            gp1._covariance(x1,x2,diff1,diff2) + 
+            gp2._covariance(x1,x2,diff1,diff2))
     return out
 
   def basis(x,diff):
@@ -899,8 +909,12 @@ def _subtract(gp1,gp2):
     return out
       
   def covariance(x1,x2,diff1,diff2):
-    out = (gp1._covariance(x1,x2,diff1,diff2) + 
-           gp2._covariance(x1,x2,diff1,diff2))
+    # _as_sparse_or_array is needed because if a sparse matrix is
+    # added to an array then the result is a matrix, which is not a
+    # valid covariance output.
+    out = _as_sparse_or_array(
+            gp1._covariance(x1,x2,diff1,diff2) + 
+            gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
   def basis(x,diff):
@@ -969,7 +983,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     # GP basis functions at the observation points
     p_y = gp._basis(y,obs_diff)    
     # add data noise to the covariance matrix
-    C_y = C_y + sigma
+    C_y = _as_sparse_or_array(C_y + sigma)
     # append the data noise basis vectors 
     p_y = np.hstack((p_y,p)) 
 
@@ -1017,7 +1031,6 @@ def _condition(gp,y,d,sigma,p,obs_diff):
   dim = y.shape[1]
   out = GaussianProcess(mean,covariance,dim=dim)
   return out
-
 
 
 def likelihood(d,mu,sigma,p=None):
@@ -1073,37 +1086,33 @@ def likelihood(d,mu,sigma,p=None):
   Sons.
      
   '''
-  d = np.asarray(d,dtype=float)
+  d = _as_array(d,dtype=float)
   _assert_shape(d,(None,),'d')
 
-  mu = np.asarray(mu,dtype=float)
+  mu = _as_array(mu,dtype=float)
   _assert_shape(mu,(d.shape[0],),'mu')
   
-  sigma = _asarray(sigma,dtype=float)
-  if sigma.ndim == 1:
-    # convert std. dev. to a csc sparse covariance matrix
-    sigma = sp.diags(sigma**2).tocsc()
-    
+  sigma = _as_covariance(sigma)
   _assert_shape(sigma,(d.shape[0],d.shape[0]),'sigma')
 
   if p is None:
     p = np.zeros((d.shape[0],0),dtype=float)
   
   else:  
-    p = np.asarray(p,dtype=float)
+    p = _as_array(p,dtype=float)
   
   _assert_shape(p,(d.shape[0],None),'p')
   
   n,m = p.shape
-  A,perm = _cholesky(sigma)
-  PTAinv = _InversePermutedTriangular(A,perm)
+  A,P = _cholesky(sigma)
+  PTAinv = _InversePermutedTriangular(A,P,lower=True)
 
   B = PTAinv.dot(p)
 
-  C,perm = _cholesky(B.T.dot(B))   
-  PTCinv = _InversePermutedTriangular(C,perm)
+  C,P = _cholesky(B.T.dot(B))   
+  PTCinv = _InversePermutedTriangular(C,P,lower=True)
 
-  D,perm = _cholesky(p.T.dot(p))   
+  D,P = _cholesky(p.T.dot(p))   
 
   a = PTAinv.dot(d - mu)
   b = PTCinv.dot(B.T.dot(a))
@@ -1145,7 +1154,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     Mean of the Gaussian process at the observation points. Defaults
     to zeros.
 
-  sigma : (N,N) float array or (N,N) scipy sparse matrix, optional
+  sigma : (N,) array, (N,N) array, or (N,N) scipy sparse matrix, optional
     Covariance of the Gaussian process at the observation points.
     Defaults to zeros.
   
@@ -1164,32 +1173,32 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     Array indicating which data are outliers
 
   '''
-  d = np.asarray(d,dtype=float)
+  d = _as_array(d,dtype=float)
   _assert_shape(d,(None,),'d')
   n = d.shape[0]
 
-  s = np.asarray(s,dtype=float)
+  s = _as_array(s,dtype=float)
   _assert_shape(s,(n,),'s')
 
   if mu is None:
     mu = np.zeros((n,),dtype=float)
   
   else:  
-    mu = np.asarray(mu,dtype=float)
+    mu = _as_array(mu,dtype=float)
     _assert_shape(mu,(n,),'mu')
 
   if sigma is None:
     sigma = sp.csc_matrix((n,n),dtype=float)
   
   else:
-    sigma = _asarray(sigma,dtype=float)
+    sigma = _as_covariance(sigma)
     _assert_shape(sigma,(n,n),'sigma')
   
   if p is None:  
     p = np.zeros((n,0),dtype=float)
   
   else:  
-    p = np.asarray(p,dtype=float)
+    p = _as_array(p,dtype=float)
     _assert_shape(p,(n,None),'p')
   
   # number of basis functions
@@ -1207,7 +1216,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     d_i = d[~out]
     s_i = s[~out]
     # add data covariance to GP covariance
-    sigma_i = sigma_i + sp.diags(s_i**2).tocsc()
+    sigma_i = _as_sparse_or_array(sigma_i + _as_covariance(s_i))
     Kinv = _InversePartitioned(sigma_i,p_i)
     vec1,vec2 = Kinv.dot(d_i - mu_i,np.zeros(m))
 
@@ -1275,12 +1284,12 @@ class GaussianProcess(object):
   Parameters
   ----------
   mean : function 
-    Mean function for the Gaussian process. This takes either one 
-    argument, *x*, or two arguments, *x* and *diff*. *x* is an (N,D) 
-    array of positions and *diff* is a (D,) array specifying the 
-    derivative. If the function only takes one argument, then the 
-    function is assumed to not be differentiable. The function should 
-    return an (N,) numpy array.
+    Mean function for the Gaussian process. This takes either one
+    argument, *x*, or two arguments, *x* and *diff*. *x* is an (N,D)
+    array of positions and *diff* is a (D,) array specifying the
+    derivative. If the function only takes one argument, then the
+    function is assumed to not be differentiable. The function should
+    return an (N,) array.
 
   covariance : function
     Covariance function for the Gaussian process. This takes either
@@ -1290,15 +1299,16 @@ class GaussianProcess(object):
     specifying the derivatives with respect to *x1* and *x2*,
     respectively. If the function only takes two arguments, then the
     function is assumed to not be differentiable. The function should
-    return an (N,M) numpy array or an (N,M) scipy sparse matrix.
+    return an (N,M) array or an (N,M) scipy sparse matrix.
 
   basis : function, optional
+
     Improper basis functions. This function takes either one argument,
     *x*, or two arguments, *x* and *diff*. *x* is an (N,D) array of
     positions and *diff* is a (D,) array specifying the derivative.
-    This function should return an (N,P) numpy array, where each
-    column is a basis function evaluated at *x*. By default, a
-    *GaussianProcess* instance contains no improper basis functions.
+    This function should return an (N,P) array, where each column is a
+    basis function evaluated at *x*. By default, a *GaussianProcess*
+    instance contains no improper basis functions.
         
   dim : int, optional  
     Fixes the spatial dimensions of the *GaussianProcess* domain. An 
@@ -1492,7 +1502,7 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    d = np.asarray(d,dtype=int)
+    d = _as_array(d,dtype=int)
     _assert_shape(d,(self.dim,),'d')
 
     out = _differentiate(self,d)
@@ -1534,37 +1544,33 @@ class GaussianProcess(object):
       
     '''
     ## Check the input for errors 
-    y = np.asarray(y,dtype=float)
+    y = _as_array(y,dtype=float)
     _assert_shape(y,(None,self.dim),'y')
 		# number of observations and spatial dimensions
     n,dim = y.shape 
 
-    d = np.asarray(d,dtype=float)
+    d = _as_array(d,dtype=float)
     _assert_shape(d,(n,),'d')
 
     if sigma is None:
       sigma = sp.csc_matrix((n,n),dtype=float)
     
     else:
-      sigma = _asarray(sigma,dtype=float)
-      if sigma.ndim == 1:
-        # convert standard deviations to covariances
-        sigma = sp.diags(sigma**2).tocsc()
-
+      sigma = _as_covariance(sigma)
       _assert_shape(sigma,(n,n),'sigma')
         
     if p is None:
       p = np.zeros((n,0),dtype=float)
     
     else:
-      p = np.asarray(p,dtype=float)
+      p = _as_array(p,dtype=float)
       _assert_shape(p,(n,None),'p')
       
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
     
     else:
-      obs_diff = np.asarray(obs_diff,dtype=int)
+      obs_diff = _as_array(obs_diff,dtype=int)
       _assert_shape(obs_diff,(dim,),'obs_diff')
     
     out = _condition(self,y,d,sigma,p,obs_diff)
@@ -1587,7 +1593,7 @@ class GaussianProcess(object):
     d : (N,) array
       Observed values at *y*.
       
-    sigma : (N,) or (N,N) float array, optional
+    sigma : (N,) array, (N,N) array, or (N,N) sparse matrix, optional
       Data uncertainty. If this is an (N,) array then it describes one
       standard deviation of the data error. If this is an (N,N) array
       then it describes the covariances of the data error. If nothing
@@ -1606,30 +1612,25 @@ class GaussianProcess(object):
       log likelihood.
       
     '''
-    y = np.asarray(y,dtype=float)
+    y = _as_array(y,dtype=float)
     _assert_shape(y,(None,self.dim),'y')
     n,dim = y.shape # number of observations and dimensions
 
-    d = np.asarray(d,dtype=float)
+    d = _as_array(d,dtype=float)
     _assert_shape(d,(n,),'d')
 
     if sigma is None:
       sigma = sp.csc_matrix((n,n),dtype=float)
 
     else:
-      sigma = _asarray(sigma,dtype=float)
-      if sigma.ndim == 1:
-        # If sigma is a 1d array then it contains std. dev. uncertainties.  
-        # Convert sigma to a covariance matrix
-        sigma = sp.diags(sigma**2).tocsc()
-
+      sigma = _as_covariance(sigma)
       _assert_shape(sigma,(n,n),'sigma')
     
     if p is None:
       p = np.zeros((n,0),dtype=float)
 
     else:
-      p = np.asarray(p,dtype=float)
+      p = _as_array(p,dtype=float)
       _assert_shape(p,(n,None),'p')
 
     obs_diff = np.zeros(dim,dtype=int)
@@ -1637,8 +1638,13 @@ class GaussianProcess(object):
 	  # find the mean, covariance, and improper basis for the combination
   	# of the Gaussian process and the noise.
     mu = self._mean(y,obs_diff)
-    sigma = self._covariance(y,y,obs_diff,obs_diff) + sigma
-    p = np.hstack((self._basis(y,obs_diff),p))
+
+    gp_sigma = self._covariance(y,y,obs_diff,obs_diff)
+    sigma = _as_sparse_or_array(gp_sigma + sigma)
+
+    gp_p = self._basis(y,obs_diff)
+    p = np.hstack((gp_p,p))
+    
     out = likelihood(d,mu,sigma,p=p)
     return out
 
@@ -1679,14 +1685,15 @@ class GaussianProcess(object):
       Boolean array indicating which data are outliers
     
     '''
-    y = np.asarray(y,dtype=float)
+    y = _as_array(y,dtype=float)
     _assert_shape(y,(None,self.dim),'y')
     n,dim = y.shape # number of observations and dimensions
 
-    d = np.asarray(d,dtype=float)
+    d = _as_array(d,dtype=float)
     _assert_shape(d,(n,),'d')
 
-    sigma = np.asarray(sigma,dtype=float)
+    # sigma is kept as a 1-D array
+    sigma = _as_array(sigma,dtype=float)
     _assert_shape(sigma,(n,),'sigma')
     
     obs_diff = np.zeros(dim,dtype=int)
@@ -1718,24 +1725,19 @@ class GaussianProcess(object):
     out : (N,P) array  
 
     '''
-    x = np.asarray(x,dtype=float)
+    x = _as_array(x,dtype=float)
     _assert_shape(x,(None,self.dim),'x')
     
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
 
     else:
-      diff = np.asarray(diff,dtype=int)
+      diff = _as_array(diff,dtype=int)
       _assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._basis(x,diff)
     # return a dense copy of out
-    if sp.issparse(out):
-      out = out.toarray()
-
-    else:
-      out = np.array(out,copy=True)
-      
+    out = _as_array(out,copy=True)
     return out
 
   def mean(self,x,diff=None):
@@ -1755,24 +1757,19 @@ class GaussianProcess(object):
     out : (N,) array  
 
     '''
-    x = np.asarray(x,dtype=float)
+    x = _as_array(x,dtype=float)
     _assert_shape(x,(None,self.dim),'x')
     
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
 
     else:
-      diff = np.asarray(diff,dtype=int)
+      diff = _as_array(diff,dtype=int)
       _assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._mean(x,diff)
     # return a dense copy of out
-    if sp.issparse(out):
-      out = out.toarray()
-
-    else:
-      out = np.array(out,copy=True)
-
+    out = _as_array(out,copy=True)
     return out
 
   def covariance(self,x1,x2,diff1=None,diff2=None):
@@ -1796,34 +1793,29 @@ class GaussianProcess(object):
     out : (N,N) array    
     
     '''
-    x1 = np.asarray(x1,dtype=float)
+    x1 = _as_array(x1,dtype=float)
     _assert_shape(x1,(None,self.dim),'x1')
 
-    x2 = np.asarray(x2,dtype=float)
+    x2 = _as_array(x2,dtype=float)
     _assert_shape(x2,(None,self.dim),'x2')
 
     if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
 
     else:
-      diff1 = np.asarray(diff1,dtype=int)
+      diff1 = _as_array(diff1,dtype=int)
       _assert_shape(diff1,(x1.shape[1],),'diff1')
 
     if diff2 is None:  
       diff2 = np.zeros(x2.shape[1],dtype=int)
 
     else:
-      diff2 = np.asarray(diff2,dtype=int)
+      diff2 = _as_array(diff2,dtype=int)
       _assert_shape(diff2,(x1.shape[1],),'diff2')
       
     out = self._covariance(x1,x2,diff1,diff2)
     # return a dense copy of out
-    if sp.issparse(out):
-      out = out.toarray()
-
-    else:
-      out = np.array(out,copy=True)
-
+    out = _as_array(out,copy=True)
     return out
     
   def meansd(self,x,chunk_size=100):
@@ -1855,7 +1847,7 @@ class GaussianProcess(object):
       of the *GaussianProcess* at *x*.
       
     '''
-    x = np.asarray(x,dtype=float)
+    x = _as_array(x,dtype=float)
     _assert_shape(x,(None,self.dim),'x')
     # derivative of output will be zero
     diff = np.zeros(x.shape[1],dtype=int)
@@ -1868,7 +1860,8 @@ class GaussianProcess(object):
       # only log the progress if the mean and sd are being build in
       # multiple chunks
       if xlen > chunk_size:
-        logger.debug('Computing the mean and std. dev. : %2.1f%% complete' % ((100.0*count)/xlen))
+        logger.debug('Computing the mean and std. dev. : %2.1f%% complete' 
+                     % ((100.0*count)/xlen))
       
       start,stop = count,count+chunk_size 
       out_mean[start:stop] = self._mean(x[start:stop],diff) 
@@ -1907,7 +1900,7 @@ class GaussianProcess(object):
     out : (N,) array      
     
     '''
-    x = np.asarray(x,dtype=float)
+    x = _as_array(x,dtype=float)
     _assert_shape(x,(None,self.dim),'x')
     # derivative of the sample will be zero
     diff = np.zeros(x.shape[1],dtype=int)
@@ -1917,13 +1910,12 @@ class GaussianProcess(object):
     p = self._basis(x,diff)
     
     if c is not None:
-      c = np.asarray(c,dtype=float)
+      c = _as_array(c,dtype=float)
     
     else:
       c = np.zeros(p.shape[1])  
 
     _assert_shape(c,(p.shape[1],),'c')    
-
     out = _sample(mu,sigma,use_cholesky=use_cholesky) + p.dot(c)
     return out
     
@@ -1943,7 +1935,6 @@ class GaussianProcess(object):
     -------
     out : bool
 
-
     Notes
     -----
     1. This function may return *False* even if the covariance
@@ -1952,7 +1943,7 @@ class GaussianProcess(object):
     negative due to numerical rounding error. This is most notably the
     case for the squared exponential covariance function.    
     '''
-    x = np.asarray(x,dtype=float)
+    x = _as_array(x,dtype=float)
     _assert_shape(x,(None,self.dim),'x')
     diff = np.zeros(x.shape[1],dtype=int)
 
@@ -2016,7 +2007,7 @@ def gpiso(phi,params,dim=None):
   *rbf.basis.ga*, *rbf.basis.exp*, *rbf.basis.iq*, *rbf.basis.imq*.
 
   '''
-  params = np.asarray(params,dtype=float)  
+  params = _as_array(params,dtype=float)  
   
   def mean(x,diff):
     a,b,c = params  
@@ -2122,7 +2113,7 @@ def gpbfc(basis,mu,sigma,dim=None):
   mu : (P,) array
     Expected value of the basis function coefficients.
   
-  sigma : (P,) or (P,P) array w
+  sigma : (P,) array or (P,P) array 
     If this is a (P,) array then it indicates the standard deviation 
     of the basis function coefficients. If it is a (P,P) array then it 
     indicates the covariances. 
@@ -2153,11 +2144,11 @@ def gpbfc(basis,mu,sigma,dim=None):
     # otherwise, assume that the function can take two arguments
     basis_with_diff = basis
       
-  mu = np.asarray(mu,dtype=float)
-  sigma = np.asarray(sigma,dtype=float)
+  mu = _as_array(mu,dtype=float)
+  sigma = _as_array(sigma,dtype=float)
   if sigma.ndim == 1:
-      # if *sigma* is one dimensional then it contains standard 
-      # deviations. These are converted to a covariance matrix.
+      # if *sigma* is one dimensional then it contains standard
+      # deviations. These are converted to a DENSE covariance matrix.
       sigma = np.diag(sigma**2)
   
   def mean(x,diff):
@@ -2198,7 +2189,8 @@ def gpbfci(basis,dim=None):
   out : GaussianProcess
     
   '''
-  out = GaussianProcess(_zero_mean,_zero_covariance,basis=basis,dim=dim)
+  out = GaussianProcess(_zero_mean,_zero_covariance,
+                        basis=basis,dim=dim)
   return out
 
 
