@@ -460,8 +460,8 @@ class SparseRBF(RBF):
     nnz = sum(len(i) for i in idx)
     # allocate sparse matrix data
     data = np.zeros(nnz,dtype=float)
-    rows = np.zeros(nnz,dtype=float)
-    cols = np.zeros(nnz,dtype=float)
+    rows = np.zeros(nnz,dtype=int)
+    cols = np.zeros(nnz,dtype=int)
     # *n* is the total number of data entries thus far
     n = 0
     for i,idxi in enumerate(idx):
