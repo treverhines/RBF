@@ -1,45 +1,42 @@
 ''' 
-This script demonstrates the power the GaussianProcess class now that
-it can handle sparse covariances!
+This script demonstrates how the *GaussianProcess* class is smart
+enough to take advantage of sparse covariance function. The *gppoly*
+and *gpbfci* constructors returns a *GaussianProcess* with a sparse
+(entirely zero) covariance function. Conditioning the resulting
+*GaussianProcess* is equivalent to linear regression of the basis
+functions with the observations. Since we are taking advantage of the
+sparsity, conditioning the *GaussianProcess* is also just as
+computationally efficient as linear regression.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import rbf.gauss
-import rbf
 import logging
 logging.basicConfig(level=logging.DEBUG)
 np.random.seed(1)
 
-t = np.arange(0.0,10.0,1.0/365.25)[:,None]
-n = len(t)
-
-titp = np.linspace(0.0,10.0,n)[:,None]
+# create synthetic data
+n = 100000
+t = np.linspace(0.0,10.0,n)[:,None]
 s = 0.5*np.ones(n)
-d = np.sin(t[:,0]) + np.random.normal(0.0,s)
+d = 1.0 + 0.2*t[:,0] - 0.05*t[:,0]**2 + np.random.normal(0.0,s)
+# evaluate the output at a subset of the observation points
+x = t[::1000]
 
-def basis(x):
-  return np.array([np.sin(x[:,0]),np.cos(x[:,0])]).T
-  
-  
-gp1  = rbf.gauss.gppoly(1)
-gp1 += rbf.gauss.gpiso(rbf.basis.spwen11,(0.0,1.0,1.0))
-
-
-gp2  = rbf.gauss.gppoly(1)
-gp2 += rbf.gauss.gpiso(rbf.basis.wen11,(0.0,1.0,1.0))
+# create a GP with polynomial basis functions  
+gp = rbf.gauss.gppoly(2)
+# condition with the observations
+gpc = gp.condition(t,d,s)
+# find the mean and std of the conditioned GP. Chunk size controls the
+# trade off between speed and memory consumption. It should be tuned
+# by the user.
+u,us = gpc.meansd(x,chunk_size=1000)
 
 fig,ax = plt.subplots()
-gpc = gp1.condition(t,d,s)
-u,us = gpc.meansd(titp,chunk_size=1000)
-ax.plot(titp[:,0],u,'b-')
-ax.fill_between(titp[:,0],u-us,u+us,color='b',alpha=0.2)
+ax.plot(t[:,0],d,'k.',alpha=0.05,mec='none')
+ax.plot(x[:,0],u,'b-')
+ax.fill_between(x[:,0],u-us,u+us,color='b',alpha=0.2)
 
-gpc = gp2.condition(t,d,s)
-u,us = gpc.meansd(titp,chunk_size=1000)
-ax.plot(titp[:,0],u,'r-')
-ax.fill_between(titp[:,0],u-us,u+us,color='r',alpha=0.2)
-
-ax.plot(t[:,0],d,'k.',alpha=0.1)
 
 plt.show()

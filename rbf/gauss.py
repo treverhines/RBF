@@ -881,12 +881,8 @@ def _add(gp1,gp2):
     return out       
 
   def covariance(x1,x2,diff1,diff2):
-    # _as_sparse_or_array is needed because if a sparse matrix is
-    # added to an array then the result is a matrix, which is not a
-    # valid covariance output.
-    out = _as_sparse_or_array(
-            gp1._covariance(x1,x2,diff1,diff2) + 
-            gp2._covariance(x1,x2,diff1,diff2))
+    out = (gp1._covariance(x1,x2,diff1,diff2) + 
+           gp2._covariance(x1,x2,diff1,diff2))
     return out
 
   def basis(x,diff):
@@ -909,12 +905,8 @@ def _subtract(gp1,gp2):
     return out
       
   def covariance(x1,x2,diff1,diff2):
-    # _as_sparse_or_array is needed because if a sparse matrix is
-    # added to an array then the result is a matrix, which is not a
-    # valid covariance output.
-    out = _as_sparse_or_array(
-            gp1._covariance(x1,x2,diff1,diff2) + 
-            gp2._covariance(x1,x2,diff1,diff2))
+    out = (gp1._covariance(x1,x2,diff1,diff2) + 
+           gp2._covariance(x1,x2,diff1,diff2))
     return out       
             
   def basis(x,diff):
@@ -1215,7 +1207,9 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     mu_i = mu[~out]
     d_i = d[~out]
     s_i = s[~out]
-    # add data covariance to GP covariance
+    # add data covariance to GP covariance. If an array is added to a
+    # sparse matrix then the output is a matrix. _as_sparse_or_array
+    # coerces it back to an array
     sigma_i = _as_sparse_or_array(sigma_i + _as_covariance(s_i))
     Kinv = _InversePartitioned(sigma_i,p_i)
     vec1,vec2 = Kinv.dot(d_i - mu_i,np.zeros(m))
@@ -1240,6 +1234,21 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   return out
 
 
+def _zero_mean(x,diff):
+  '''mean function that returns zeros'''
+  return np.zeros((x.shape[0],),dtype=float)  
+
+
+def _zero_covariance(x1,x2,diff1,diff2):
+  '''covariance function that returns zeros'''
+  return sp.csc_matrix((x1.shape[0],x2.shape[0]),dtype=float)  
+
+
+def _empty_basis(x,diff):
+  '''empty set of basis functions'''
+  return np.zeros((x.shape[0],0),dtype=float)  
+  
+
 def _get_arg_count(func):
   ''' 
   Returns the number of function arguments. If this cannot be inferred 
@@ -1257,20 +1266,110 @@ def _get_arg_count(func):
     return len(results.args)
   
 
-def _zero_mean(x,diff):
-  '''mean function that returns zeros'''
-  return np.zeros((x.shape[0],),dtype=float)  
+def _mean_io_check(fin):
+  ''' 
+  Decorator which checks the number of input for a mean function,
+  coerces the output to an array, and makes sure the output has a
+  valid shape.
+  '''
+  if hasattr(fin,'_io_is_checked'):
+    return fin
+    
+  arg_count = _get_arg_count(fin)
+  def fout(x,diff):
+    if arg_count == 1:
+      # *fin* only takes one argument and is assumed to not be
+      # differentiable
+      if sum(diff) != 0: 
+        raise ValueError(
+          'The mean of the *GaussianProcess* is not differentiable')
+        
+      out = fin(x)
+    
+    else:
+      # otherwise it is assumed that *fin* takes two arguments
+      out = fin(x,diff)  
+      
+    out = _as_array(out)
+    _assert_shape(out,(x.shape[0],),"mean_output")
+    return out
+          
+  # add a tag to the function indicating that the output has been
+  # checked. This prevents double wrapping
+  fout._io_is_checked = None
+  return fout
 
 
-def _zero_covariance(x1,x2,diff1,diff2):
-  '''covariance function that returns zeros'''
-  return sp.csc_matrix((x1.shape[0],x2.shape[0]),dtype=float)  
+def _covariance_io_check(fin):
+  ''' 
+  Decorator which checks the number of input for a covariance
+  function, coerces the output to an array or a csc sparse matrix (if
+  the output was already sparse), and makes sure the output has a valid
+  shape.
+  '''
+  if hasattr(fin,'_io_is_checked'):
+    return fin
+    
+  arg_count = _get_arg_count(fin)
+  def fout(x1,x2,diff1,diff2):
+    if arg_count == 2:
+      # *fin* only takes two argument and is assumed to not be
+      # differentiable
+      if (sum(diff1) != 0) | (sum(diff2) != 0): 
+        raise ValueError(
+          'The covariance of the *GaussianProcess* is not '
+          'differentiable')
+        
+      out = fin(x1,x2)
+    
+    else:
+      # otherwise it is assumed that *fin* takes four arguments
+      out = fin(x1,x2,diff1,diff2)  
+      
+    out = _as_sparse_or_array(out)
+    _assert_shape(out,(x1.shape[0],x2.shape[0]),"covariance_output")
+    return out
+          
+  # add a tag to the function indicating that the output has been
+  # checked. This prevents double wrapping
+  fout._io_is_checked = None
+  return fout
 
 
-def _empty_basis(x,diff):
-  '''empty set of basis functions'''
-  return np.zeros((x.shape[0],0),dtype=float)  
-  
+def _basis_io_check(fin):
+  ''' 
+  Decorator which checks the number of input for a basis function,
+  coerces the output to an array, and makes sure the output has a
+  valid shape.
+  '''
+  if hasattr(fin,'_io_is_checked'):
+    return fin
+    
+  arg_count = _get_arg_count(fin)
+  def fout(x,diff):
+    if arg_count == 1:
+      # *fin* only takes two argument and is assumed to not be
+      # differentiable
+      if sum(diff) != 0: 
+        raise ValueError(
+          'The basis functions for the *GaussianProcess* are not '
+          'differentiable')
+        
+      out = fin(x)
+    
+    else:
+      # otherwise it is assumed that *fin* takes two arguments
+      out = fin(x,diff)  
+      
+    out = _as_array(out)
+    _assert_shape(out,(x.shape[0],None),"basis_output")
+    return out
+          
+  # add a tag to the function indicating that the output has been
+  # checked. This prevents double wrapping
+  fout._io_is_checked = None
+  return fout
+
 
 class GaussianProcess(object):
   ''' 
@@ -1363,59 +1462,12 @@ class GaussianProcess(object):
   limited by the maximum recursion depth.
   '''
   def __init__(self,mean,covariance,basis=None,dim=None):
-    if _get_arg_count(mean) == 1:
-      # if the mean function only takes one argument then make a 
-      # wrapper for it which takes two arguments.
-      def mean_with_diff(x,diff):
-        if sum(diff) != 0: 
-          raise ValueError(
-            'The mean of the *GaussianProcess* is not differentiable')
-          
-        return mean(x)
-    
-      self._mean = mean_with_diff
-
-    else:
-      # otherwise, assume that the function can take two arguments
-      self._mean = mean  
-      
-    if _get_arg_count(covariance) == 2:
-      # if the covariance funciton only takes two argument then make a 
-      # wrapper for it which takes four arguments.
-      def covariance_with_diff(x1,x2,diff1,diff2):
-        if (sum(diff1) != 0) | (sum(diff2) != 0): 
-          raise ValueError(
-            'The covariance of the *GaussianProcess* is not '
-            'differentiable')
-          
-        return covariance(x1,x2)
-
-      self._covariance = covariance_with_diff
-
-    else:
-      # otherwise, assume that the function can take four arguuments
-      self._covariance = covariance
-    
-    if basis is None:  
+    self._mean = _mean_io_check(mean)
+    self._covariance = _covariance_io_check(covariance)
+    if basis is None:
       basis = _empty_basis
-    
-    if _get_arg_count(basis) == 1:
-      # if the basis function only takes one argument then make a 
-      # wrapper for it which takes two arguments.
-      def basis_with_diff(x,diff):
-        if sum(diff) != 0: 
-          raise ValueError(
-            'The improper basis functions for the *GaussianProcess* '
-            'are not differentiable')
-          
-        return basis(x)
-    
-      self._basis = basis_with_diff
-    
-    else:
-      # otherwise, assume that the function can take two arguments
-      self._basis = basis
-        
+      
+    self._basis = _basis_io_check(basis)              
     self.dim = dim
   
   def __call__(self,*args,**kwargs):
