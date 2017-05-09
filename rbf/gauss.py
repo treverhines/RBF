@@ -980,7 +980,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     p_y = np.hstack((p_y,p)) 
 
     if sp.issparse(C_y):
-      logger.debug('Kernel is sparse with %2.3f%% non-zeros' % 
+      logger.debug('Kernel is sparse with %.3f%% non-zeros' % 
                    (C_y.nnz/(1.0*np.prod(C_y.shape))))
 
     K_y_inv = _InversePartitioned(C_y,p_y)
@@ -1944,7 +1944,7 @@ class GaussianProcess(object):
       # only log the progress if the mean and sd are being build in
       # multiple chunks
       if xlen > chunk_size:
-        logger.debug('Computing the mean and std. dev. : %2.1f%% complete' 
+        logger.debug('Computing the mean and std. dev. : %5.1f%% complete' 
                      % ((100.0*count)/xlen))
       
       start,stop = count,count+chunk_size 
@@ -1955,7 +1955,7 @@ class GaussianProcess(object):
       count += chunk_size
     
     if xlen > chunk_size:
-      logger.debug('Computing the mean and std. dev. : 100% complete')
+      logger.debug('Computing the mean and std. dev. : 100.0% complete')
 
     return out_mean,out_sd
 
