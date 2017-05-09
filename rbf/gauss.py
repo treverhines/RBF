@@ -1719,8 +1719,8 @@ class GaussianProcess(object):
 
     obs_diff = np.zeros(dim,dtype=int)
 
-	  # find the mean, covariance, and improper basis for the combination
-  	# of the Gaussian process and the noise.
+    # find the mean, covariance, and improper basis for the combination
+    # of the Gaussian process and the noise.
     mu = self._mean(y,obs_diff)
 
     gp_sigma = self._covariance(y,y,obs_diff,obs_diff)
