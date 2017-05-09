@@ -393,8 +393,44 @@ class RBF(object):
 
 class SparseRBF(RBF):
   ''' 
-  Experimental
-  '''
+  Stores a symbolic expression of a compact Radial Basis Function
+  (RBF) and evaluates the expression numerically when called. Calling
+  a *SparseRBF* instance will return a csc sparse matrix.
+  
+  Parameters
+  ----------
+  expr : sympy expression
+    Sympy expression for the RBF. This must be a function of the
+    symbolic variable *r*, which can be obtained by calling *get_r()*
+    or *sympy.symbols('r')*. *r* is the radial distance to the RBF
+    center.  The expression may optionally be a function of *eps*,
+    which is a shape parameter obtained by calling *get_eps()* or
+    *sympy.symbols('eps')*.  If *eps* is not provided then *r* is
+    substituted with *r*eps*.
+  
+  support : float or sympy expression
+    Indicates the support of the RBF. The RBF is set to zero for
+    radial distances greater than *support*, regardless of what *expr*
+    evaluates to. This can be a float or a sympy expression containing
+    *eps*.
+    
+  tol : float or sympy expression, optional  
+    If an evaluation point, *x*, is within *tol* of an RBF center,
+    *c*, then *x* is considered equal to *c*. The returned value is
+    the RBF at the symbolically evaluated limit as *x* -> *c*. This is
+    useful when there is a removable singularity at *c*, such as for
+    polyharmonic splines. If *tol* is not provided then there will be
+    no special treatment for when *x* is close to *c*. Note that
+    computing the limit as *x* -> *c* can be very time intensive.
+    *tol* can be a float or a sympy expression containing *eps*.
+
+  limits : dict, optional
+    Contains the limiting value of the RBF or its derivatives as *x*
+    -> *c*. For example, *{(0,1):2*eps}* indicates that the limit of
+    the derivative along the second Cartesian direction is *2*eps*. If
+    this dictionary is provided and *tol* is not *None*, then it will
+    be searched before attempting to symbolically compute the limits.
+  ''' 
   @property
   def supp(self):
     return self._supp
@@ -418,7 +454,31 @@ class SparseRBF(RBF):
 
   def __call__(self,x,c,eps=1.0,diff=None):
     ''' 
-    Returns a sparse matrix
+    Numerically evaluates the RBF or its derivatives.
+    
+    Parameters                                       
+    ----------                                         
+    x : (N,D) float array 
+      Evaluation points
+                                                                       
+    c : (M,D) float array 
+      RBF centers 
+        
+    eps : float, optional
+      Shape parameter
+                                                                           
+    diff : (D,) int array, optional
+      Specifies the derivative order for each Cartesian direction. For
+      example, if there are three spatial dimensions then providing
+      (2,0,1) would cause this function to return the RBF after
+      differentiating it twice along the first axis and once along the
+      third axis.
+
+    Returns
+    -------
+    out : (N,M) csc sparse matrix
+      The RBFs with centers *c* evaluated at *x*
+      
     '''
     x = np.asarray(x,dtype=float)
     _assert_shape(x,(None,None),'x')

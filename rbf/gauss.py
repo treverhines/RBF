@@ -1284,44 +1284,76 @@ class GaussianProcess(object):
   Parameters
   ----------
   mean : function 
-    Mean function for the Gaussian process. This takes either one
-    argument, *x*, or two arguments, *x* and *diff*. *x* is an (N,D)
-    array of positions and *diff* is a (D,) array specifying the
-    derivative. If the function only takes one argument, then the
-    function is assumed to not be differentiable. The function should
-    return an (N,) array.
+    Function which returns either (1) the mean of the Gaussian process
+    at *x* or (2) the *diff* spatial derivative of the mean at *x*.
+    This has the call signature
+
+    *out = mean(x)*
+
+    or 
+    
+    *out = mean(x,diff)*
+    
+    *x* is an (N,D) array of positions. *diff* is a (D,) int array
+    derivative specification (e.g. [0,1] indicates to return the
+    derivative along the second basis direction). *out* must be an
+    (N,) array. If this function only takes one argument then it is
+    assumed to not be differentiable and the *differentiate* method
+    for the *GaussianProcess* instance will return an error.
 
   covariance : function
-    Covariance function for the Gaussian process. This takes either
-    two arguments, *x1* and *x2*, or four arguments, *x1*, *x2*,
-    *diff1* and *diff2*. *x1* and *x2* are (N,D) and (M,D) arrays of
-    positions, respectively. *diff1* and *diff2* are (D,) arrays
-    specifying the derivatives with respect to *x1* and *x2*,
-    respectively. If the function only takes two arguments, then the
-    function is assumed to not be differentiable. The function should
-    return an (N,M) array or an (N,M) scipy sparse matrix.
+    Function which returns either (1) the covariance of the Gaussian
+    process between points *x1* and *x2* or (2) the covariance of the
+    *diff1* spatial derivative of the Gaussian process at *x1* with
+    the *diff2* spatial derivative of the Gaussian process at *x2*.
+    This has the call signature
+    
+    *out = covariance(x1,x2)*
+
+    or 
+    
+    *out = covariance(x1,x2,diff1,diff2)*
+
+    *x1* and *x2* are (N,D) and (M,D) arrays of positions,
+    respectively. *diff1* and *diff2* are (D,) int array derivative
+    specifications. *out* can either be an (N,M) array or an (N,M)
+    scipy sparse matrix (csc format would be most efficient). If this
+    function only takes two arguments, then it is assumed to not be
+    differentiable and the *differentiate* method for the
+    *GaussianProcess* instance will return an error.
 
   basis : function, optional
+    Function which returns either (1) the improper basis functions
+    evaluated at *x* or (2) the *diff* spatial derivative of the
+    improper basis functions evaluated at *x*. This has the call
+    signature
 
-    Improper basis functions. This function takes either one argument,
-    *x*, or two arguments, *x* and *diff*. *x* is an (N,D) array of
-    positions and *diff* is a (D,) array specifying the derivative.
-    This function should return an (N,P) array, where each column is a
-    basis function evaluated at *x*. By default, a *GaussianProcess*
-    instance contains no improper basis functions.
+    *out = basis(x)*
+
+    or 
+    
+    *out = basis(x,diff)*
+
+    *x* is an (N,D) array of positions. *diff* is a (D,) int array
+    derivative specification. *out* is an (N,P) array where each
+    column corresponds to a basis function. By default, a
+    *GaussianProcess* instance contains no improper basis functions.
+    If this function only takes one argument, then it is assumed to
+    not be differentiable and the *differentiate* method for the
+    *GaussianProcess* instance will return an error.
         
   dim : int, optional  
-    Fixes the spatial dimensions of the *GaussianProcess* domain. An 
-    error will be raised if method arguments have a conflicting number 
-    of spatial dimensions.
+    Fixes the spatial dimensions of the *GaussianProcess* instance. An
+    error will be raised if method arguments have a conflicting number
+    of spatial dimensions. 
     
   Notes
   -----
-  1. This class does not check whether the specified covariance 
-  function is positive definite, making it easy construct an invalid 
-  *GaussianProcess* instance. For this reason, one may prefer to 
-  create a *GaussianProcess* with the functions *gpiso*, *gpbasis*, or 
-  *gppoly*.
+  1. This class does not check whether the specified covariance
+  function is positive definite, making it easy to construct an
+  invalid *GaussianProcess* instance. For this reason, one may prefer
+  to create a *GaussianProcess* with one of the constructor functions
+  (e.g., *gpse* or *gppoly*).
   
   2. A *GaussianProcess* returned by *add*, *subtract*, *scale*, 
   *differentiate*, and *condition* has *mean*, *covariance*, and 
@@ -1717,7 +1749,7 @@ class GaussianProcess(object):
     x : (N,D) array
       Evaluation points
         
-    diff : (D,) tuple
+    diff : (D,) int array
       Derivative specification    
       
     Returns
@@ -1749,7 +1781,7 @@ class GaussianProcess(object):
     x : (N,D) array
       Evaluation points
         
-    diff : (D,) tuple
+    diff : (D,) int array
       Derivative specification    
       
     Returns
@@ -1782,7 +1814,7 @@ class GaussianProcess(object):
     x1,x2 : (N,D) array
       Evaluation points
         
-    diff1,diff2 : (D,) tuple
+    diff1,diff2 : (D,) int array
       Derivative specification. For example, if *diff1* is (0,) and 
       *diff2* is (1,), then the returned covariance matrix will indicate 
       how the Gaussian process at *x1* covaries with the derivative of 
@@ -1831,20 +1863,20 @@ class GaussianProcess(object):
       Evaluation points
       
     chunk_size : int, optional  
-      Break *x* into chunks with this size and evaluate the Gaussian 
-      process for each chunk. This argument affects the speed and 
-      memory usage of this method, but it does not affect the output. 
-      Setting this to a larger value will reduce the number of python 
-      function call at the expense of increased memory usage.
+      Break *x* into chunks with this size and evaluate the
+      *GaussianProcess* for each chunk. This argument affects the
+      speed and memory usage of this method, but it does not affect
+      the output. Setting this to a larger value will reduce the
+      number of python function call at the expense of increased
+      memory usage.
     
     Returns
     -------
     out_mean : (N,) array
-      Mean of the stochastic component of the *GaussianProcess* at *x*.
+      Mean at *x*
     
     out_sd : (N,) array  
-      One standard deviation uncertainty of the stochastic component 
-      of the *GaussianProcess* at *x*.
+      One standard deviation at *x*
       
     '''
     x = _as_array(x,dtype=float)
