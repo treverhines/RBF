@@ -544,7 +544,7 @@ class _Permutation(object):
   Example
   -------
   The following demonstrates how to create a permutation matrix that
-  reverses the row order of (3,3) arrays
+  changes the row order of (3,2) arrays
   
     >>> P = _Permutation([2,0,1])
     >>> A = np.array([[1,2],[3,4],[5,6]]) 
