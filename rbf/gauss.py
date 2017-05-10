@@ -504,6 +504,9 @@ def _cholesky(A):
         % (A.shape + (A.nnz,A.nnz/(1.0*np.prod(A.shape)))))
       factor = cholmod.cholesky(A)
       L = factor.L()
+      logger.debug(
+        'Cholesky decomposition has %s (%.3f%%) non-zeros ...' 
+        % (L.nnz,L.nnz/(1.0*np.prod(L.shape))))
       logger.debug('Done')
 
     except cholmod.CholmodNotPositiveDefiniteError as err:  
