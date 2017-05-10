@@ -498,8 +498,13 @@ def _cholesky(A):
     # convert to csc because it is more efficient
     A = A.tocsc()
     try:
+      logger.debug(
+        'Using CHOLMOD to compute the Cholesky decomposition of a %s '
+        'by %s sparse matrix with %s non-zero entries ...' 
+        % (A.shape + (A.nnz,)))
       factor = cholmod.cholesky(A)
       L = factor.L()
+      logger.debug('Done')
 
     except cholmod.CholmodNotPositiveDefiniteError as err:  
       raise NotPositiveDefiniteError(err.args[0])
@@ -509,7 +514,11 @@ def _cholesky(A):
   else:
     # Cholesky decomposition for numpy array using LAPACK
     try:
+      logger.debug(
+        'Using LAPACK to compute the Cholesky decomposition of a %s '
+        'by %s dense matrix ...' % A.shape)
       L = rbf._lapack.cholesky(A,lower=True)
+      logger.debug('Done')
     
     except np.linalg.LinAlgError as err:
       raise NotPositiveDefiniteError(err.args[0])
