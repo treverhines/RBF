@@ -500,8 +500,8 @@ def _cholesky(A):
     try:
       logger.debug(
         'Using CHOLMOD to compute the Cholesky decomposition of a %s '
-        'by %s sparse matrix with %s non-zero entries ...' 
-        % (A.shape + (A.nnz,)))
+        'by %s sparse matrix with %s (%.3f%%) non-zeros ...' 
+        % (A.shape + (A.nnz,A.nnz/(1.0*np.prod(A.shape)))))
       factor = cholmod.cholesky(A)
       L = factor.L()
       logger.debug('Done')
