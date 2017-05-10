@@ -505,7 +505,7 @@ def _cholesky(A):
       factor = cholmod.cholesky(A)
       L = factor.L()
       logger.debug(
-        'Cholesky decomposition has %s (%.3f%%) non-zeros ...' 
+        'Cholesky decomposition has %s (%.3f%%) non-zeros' 
         % (L.nnz,L.nnz/(1.0*np.prod(L.shape))))
       logger.debug('Done')
 

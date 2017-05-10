@@ -120,7 +120,7 @@ def get_r():
   returns the symbolic variable for :math:`r` which is used to 
   instantiate an *RBF*
   '''
-  return sympy.symbols('r')
+  return sympy.symbols('r',nonnegative=True)
 
 
 def get_eps():
@@ -128,7 +128,7 @@ def get_eps():
   returns the symbolic variable for :math:`\epsilon` which is used to 
   instantiate an *RBF*
   '''
-  return sympy.symbols('eps')
+  return sympy.symbols('eps',nonnegative=True)
 
 
 # instantiate global symbolic variables _R and _EPS. Modifying these 
@@ -169,6 +169,8 @@ class RBF(object):
     the derivative along the second Cartesian direction is *2*eps*. If
     this dictionary is provided and *tol* is not *None*, then it will
     be searched before attempting to symbolically compute the limits.
+    Use this if sympy is too slow or is unable to compute a limit that
+    you know exists.
     
   Examples
   --------
@@ -347,8 +349,8 @@ class RBF(object):
     _assert_shape(diff,(None,),'diff')
 
     dim = len(diff)
-    c_sym = sympy.symbols('c:%s' % dim)
-    x_sym = sympy.symbols('x:%s' % dim)    
+    c_sym = sympy.symbols('c:%s' % dim,real=True)
+    x_sym = sympy.symbols('x:%s' % dim,real=True)    
     r_sym = sympy.sqrt(sum((xi-ci)**2 for xi,ci in zip(x_sym,c_sym)))
     # differentiate the RBF 
     expr = self.expr.subs(_R,r_sym)            
@@ -358,6 +360,7 @@ class RBF(object):
 
       expr = expr.diff(*(xi,)*order)
 
+    print(expr)
     if self.tol is not None:
       if diff in self.limits:
         # use a user-specified limit if available      
@@ -587,12 +590,12 @@ wen30 = RBF(_pos(1 - _R/_EPS)**2)
 wen31 = RBF(_pos(1 - _R/_EPS)**4*(4*_R/_EPS + 1))
 wen32 = RBF(_pos(1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3)
 # sparse Wendland 
-spwen10 = SparseRBF(_pos(1 - _R/_EPS),_EPS)
-spwen11 = SparseRBF(_pos(1 - _R/_EPS)**3*(3*_R/_EPS + 1),_EPS)
-spwen12 = SparseRBF(_pos(1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1),_EPS)
-spwen30 = SparseRBF(_pos(1 - _R/_EPS)**2,_EPS)
-spwen31 = SparseRBF(_pos(1 - _R/_EPS)**4*(4*_R/_EPS + 1),_EPS)
-spwen32 = SparseRBF(_pos(1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3,_EPS)
+spwen10 = SparseRBF((1 - _R/_EPS),_EPS)
+spwen11 = SparseRBF((1 - _R/_EPS)**3*(3*_R/_EPS + 1),_EPS)
+spwen12 = SparseRBF((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1),_EPS)
+spwen30 = SparseRBF((1 - _R/_EPS)**2,_EPS)
+spwen31 = SparseRBF((1 - _R/_EPS)**4*(4*_R/_EPS + 1),_EPS)
+spwen32 = SparseRBF((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3,_EPS)
 
 # set some known limits so that sympy does not need to compute them
 phs1.tol = 1e-10
