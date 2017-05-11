@@ -498,15 +498,20 @@ def _cholesky(A):
     # convert to csc because it is more efficient
     A = A.tocsc()
     try:
+      density = (100.0*A.nnz)/np.prod(A.shape)
       logger.debug(
         'Using CHOLMOD to compute the Cholesky decomposition of a %s '
-        'by %s sparse matrix with %s (%.3f%%) non-zeros ...' 
-        % (A.shape + (A.nnz,A.nnz/(1.0*np.prod(A.shape)))))
+        'by %s sparse matrix with %s (%.3f%%) non-zeros ...' %
+        (A.shape + (A.nnz,density)))
+
       factor = cholmod.cholesky(A)
       L = factor.L()
+
+      density = (100.0*L.nnz)/np.prod(L.shape)
       logger.debug(
-        'Cholesky decomposition has %s (%.3f%%) non-zeros' 
-        % (L.nnz,L.nnz/(1.0*np.prod(L.shape))))
+        'Cholesky decomposition has %s (%.3f%%) non-zeros' %
+        (L.nnz,density))
+
       logger.debug('Done')
 
     except cholmod.CholmodNotPositiveDefiniteError as err:  
@@ -990,11 +995,6 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     C_y = _as_sparse_or_array(C_y + sigma)
     # append the data noise basis vectors 
     p_y = np.hstack((p_y,p)) 
-
-    if sp.issparse(C_y):
-      logger.debug('Kernel is sparse with %.3f%% non-zeros' % 
-                   (C_y.nnz/(1.0*np.prod(C_y.shape))))
-
     K_y_inv = _InversePartitioned(C_y,p_y)
     r  = d - mu_y
     logger.debug('Done')

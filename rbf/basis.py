@@ -508,11 +508,11 @@ class SparseRBF(RBF):
       # make sure diff is immutable
       diff = tuple(diff)
     
+    _assert_shape(diff,(x.shape[1],),'diff')
+
     # add numerical function to cache if not already
     if diff not in self.cache:
       self._add_diff_to_cache(diff)
-
-    _assert_shape(diff,(x.shape[1],),'diff')
 
     # convert self.supp from a sympy expression to a float
     supp = float(self.supp.subs(_EPS,eps[0]))
@@ -554,13 +554,6 @@ class SparseRBF(RBF):
            (str(self.expr),str(self.supp)))
     return out
 
-
-def _pos(expr):
-  ''' 
-  returns a piecewise expression that is *expr* when *expr* is
-  positive and zero otherwise
-  '''
-  return sympy.Piecewise((expr,expr > 0.0),(0.0,True))
   
 ## Instantiate some common RBFs
 #####################################################################
@@ -587,8 +580,8 @@ exp = RBF(sympy.exp(-_R/_EPS))
 # squared exponential
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 # Matern
-mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)*sympy.exp(-sympy.sqrt(3)*_R/_EPS),tol=sympy.Float('1e-10',50)*_EPS)
-mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2))*sympy.exp(-sympy.sqrt(5)*_R/_EPS),tol=sympy.Float('1e-10',50)*_EPS)
+mat32 = RBF( (1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS) , tol=sympy.Float('1e-10',50)*_EPS)
+mat52 = RBF( (1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS) , tol=sympy.Float('1e-10',50)*_EPS)
 # Wendland 
 wen10 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)                                             , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS )
 wen11 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                          , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS ) 
