@@ -120,7 +120,7 @@ def get_r():
   returns the symbolic variable for :math:`r` which is used to 
   instantiate an *RBF*
   '''
-  return sympy.symbols('r',nonnegative=True)
+  return sympy.symbols('r')
 
 
 def get_eps():
@@ -128,7 +128,7 @@ def get_eps():
   returns the symbolic variable for :math:`\epsilon` which is used to 
   instantiate an *RBF*
   '''
-  return sympy.symbols('eps',nonnegative=True)
+  return sympy.symbols('eps')
 
 
 # instantiate global symbolic variables _R and _EPS. Modifying these 
