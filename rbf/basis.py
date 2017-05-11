@@ -366,6 +366,7 @@ class RBF(object):
         lim = self.limits[diff]
 
       else: 
+        logger.debug('Estimating limit for the RBF center ...')
         # make the substitutions for the point
         # (x0=tol+c0, x1=c1, x2=c2, ...)
         subs_list  = [(x_sym[0],self.tol+c_sym[0])]
@@ -378,7 +379,6 @@ class RBF(object):
         # try to simplify the expression to reduce numerical rounding
         # error. Note that this should only be a function of *eps* now
         # and the simplification should not take long
-        logger.debug('Simplifying expression for the RBF center ...')
         lim = sympy.cancel(lim) 
         logger.debug('Done')
 
