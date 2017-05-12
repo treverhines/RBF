@@ -672,11 +672,15 @@ class _InversePermutedTriangular(object):
         b = self.P.dot(b)
 
       if sp.issparse(self.L):
-        #out = spla.spsolve(self.L,b)
+        #out = spla.spsolve(self.L,b,permc_spec='NATURAL',use_umfpack=True)
+        logger.debug('Solving the sparse triangular system of equations ...')
         out = spla.spsolve_triangular(self.L,b,lower=self.lower)
+        logger.debug('Done')
     
       else:
+        logger.debug('Solving the dense triangular system of equations ...')
         out = rbf._lapack.solve_triangular(self.L,b,lower=self.lower)    
+        logger.debug('Done')
       
       if not self.lower:
         # permutation is done on the left side if upper
