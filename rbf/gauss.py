@@ -497,40 +497,37 @@ def _cholesky(A):
     # Cholesky decomposition for sparse matrix using CHOLMOD
     # convert to csc because it is more efficient
     A = A.tocsc()
+    density = (100.0*A.nnz)/np.prod(A.shape)
+    logger.debug(
+      'Using CHOLMOD to compute the Cholesky decomposition of a %s '
+      'by %s sparse matrix with %s (%.3f%%) non-zeros ...' %
+      (A.shape + (A.nnz,density)))
     try:
-      density = (100.0*A.nnz)/np.prod(A.shape)
-      logger.debug(
-        'Using CHOLMOD to compute the Cholesky decomposition of a %s '
-        'by %s sparse matrix with %s (%.3f%%) non-zeros ...' %
-        (A.shape + (A.nnz,density)))
-
       factor = cholmod.cholesky(A)
       L = factor.L()
-
-      density = (100.0*L.nnz)/np.prod(L.shape)
-      logger.debug(
-        'Cholesky decomposition has %s (%.3f%%) non-zeros' %
-        (L.nnz,density))
-
-      logger.debug('Done')
 
     except cholmod.CholmodNotPositiveDefiniteError as err:  
       raise NotPositiveDefiniteError(err.args[0])
 
+    density = (100.0*L.nnz)/np.prod(L.shape)
+    logger.debug(
+      'Cholesky decomposition has %s (%.3f%%) non-zeros' %
+      (L.nnz,density))
+    logger.debug('Done')
     perm = factor.P()
   
   else:
     # Cholesky decomposition for numpy array using LAPACK
+    logger.debug(
+      'Using LAPACK to compute the Cholesky decomposition of a %s '
+      'by %s dense matrix ...' % A.shape)
     try:
-      logger.debug(
-        'Using LAPACK to compute the Cholesky decomposition of a %s '
-        'by %s dense matrix ...' % A.shape)
       L = rbf._lapack.cholesky(A,lower=True)
-      logger.debug('Done')
     
     except np.linalg.LinAlgError as err:
       raise NotPositiveDefiniteError(err.args[0])
       
+    logger.debug('Done')
     # make permutation matrix an identity matrix
     perm = np.arange(A.shape[0]).astype(np.int32)
 
