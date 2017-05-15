@@ -463,11 +463,11 @@ class _SparseFactor(object):
     '''
     A = A.tocsc()
     density = (100.0*A.nnz)/np.prod(A.shape)    
-    logger.info(
+    logger.debug(
       'Using CHOLMOD to factor a %s by %s sparse matrix with %s '
       '(%.3f%%) non-zeros ...' % (A.shape[0],A.shape[1],A.nnz,density))  
     self.factor = cholmod.cholesky(A)
-    logger.info('Done')
+    logger.debug('Done')
     self.d = self.factor.D()
     self.p = self.factor.P()
 
@@ -482,9 +482,7 @@ class _SparseFactor(object):
     out : (N,*) array
     '''
     b = _as_array(b)
-    print('solving ...')
     out = self.factor.solve_A(b)
-    print('done')
     return out
 
   def solve_L(self,b):
@@ -508,9 +506,7 @@ class _SparseFactor(object):
     else:
       raise ValueError('*b* must be a one or two dimensional array')
 
-    print('solving ...')
     out = s_inv*self.factor.solve_L(b[self.p])
-    print('done')
     return out
 
   def L(self):
@@ -688,8 +684,8 @@ class _PartitionedFactor(object):
     
     Returns
     -------
-    out1 : (N,*) array
-    out2 : (P,*) array
+    x : (N,*) array
+    y : (P,*) array
     '''
     a = _as_array(a)
     b = _as_array(b)
