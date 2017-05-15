@@ -466,7 +466,9 @@ class _SparseFactor(object):
     logger.debug(
       'Using CHOLMOD to factor a %s by %s sparse matrix with %s '
       '(%.3f%%) non-zeros ...' % (A.shape[0],A.shape[1],A.nnz,density))  
-    self.factor = cholmod.cholesky(A)
+    self.factor = cholmod.cholesky(A,
+                                   use_long=False,
+                                   ordering_method='default')
     logger.debug('Done')
     self.d = self.factor.D()
     self.p = self.factor.P()
@@ -1855,7 +1857,7 @@ class GaussianProcess(object):
       if xlen > chunk_size:
         logger.debug(
           'Computing the mean and std. dev. (chunk size = %s) : '
-          '%5.1f%% complete' % ((100.0*count)/xlen,chunk_size))
+          '%5.1f%% complete' % (chunk_size,(100.0*count)/xlen))
       
       start,stop = count,count+chunk_size 
       out_mean[start:stop] = self._mean(x[start:stop],diff) 
@@ -1867,7 +1869,7 @@ class GaussianProcess(object):
     if xlen > chunk_size:
       logger.debug(
         'Computing the mean and std. dev. (chunk size = %s) : '
-        '100.0% complete' % chunk_size)
+        '100.0%% complete' % chunk_size)
 
     return out_mean,out_sd
 
