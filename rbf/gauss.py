@@ -461,20 +461,25 @@ class _SparseFactor(object):
     ----------
     A : (N,N) sparse matrix 
     '''
+    A = A.tocsc()
     density = (100.0*A.nnz)/np.prod(A.shape)    
     logger.info(
       'Using CHOLMOD to factor a %s by %s sparse matrix with %s '
       '(%.3f%%) non-zeros ...' % (A.shape[0],A.shape[1],A.nnz,density))  
     self.factor = cholmod.cholesky(A)
     logger.info('Done')
-    self.s = np.sqrt(self.factor.D())
+    self.d = self.factor.D()
     self.p = self.factor.P()
 
   def solve_A(self,b):
     ''' 
     Parameters
     ----------
-    b : (N,) or (N,*) array
+    b : (N,*) array or sparse matrix
+    
+    Returns
+    -------
+    out : (N,*) array
     '''
     b = _as_array(b)
     print('solving ...')
@@ -486,15 +491,19 @@ class _SparseFactor(object):
     ''' 
     Parameters
     ----------
-    b : (N,) or (N,*) array
+    b : (N,*) array or sparse matrix
+
+    Returns
+    -------
+    out : (N,*) array
     '''
     b = _as_array(b)
     if b.ndim == 1:
-      s_inv = 1.0/self.s
+      s_inv = 1.0/np.sqrt(self.d)
 
     elif b.ndim == 2:
       # expand for broadcasting
-      s_inv = 1.0/self.s[:,None]
+      s_inv = 1.0/np.sqrt(self.d)[:,None]
 
     else:
       raise ValueError('*b* must be a one or two dimensional array')
@@ -505,13 +514,23 @@ class _SparseFactor(object):
     return out
 
   def L(self):
+    ''' 
+    Returns
+    -------
+    out : (N,N) csc sparse matrix
+    '''
     L = self.factor.L()
     p_inv = np.argsort(self.p)
     out = L[p_inv]
     return out
 
   def log_det_A(self):
-    out = 2*np.sum(np.log(self.s))
+    ''' 
+    Returns
+    -------
+    out : float 
+    '''
+    out = np.sum(np.log(self.d))
     return out
 
 
@@ -524,7 +543,7 @@ class _DenseFactor(object):
     ''' 
     Parameters
     ----------
-    A : (N,N) sparse matrix
+    A : (N,N) array
     '''
     logger.debug(
       'Using LAPACK to factor a %s by %s dense matrix ...' % A.shape)
@@ -535,7 +554,11 @@ class _DenseFactor(object):
     ''' 
     Parameters
     ----------
-    b : (N,) or (N,*) array
+    b : (N,*) array or sparse matrix
+
+    Returns
+    -------
+    out : (N,*) array
     '''
     b = _as_array(b)
     return rbf._lapack.solve_cholesky(self.chol,b,lower=True)
@@ -544,15 +567,29 @@ class _DenseFactor(object):
     ''' 
     Parameters
     ----------
-    b : (N,) or (N,*) array
+    b : (N,*) array or sparse matrix
+
+    Returns
+    -------
+    out : (N,*) array
     '''
     b = _as_array(b)
     return rbf._lapack.solve_triangular(self.chol,b,lower=True)
 
   def L(self):
+    ''' 
+    Returns
+    -------
+    out : (N,N) array
+    '''
     return self.chol
 
   def log_det_A(self):
+    ''' 
+    Returns
+    -------
+    out : float
+    '''
     out = 2*np.sum(np.log(np.diag(self.chol)))
     return out
 
