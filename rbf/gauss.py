@@ -1853,8 +1853,9 @@ class GaussianProcess(object):
       # only log the progress if the mean and sd are being build in
       # multiple chunks
       if xlen > chunk_size:
-        logger.debug('Computing the mean and std. dev. : %5.1f%% complete' 
-                     % ((100.0*count)/xlen))
+        logger.debug(
+          'Computing the mean and std. dev. (chunk size = %s) : '
+          '%5.1f%% complete' % ((100.0*count)/xlen,chunk_size))
       
       start,stop = count,count+chunk_size 
       out_mean[start:stop] = self._mean(x[start:stop],diff) 
@@ -1864,7 +1865,9 @@ class GaussianProcess(object):
       count += chunk_size
     
     if xlen > chunk_size:
-      logger.debug('Computing the mean and std. dev. : 100.0% complete')
+      logger.debug(
+        'Computing the mean and std. dev. (chunk size = %s) : '
+        '100.0% complete' % chunk_size)
 
     return out_mean,out_sd
 
