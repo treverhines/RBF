@@ -218,9 +218,7 @@ def weights(x,s,diffs,coeffs=None,
 
   else:  
     try:
-      out = rbf._lapack.solve_lu(lhs,rhs,
-                                 overwrite_a=True,
-                                 overwrite_b=True)[:N]
+      out = rbf._lapack.solve(lhs,rhs)[:N]
     
     except np.linalg.LinAlgError:
       raise np.linalg.LinAlgError(

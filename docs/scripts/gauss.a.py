@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import rbf
 import logging
+logging.basicConfig(level=logging.DEBUG)
 np.random.seed(1)
 
 y = np.linspace(-7.5,7.5,25) # observation points

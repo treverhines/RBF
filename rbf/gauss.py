@@ -378,7 +378,6 @@ import warnings
 import weakref
 import inspect
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
 from rbf.basis import _assert_shape
 logger = logging.getLogger(__name__)
 
@@ -394,13 +393,6 @@ except ImportError:
     'python wrapper, follow the instructions at '
     'https://scikit-sparse.readthedocs.io')
     
-
-class NotPositiveDefiniteError(Exception):
-  ''' 
-  Error raised when Cholesky decompositions fails
-  '''  
-  pass
-
 
 def _as_sparse_or_array(A,dtype=None,copy=False):
   ''' 
@@ -457,82 +449,132 @@ def _all_is_finite(A):
     return np.all(np.isfinite(A))
 
 
-def _cholesky(A):
+class _SparseFactor(object):
   ''' 
-  Returns the Cholesky decomposition of *P.dot(A).dot(P.T)*, where *P*
-  is a sparsity-preserving permutation matrix. If *A* is sparse then
-  the output will be sparse.
-  
-  Parameters
-  ----------
-  A : (N,N) array or sparse matrix
-  
-  Returns
-  -------
-  L : (N,N) array or sparse matrix
-    cholesky decomposition of permuted *A*
-    
-  P : _Permutation instance
-    
-  Notes
-  -----
-  To recover the matrix from the decompositon:
-
-    >>> L,P = _cholesky(A)
-    >>> P.T.dot(L).dot(P.T.dot(L).T)
-    
-  Returns a *NotPositiveDefiniteError* if *A* is not positive
-  definite.
+  Factors the sparse matrix *A* as *LL^T = A*. Provides a method for
+  solving *Ax = b* and *Lx = b*. Also provides a method to get *L* and
+  the log determinant of *A*.
   '''
-  # if CHOLMOD is not available then make *A* dense if it is sparse  
+  def __init__(self,A):
+    ''' 
+    Parameters
+    ----------
+    A : (N,N) sparse matrix 
+    '''
+    density = (100.0*A.nnz)/np.prod(A.shape)    
+    logger.info(
+      'Using CHOLMOD to factor a %s by %s sparse matrix with %s '
+      '(%.3f%%) non-zeros ...' % (A.shape[0],A.shape[1],A.nnz,density))  
+    self.factor = cholmod.cholesky(A)
+    logger.info('Done')
+    self.s = np.sqrt(self.factor.D())
+    self.p = self.factor.P()
+
+  def solve_A(self,b):
+    ''' 
+    Parameters
+    ----------
+    b : (N,) or (N,*) array
+    '''
+    b = _as_array(b)
+    print('solving ...')
+    out = self.factor.solve_A(b)
+    print('done')
+    return out
+
+  def solve_L(self,b):
+    ''' 
+    Parameters
+    ----------
+    b : (N,) or (N,*) array
+    '''
+    b = _as_array(b)
+    if b.ndim == 1:
+      s_inv = 1.0/self.s
+
+    elif b.ndim == 2:
+      # expand for broadcasting
+      s_inv = 1.0/self.s[:,None]
+
+    else:
+      raise ValueError('*b* must be a one or two dimensional array')
+
+    print('solving ...')
+    out = s_inv*self.factor.solve_L(b[self.p])
+    print('done')
+    return out
+
+  def L(self):
+    L = self.factor.L()
+    p_inv = np.argsort(self.p)
+    out = L[p_inv]
+    return out
+
+  def log_det_A(self):
+    out = 2*np.sum(np.log(self.s))
+    return out
+
+
+class _DenseFactor(object):
+  ''' 
+  Similar to *_SparseFactor* but for dense arrays. The decomposition
+  *LL^T = A* is the Cholesky decomposition.
+  '''
+  def __init__(self,A):
+    ''' 
+    Parameters
+    ----------
+    A : (N,N) sparse matrix
+    '''
+    logger.debug(
+      'Using LAPACK to factor a %s by %s dense matrix ...' % A.shape)
+    self.chol = rbf._lapack.cholesky(A,lower=True)
+    logger.debug('Done')
+
+  def solve_A(self,b):
+    ''' 
+    Parameters
+    ----------
+    b : (N,) or (N,*) array
+    '''
+    b = _as_array(b)
+    return rbf._lapack.solve_cholesky(self.chol,b,lower=True)
+
+  def solve_L(self,b):
+    ''' 
+    Parameters
+    ----------
+    b : (N,) or (N,*) array
+    '''
+    b = _as_array(b)
+    return rbf._lapack.solve_triangular(self.chol,b,lower=True)
+
+  def L(self):
+    return self.chol
+
+  def log_det_A(self):
+    out = 2*np.sum(np.log(np.diag(self.chol)))
+    return out
+
+
+def _factor(A):
+  ''' 
+  If *A* is sparse and CHOLMOD is available then returns an instance
+  of *_SparseFactor*, otherwise returns an instance of *_DenseFactor*.
+  '''
   if sp.issparse(A) & (not HAS_CHOLMOD):
     warnings.warn(
       'Could not import CHOLMOD. Sparse matrices will be converted to '
       'dense for all Cholesky decompositions. To install CHOLMOD and its '
       'python wrapper, follow the instructions at '
       'https://scikit-sparse.readthedocs.io')
-    A = A.toarray()    
-
-  if sp.issparse(A):
-    # Cholesky decomposition for sparse matrix using CHOLMOD
-    # convert to csc because it is more efficient
-    A = A.tocsc()
-    density = (100.0*A.nnz)/np.prod(A.shape)
-    logger.debug(
-      'Using CHOLMOD to compute the Cholesky decomposition of a %s '
-      'by %s sparse matrix with %s (%.3f%%) non-zeros ...' %
-      (A.shape + (A.nnz,density)))
-    try:
-      factor = cholmod.cholesky(A)
-      L = factor.L()
-
-    except cholmod.CholmodNotPositiveDefiniteError as err:  
-      raise NotPositiveDefiniteError(err.args[0])
-
-    density = (100.0*L.nnz)/np.prod(L.shape)
-    logger.debug(
-      'Cholesky decomposition has %s (%.3f%%) non-zeros' %
-      (L.nnz,density))
-    logger.debug('Done')
-    perm = factor.P()
+    A = A.toarray()
   
-  else:
-    # Cholesky decomposition for numpy array using LAPACK
-    logger.debug(
-      'Using LAPACK to compute the Cholesky decomposition of a %s '
-      'by %s dense matrix ...' % A.shape)
-    try:
-      L = rbf._lapack.cholesky(A,lower=True)
-    
-    except np.linalg.LinAlgError as err:
-      raise NotPositiveDefiniteError(err.args[0])
-      
-    logger.debug('Done')
-    # make permutation matrix an identity matrix
-    perm = np.arange(A.shape[0]).astype(np.int32)
+  if sp.issparse(A):
+    return _SparseFactor(A)
 
-  P = _Permutation(perm)
-  return L,P
+  else:
+    return _DenseFactor(A)
 
 
 def _is_positive_definite(A):
@@ -541,203 +583,23 @@ def _is_positive_definite(A):
   the Cholesky decomposition finishes successfully
   '''
   try:
-    _cholesky(A)
+    _factor(A).L()
 
-  except NotPositiveDefiniteError:  
+  except (np.linalg.LinAlgError,
+          cholmod.CholmodNotPositiveDefiniteError):
     return False
   
   return True
 
 
-class _Permutation(object):
+class _PartitionedFactor(object):
   ''' 
-  Emulates a permutation matrix. When left-multiplying *A* by a
-  permutation matrix, *P*, the product will consist of permuted rows
-  of *A*.
-
-  Example
-  -------
-  The following demonstrates how to create a permutation matrix that
-  changes the row order of (3,2) arrays
+  Solves the system of equations
   
-    >>> P = _Permutation([2,0,1])
-    >>> A = np.array([[1,2],[3,4],[5,6]]) 
-    >>> P.dot(A)
-    array([[5, 6],
-           [1, 2],
-           [3, 4]])
-  '''
-  @property
-  def T(self):
-    return self.transpose()
-  
-  def __init__(self,perm):
-    ''' 
-    Parameters
-    ----------
-    perm : (N,) int array
-    '''
-    self.perm = perm
+     |  A   B  | | x |   | a | 
+     | B.T  0  | | y | = | b |
 
-  def dot(self,A):
-    ''' 
-    Parameters
-    ----------
-    A : (N,*) array or sparse matrix
-
-    Returns
-    -------
-    out : (N,*) array or sparse matrix
-    '''
-    return A[self.perm]
-  
-  def transpose(self):
-    ''' 
-    Returns the inverse permutation matrix.
-    '''
-    perm_inv = np.argsort(self.perm)
-    return _Permutation(perm_inv)
-
-
-class _InversePermutedTriangular(object):
-  ''' 
-  Emulates the inverse of a permuted lower or upper triangular matrix.
-
-    * Lower triangular matrices are permuted as *P.T.dot(L)* and thus
-      this class emulates *inv(L).dot(P)*
-    * Upper triangular matrices are permuted as *U.dot(P.T)* and thus
-      this class emulates *P.dot(inv(U))*
-  
-  Example
-  -------
-  These two code blocks should produce equivalent results for a lower
-  triangular matrix *L* and permutation matrix *P*
-
-    >>> PTLinv = _InversePermutedTriangular(L,P,lower=True)
-    >>> PTLinv.dot(np.random.random(L.shape[0]))
-
-    >>> PTLinv = np.linalg.inv(P.T.dot(L))
-    >>> PTLinv.dot(np.random.random(L.shape[0]))
-    
-  And for an upper triangular matrix *U*  
-
-    >>> UPTinv = _InversePermutedTriangular(U,P,lower=False)
-    >>> UPTinv.dot(np.random.random(U.shape[0]))
-
-    >>> UPTinv = P.dot(np.linalg.inv(U))
-    >>> UPTinv.dot(np.random.random(U.shape[0]))
-    
-  ''' 
-  def __init__(self,L,P,lower=True,build=False):
-    ''' 
-    Parameters
-    ----------
-    L : (N,N) array or (N,N) sparse matrix
-    P : _Permutation instance
-    lower : bool
-    build : bool, optional
-    '''   
-    if sp.issparse(L):
-      # Convert to csr since it is more efficient. If L is not csr,
-      # then tocsr() makes a copy.
-      L = L.tocsr()
-        
-    self.L = L
-    self.P = P
-    self.lower = lower
-    if build:
-      self.A = self.dot(np.eye(L.shape[0]))
-
-  def dot(self,b):
-    ''' 
-    Parameters
-    ----------
-    b : (N,*) array or sparse matrix
-
-    Returns
-    -------
-    out : (N,*) array
-    '''
-    b = _as_array(b)
-    if hasattr(self,'A'):
-      # if the dense form has been built then use it
-      out = self.A.dot(b)
-      
-    else:
-      if self.lower:
-        # permutation is done on the right side if lower 
-        b = self.P.dot(b)
-
-      if sp.issparse(self.L):
-        #out = spla.spsolve(self.L,b,permc_spec='NATURAL',use_umfpack=True)
-        logger.debug('Solving the sparse triangular system of equations ...')
-        out = spla.spsolve_triangular(self.L,b,lower=self.lower)
-        logger.debug('Done')
-    
-      else:
-        logger.debug('Solving the dense triangular system of equations ...')
-        out = rbf._lapack.solve_triangular(self.L,b,lower=self.lower)    
-        logger.debug('Done')
-      
-      if not self.lower:
-        # permutation is done on the left side if upper
-        out = self.P.dot(out)
-        
-    return out
-
-
-class _InversePositiveDefinite(object):
-  ''' 
-  Emulates the inverse of a positive definite matrix *A*, which is
-  internally decomposed as
-
-      inv(A) = inv( L.T.dot(P) ).dot( inv( P.T.dot(L) ) )
-                 ------------           ------------
-                  upper tri.             lower tri.
-  '''
-  def __init__(self,A,build=False):
-    ''' 
-    Parameters
-    ----------
-    A : (N,N) array or sparse matrix
-    build : bool, optional
-    '''
-    L,P = _cholesky(A)
-    self.PTLinv = _InversePermutedTriangular(L,P,lower=True)
-    self.LTPinv = _InversePermutedTriangular(L.T,P.T,lower=False)
-    if build:
-      self.A = self.dot(np.eye(A.shape[0]))
-  
-  def dot(self,b):
-    ''' 
-    Parameters
-    ----------
-    b : (N,*) array or sparse matrix
-
-    Returns
-    -------
-    out : (N,*) array
-    '''
-    b = _as_array(b)
-    if hasattr(self,'A'):
-      # if the inverse has been built then use it
-      out = self.A.dot(b)
-
-    else:
-      out = self.LTPinv.dot(self.PTLinv.dot(b))
-
-    return out
-    
-
-class _InversePartitioned(object):
-  ''' 
-  Emulates the inverse of the partitioned matrix
-  
-     |  A   B  |
-     | B.T  0  |,
-
-  where A is a positive definite matrix. The partitioned inverse can
-  be written as
+  for *x* and *y* by partitioning the inverse as
   
      |  C   D  |
      | D.T  E  |
@@ -750,6 +612,9 @@ class _InversePartitioned(object):
     
     E = - (B^T * A^-1 * B)^-1
   
+  It is assumed that *A* is a sparse or dense positive definite
+  matrix. The system is efficiently solved by factoring the matrix
+  *A* with *_factor* and never actually computing *A^-1*.
   '''
   def __init__(self,A,B,build=False):
     ''' 
@@ -758,7 +623,7 @@ class _InversePartitioned(object):
     A : (N,N) array or sparse matrix
     B : (N,P) array or sparse matrix
     '''
-    # make B dense because we cannot take advantage of its sparsity 
+    # convert B to dense if it is sparse
     B = _as_array(B)
     n,p = B.shape
     if n < p:
@@ -766,18 +631,18 @@ class _InversePartitioned(object):
         'There are fewer rows than columns in *B*. This makes the '
         'block matrix singular, and its inverse cannot be computed.')
     
-    Ainv = _InversePositiveDefinite(A,build=build)  
-    AinvB = Ainv.dot(B) 
-    E = -rbf._lapack.cholesky_inv(B.T.dot(AinvB)) 
+    Afact = _factor(A)
+    AinvB = Afact.solve_A(B) 
+    E = -np.linalg.inv(B.T.dot(AinvB)) 
     D = -AinvB.dot(E) 
     # NOTE that AinvB, E, and D are all dense arrays since they
     # relatively smaller than C
-    self.Ainv = Ainv
+    self.Afact = Afact
     self.AinvB = AinvB
     self.E = E
     self.D = D
     
-  def dot(self,a,b):   
+  def solve(self,a,b):   
     ''' 
     Parameters
     ----------
@@ -791,11 +656,11 @@ class _InversePartitioned(object):
     '''
     a = _as_array(a)
     b = _as_array(b)
-    out1  = (self.Ainv.dot(a) - 
-             self.D.dot(self.AinvB.T.dot(a)) +
-             self.D.dot(b))
-    out2  = self.D.T.dot(a) + self.E.dot(b)
-    return out1,out2
+    x = (self.Afact.solve_A(a) - 
+         self.D.dot(self.AinvB.T.dot(a)) +
+         self.D.dot(b))
+    y = self.D.T.dot(a) + self.E.dot(b)
+    return x,y
     
 
 def _sample(mean,cov,use_cholesky=False):
@@ -807,14 +672,13 @@ def _sample(mean,cov,use_cholesky=False):
     # draw a sample using a cholesky decomposition. This assumes that
     # *cov* is numerically positive definite (i.e. no small negative
     # eigenvalues from rounding error).
-    L,P = _cholesky(cov)
+    L = _factor(cov).L()
     w = np.random.normal(0.0,1.0,mean.shape[0])
-    u = mean + P.T.dot(L).dot(w)
+    u = mean + L.dot(w)
   
   else:
     # otherwise use an eigenvalue decomposition, ignoring negative
     # eigenvalues. If *cov* is sparse then begrudgingly make it dense.
-    # TODO: an LDL^T decomposition would be better suited for this.
     cov = _as_array(cov)
     s,Q = np.linalg.eigh(cov)
     keep = (s > 0.0)
@@ -996,13 +860,13 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     C_y = _as_sparse_or_array(C_y + sigma)
     # append the data noise basis vectors 
     p_y = np.hstack((p_y,p)) 
-    K_y_inv = _InversePartitioned(C_y,p_y)
+    K_y_fact = _PartitionedFactor(C_y,p_y)
     r  = d - mu_y
     logger.debug('Done')
-    return K_y_inv,r
+    return K_y_fact,r
     
   def mean(x,diff):
-    K_y_inv,r = precompute()
+    K_y_fact,r = precompute()
     mu_x = gp._mean(x,diff)
     C_xy = gp._covariance(x,y,diff,obs_diff)
 
@@ -1011,12 +875,12 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     p_x_pad = np.zeros((p_x.shape[0],p.shape[1]),dtype=float)
     p_x = np.hstack((p_x,p_x_pad))
 
-    vec1,vec2 = K_y_inv.dot(r,np.zeros(p_x.shape[1]))
+    vec1,vec2 = K_y_fact.solve(r,np.zeros(p_x.shape[1]))
     out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
     return out
 
   def covariance(x1,x2,diff1,diff2):
-    K_y_inv,r = precompute()
+    K_y_fact,r = precompute()
     C_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     C_x1y = gp._covariance(x1,y,diff1,obs_diff)
     C_x2y = gp._covariance(x2,y,diff2,obs_diff)
@@ -1029,7 +893,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     p_x2_pad = np.zeros((p_x2.shape[0],p.shape[1]),dtype=float)
     p_x2 = np.hstack((p_x2,p_x2_pad))
 
-    mat1,mat2 = K_y_inv.dot(C_x2y.T,p_x2.T)
+    mat1,mat2 = K_y_fact.solve(C_x2y.T,p_x2.T)
     out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
     return out
   
@@ -1093,41 +957,39 @@ def likelihood(d,mu,sigma,p=None):
   '''
   d = _as_array(d,dtype=float)
   _assert_shape(d,(None,),'d')
+  # number of observations
+  n = d.shape[0]
 
   mu = _as_array(mu,dtype=float)
-  _assert_shape(mu,(d.shape[0],),'mu')
+  _assert_shape(mu,(n,),'mu')
   
   sigma = _as_covariance(sigma)
-  _assert_shape(sigma,(d.shape[0],d.shape[0]),'sigma')
+  _assert_shape(sigma,(n,n),'sigma')
 
   if p is None:
-    p = np.zeros((d.shape[0],0),dtype=float)
+    p = np.zeros((n,0),dtype=float)
   
   else:  
     p = _as_array(p,dtype=float)
   
-  _assert_shape(p,(d.shape[0],None),'p')
-  
-  n,m = p.shape
-  A,P = _cholesky(sigma)
-  PTAinv = _InversePermutedTriangular(A,P,lower=True)
+  _assert_shape(p,(n,None),'p')
+  # number of basis vectors
+  m = p.shape[1]
 
-  B = PTAinv.dot(p)
+  A = _factor(sigma)
+  B = A.solve_L(p)  
+  C = _factor(B.T.dot(B)) 
+  D = _factor(p.T.dot(p))
 
-  C,P = _cholesky(B.T.dot(B))   
-  PTCinv = _InversePermutedTriangular(C,P,lower=True)
+  a = A.solve_L(d - mu)
+  b = C.solve_L(B.T.dot(a))
 
-  D,P = _cholesky(p.T.dot(p))   
-
-  a = PTAinv.dot(d - mu)
-  b = PTCinv.dot(B.T.dot(a))
-
-  out = (np.sum( np.log( D.diagonal() ) ) -
-         np.sum( np.log( A.diagonal() ) ) -
-         np.sum( np.log( C.diagonal() ) ) -
-         0.5*a.T.dot(a) +
-         0.5*b.T.dot(b) -
-         0.5*(n-m)*np.log(2*np.pi))
+  out = 0.5*(D.log_det_A() -
+             A.log_det_A() -
+             C.log_det_A() -
+             a.T.dot(a) +
+             b.T.dot(b) -
+             (n-m)*np.log(2*np.pi))
   return out
 
 
@@ -1180,6 +1042,7 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   '''
   d = _as_array(d,dtype=float)
   _assert_shape(d,(None,),'d')
+  # number of observations
   n = d.shape[0]
 
   s = _as_array(s,dtype=float)
@@ -1224,11 +1087,11 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     # sparse matrix then the output is a matrix. _as_sparse_or_array
     # coerces it back to an array
     sigma_i = _as_sparse_or_array(sigma_i + _as_covariance(s_i))
-    Kinv = _InversePartitioned(sigma_i,p_i)
-    vec1,vec2 = Kinv.dot(d_i - mu_i,np.zeros(m))
+    Kfact = _PartitionedFactor(sigma_i,p_i)
+    vec1,vec2 = Kfact.solve(d_i - mu_i,np.zeros(m))
 
     # dereference everything that we no longer need
-    del sigma_i,mu_i,p_i,d_i,s_i,Kinv
+    del sigma_i,mu_i,p_i,d_i,s_i,Kfact
     
     fit = mu + sigma[:,~out].dot(vec1) + p.dot(vec2)
     # find new outliers
