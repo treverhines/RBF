@@ -158,95 +158,91 @@ class Test(unittest.TestCase):
     #plt.plot(x,test_func1d(x),'k-')
     #plt.show()
 
-  def test_permutation(self):
-    P = rbf.gauss._Permutation([2,0,1])
-    A = np.array([[1,2],[3,4],[5,6]]) 
-    PA = P.dot(A)
-    PA_soln = np.array([[5, 6],[1, 2],[3, 4]])
-    self.assertTrue(np.all(PA == PA_soln))
-    # The transpose should return PA to A
-    self.assertTrue(np.all(np.isclose(P.T.dot(PA),A)))
+  def test_sparse_factor_solve_A(self):
+    n = 100
+    A = sp.rand(n,n,density=0.2)
+    A = A.T.dot(A).tocsc()
+    b = np.random.random((n,))
+    factor = rbf.gauss._SparseFactor(A)
+    x1 = factor.solve_A(b)
+    x2 = np.linalg.solve(A.A,b)
+    self.assertTrue(np.all(np.isclose(x1,x2)))
+  
+  def test_sparse_factor_solve_L(self):
+    n = 100
+    A = sp.rand(n,n,density=0.2)
+    A = A.T.dot(A).tocsc()
+    b = np.random.random((n,))
+    factor = rbf.gauss._SparseFactor(A)
+    x1 = factor.solve_L(b)
+    x2 = np.linalg.solve(factor.L().A,b)
+    self.assertTrue(np.all(np.isclose(x1,x2)))
 
-  def test_permutation_sparse(self):
-    P = rbf.gauss._Permutation([2,0,1])
-    A = np.array([[1,2],[3,4],[5,6]]) 
-    A = sp.csc_matrix(A)
-    PA = P.dot(A)
-    PA_soln = np.array([[5, 6],[1, 2],[3, 4]])
-    self.assertTrue(np.all(np.isclose(PA.A,PA_soln)))
-    
-  def test_inverse_permuted_triangular(self):
-    # make a lower triangular matrix and permutation matrix
-    P = rbf.gauss._Permutation([2,0,1])
-    L = np.array([[1.0,0.0,0.0],
-                  [2.0,3.0,0.0],
-                  [4.0,5.0,6.0]])
-    b = np.array([1.0,2.0,3.0])                  
-    PTLinv = rbf.gauss._InversePermutedTriangular(L,P,lower=True)
-    soln1 = PTLinv.dot(b)
-    PTLinv = np.linalg.inv(P.T.dot(L))
-    soln2 = PTLinv.dot(b)
-    self.assertTrue(np.all(np.isclose(soln1,soln2)))
-    # test again for upper triangular
-    U = L.T
-    UPTinv = rbf.gauss._InversePermutedTriangular(U,P,lower=False)
-    soln1 = UPTinv.dot(b)
-    UPTinv = P.dot(np.linalg.inv(U))
-    soln2 = UPTinv.dot(b)
-    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+  def test_sparse_factor_L(self):
+    n = 100
+    A = sp.rand(n,n,density=0.2)
+    A = A.T.dot(A).tocsc()
+    factor = rbf.gauss._SparseFactor(A)
+    L = factor.L()
+    A2 = L.dot(L.T)
+    self.assertTrue(np.all(np.isclose(A.A,A2.A)))
+  
+  def test_sparse_factor_log_det_A(self):
+    n = 100
+    A = sp.rand(n,n,density=0.2)
+    A = A.T.dot(A).tocsc()
+    factor = rbf.gauss._SparseFactor(A)
+    x1 = factor.log_det_A()
+    x2 = np.log(np.linalg.det(A.A))
+    self.assertTrue(np.isclose(x1,x2))
+  
+  def test_dense_factor_solve_A(self):
+    n = 100
+    A = np.random.random((n,n))
+    A = A.T.dot(A)
+    b = np.random.random((n,))
+    factor = rbf.gauss._DenseFactor(A)
+    x1 = factor.solve_A(b)
+    x2 = np.linalg.solve(A,b)
+    self.assertTrue(np.all(np.isclose(x1,x2)))
+  
+  def test_dense_factor_solve_L(self):
+    n = 100
+    A = np.random.random((n,n))
+    A = A.T.dot(A)
+    b = np.random.random((n,))
+    factor = rbf.gauss._DenseFactor(A)
+    x1 = factor.solve_L(b)
+    x2 = np.linalg.solve(factor.L(),b)
+    self.assertTrue(np.all(np.isclose(x1,x2)))
+  
+  def test_dense_factor_L(self):
+    n = 100
+    A = np.random.random((n,n))
+    A = A.T.dot(A)
+    factor = rbf.gauss._DenseFactor(A)
+    L = factor.L()
+    A2 = L.dot(L.T)
+    self.assertTrue(np.all(np.isclose(A,A2)))
 
-  def test_inverse_permuted_triangular_sparse(self):
-    # make a lower triangular matrix and permutation matrix
-    P = rbf.gauss._Permutation([2,0,1])
-    L = np.array([[1.0,0.0,0.0],
-                  [2.0,3.0,0.0],
-                  [4.0,5.0,6.0]])
-    L = sp.csc_matrix(L) # make L sparse
-    b = np.array([1.0,2.0,3.0])                  
-    PTLinv = rbf.gauss._InversePermutedTriangular(L,P,lower=True)
-    soln1 = PTLinv.dot(b)
-    PTLinv = np.linalg.inv(P.T.dot(L.A))
-    soln2 = PTLinv.dot(b)
-    self.assertTrue(np.all(np.isclose(soln1,soln2)))
-    # test again for upper triangular
-    U = L.T
-    UPTinv = rbf.gauss._InversePermutedTriangular(U,P,lower=False)
-    soln1 = UPTinv.dot(b)
-    UPTinv = P.dot(np.linalg.inv(U.A))
-    soln2 = UPTinv.dot(b)
-    self.assertTrue(np.all(np.isclose(soln1,soln2)))
+  def test_dense_factor_log_det_A(self):
+    n = 100
+    A = np.random.random((n,n))
+    A = A.T.dot(A)
+    factor = rbf.gauss._DenseFactor(A)
+    x1 = factor.log_det_A()
+    x2 = np.log(np.linalg.det(A))
+    self.assertTrue(np.isclose(x1,x2))
 
-  def test_inverse_positive_definite(self):    
-    A = np.random.random((4,4))
-    A = A.T.dot(A) # A is now P.D.
-    b = np.random.random((4,))
-    Ainv = rbf.gauss._InversePositiveDefinite(A)
-    soln1 = Ainv.dot(b)
-    Ainv = np.linalg.inv(A)
-    soln2 = Ainv.dot(b)
-    self.assertTrue(np.all(np.isclose(soln1,soln2)))
-
-  def test_inverse_positive_definite_sparse(self):    
-    A = np.random.random((4,4))
-    A = A.T.dot(A) # A is now P.D.
-    A = sp.csc_matrix(A)
-    b = np.random.random((4,))
-    Ainv = rbf.gauss._InversePositiveDefinite(A)
-    soln1 = Ainv.dot(b)
-    Ainv = np.linalg.inv(A.A)
-    soln2 = Ainv.dot(b)
-    self.assertTrue(np.all(np.isclose(soln1,soln2)))
-    
-  def test_inverse_partitioned(self):    
+  def test_partitioned_factor(self):    
     A = np.random.random((4,4))
     A = A.T.dot(A) # A is now P.D.
     B = np.random.random((4,2))
     a = np.random.random((4,))
     b = np.random.random((2,))
-    Cinv = rbf.gauss._InversePartitioned(A,B)
-    soln1a,soln1b = Cinv.dot(a,b)
+    Cfact = rbf.gauss._PartitionedFactor(A,B)
+    soln1a,soln1b = Cfact.solve(a,b)
     soln1 = np.hstack((soln1a,soln1b))
-
     Cinv = np.linalg.inv(
              np.vstack(
                (np.hstack((A,B)),
@@ -254,15 +250,15 @@ class Test(unittest.TestCase):
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.all(np.isclose(soln1,soln2)))
 
-  def test_inverse_partitioned_sparse(self):    
+  def test_partitioned_factor_sparse(self):    
     A = np.random.random((4,4))
     A = A.T.dot(A) # A is now P.D.
     A = sp.csc_matrix(A) # A is now sparse
     B = np.random.random((4,2))
     a = np.random.random((4,))
     b = np.random.random((2,))
-    Cinv = rbf.gauss._InversePartitioned(A,B)
-    soln1a,soln1b = Cinv.dot(a,b)
+    Cfact = rbf.gauss._PartitionedFactor(A,B)
+    soln1a,soln1b = Cfact.solve(a,b)
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
              np.vstack(
