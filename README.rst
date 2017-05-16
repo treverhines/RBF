@@ -14,7 +14,6 @@ Features
 * An abstraction for Gaussian processes. Gaussian processes are
   primarily used here for Gaussian process regression (GPR), which is
   a nonparametric Bayesian interpolation/smoothing method.
-* RBF-FD Filtering for denoising large, scattered data sets.
 * An algorithm for generating Radial Basis Function Finite Difference
   (RBF-FD) weights. This is used for solving large scale PDEs over
   irregular domains.

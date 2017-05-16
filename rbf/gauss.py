@@ -449,11 +449,11 @@ def _all_is_finite(A):
     return np.all(np.isfinite(A))
 
 
-class _SparseFactor(object):
+class _SparsePosDefSolver(object):
   ''' 
-  Factors the sparse matrix *A* as *LL^T = A*. Provides a method for
-  solving *Ax = b* and *Lx = b*. Also provides a method to get *L* and
-  the log determinant of *A*.
+  Factors the sparse positive definite matrix *A* as *LL^T = A*.
+  Provides a method for solving *Ax = b* and *Lx = b*. Also provides a
+  method to get *L* and the log determinant of *A*. 
   '''
   def __init__(self,A):
     ''' 
@@ -532,10 +532,10 @@ class _SparseFactor(object):
     return out
 
 
-class _DenseFactor(object):
+class _DensePosDefSolver(object):
   ''' 
-  Similar to *_SparseFactor* but for dense arrays. The decomposition
-  *LL^T = A* is the Cholesky decomposition.
+  Similar to *_SparsePosDefSolver* but for dense arrays. The
+  decomposition *LL^T = A* is the Cholesky decomposition.
   '''
   def __init__(self,A):
     ''' 
@@ -592,10 +592,11 @@ class _DenseFactor(object):
     return out
 
 
-def _factor(A):
+def _pos_def_solver(A):
   ''' 
   If *A* is sparse and CHOLMOD is available then returns an instance
-  of *_SparseFactor*, otherwise returns an instance of *_DenseFactor*.
+  of *_SparsePosDefSolver*, otherwise returns an instance of
+  *_DensePosDefSolver*.
   '''
   if sp.issparse(A) & (not HAS_CHOLMOD):
     warnings.warn(
@@ -606,10 +607,10 @@ def _factor(A):
     A = A.toarray()
   
   if sp.issparse(A):
-    return _SparseFactor(A)
+    return _SparsePosDefSolver(A)
 
   else:
-    return _DenseFactor(A)
+    return _DensePosDefSolver(A)
 
 
 def _is_positive_definite(A):
@@ -618,7 +619,7 @@ def _is_positive_definite(A):
   the Cholesky decomposition finishes successfully
   '''
   try:
-    _factor(A).L()
+    _pos_def_solver(A).L()
 
   except (np.linalg.LinAlgError,
           cholmod.CholmodNotPositiveDefiniteError):
@@ -627,7 +628,7 @@ def _is_positive_definite(A):
   return True
 
 
-class _PartitionedFactor(object):
+class _PartitionedPosDefSolver(object):
   ''' 
   Solves the system of equations
   
@@ -649,9 +650,9 @@ class _PartitionedFactor(object):
   
   It is assumed that *A* is a sparse or dense positive definite
   matrix. The system is efficiently solved by factoring the matrix
-  *A* with *_factor* and never actually computing *A^-1*.
+  *A* with *_pos_def_solver* and never actually computing *A^-1*.
   '''
-  def __init__(self,A,B,build=False):
+  def __init__(self,A,B):
     ''' 
     Parameters
     ----------
@@ -666,13 +667,13 @@ class _PartitionedFactor(object):
         'There are fewer rows than columns in *B*. This makes the '
         'block matrix singular, and its inverse cannot be computed.')
     
-    Afact = _factor(A)
-    AinvB = Afact.solve_A(B) 
+    Asolver = _pos_def_solver(A)
+    AinvB = Asolver.solve_A(B) 
     E = -np.linalg.inv(B.T.dot(AinvB)) 
     D = -AinvB.dot(E) 
     # NOTE that AinvB, E, and D are all dense arrays since they
     # relatively smaller than C
-    self.Afact = Afact
+    self.Asolver = Asolver
     self.AinvB = AinvB
     self.E = E
     self.D = D
@@ -691,7 +692,7 @@ class _PartitionedFactor(object):
     '''
     a = _as_array(a)
     b = _as_array(b)
-    x = (self.Afact.solve_A(a) - 
+    x = (self.Asolver.solve_A(a) - 
          self.D.dot(self.AinvB.T.dot(a)) +
          self.D.dot(b))
     y = self.D.T.dot(a) + self.E.dot(b)
@@ -707,7 +708,7 @@ def _sample(mean,cov,use_cholesky=False):
     # draw a sample using a cholesky decomposition. This assumes that
     # *cov* is numerically positive definite (i.e. no small negative
     # eigenvalues from rounding error).
-    L = _factor(cov).L()
+    L = _pos_def_solver(cov).L()
     w = np.random.normal(0.0,1.0,mean.shape[0])
     u = mean + L.dot(w)
   
@@ -895,13 +896,13 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     C_y = _as_sparse_or_array(C_y + sigma)
     # append the data noise basis vectors 
     p_y = np.hstack((p_y,p)) 
-    K_y_fact = _PartitionedFactor(C_y,p_y)
+    K_y_solver = _PartitionedPosDefSolver(C_y,p_y)
     r  = d - mu_y
     logger.debug('Done')
-    return K_y_fact,r
+    return K_y_solver,r
     
   def mean(x,diff):
-    K_y_fact,r = precompute()
+    K_y_solver,r = precompute()
     mu_x = gp._mean(x,diff)
     C_xy = gp._covariance(x,y,diff,obs_diff)
 
@@ -910,12 +911,12 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     p_x_pad = np.zeros((p_x.shape[0],p.shape[1]),dtype=float)
     p_x = np.hstack((p_x,p_x_pad))
 
-    vec1,vec2 = K_y_fact.solve(r,np.zeros(p_x.shape[1]))
+    vec1,vec2 = K_y_solver.solve(r,np.zeros(p_x.shape[1]))
     out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
     return out
 
   def covariance(x1,x2,diff1,diff2):
-    K_y_fact,r = precompute()
+    K_y_solver,r = precompute()
     C_x1x2 = gp._covariance(x1,x2,diff1,diff2)
     C_x1y = gp._covariance(x1,y,diff1,obs_diff)
     C_x2y = gp._covariance(x2,y,diff2,obs_diff)
@@ -928,7 +929,7 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     p_x2_pad = np.zeros((p_x2.shape[0],p.shape[1]),dtype=float)
     p_x2 = np.hstack((p_x2,p_x2_pad))
 
-    mat1,mat2 = K_y_fact.solve(C_x2y.T,p_x2.T)
+    mat1,mat2 = K_y_solver.solve(C_x2y.T,p_x2.T)
     out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
     return out
   
@@ -1011,10 +1012,10 @@ def likelihood(d,mu,sigma,p=None):
   # number of basis vectors
   m = p.shape[1]
 
-  A = _factor(sigma)
+  A = _pos_def_solver(sigma)
   B = A.solve_L(p)  
-  C = _factor(B.T.dot(B)) 
-  D = _factor(p.T.dot(p))
+  C = _pos_def_solver(B.T.dot(B)) 
+  D = _pos_def_solver(p.T.dot(p))
 
   a = A.solve_L(d - mu)
   b = C.solve_L(B.T.dot(a))
@@ -1122,11 +1123,11 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     # sparse matrix then the output is a matrix. _as_sparse_or_array
     # coerces it back to an array
     sigma_i = _as_sparse_or_array(sigma_i + _as_covariance(s_i))
-    Kfact = _PartitionedFactor(sigma_i,p_i)
-    vec1,vec2 = Kfact.solve(d_i - mu_i,np.zeros(m))
+    Ksolver = _PartitionedPosDefSolver(sigma_i,p_i)
+    vec1,vec2 = Ksolver.solve(d_i - mu_i,np.zeros(m))
 
     # dereference everything that we no longer need
-    del sigma_i,mu_i,p_i,d_i,s_i,Kfact
+    del sigma_i,mu_i,p_i,d_i,s_i,Ksolver
     
     fit = mu + sigma[:,~out].dot(vec1) + p.dot(vec2)
     # find new outliers
