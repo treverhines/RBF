@@ -1029,7 +1029,7 @@ def likelihood(d,mu,sigma,p=None):
   return out
 
 
-def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
+def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=10):
   ''' 
   Uses a data editing algorithm to identify outliers in *d*. Outliers
   are considered to be the data that are abnormally inconsistent with
@@ -1070,6 +1070,9 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
     to identify outliers. A good value is 4.0 and this should not be
     set any lower than 2.0.
   
+  maxitr : int, optional
+    Maximum number of iterations.
+  
   Returns
   -------
   out : (N,) bool array
@@ -1108,11 +1111,11 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0):
   # number of basis functions
   m = p.shape[1]
   # total number of outlier detection iterations
-  itr = 1
+  itr = 0
   # boolean array indicating outliers
   out = np.zeros(n,dtype=bool)
-  while True:
-    logger.debug('Starting iteration %s of outlier detection routine' % itr)
+  while itr < maxitr:
+    logger.debug('Starting iteration %s of outlier detection routine' % (itr+1))
     # remove rows and cols where *out* is True
     sigma_i = sigma[:,~out][~out,:]
     p_i = p[~out]
@@ -1644,7 +1647,7 @@ class GaussianProcess(object):
     out = likelihood(d,mu,sigma,p=p)
     return out
 
-  def outliers(self,y,d,sigma,tol=4.0):  
+  def outliers(self,y,d,sigma,tol=4.0,maxitr=10):  
     ''' 
     Uses a data editing algorithm to identify outliers in *d*.
     Outliers are considered to be the data that are abnormally
@@ -1701,7 +1704,7 @@ class GaussianProcess(object):
     gp_p = self._basis(y,obs_diff)
     out = outliers(d,sigma,
                    mu=gp_mu,sigma=gp_sigma,
-                   p=gp_p,tol=tol)
+                   p=gp_p,tol=tol,maxitr=maxitr)
     return out
     
   def basis(self,x,diff=None):
