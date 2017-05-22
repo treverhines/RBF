@@ -1029,7 +1029,7 @@ def likelihood(d,mu,sigma,p=None):
   return out
 
 
-def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=20):
+def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
   ''' 
   Uses a data editing algorithm to identify outliers in *d*. Outliers
   are considered to be the data that are abnormally inconsistent with
@@ -1650,7 +1650,7 @@ class GaussianProcess(object):
     out = likelihood(d,mu,sigma,p=p)
     return out
 
-  def outliers(self,y,d,sigma,tol=4.0,maxitr=20):  
+  def outliers(self,y,d,sigma,tol=4.0,maxitr=50):  
     ''' 
     Uses a data editing algorithm to identify outliers in *d*.
     Outliers are considered to be the data that are abnormally
@@ -1854,11 +1854,14 @@ class GaussianProcess(object):
     # derivative of output will be zero
     diff = np.zeros(x.shape[1],dtype=int)
 
+    # count is the total number of points evaluated thus far
     count = 0
     xlen = x.shape[0]
     out_mean = np.zeros(xlen,dtype=float)
     out_sd = np.zeros(xlen,dtype=float)
-    while count < xlen:
+    # This block should run at least once to catch any potential
+    # errors
+    while True:
       # only log the progress if the mean and sd are being build in
       # multiple chunks
       if xlen > chunk_size:
@@ -1866,12 +1869,15 @@ class GaussianProcess(object):
           'Computing the mean and std. dev. (chunk size = %s) : '
           '%5.1f%% complete' % (chunk_size,(100.0*count)/xlen))
       
-      start,stop = count,count+chunk_size 
+      start,stop = count,min(count+chunk_size,xlen)
       out_mean[start:stop] = self._mean(x[start:stop],diff) 
       cov = self._covariance(x[start:stop],x[start:stop],diff,diff) 
       var = cov.diagonal()
       out_sd[start:stop] = np.sqrt(var) 
-      count += chunk_size
+      count = stop
+      if count == xlen:
+        # break out of loop if all the points have been evaluated
+        break
     
     if xlen > chunk_size:
       logger.debug(
