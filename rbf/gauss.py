@@ -667,16 +667,19 @@ class _PartitionedPosDefSolver(object):
         'There are fewer rows than columns in *B*. This makes the '
         'block matrix singular, and its inverse cannot be computed.')
     
-    Asolver = _pos_def_solver(A)
-    AinvB = Asolver.solve_A(B) 
-    E = -np.linalg.inv(B.T.dot(AinvB)) 
-    D = -AinvB.dot(E) 
-    # NOTE that AinvB, E, and D are all dense arrays since they
+    A_solver = _pos_def_solver(A)
+    AiB = A_solver.solve_A(B) 
+    BtAiB_solver = _pos_def_solver(B.T.dot(AiB))
+    #E = -np.linalg.inv(B.T.dot(AinvB)) 
+    #D = -AinvB.dot(E) 
+    # NOTE that AiB, E, and D are all dense arrays since they
     # relatively smaller than C
-    self.Asolver = Asolver
-    self.AinvB = AinvB
-    self.E = E
-    self.D = D
+    print('new')
+    self.AiB = AiB
+    self.A_solver = A_solver
+    self.BtAiB_solver = BtAiB_solver 
+    #self.E = E
+    #self.D = D
     
   def solve(self,a,b):   
     ''' 
@@ -692,10 +695,17 @@ class _PartitionedPosDefSolver(object):
     '''
     a = _as_array(a)
     b = _as_array(b)
-    x = (self.Asolver.solve_A(a) - 
-         self.D.dot(self.AinvB.T.dot(a)) +
-         self.D.dot(b))
-    y = self.D.T.dot(a) + self.E.dot(b)
+
+    Eb  = -self.BtAiB_solver.solve_A(b)
+    Db  = -self.AiB.dot(Eb)
+    Dta = self.BtAiB_solver.solve_A(self.AiB.T.dot(a))
+    Ca  = self.A_solver.solve_A(a) - self.AiB.dot(Dta)
+    x = Ca  + Db    
+    y = Dta + Eb
+    #x = (self.A_solver.solve_A(a) - 
+    #     self.D.dot(self.AinvB.T.dot(a)) +
+    #     self.D.dot(b))
+    #y = self.D.T.dot(a) + self.E.dot(b)
     return x,y
     
 
