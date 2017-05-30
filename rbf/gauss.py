@@ -670,16 +670,9 @@ class _PartitionedPosDefSolver(object):
     A_solver = _pos_def_solver(A)
     AiB = A_solver.solve_A(B) 
     BtAiB_solver = _pos_def_solver(B.T.dot(AiB))
-    #E = -np.linalg.inv(B.T.dot(AinvB)) 
-    #D = -AinvB.dot(E) 
-    # NOTE that AiB, E, and D are all dense arrays since they
-    # relatively smaller than C
-    print('new')
     self.AiB = AiB
     self.A_solver = A_solver
     self.BtAiB_solver = BtAiB_solver 
-    #self.E = E
-    #self.D = D
     
   def solve(self,a,b):   
     ''' 
@@ -702,10 +695,6 @@ class _PartitionedPosDefSolver(object):
     Ca  = self.A_solver.solve_A(a) - self.AiB.dot(Dta)
     x = Ca  + Db    
     y = Dta + Eb
-    #x = (self.A_solver.solve_A(a) - 
-    #     self.D.dot(self.AinvB.T.dot(a)) +
-    #     self.D.dot(b))
-    #y = self.D.T.dot(a) + self.E.dot(b)
     return x,y
     
 
