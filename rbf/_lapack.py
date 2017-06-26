@@ -106,38 +106,3 @@ def cholesky(A,lower=True):
       'The %s-th argument has an illegal value.' % (-info))
 
   return L
-
-
-#def cholesky_inv(A):
-#  ''' 
-#  Returns the inverse of the positive definite matrix *A* using
-#  *_cholesky* and *dpotri*.
-#
-#  Parameters
-#  ----------
-#  A : (N,N) float array
-#  '''
-#  if A.shape == (0,0):
-#    return np.zeros((0,0),dtype=float)
-#
-#  L = cholesky(A,lower=True)
-#  # Linv is the lower triangular components of the inverse.
-#  Linv,info = dpotri(L,lower=True)
-#  if info < 0:
-#    raise ValueError(
-#      'The %s-th argument had an illegal value.' % (-info))
-#
-#  elif info > 0:
-#    raise np.linalg.LinAlgError(
-#      'The (%s,%s) element of the factor U or L is zero, and the '
-#      'inverse could not be computed.' % (info,info))
-#
-#  else:
-#    # the decomposition exited successfully
-#    # reflect Linv over the diagonal      
-#    Linv = Linv + Linv.T
-#    # the diagonals are twice as big as they should be
-#    diag = Linv.diagonal()
-#    diag.flags.writeable = True
-#    diag *= 0.5
-#    return Linv
