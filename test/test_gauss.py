@@ -159,6 +159,10 @@ class Test(unittest.TestCase):
     #plt.show()
 
   def test_sparse_factor_solve_A(self):
+    if not rbf.gauss.HAS_CHOLMOD:
+      # dont bother with this test if cholmod doesnt exist
+      return
+      
     n = 100
     A = sp.rand(n,n,density=0.2)
     A = A.T.dot(A).tocsc()
@@ -169,6 +173,10 @@ class Test(unittest.TestCase):
     self.assertTrue(np.all(np.isclose(x1,x2)))
   
   def test_sparse_factor_solve_L(self):
+    if not rbf.gauss.HAS_CHOLMOD:
+      # dont bother with this test if cholmod doesnt exist
+      return
+      
     n = 100
     A = sp.rand(n,n,density=0.2)
     A = A.T.dot(A).tocsc()
@@ -179,6 +187,10 @@ class Test(unittest.TestCase):
     self.assertTrue(np.all(np.isclose(x1,x2)))
 
   def test_sparse_factor_L(self):
+    if not rbf.gauss.HAS_CHOLMOD:
+      # dont bother with this test if cholmod doesnt exist
+      return
+      
     n = 100
     A = sp.rand(n,n,density=0.2)
     A = A.T.dot(A).tocsc()
@@ -188,6 +200,10 @@ class Test(unittest.TestCase):
     self.assertTrue(np.all(np.isclose(A.A,A2.A)))
   
   def test_sparse_factor_log_det_A(self):
+    if not rbf.gauss.HAS_CHOLMOD:
+      # dont bother with this test if cholmod doesnt exist
+      return
+      
     n = 100
     A = sp.rand(n,n,density=0.2)
     A = A.T.dot(A).tocsc()

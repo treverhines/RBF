@@ -1,4 +1,6 @@
 build
+dist
+*.egg*
 *~
 *.c
 *.pyc

@@ -8,7 +8,7 @@ squared exponential.
 import numpy as np
 import matplotlib.pyplot as plt
 from rbf.gauss import gpse,gpexp,gppoly,gpbfc
-from pygeons.filter.gpr import gpr,gpfogm,gpseasonal
+#from pygeons.filter.gpr import gpr,gpfogm,gpseasonal
 import logging
 logging.basicConfig(level=logging.DEBUG)
 

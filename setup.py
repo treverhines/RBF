@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 if __name__ == '__main__':
-  from numpy.distutils.core import setup
-  from numpy.distutils.extension import Extension
+  from setuptools import setup
+  from setuptools.extension import Extension
   from Cython.Build import cythonize
   ext = []
   ext += [Extension(name='rbf.halton',sources=['rbf/halton.pyx'])]

@@ -394,6 +394,24 @@ except ImportError:
     'https://scikit-sparse.readthedocs.io')
     
 
+def _max(a,b):
+  '''
+  Redefine max for python 3 compatibility. `None` is considered
+  smaller than everything.
+  '''
+  if (a is None) & (b is None):
+    return None
+    
+  elif a is None:
+    return b
+
+  elif b is None:
+    return a
+  
+  else:
+    return max(a,b)  
+  
+  
 def _as_sparse_or_array(A,dtype=None,copy=False):
   ''' 
   If *A* is a scipy sparse matrix then return it as a csc matrix.
@@ -807,7 +825,7 @@ def _add(gp1,gp2):
                      gp2._basis(x,diff)))
     return out                     
             
-  dim = max(gp1.dim,gp2.dim)
+  dim = _max(gp1.dim,gp2.dim)
   out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
   return out
   
@@ -831,7 +849,7 @@ def _subtract(gp1,gp2):
                      gp2._basis(x,diff)))
     return out                     
 
-  dim = max(gp1.dim,gp2.dim)
+  dim = _max(gp1.dim,gp2.dim)
   out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
   return out
 
