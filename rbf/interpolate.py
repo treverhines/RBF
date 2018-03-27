@@ -68,7 +68,6 @@ def _coefficient_matrix(x,eps,sigma,basis,order):
   if isinstance(basis,str):
     basis = vars(rbf.basis)[basis]
 
-  print(basis)
   # number of observation points and spatial dimensions
   N,D = x.shape
   # powers for the additional polynomials
