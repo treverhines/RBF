@@ -57,11 +57,18 @@ import rbf.basis
 import rbf.poly
 import rbf.geometry
 
+
 def _coefficient_matrix(x,eps,sigma,basis,order):
   ''' 
   returns the matrix used to compute the radial basis function 
   coefficients
   '''
+  # If *basis* is a string, then assume the string is referring to an
+  # *RBF* instance defined in the *rbf.basis* module.
+  if isinstance(basis,str):
+    basis = vars(rbf.basis)[basis]
+
+  print(basis)
   # number of observation points and spatial dimensions
   N,D = x.shape
   # powers for the additional polynomials
@@ -84,6 +91,11 @@ def _interpolation_matrix(xitp,x,diff,eps,basis,order):
   returns the matrix that maps the coefficients to the function values 
   at the interpolation points
   '''
+  # If *basis* is a string, then assume the string is referring to an
+  # *RBF* instance defined in the *rbf.basis* module.
+  if isinstance(basis,str):
+    basis = vars(rbf.basis)[basis]
+  
   # number of interpolation points and spatial dimensions
   I,D = xitp.shape
   # number of observation points
@@ -139,8 +151,9 @@ class RBFInterpolant(object):
     Shape parameters for each RBF. This has no effect for odd
     order polyharmonic splines. Defaults to 1.0.
 
-  basis : rbf.basis.RBF instance, optional
-    Radial basis function to use.
+  basis : rbf.basis.RBF instance or str, optional
+    Radial basis function to use. This can be an RBF instance or the
+    name of a predefined RBF (e.g., "phs1")
  
   extrapolate : bool, optional
     Whether to allows points to be extrapolated outside of a convex 
