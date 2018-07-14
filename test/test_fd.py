@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import numpy as np
 import rbf.fd
 import rbf.basis

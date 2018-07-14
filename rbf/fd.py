@@ -6,8 +6,10 @@ import numpy as np
 import rbf.basis
 import rbf.poly
 import rbf.stencil
-import rbf._lapack
+import rbf.linalg
+from rbf.linalg import PartitionedSolver
 import scipy.sparse
+
 
 def _reshape_diffs(diffs):
   ''' 
@@ -54,40 +56,6 @@ def _max_poly_order(size,dim):
   return order
 
 
-def _lhs(s,eps,powers,basis):
-  ''' 
-  Returns the transposed RBF alternant matrix with added polynomial 
-  terms and constraints
-  '''
-  # number of nodes in the stencil and the number of dimensions
-  Ns,Ndim = s.shape
-  # number of monomial terms  
-  Np = powers.shape[0]
-  # deriviative orders
-  diff = np.zeros(Ndim,dtype=int)
-  A = np.zeros((Ns+Np,Ns+Np),dtype=float)
-  A[:Ns,:Ns] = basis(s,s,eps=eps,diff=diff).T
-  Ap = rbf.poly.mvmonos(s,powers,diff=diff)
-  A[Ns:,:Ns] = Ap.T
-  A[:Ns,Ns:] = Ap
-  return A
-
-
-def _rhs(x,s,eps,powers,diff,basis): 
-  ''' 
-  Returns the differentiated RBF and polynomial terms evaluated at x
-  '''
-  x = x[None,:]
-  # number of nodes in the stencil and the number of dimensions
-  Ns,Ndim = s.shape
-  # number of monomial terms
-  Np = powers.shape[0]
-  d = np.empty(Ns+Np,dtype=float)
-  d[:Ns] = basis(x,s,eps=eps,diff=diff)[0,:]
-  d[Ns:] = rbf.poly.mvmonos(x,powers,diff=diff)[0,:]
-  return d
-
-
 def weights(x,s,diffs,coeffs=None,
             basis=rbf.basis.phs3,order=None,
             eps=1.0,use_pinv=False):
@@ -101,11 +69,12 @@ def weights(x,s,diffs,coeffs=None,
   Parameters
   ----------
   x : (D,) array
-    Target point.
+    Target point. The weights will approximate the derivative at this
+    point.
 
   s : (N,D) array
-    Source points. The interpolant used in creating the returned 
-    weights will contain RBFs centered on *s*.
+    Stencil points. The derivative will be approximated with a
+    weighted sum of the function values at this point.
 
   diffs : (D,) int array or (K,D) int array 
     Derivative orders for each spatial variable. For example [2,0] 
@@ -189,7 +158,7 @@ def weights(x,s,diffs,coeffs=None,
   diffs = np.asarray(diffs,dtype=int)
   diffs = _reshape_diffs(diffs)
   # stencil size and number of dimensions
-  N,D = s.shape
+  size,dim = s.shape
   if coeffs is None:
     coeffs = np.ones(diffs.shape[0],dtype=float)
   else:
@@ -197,7 +166,7 @@ def weights(x,s,diffs,coeffs=None,
     if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
       raise ValueError('*coeffs* and *diffs* have incompatible shapes')
 
-  max_order = _max_poly_order(N,D)
+  max_order = _max_poly_order(size,dim)
   if order is None:
     order = _default_poly_order(diffs)
     order = min(order,max_order)
@@ -206,30 +175,31 @@ def weights(x,s,diffs,coeffs=None,
     raise ValueError(
       'Polynomial order is too high for the stencil size')
     
-  powers = rbf.poly.powers(order,D)
-  # left hand side
-  lhs = _lhs(s,eps,powers,basis)
-  rhs = np.zeros(s.shape[0] + powers.shape[0],dtype=float)
+  # get the powers for the added monomials
+  powers = rbf.poly.powers(order,dim)
+  # evaluate the RBF and monomials at each point in the stencil. This
+  # becomes the left-hand-side
+  A = basis(s,s,eps=eps)
+  P = rbf.poly.mvmonos(s,powers)
+  # Evaluate the RBF and monomials for each term in the differential
+  # operator. This becomes the right-hand-side.
+  a = np.zeros(s.shape[0],dtype=float)
+  p = np.zeros(powers.shape[0],dtype=float)
   for c,d in zip(coeffs,diffs):
-    rhs += c*_rhs(x,s,eps,powers,d,basis)
+    a += c*basis(x[None,:],s,eps=eps,diff=d)[0]
+    p += c*rbf.poly.mvmonos(x[None,:],powers,diff=d)[0]
 
-  if use_pinv:
-    out = np.linalg.pinv(lhs).dot(rhs)[:N]
+  # attempt to compute the RBF-FD weights
+  try:
+    w = PartitionedSolver(A,P).solve(a,p)[0]  
+    return w
 
-  else:  
-    try:
-      out = rbf._lapack.solve(lhs,rhs)[:N]
-    
-    except np.linalg.LinAlgError:
-      raise np.linalg.LinAlgError(
-        'Cannot uniquely solve for the RBF-FD weights for point %s. '
-        'Make sure that the stencil meets the conditions for '
-        'non-singularity. This error may also be due to numerically '
-        'flat basis functions. To ignore this error and solve for '
-        'the weights with a pseudo-inversion, set *use_pinv* to True.'
-        '\n\nThe stencil contains the following nodes:\n%s' % (x,s))
-
-  return out
+  except np.linalg.LinAlgError:
+    raise np.linalg.LinAlgError(
+      'An error was raised while computing the RBF-FD weights at '
+      'point %s. This may be due to a stencil with duplicate or '
+      'collinear points. The stencil contains the following '
+      'points:\n%s' % (x,s))
 
 
 def weight_matrix(x,p,diffs,coeffs=None,

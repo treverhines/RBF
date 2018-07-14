@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import rbf.basis
 import numpy as np
 import matplotlib.pyplot as plt
