@@ -370,9 +370,6 @@ Learning. The MIT Press, 2006.
 '''
 import logging
 import warnings
-import weakref
-import inspect
-from collections import OrderedDict
 
 import numpy as np
 import scipy.sparse as sp
@@ -380,7 +377,7 @@ import scipy.sparse as sp
 import rbf.poly
 import rbf.basis
 import rbf.linalg
-from rbf.basis import _assert_shape
+from rbf.utils import assert_shape, get_arg_count, Memoize
 from rbf.linalg import (as_array, as_sparse_or_array, 
                         is_positive_definite, PosDefSolver, 
                         PartitionedPosDefSolver)
@@ -455,71 +452,6 @@ def _sample(mean,cov,use_cholesky=False):
     u = mean + Q[:,keep].dot(w)
      
   return u
-
-
-class Memoize(object):
-  ''' 
-  Memoizing decorator. The output for calls to decorated functions
-  will be cached and reused if the function is called again with the
-  same arguments. This is intendend to decorate the mean, covariance,
-  and basis functions for `GaussianProcess` instances.
-
-  Parameters
-  ----------
-  fin : function
-    Function that takes arrays as input.
-  
-  Returns
-  -------
-  fout : function
-    Memoized function.
-  
-  Notes
-  -----
-  1. Caches can be cleared with the module-level function
-  `clear_caches`.
-      
-  '''
-  # variable controlling the maximum cache size for all memoized 
-  # functions
-  MAX_CACHE_SIZE = 100
-  # collection of weak references to all instances
-  INSTANCES = []
-  
-  def __init__(self,fin):
-    self.fin = fin
-    self.cache = OrderedDict()
-    Memoize.INSTANCES += [weakref.ref(self)]
-
-  def __call__(self,*args):
-    ''' 
-    Calls the decorated function with `args` if the output is not 
-    already stored in the cache. Otherwise, the cached value is 
-    returned.
-    '''
-    key = tuple(a.tobytes() for a in args)
-    if key not in self.cache:
-      # make sure there is room for the new entry
-      while len(self.cache) >= Memoize.MAX_CACHE_SIZE:
-        self.cache.popitem(0)
-        
-      self.cache[key] = self.fin(*args)
-      
-    return self.cache[key]
-
-  def __repr__(self):
-    return self.fin.__repr__()
-
-
-def clear_caches():
-  ''' 
-  Dereferences the caches for all memoized functions. 
-  '''
-  for i in Memoize.INSTANCES:
-    if i() is not None:
-      # `i` will be done if it has no references. If references still 
-      # exists, then give it a new empty cache.
-      i().cache = OrderedDict()
 
 
 def _add(gp1,gp2):
@@ -725,15 +657,15 @@ def likelihood(d,mu,sigma,p=None):
      
   '''
   d = as_array(d,dtype=float)
-  _assert_shape(d,(None,),'d')
+  assert_shape(d,(None,),'d')
   # number of observations
   n = d.shape[0]
 
   mu = as_array(mu,dtype=float)
-  _assert_shape(mu,(n,),'mu')
+  assert_shape(mu,(n,),'mu')
   
   sigma = _as_covariance(sigma)
-  _assert_shape(sigma,(n,n),'sigma')
+  assert_shape(sigma,(n,n),'sigma')
 
   if p is None:
     p = np.zeros((n,0),dtype=float)
@@ -741,7 +673,7 @@ def likelihood(d,mu,sigma,p=None):
   else:  
     p = as_array(p,dtype=float)
   
-  _assert_shape(p,(n,None),'p')
+  assert_shape(p,(n,None),'p')
   # number of basis vectors
   m = p.shape[1]
 
@@ -753,9 +685,9 @@ def likelihood(d,mu,sigma,p=None):
   a = A.solve_L(d - mu)
   b = C.solve_L(B.T.dot(a))
 
-  out = 0.5*(D.log_det_A() -
-             A.log_det_A() -
-             C.log_det_A() -
+  out = 0.5*(D.log_det() -
+             A.log_det() -
+             C.log_det() -
              a.T.dot(a) +
              b.T.dot(b) -
              (n-m)*np.log(2*np.pi))
@@ -813,33 +745,33 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
 
   '''
   d = as_array(d,dtype=float)
-  _assert_shape(d,(None,),'d')
+  assert_shape(d,(None,),'d')
   # number of observations
   n = d.shape[0]
 
   s = as_array(s,dtype=float)
-  _assert_shape(s,(n,),'s')
+  assert_shape(s,(n,),'s')
 
   if mu is None:
     mu = np.zeros((n,),dtype=float)
   
   else:  
     mu = as_array(mu,dtype=float)
-    _assert_shape(mu,(n,),'mu')
+    assert_shape(mu,(n,),'mu')
 
   if sigma is None:
     sigma = sp.csc_matrix((n,n),dtype=float)
   
   else:
     sigma = _as_covariance(sigma)
-    _assert_shape(sigma,(n,n),'sigma')
+    assert_shape(sigma,(n,n),'sigma')
   
   if p is None:  
     p = np.zeros((n,0),dtype=float)
   
   else:  
     p = as_array(p,dtype=float)
-    _assert_shape(p,(n,None),'p')
+    assert_shape(p,(n,None),'p')
   
   # number of basis functions
   m = p.shape[1]
@@ -900,25 +832,6 @@ def _empty_basis(x,diff):
   return np.zeros((x.shape[0],0),dtype=float)  
   
 
-def _get_arg_count(func):
-  ''' 
-  Returns the number of arguments that can be specified positionally
-  for a function. If this cannot be inferred then -1 is returned.
-  '''
-  # get the function parameters
-  params = inspect.signature(func).parameters
-  # if a parameter has kind 2, then it is a variable positional
-  # argument
-  if any(p.kind == 2 for p in params.values()):
-    return -1
-
-  # if a parameter has kind 0 then it is a a positional only argument
-  # and if kind is 1 then it is a positional or keyword argument.
-  # Count the 0's and 1's
-  out = sum((p.kind == 0) | (p.kind == 1) for p in params.values())
-  return out
-  
-
 def _mean_io_check(fin):
   ''' 
   Decorator which checks the number of input for a mean function,
@@ -928,7 +841,7 @@ def _mean_io_check(fin):
   if hasattr(fin,'_io_is_checked'):
     return fin
     
-  arg_count = _get_arg_count(fin)
+  arg_count = get_arg_count(fin)
   def fout(x,diff):
     if arg_count == 1:
       # `fin` only takes one argument and is assumed to not be
@@ -944,7 +857,7 @@ def _mean_io_check(fin):
       out = fin(x,diff)  
       
     out = as_array(out)
-    _assert_shape(out,(x.shape[0],),"mean_output")
+    assert_shape(out,(x.shape[0],),"mean_output")
     return out
           
   # add a tag to the function indicating that the output has been
@@ -963,7 +876,7 @@ def _covariance_io_check(fin):
   if hasattr(fin,'_io_is_checked'):
     return fin
     
-  arg_count = _get_arg_count(fin)
+  arg_count = get_arg_count(fin)
   def fout(x1,x2,diff1,diff2):
     if arg_count == 2:
       # *fin* only takes two argument and is assumed to not be
@@ -980,7 +893,7 @@ def _covariance_io_check(fin):
       out = fin(x1,x2,diff1,diff2)  
       
     out = as_sparse_or_array(out)
-    _assert_shape(out,(x1.shape[0],x2.shape[0]),"covariance_output")
+    assert_shape(out,(x1.shape[0],x2.shape[0]),"covariance_output")
     return out
           
   # add a tag to the function indicating that the output has been
@@ -998,7 +911,7 @@ def _basis_io_check(fin):
   if hasattr(fin,'_io_is_checked'):
     return fin
     
-  arg_count = _get_arg_count(fin)
+  arg_count = get_arg_count(fin)
   def fout(x,diff):
     if arg_count == 1:
       # `fin` only takes two argument and is assumed to not be
@@ -1015,7 +928,7 @@ def _basis_io_check(fin):
       out = fin(x,diff)  
       
     out = as_array(out)
-    _assert_shape(out,(x.shape[0],None),"basis_output")
+    assert_shape(out,(x.shape[0],None),"basis_output")
     return out
           
   # add a tag to the function indicating that the output has been
@@ -1074,10 +987,9 @@ class GaussianProcess(object):
     return an error.
 
   basis : function, optional
-    Function which returns either (1) the improper basis functions
-    evaluated at `x` or (2) the `diff` spatial derivative of the
-    improper basis functions evaluated at `x`. This has the call
-    signature
+    Function which returns either the improper basis functions
+    evaluated at `x` or the specified derivative of the improper basis
+    functions evaluated at `x`. This has the call signature
 
     `out = basis(x)`
 
@@ -1239,7 +1151,7 @@ class GaussianProcess(object):
 
     '''
     d = as_array(d,dtype=int)
-    _assert_shape(d,(self.dim,),'d')
+    assert_shape(d,(self.dim,),'d')
 
     out = _differentiate(self,d)
     return out  
@@ -1281,33 +1193,33 @@ class GaussianProcess(object):
     '''
     ## Check the input for errors 
     y = as_array(y,dtype=float)
-    _assert_shape(y,(None,self.dim),'y')
+    assert_shape(y,(None,self.dim),'y')
 		# number of observations and spatial dimensions
     n,dim = y.shape 
 
     d = as_array(d,dtype=float)
-    _assert_shape(d,(n,),'d')
+    assert_shape(d,(n,),'d')
 
     if sigma is None:
       sigma = sp.csc_matrix((n,n),dtype=float)
     
     else:
       sigma = _as_covariance(sigma)
-      _assert_shape(sigma,(n,n),'sigma')
+      assert_shape(sigma,(n,n),'sigma')
         
     if p is None:
       p = np.zeros((n,0),dtype=float)
     
     else:
       p = as_array(p,dtype=float)
-      _assert_shape(p,(n,None),'p')
+      assert_shape(p,(n,None),'p')
       
     if obs_diff is None:
       obs_diff = np.zeros(dim,dtype=int)
     
     else:
       obs_diff = as_array(obs_diff,dtype=int)
-      _assert_shape(obs_diff,(dim,),'obs_diff')
+      assert_shape(obs_diff,(dim,),'obs_diff')
     
     out = _condition(self,y,d,sigma,p,obs_diff)
     return out
@@ -1349,25 +1261,25 @@ class GaussianProcess(object):
       
     '''
     y = as_array(y,dtype=float)
-    _assert_shape(y,(None,self.dim),'y')
+    assert_shape(y,(None,self.dim),'y')
     n,dim = y.shape # number of observations and dimensions
 
     d = as_array(d,dtype=float)
-    _assert_shape(d,(n,),'d')
+    assert_shape(d,(n,),'d')
 
     if sigma is None:
       sigma = sp.csc_matrix((n,n),dtype=float)
 
     else:
       sigma = _as_covariance(sigma)
-      _assert_shape(sigma,(n,n),'sigma')
+      assert_shape(sigma,(n,n),'sigma')
     
     if p is None:
       p = np.zeros((n,0),dtype=float)
 
     else:
       p = as_array(p,dtype=float)
-      _assert_shape(p,(n,None),'p')
+      assert_shape(p,(n,None),'p')
 
     obs_diff = np.zeros(dim,dtype=int)
 
@@ -1422,15 +1334,15 @@ class GaussianProcess(object):
     
     '''
     y = as_array(y,dtype=float)
-    _assert_shape(y,(None,self.dim),'y')
+    assert_shape(y,(None,self.dim),'y')
     n,dim = y.shape # number of observations and dimensions
 
     d = as_array(d,dtype=float)
-    _assert_shape(d,(n,),'d')
+    assert_shape(d,(n,),'d')
 
     # sigma is kept as a 1-D array
     sigma = as_array(sigma,dtype=float)
-    _assert_shape(sigma,(n,),'sigma')
+    assert_shape(sigma,(n,),'sigma')
     
     obs_diff = np.zeros(dim,dtype=int)
    
@@ -1462,14 +1374,14 @@ class GaussianProcess(object):
 
     '''
     x = as_array(x,dtype=float)
-    _assert_shape(x,(None,self.dim),'x')
+    assert_shape(x,(None,self.dim),'x')
     
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
 
     else:
       diff = as_array(diff,dtype=int)
-      _assert_shape(diff,(x.shape[1],),'diff')
+      assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._basis(x,diff)
     # return a dense copy of out
@@ -1494,14 +1406,14 @@ class GaussianProcess(object):
 
     '''
     x = as_array(x,dtype=float)
-    _assert_shape(x,(None,self.dim),'x')
+    assert_shape(x,(None,self.dim),'x')
     
     if diff is None:  
       diff = np.zeros(x.shape[1],dtype=int)
 
     else:
       diff = as_array(diff,dtype=int)
-      _assert_shape(diff,(x.shape[1],),'diff')
+      assert_shape(diff,(x.shape[1],),'diff')
       
     out = self._mean(x,diff)
     # return a dense copy of out
@@ -1530,24 +1442,24 @@ class GaussianProcess(object):
     
     '''
     x1 = as_array(x1,dtype=float)
-    _assert_shape(x1,(None,self.dim),'x1')
+    assert_shape(x1,(None,self.dim),'x1')
 
     x2 = as_array(x2,dtype=float)
-    _assert_shape(x2,(None,self.dim),'x2')
+    assert_shape(x2,(None,self.dim),'x2')
 
     if diff1 is None:
       diff1 = np.zeros(x1.shape[1],dtype=int)
 
     else:
       diff1 = as_array(diff1,dtype=int)
-      _assert_shape(diff1,(x1.shape[1],),'diff1')
+      assert_shape(diff1,(x1.shape[1],),'diff1')
 
     if diff2 is None:  
       diff2 = np.zeros(x2.shape[1],dtype=int)
 
     else:
       diff2 = as_array(diff2,dtype=int)
-      _assert_shape(diff2,(x1.shape[1],),'diff2')
+      assert_shape(diff2,(x1.shape[1],),'diff2')
       
     out = self._covariance(x1,x2,diff1,diff2)
     # return a dense copy of out
@@ -1584,7 +1496,7 @@ class GaussianProcess(object):
       
     '''
     x = as_array(x,dtype=float)
-    _assert_shape(x,(None,self.dim),'x')
+    assert_shape(x,(None,self.dim),'x')
     # derivative of output will be zero
     diff = np.zeros(x.shape[1],dtype=int)
 
@@ -1646,7 +1558,7 @@ class GaussianProcess(object):
     
     '''
     x = as_array(x,dtype=float)
-    _assert_shape(x,(None,self.dim),'x')
+    assert_shape(x,(None,self.dim),'x')
     # derivative of the sample will be zero
     diff = np.zeros(x.shape[1],dtype=int)
 
@@ -1660,7 +1572,7 @@ class GaussianProcess(object):
     else:
       c = np.zeros(p.shape[1])  
 
-    _assert_shape(c,(p.shape[1],),'c')    
+    assert_shape(c,(p.shape[1],),'c')    
     out = _sample(mu,sigma,use_cholesky=use_cholesky) + p.dot(c)
     return out
     
@@ -1689,7 +1601,7 @@ class GaussianProcess(object):
     case for the squared exponential covariance function.    
     '''
     x = as_array(x,dtype=float)
-    _assert_shape(x,(None,self.dim),'x')
+    assert_shape(x,(None,self.dim),'x')
     diff = np.zeros(x.shape[1],dtype=int)
 
     cov = self._covariance(x,x,diff,diff)    
@@ -1874,7 +1786,7 @@ def gpbfc(basis,mu,sigma,dim=None):
     
   '''
   # make sure basis can take two arguments
-  if _get_arg_count(basis) == 1:
+  if get_arg_count(basis) == 1:
     # if the basis function only takes one argument then make a 
     # wrapper for it which takes two arguments.
     def basis_with_diff(x,diff):

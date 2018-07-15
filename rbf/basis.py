@@ -38,13 +38,16 @@ Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)  :math:`(1 
 
 ''' 
 from __future__ import division 
-from rbf.poly import powers
+import logging
+
 import sympy 
+import numpy as np 
 from scipy.sparse import csc_matrix
 from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
-import numpy as np 
-import logging
+
+from rbf.poly import powers
+from rbf.utils import assert_shape
 logger = logging.getLogger(__name__)
 
 
@@ -90,29 +93,6 @@ class _CallbackDict(dict):
   def update(self,*args,**kwargs):    
     dict.update(self,*args,**kwargs)
     self.callback()
-  
-
-def _assert_shape(a,shape,label):
-  ''' 
-  Raises an error if *a* does not have the specified shape. If an 
-  element in *shape* is *None* then that axis can have any length.
-  '''
-  ashape = np.shape(a)
-  if len(ashape) != len(shape):
-    raise ValueError(
-      '*%s* is a %s dimensional array but it should be a %s dimensional array' %
-      (label,len(ashape),len(shape)))
-
-  for axis,(i,j) in enumerate(zip(ashape,shape)):
-    if j is None:
-      continue
-
-    if i != j:
-      raise ValueError(
-        'axis %s of *%s* has length %s but it should have length %s.' %
-        (axis,label,i,j))
-
-  return
   
 
 def get_r():
@@ -303,9 +283,9 @@ class RBF(object):
 
     '''
     x = np.asarray(x,dtype=float)
-    _assert_shape(x,(None,None),'x')
+    assert_shape(x,(None,None),'x')
     c = np.asarray(c,dtype=float)
-    _assert_shape(c,(None,x.shape[1]),'c')
+    assert_shape(c,(None,x.shape[1]),'c')
 
     if np.isscalar(eps):
       # makes eps an array of constant values
@@ -314,7 +294,7 @@ class RBF(object):
     else:  
       eps = np.asarray(eps,dtype=float)
 
-    _assert_shape(eps,(c.shape[0],),'eps')
+    assert_shape(eps,(c.shape[0],),'eps')
 
     if diff is None:
       diff = (0,)*x.shape[1]
@@ -323,7 +303,7 @@ class RBF(object):
       # make sure diff is immutable
       diff = tuple(diff)
     
-    _assert_shape(diff,(x.shape[1],),'diff')
+    assert_shape(diff,(x.shape[1],),'diff')
 
     # add numerical function to cache if not already
     if diff not in self.cache:
@@ -346,7 +326,7 @@ class RBF(object):
     expression to a function which can be evaluated numerically.
     '''   
     diff = tuple(diff)
-    _assert_shape(diff,(None,),'diff')
+    assert_shape(diff,(None,),'diff')
 
     dim = len(diff)
     c_sym = sympy.symbols('c:%s' % dim)
@@ -490,9 +470,9 @@ class SparseRBF(RBF):
       
     '''
     x = np.asarray(x,dtype=float)
-    _assert_shape(x,(None,None),'x')
+    assert_shape(x,(None,None),'x')
     c = np.asarray(c,dtype=float)
-    _assert_shape(c,(None,x.shape[1]),'c')
+    assert_shape(c,(None,x.shape[1]),'c')
 
     if not np.isscalar(eps):
       raise NotImplementedError(
@@ -508,7 +488,7 @@ class SparseRBF(RBF):
       # make sure diff is immutable
       diff = tuple(diff)
     
-    _assert_shape(diff,(x.shape[1],),'diff')
+    assert_shape(diff,(x.shape[1],),'diff')
 
     # add numerical function to cache if not already
     if diff not in self.cache:
