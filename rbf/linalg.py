@@ -214,6 +214,9 @@ class _SparseSolver(object):
   computes the LU factorization of the sparse matrix `A` with SuperLU.
   '''
   def __init__(self,A):
+    LOGGER.debug('computing the LU decomposition of a %s by %s '
+                 'sparse matrix with %s nonzeros ' % 
+                 (A.shape + (A.nnz,)))
     self.factor = spla.spilu(A)
 
   def solve(self,b):
@@ -281,6 +284,9 @@ class _SparsePosDefSolver(object):
   sparse. This class requires CHOLMOD. 
   '''
   def __init__(self,A):
+    LOGGER.debug('computing the Cholesky decomposition of a %s by %s '
+                 'sparse matrix with %s nonzeros ' % 
+                 (A.shape + (A.nnz,)))
     self.factor = cholmod.cholesky(A,
                                    use_long=False,
                                    ordering_method='default')

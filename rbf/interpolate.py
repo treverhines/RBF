@@ -1,7 +1,7 @@
 ''' 
-This module provides a class for RBF interpolation, *RBFInterpolant*. 
+This module provides a class for RBF interpolation, `RBFInterpolant`. 
 This function has numerous features that are lacking in 
-*scipy.interpolate.rbf*. They include:
+`scipy.interpolate.rbf`. They include:
   
 * variable weights on the data (when creating a smoothed interpolant)
 * more choices of basis functions (you can also easily make your own)
@@ -51,61 +51,22 @@ and Applications. John Wiley & Sons, 2000.
     
 '''
 import numpy as np
+import scipy.sparse
 import scipy.optimize
 import scipy.spatial
 import rbf.basis
 import rbf.poly
 import rbf.geometry
-
-def _coefficient_matrix(x,eps,sigma,basis,order):
-  ''' 
-  returns the matrix used to compute the radial basis function 
-  coefficients
-  '''
-  # number of observation points and spatial dimensions
-  N,D = x.shape
-  # powers for the additional polynomials
-  powers = rbf.poly.powers(order,D)
-  # number of polynomial terms
-  P = powers.shape[0]
-  # data covariance matrix
-  Cd = np.diag(sigma**2)
-  # allocate array 
-  A = np.zeros((N+P,N+P))
-  A[:N,:N] = basis(x,x,eps=eps) + Cd
-  Ap = rbf.poly.mvmonos(x,powers)
-  A[N:,:N] = Ap.T
-  A[:N,N:] = Ap
-  return A  
-
-
-def _interpolation_matrix(xitp,x,diff,eps,basis,order):
-  ''' 
-  returns the matrix that maps the coefficients to the function values 
-  at the interpolation points
-  '''
-  # number of interpolation points and spatial dimensions
-  I,D = xitp.shape
-  # number of observation points
-  N = x.shape[0]
-  # powers for the additional polynomials
-  powers = rbf.poly.powers(order,D)
-  # number of polynomial terms
-  P = powers.shape[0]
-  # allocate array 
-  A = np.zeros((I,N+P))
-  A[:,:N] = basis(xitp,x,eps=eps,diff=diff)
-  A[:,N:] = rbf.poly.mvmonos(xitp,powers,diff=diff)
-  return A
+from rbf.linalg import PartitionedSolver
 
 
 def _in_hull(p, hull):
   ''' 
-  Tests if points in *p* are in the convex hull made up by *hull*
+  Tests if points in `p` are in the convex hull made up by `hull`
   '''
   dim = p.shape[1]
-  # if there are not enough points in *hull* to form a simplex then 
-  # return False for each point in *p*.
+  # if there are not enough points in `hull` to form a simplex then 
+  # return False for each point in `p`.
   if hull.shape[0] <= dim:
     return np.zeros(p.shape[0],dtype=bool)
   
@@ -129,11 +90,13 @@ class RBFInterpolant(object):
     Observation points.
 
   d : (N,) array
-    Observed values at *y*.
+    Observed values at `y`.
 
-  sigma : (N,) array, optional
-    One standard deviation uncertainty on the observations. This 
-    defaults to ones.
+  sigma : float or (N,) array, optional
+    One standard deviation uncertainty for the observations. This
+    defaults to zeros (i.e., the observations are perfectly known).
+    Increasing this values will decrease the size of the RBF
+    coefficients and leave the polynomial terms undamped. 
         
   eps : float or (N,) array, optional
     Shape parameters for each RBF. This has no effect for odd
@@ -144,31 +107,24 @@ class RBFInterpolant(object):
  
   extrapolate : bool, optional
     Whether to allows points to be extrapolated outside of a convex 
-    hull formed by *y*. If False, then np.nan is returned for outside 
+    hull formed by `y`. If False, then np.nan is returned for outside 
     points.
 
   order : int, optional
     Order of added polynomial terms.
-        
-  penalty : float, optional
-    The smoothing parameter. This parameter merely scales *sigma*. 
-    Increasing this values will decrease the size of the RBF 
-    coefficients and leave the polynomial terms undamped. Thus the 
-    endmember for a large penalty parameter will be equivalent to 
-    polynomial regression. 
 
   Notes
   -----
   This function does not make any estimates of the uncertainties on 
-  the interpolated values.  See *rbf.gauss* for interpolation with 
+  the interpolated values.  See `rbf.gauss` for interpolation with 
   uncertainties.
     
   With certain choices of basis functions and polynomial orders this 
   interpolant is equivalent to a thin-plate spline.  For example, if the 
   observation space is one-dimensional then a thin-plate spline can be 
-  obtained with the arguments *basis* = *rbf.basis.phs3* and *order* = 
+  obtained with the arguments `basis` = `rbf.basis.phs3` and `order` = 
   1.  For two-dimensional observation space a thin-plate spline can be 
-  obtained with the arguments *basis* = *rbf.basis.phs2* and *order* = 
+  obtained with the arguments `basis` = `rbf.basis.phs2` and `order` = 
   1. See [2] for additional details on thin-plate splines.
 
   References
@@ -180,28 +136,42 @@ class RBFInterpolant(object):
   and Applications. John Wiley & Sons, 2000.
   '''
   def __init__(self,y,d,sigma=None,eps=1.0,basis=rbf.basis.phs3,
-               order=1,extrapolate=True,penalty=0.0):
+               order=1,extrapolate=True):
+
     y = np.asarray(y) 
     d = np.asarray(d)
     q,dim = y.shape
-    p = rbf.poly.count(order,dim)
+
     if sigma is None:
-      sigma = np.ones(q)
+      # if sigma is not specified then it is zeros
+      sigma = np.zeros(q)
+
+    elif np.isscalar(sigma):
+      # if a float is specified then use it as the uncertainties for
+      # all observations
+      sigma = np.repeat(sigma,q)  
+
     else:
       sigma = np.asarray(sigma)
       
-    # form matrix for the LHS
-    A = _coefficient_matrix(y,eps,penalty*sigma,basis,order)
-    # add zeros to the RHS for the polynomial constraints
-    d = np.concatenate((d,np.zeros(p)))
-    # find the radial basis function coefficients
-    coeff = np.linalg.solve(A,d)
+    # form block consisting of the RBF and uncertainties on the
+    # diagonal
+    A = basis(y,y,eps=eps) + scipy.sparse.diags(sigma**2)
+    # for the block consisting of the monomials
+    powers = rbf.poly.powers(order,dim)
+    P = rbf.poly.mvmonos(y,powers)
+    # create zeros vector for the right-hand-side
+    z = np.zeros((powers.shape[0],))
+    # solve for the RBF and mononomial coefficients
+    basis_coeff,poly_coeff = PartitionedSolver(A,P).solve(d,z) 
 
     self._y = y
-    self._coeff = coeff
     self._basis = basis
     self._order = order 
     self._eps = eps
+    self._basis_coeff = basis_coeff
+    self._poly_coeff = poly_coeff
+    self._powers = powers 
     self.extrapolate = extrapolate
 
   def __call__(self,x,diff=None,chunk_size=1000):
@@ -217,27 +187,27 @@ class RBFInterpolant(object):
       Derivative order for each spatial dimension.
         
     chunk_size : int, optional  
-      Break *x* into chunks with this size and evaluate the 
+      Break `x` into chunks with this size and evaluate the 
       interpolant for each chunk.  Smaller values result in decreased 
       memory usage but also decreased speed.
 
     Returns
     -------
     out : (N,) array
-      Values of the interpolant at *x*
+      Values of the interpolant at `x`
       
     '''
-    count = 0
     x = np.asarray(x,dtype=float) 
     xlen = x.shape[0]
     # allocate output array
     out = np.zeros(xlen,dtype=float)
+    count = 0
     while count < xlen:
       start,stop = count,count+chunk_size
-      A = _interpolation_matrix(x[start:stop],self._y,
-                                diff,self._eps,self._basis,
-                                self._order)
-      out[start:stop] = A.dot(self._coeff) 
+      A = self._basis(x[start:stop],self._y,eps=self._eps,diff=diff)
+      P = rbf.poly.mvmonos(x[start:stop],self._powers,diff=diff)
+      out[start:stop] = (A.dot(self._basis_coeff) + 
+                         P.dot(self._poly_coeff))
       count += chunk_size
 
     # return zero for points outside of the convex hull if 
