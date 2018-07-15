@@ -3,6 +3,7 @@ import rbf.poly
 import rbf.interpolate
 import rbf.gauss
 import rbf.geometry
+import rbf.linalg
 import rbf.fd
 import rbf.halton
 import rbf.nodes

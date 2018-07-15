@@ -1,3 +1,4 @@
+import sys
 import inspect
 import weakref
 from collections import OrderedDict
@@ -33,18 +34,31 @@ def get_arg_count(func):
   Returns the number of arguments that can be specified positionally
   for a function. If this cannot be inferred then -1 is returned.
   '''
-  # get the function parameters
-  params = inspect.signature(func).parameters
-  # if a parameter has kind 2, then it is a variable positional
-  # argument
-  if any(p.kind == 2 for p in params.values()):
-    return -1
+  # get the python version. If < 3.3 then use inspect.getargspec,
+  # otherwise use inspect.signature
+  if sys.version_info < (3,3):
+    argspec = inspect.getargspec(func)
+    # if the function has variable positional arguments then return -1
+    if argspec.varargs is not None:
+      return -1
 
-  # if a parameter has kind 0 then it is a a positional only argument
-  # and if kind is 1 then it is a positional or keyword argument.
-  # Count the 0's and 1's
-  out = sum((p.kind == 0) | (p.kind == 1) for p in params.values())
-  return out
+    # return the number of arguments that can be specified
+    # positionally
+    out = len(argspec.args)
+    return out
+  
+  else:  
+    params = inspect.signature(func).parameters
+    # if a parameter has kind 2, then it is a variable positional
+    # argument
+    if any(p.kind == 2 for p in params.values()):
+      return -1
+
+    # if a parameter has kind 0 then it is a a positional only argument
+    # and if kind is 1 then it is a positional or keyword argument.
+    # Count the 0's and 1's
+    out = sum((p.kind == 0) | (p.kind == 1) for p in params.values())
+    return out
 
 
 class Memoize(object):
