@@ -909,7 +909,7 @@ def _get_arg_count(func):
   params = inspect.signature(func).parameters
   # if a parameter has kind 2, then it is a variable positional
   # argument
-  if any(p.kind == 2 for p in params.values())
+  if any(p.kind == 2 for p in params.values()):
     return -1
 
   # if a parameter has kind 0 then it is a a positional only argument
