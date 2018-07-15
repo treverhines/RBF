@@ -209,46 +209,12 @@ def as_array(A,dtype=None,copy=False):
   return A
 
 
-def solve(A,b,positive_definite=False):
-  ''' 
-  Solves the system of equations `Ax = b` using either the LU routines
-  or Cholesky routines, depending on whether `positive_definite` is
-  `True`. 
-  
-  Parameters
-  ----------
-  A : (N,N) float array
-  b : (N,*) float array
-  positive_definite : bool
-
-  Returns
-  -------
-  (N,*) float array
-  '''
-  if positive_definite:
-    chol = _cholesky(A,lower=True)         
-    x = _solve_cholesky(chol,b,lower=True)
-  
-  else:
-    fac,piv = _lu(A)
-    x = _solve_lu(fac,piv,b)
-  
-  return x  
-
-
 class _SparseSolver(object):
   '''
   computes the LU factorization of the sparse matrix `A` with SuperLU.
   '''
   def __init__(self,A):
-    # get the sparsity of `A`
-    density = (100.0*A.nnz)/np.prod(A.shape)    
-    LOGGER.debug(
-      'Using SuperLU to get the LU factorization of a %s by %s sparse '
-      'matrix with %s (%.3f%%) non-zeros ...' % (A.shape[0], A.shape[1],
-      A.nnz,density))
     self.factor = spla.spilu(A)
-    LOGGER.debug('Done')
 
   def solve(self,b):
     ''' 
@@ -262,12 +228,7 @@ class _DenseSolver(object):
   computes the LU factorization of the dense matrix `A`.
   '''
   def __init__(self,A):
-    LOGGER.debug(
-      'Using LAPACK to get the LU factorization of a %s by %s dense '
-      'matrix ...' % A.shape)  
-    # use the SuperLU library to compute the sparse LU factorization
     fac,piv = _lu(A)
-    LOGGER.debug('Done')
     self.fac = fac
     self.piv = piv
 
@@ -280,7 +241,7 @@ class _DenseSolver(object):
 
 class Solver(object):
   '''
-  Computes an LU factorization of `A` and provides a solve method to solve
+  Computes an LU factorization of `A` and provides a method to solve
   `Ax = b` for `x`. `A` can be a scipy sparse matrix or a numpy array.
   '''
   def __init__(self,A):
@@ -320,16 +281,9 @@ class _SparsePosDefSolver(object):
   sparse. This class requires CHOLMOD. 
   '''
   def __init__(self,A):
-    # get the sparsity of `A`
-    density = (100.0*A.nnz)/np.prod(A.shape)    
-    LOGGER.debug(
-      'Using CHOLMOD to get the Cholesky factorization of a %s by %s '
-      'sparse matrix with %s (%.3f%%) non-zeros ...' % (A.shape[0], 
-      A.shape[1], A.nnz, density))  
     self.factor = cholmod.cholesky(A,
                                    use_long=False,
                                    ordering_method='default')
-    LOGGER.debug('Done')
     # store the squared diagonal components of the cholesky
     # factorization
     self.d = self.factor.D() 
@@ -363,9 +317,6 @@ class _SparsePosDefSolver(object):
   def L(self):
     '''Return the factorization `L`'''
     L = self.factor.L()
-    # The cholesky factorization returned by cholmod is for the
-    # permuted matrix `A`. Permute `L` so that it is a factorization
-    # of `A` itself.
     p_inv = np.argsort(self.p)
     out = L[p_inv]
     return out
@@ -382,11 +333,7 @@ class _DensePosDefSolver(object):
   matrix `A`. This uses low level LAPACK functions
   '''
   def __init__(self,A):
-    LOGGER.debug(
-      'Using LAPACK to get the Cholesky factorization of a %s by %s '
-      'dense matrix ...' % A.shape)
     self.chol = _cholesky(A,lower=True)
-    LOGGER.debug('Done')
 
   def solve(self,b):
     ''' 
@@ -413,10 +360,10 @@ class _DensePosDefSolver(object):
 
 class PosDefSolver(object):
   '''
-  Factors `A` as `LL^T = A` and provides an efficient method for
-  solving `Ax = b` for `x`. Additionally provides a method to solve
-  `Lx = b`, get the log determinant of `A`, and get `L`. `A` can be a
-  scipy sparse matrix or a numpy array.
+  Factors the positive definite matrix `A` as `LL^T = A` and provides
+  an efficient method for solving `Ax = b` for `x`. Additionally
+  provides a method to solve `Lx = b`, get the log determinant of `A`,
+  and get `L`. `A` can be a scipy sparse matrix or a numpy array.
   '''
   def __init__(self,A):
     '''
@@ -424,9 +371,7 @@ class PosDefSolver(object):
     ----------
     A : (N,N) array or scipy sparse matrix
       Positive definite matrix
-
     ''' 
-    # check if `A` is sparse and return the appropriate solver
     A = as_sparse_or_array(A,dtype=float)
     if sp.issparse(A) & (not HAS_CHOLMOD):
       warnings.warn(CHOLMOD_MSG)
@@ -522,7 +467,7 @@ class PartitionedSolver(object):
   def __init__(self,A,B):
     # make sure A is either a csc sparse matrix or a float array
     A = as_sparse_or_array(A,dtype=float)
-    # convert B to dense if it is sparse
+    # ensure B is dense 
     B = as_array(B,dtype=float)
     n,p = B.shape
     if n < p:
@@ -590,9 +535,10 @@ class PartitionedPosDefSolver(object):
   
 
   The inverse of `A` is not computed, but instead its action is
-  performed with a Cholesky decomposition. `A` can be a scipy sparse
-  matrix or a numpy array. `B` can also be either a scipy sparse
-  matrix or a numpy array but it will be converted to a numpy array.
+  performed by solving the Cholesky decomposition of `A`. `A` can be a
+  scipy sparse matrix or a numpy array. `B` can also be either a scipy
+  sparse matrix or a numpy array but it will be converted to a numpy
+  array.
    
   Note
   ----
