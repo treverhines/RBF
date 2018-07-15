@@ -72,7 +72,7 @@ Smoothing Scattered Data
   x_obs = np.random.random((100,2)) # observation points
   u_obs = np.sin(2*np.pi*x_obs[:,0])*np.cos(2*np.pi*x_obs[:,1]) # signal
   u_obs += np.random.normal(0.0,0.2,100) # add noise to signal
-  I = RBFInterpolant(x_obs,u_obs,penalty=0.1,basis=basis,order=order)
+  I = RBFInterpolant(x_obs,u_obs,sigma=0.1,basis=basis,order=order)
   vals = np.linspace(0,1,200)
   x_itp = np.reshape(np.meshgrid(vals,vals),(2,200*200)).T # interp points
   u_itp = I(x_itp) # evaluate the interpolant

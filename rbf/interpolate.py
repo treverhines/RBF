@@ -27,19 +27,19 @@ all polynomials with a user specified order. :math:`\mathbf{a}` and
 coefficients are found by solving the linear system of equations
   
 .. math::
-  (\mathbf{K(y,y)} + p\mathbf{C_d})\mathbf{a}  
+  (\mathbf{K(y,y)} + \mathbf{C_d})\mathbf{a}  
   + \mathbf{P(y)b} = \mathbf{d}
 
 .. math::
   \mathbf{P^T(y)a} = \mathbf{0} 
 
 where :math:`\mathbf{C_d}` is the data covariance matrix, 
-:math:`\mathbf{d}` are the observations at :math:`\mathbf{y}`, 
-and :math:`p` is a penalty parameter. With :math:`p=0` the 
-observations are fit perfectly by the interpolant.  Increasing
-:math:`p` degrades the fit while improving the smoothness of the 
-interpolant. This formulation closely follows chapter 19.4 of [1] 
-and chapter 13.2.1 of [2].
+:math:`\mathbf{d}` are the observations at :math:`\mathbf{y}`. If the
+data has no uncertainty, :math:`\mathbf{C_d}=\mathbf{0}`, the
+observations are fit perfectly by the interpolant. Increasing the
+uncertainty degrades the fit while improving the smoothness of the
+interpolant. This formulation closely follows chapter 19.4 of [1] and
+chapter 13.2.1 of [2].
     
 References
 ----------
@@ -156,14 +156,15 @@ class RBFInterpolant(object):
       
     # form block consisting of the RBF and uncertainties on the
     # diagonal
-    A = basis(y,y,eps=eps) + scipy.sparse.diags(sigma**2)
+    K = basis(y,y,eps=eps) 
+    Cd = scipy.sparse.diags(sigma**2)
     # for the block consisting of the monomials
     powers = rbf.poly.powers(order,dim)
     P = rbf.poly.mvmonos(y,powers)
     # create zeros vector for the right-hand-side
     z = np.zeros((powers.shape[0],))
     # solve for the RBF and mononomial coefficients
-    basis_coeff,poly_coeff = PartitionedSolver(A,P).solve(d,z) 
+    basis_coeff,poly_coeff = PartitionedSolver(K + Cd,P).solve(d,z) 
 
     self._y = y
     self._basis = basis
@@ -204,9 +205,9 @@ class RBFInterpolant(object):
     count = 0
     while count < xlen:
       start,stop = count,count+chunk_size
-      A = self._basis(x[start:stop],self._y,eps=self._eps,diff=diff)
+      K = self._basis(x[start:stop],self._y,eps=self._eps,diff=diff)
       P = rbf.poly.mvmonos(x[start:stop],self._powers,diff=diff)
-      out[start:stop] = (A.dot(self._basis_coeff) + 
+      out[start:stop] = (K.dot(self._basis_coeff) + 
                          P.dot(self._poly_coeff))
       count += chunk_size
 
