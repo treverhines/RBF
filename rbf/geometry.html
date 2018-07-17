@@ -422,8 +422,8 @@ body.cython { font-family: courier; font-size: 12; }
 <pre class="cython line score-0">&#xA0;<span class="">0052</span>: <span class="sd">This module is primarily use to find whether and where line segments </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0053</span>: <span class="sd">intersect a simplicial complex and whether points are contained within </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0054</span>: <span class="sd">a closed simplicial complex.  For example, one can determine whether a </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">0055</span>: <span class="sd">collection of points, saved as *points*, are contained within a </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">0056</span>: <span class="sd">simplicial complex, defined by *vertices* and *simplices* with the </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">0055</span>: <span class="sd">collection of points, saved as `points`, are contained within a </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">0056</span>: <span class="sd">simplicial complex, defined by `vertices` and `simplices` with the </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0057</span>: <span class="sd">command</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0058</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">0059</span>: <span class="sd">&gt;&gt;&gt; contains(points,vertices,simplices)</span></pre>
@@ -431,7 +431,7 @@ body.cython { font-family: courier; font-size: 12; }
 <pre class="cython line score-0">&#xA0;<span class="">0061</span>: <span class="sd">which returns a boolean array.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0062</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">0063</span>: <span class="sd">One can find the number of times a collection of line segments, </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">0064</span>: <span class="sd">defined by *start_points* and *end_points*, intersect a simplicial </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">0064</span>: <span class="sd">defined by `start_points` and `end_points`, intersect a simplicial </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0065</span>: <span class="sd">complex with the command</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0066</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">0067</span>: <span class="sd">&gt;&gt; intersection_count(start_points,end_points,vertices,simplices)</span></pre>
@@ -578,29 +578,12 @@ body.cython { font-family: courier; font-size: 12; }
 <pre class="cython line score-0">&#xA0;<span class="">0144</span>:   <span class="n">vector3d</span> <span class="n">c</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0145</span>: </pre>
 <pre class="cython line score-2" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">0146</span>: <span class="k">cdef</span> <span class="kt">segment2d</span>* <span class="nf">allocate_segment2d_array</span><span class="p">(</span><span class="nb">long</span> <span class="n">n</span><span class="p">):</span></pre>
-<pre class='cython code score-2 '>
-/* "rbf/geometry.pyx":146
- *   vector3d c
- * 
- * cdef segment2d* allocate_segment2d_array(long n):             # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
- *   '''
- *   This is used in *contains_2d* and *intersection_count_2d*
- */
-
-static struct __pyx_t_3rbf_8geometry_segment2d *__pyx_f_3rbf_8geometry_allocate_segment2d_array(long __pyx_v_n) {
+<pre class='cython code score-2 '>static struct __pyx_t_3rbf_8geometry_segment2d *__pyx_f_3rbf_8geometry_allocate_segment2d_array(long __pyx_v_n) {
   struct __pyx_t_3rbf_8geometry_segment2d *__pyx_v_out;
   struct __pyx_t_3rbf_8geometry_segment2d *__pyx_r;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
   <span class='refnanny'>__Pyx_RefNannySetupContext</span>("allocate_segment2d_array", 0);
-
-  /* "rbf/geometry.pyx":146
- *   vector3d c
- * 
- * cdef segment2d* allocate_segment2d_array(long n):             # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
- *   '''
- *   This is used in *contains_2d* and *intersection_count_2d*
- */
-
+/* … */
   /* function exit code */
   __pyx_L1_error:;
   <span class='pyx_c_api'>__Pyx_WriteUnraisable</span>("rbf.geometry.allocate_segment2d_array", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
@@ -610,7 +593,7 @@ static struct __pyx_t_3rbf_8geometry_segment2d *__pyx_f_3rbf_8geometry_allocate_
   return __pyx_r;
 }
 </pre><pre class="cython line score-0">&#xA0;<span class="">0147</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">0148</span>: <span class="sd">  This is used in *contains_2d* and *intersection_count_2d*</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">0148</span>: <span class="sd">  This is used in `contains_2d` and `intersection_count_2d`</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0149</span>: <span class="sd">  &#39;&#39;&#39;</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0150</span>:   <span class="k">cdef</span><span class="p">:</span></pre>
 <pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">0151</span>:     <span class="n">segment2d</span><span class="o">*</span> <span class="n">out</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">segment2d</span><span class="o">*&gt;</span><span class="n">malloc</span><span class="p">(</span><span class="n">n</span><span class="o">*</span><span class="n">sizeof</span><span class="p">(</span><span class="n">segment2d</span><span class="p">))</span></pre>
@@ -629,29 +612,12 @@ static struct __pyx_t_3rbf_8geometry_segment2d *__pyx_f_3rbf_8geometry_allocate_
   goto __pyx_L0;
 </pre><pre class="cython line score-0">&#xA0;<span class="">0157</span>: </pre>
 <pre class="cython line score-2" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">0158</span>: <span class="k">cdef</span> <span class="kt">segment3d</span>* <span class="nf">allocate_segment3d_array</span><span class="p">(</span><span class="nb">long</span> <span class="n">n</span><span class="p">):</span></pre>
-<pre class='cython code score-2 '>
-/* "rbf/geometry.pyx":158
- *   return out
- * 
- * cdef segment3d* allocate_segment3d_array(long n):             # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
- *   '''
- *   This is used in *contains_3d* and *intersection_count_3d*
- */
-
-static struct __pyx_t_3rbf_8geometry_segment3d *__pyx_f_3rbf_8geometry_allocate_segment3d_array(long __pyx_v_n) {
+<pre class='cython code score-2 '>static struct __pyx_t_3rbf_8geometry_segment3d *__pyx_f_3rbf_8geometry_allocate_segment3d_array(long __pyx_v_n) {
   struct __pyx_t_3rbf_8geometry_segment3d *__pyx_v_out;
   struct __pyx_t_3rbf_8geometry_segment3d *__pyx_r;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
   <span class='refnanny'>__Pyx_RefNannySetupContext</span>("allocate_segment3d_array", 0);
-
-  /* "rbf/geometry.pyx":158
- *   return out
- * 
- * cdef segment3d* allocate_segment3d_array(long n):             # &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
- *   '''
- *   This is used in *contains_3d* and *intersection_count_3d*
- */
-
+/* … */
   /* function exit code */
   __pyx_L1_error:;
   <span class='pyx_c_api'>__Pyx_WriteUnraisable</span>("rbf.geometry.allocate_segment3d_array", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
@@ -661,7 +627,7 @@ static struct __pyx_t_3rbf_8geometry_segment3d *__pyx_f_3rbf_8geometry_allocate_
   return __pyx_r;
 }
 </pre><pre class="cython line score-0">&#xA0;<span class="">0159</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">0160</span>: <span class="sd">  This is used in *contains_3d* and *intersection_count_3d*</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">0160</span>: <span class="sd">  This is used in `contains_3d` and `intersection_count_3d`</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0161</span>: <span class="sd">  &#39;&#39;&#39;</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0162</span>:   <span class="k">cdef</span><span class="p">:</span></pre>
 <pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">0163</span>:     <span class="n">segment3d</span><span class="o">*</span> <span class="n">out</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">segment3d</span><span class="o">*&gt;</span><span class="n">malloc</span><span class="p">(</span><span class="n">n</span><span class="o">*</span><span class="n">sizeof</span><span class="p">(</span><span class="n">segment3d</span><span class="p">))</span></pre>
@@ -3825,7 +3791,7 @@ static struct __pyx_t_3rbf_8geometry_segment3d *__pyx_f_3rbf_8geometry_allocate_
 <pre class="cython line score-67" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1053</span>: <span class="k">def</span> <span class="nf">intersection_point</span><span class="p">(</span><span class="n">start_points</span><span class="p">,</span><span class="n">end_points</span><span class="p">,</span><span class="n">vertices</span><span class="p">,</span><span class="n">simplices</span><span class="p">):</span></pre>
 <pre class='cython code score-67 '>/* Python wrapper */
 static PyObject *__pyx_pw_3rbf_8geometry_1intersection_point(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_8geometry_intersection_point[] = " \n  Returns the intersection points between line segments and a \n  simplicial complex.  The line segments are described by \n  *start_points* and *end_points*, and the simplicial complex is \n  described by *vertices* and *simplices*. This function works for 1, \n  2, and 3 spatial dimensions.\n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. *N* is the \n    number of line segments and *D* is the number of dimensions\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments. \n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. M is the number of \n    vertices.\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,D) array\n    intersection points    \n\n  Notes\n  -----\n  This function fails when a intersection is not found for a line \n  segment. If there are multiple intersections then the intersection \n  closest to start_point is used.\n\n  ";
+static char __pyx_doc_3rbf_8geometry_intersection_point[] = " \n  Returns the intersection points between line segments and a \n  simplicial complex.  The line segments are described by \n  `start_points` and `end_points`, and the simplicial complex is \n  described by `vertices` and `simplices`. This function works for 1, \n  2, and 3 spatial dimensions.\n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. `N` is the \n    number of line segments and `D` is the number of dimensions\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments. \n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. M is the number of \n    vertices.\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,D) array\n    intersection points    \n\n  Notes\n  -----\n  This function fails when a intersection is not found for a line \n  segment. If there are multiple intersections then the intersection \n  closest to start_point is used.\n\n  ";
 static PyMethodDef __pyx_mdef_3rbf_8geometry_1intersection_point = {"intersection_point", (PyCFunction)__pyx_pw_3rbf_8geometry_1intersection_point, METH_VARARGS|METH_KEYWORDS, __pyx_doc_3rbf_8geometry_intersection_point};
 static PyObject *__pyx_pw_3rbf_8geometry_1intersection_point(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_start_points = 0;
@@ -3959,15 +3925,15 @@ static PyObject *__pyx_pf_3rbf_8geometry_intersection_point(CYTHON_UNUSED PyObje
 </pre><pre class="cython line score-0">&#xA0;<span class="">1054</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1055</span>: <span class="sd">  Returns the intersection points between line segments and a </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1056</span>: <span class="sd">  simplicial complex.  The line segments are described by </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1057</span>: <span class="sd">  *start_points* and *end_points*, and the simplicial complex is </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1058</span>: <span class="sd">  described by *vertices* and *simplices*. This function works for 1, </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1057</span>: <span class="sd">  `start_points` and `end_points`, and the simplicial complex is </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1058</span>: <span class="sd">  described by `vertices` and `simplices`. This function works for 1, </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1059</span>: <span class="sd">  2, and 3 spatial dimensions.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1060</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1061</span>: <span class="sd">  Parameters</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1062</span>: <span class="sd">  ----------</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1063</span>: <span class="sd">  start_points : (N,D) array</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1064</span>: <span class="sd">    Vertices describing one end of the line segments. *N* is the </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1065</span>: <span class="sd">    number of line segments and *D* is the number of dimensions</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1064</span>: <span class="sd">    Vertices describing one end of the line segments. `N` is the </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1065</span>: <span class="sd">    number of line segments and `D` is the number of dimensions</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1066</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1067</span>: <span class="sd">  end_points : (N,D) array </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1068</span>: <span class="sd">    Vertices describing the other end of the line segments. </span></pre>
@@ -4352,7 +4318,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_intersection_point(CYTHON_UNUSED PyObje
 <pre class="cython line score-68" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1123</span>: <span class="k">def</span> <span class="nf">intersection_normal</span><span class="p">(</span><span class="n">start_points</span><span class="p">,</span><span class="n">end_points</span><span class="p">,</span><span class="n">vertices</span><span class="p">,</span><span class="n">simplices</span><span class="p">):</span></pre>
 <pre class='cython code score-68 '>/* Python wrapper */
 static PyObject *__pyx_pw_3rbf_8geometry_3intersection_normal(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_8geometry_2intersection_normal[] = " \n  Returns the normal vectors to the simplices intersected by the line \n  segments. The line segments are described by *start_points* and \n  *end_points*. This function works for 1, 2, and 3 spatial \n  dimensions. The normal vector is in the direction that points \n  towards end_points\n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. *N* is the \n    number of line segments and *D* is the number of dimensions.\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments.\n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. *M* is the number of \n    vertices\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,D) array\n    normal vectors\n\n  Notes\n  -----\n  This function fails when a intersection is not found for a line \n  segment. If there are multiple intersections then the intersection \n  closest to start_point is used.\n\n  ";
+static char __pyx_doc_3rbf_8geometry_2intersection_normal[] = " \n  Returns the normal vectors to the simplices intersected by the line \n  segments. The line segments are described by `start_points` and \n  `end_points`. This function works for 1, 2, and 3 spatial \n  dimensions. The normal vector is in the direction that points \n  towards end_points\n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. `N` is the \n    number of line segments and `D` is the number of dimensions.\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments.\n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. `M` is the number of \n    vertices\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,D) array\n    normal vectors\n\n  Notes\n  -----\n  This function fails when a intersection is not found for a line \n  segment. If there are multiple intersections then the intersection \n  closest to start_point is used.\n\n  ";
 static PyMethodDef __pyx_mdef_3rbf_8geometry_3intersection_normal = {"intersection_normal", (PyCFunction)__pyx_pw_3rbf_8geometry_3intersection_normal, METH_VARARGS|METH_KEYWORDS, __pyx_doc_3rbf_8geometry_2intersection_normal};
 static PyObject *__pyx_pw_3rbf_8geometry_3intersection_normal(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_start_points = 0;
@@ -4487,22 +4453,22 @@ static PyObject *__pyx_pf_3rbf_8geometry_2intersection_normal(CYTHON_UNUSED PyOb
   __pyx_codeobj__78 = (PyObject*)<span class='pyx_c_api'>__Pyx_PyCode_New</span>(4, 0, 9, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__77, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_rbf_geometry_pyx, __pyx_n_s_intersection_normal, 1123, __pyx_empty_bytes);<span class='error_goto'> if (unlikely(!__pyx_codeobj__78)) __PYX_ERR(0, 1123, __pyx_L1_error)</span>
 </pre><pre class="cython line score-0">&#xA0;<span class="">1124</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1125</span>: <span class="sd">  Returns the normal vectors to the simplices intersected by the line </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1126</span>: <span class="sd">  segments. The line segments are described by *start_points* and </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1127</span>: <span class="sd">  *end_points*. This function works for 1, 2, and 3 spatial </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1126</span>: <span class="sd">  segments. The line segments are described by `start_points` and </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1127</span>: <span class="sd">  `end_points`. This function works for 1, 2, and 3 spatial </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1128</span>: <span class="sd">  dimensions. The normal vector is in the direction that points </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1129</span>: <span class="sd">  towards end_points</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1130</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1131</span>: <span class="sd">  Parameters</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1132</span>: <span class="sd">  ----------</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1133</span>: <span class="sd">  start_points : (N,D) array</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1134</span>: <span class="sd">    Vertices describing one end of the line segments. *N* is the </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1135</span>: <span class="sd">    number of line segments and *D* is the number of dimensions.</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1134</span>: <span class="sd">    Vertices describing one end of the line segments. `N` is the </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1135</span>: <span class="sd">    number of line segments and `D` is the number of dimensions.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1136</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1137</span>: <span class="sd">  end_points : (N,D) array </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1138</span>: <span class="sd">    Vertices describing the other end of the line segments.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1139</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1140</span>: <span class="sd">  vertices : (M,D) array </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1141</span>: <span class="sd">    Vertices within the simplicial complex. *M* is the number of </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1141</span>: <span class="sd">    Vertices within the simplicial complex. `M` is the number of </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1142</span>: <span class="sd">    vertices</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1143</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1144</span>: <span class="sd">  simplices : (P,D) array</span></pre>
@@ -4908,7 +4874,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_2intersection_normal(CYTHON_UNUSED PyOb
 <pre class="cython line score-76" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1195</span>: <span class="k">def</span> <span class="nf">intersection_index</span><span class="p">(</span><span class="n">start_points</span><span class="p">,</span><span class="n">end_points</span><span class="p">,</span><span class="n">vertices</span><span class="p">,</span><span class="n">simplices</span><span class="p">):</span></pre>
 <pre class='cython code score-76 '>/* Python wrapper */
 static PyObject *__pyx_pw_3rbf_8geometry_5intersection_index(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_8geometry_4intersection_index[] = " \n  Returns the indices of the simplices intersected by the line \n  segments. The line segments are described by *start_points* and \n  *end_points*. This function works for 1, 2, and 3 spatial \n  dimensions. \n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. *N* is the \n    number of line segments and *D* is the number of dimensions\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments\n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. *M* is the number of \n    vertices\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,) int array\n    simplex indices \n\n  Notes\n  -----\n  This function fails when a intersection is not found for a line\n  segment. If there are multiple intersections then the intersection \n  closest to *start_point* is used.\n\n  ";
+static char __pyx_doc_3rbf_8geometry_4intersection_index[] = " \n  Returns the indices of the simplices intersected by the line \n  segments. The line segments are described by `start_points` and \n  `end_points`. This function works for 1, 2, and 3 spatial \n  dimensions. \n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. `N` is the \n    number of line segments and `D` is the number of dimensions\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments\n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. `M` is the number of \n    vertices\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,) int array\n    simplex indices \n\n  Notes\n  -----\n  This function fails when a intersection is not found for a line\n  segment. If there are multiple intersections then the intersection \n  closest to `start_point` is used.\n\n  ";
 static PyMethodDef __pyx_mdef_3rbf_8geometry_5intersection_index = {"intersection_index", (PyCFunction)__pyx_pw_3rbf_8geometry_5intersection_index, METH_VARARGS|METH_KEYWORDS, __pyx_doc_3rbf_8geometry_4intersection_index};
 static PyObject *__pyx_pw_3rbf_8geometry_5intersection_index(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_start_points = 0;
@@ -5057,21 +5023,21 @@ static PyObject *__pyx_pf_3rbf_8geometry_4intersection_index(CYTHON_UNUSED PyObj
   __pyx_codeobj__80 = (PyObject*)<span class='pyx_c_api'>__Pyx_PyCode_New</span>(4, 0, 15, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__79, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_rbf_geometry_pyx, __pyx_n_s_intersection_index, 1195, __pyx_empty_bytes);<span class='error_goto'> if (unlikely(!__pyx_codeobj__80)) __PYX_ERR(0, 1195, __pyx_L1_error)</span>
 </pre><pre class="cython line score-0">&#xA0;<span class="">1196</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1197</span>: <span class="sd">  Returns the indices of the simplices intersected by the line </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1198</span>: <span class="sd">  segments. The line segments are described by *start_points* and </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1199</span>: <span class="sd">  *end_points*. This function works for 1, 2, and 3 spatial </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1198</span>: <span class="sd">  segments. The line segments are described by `start_points` and </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1199</span>: <span class="sd">  `end_points`. This function works for 1, 2, and 3 spatial </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1200</span>: <span class="sd">  dimensions. </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1201</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1202</span>: <span class="sd">  Parameters</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1203</span>: <span class="sd">  ----------</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1204</span>: <span class="sd">  start_points : (N,D) array</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1205</span>: <span class="sd">    Vertices describing one end of the line segments. *N* is the </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1206</span>: <span class="sd">    number of line segments and *D* is the number of dimensions</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1205</span>: <span class="sd">    Vertices describing one end of the line segments. `N` is the </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1206</span>: <span class="sd">    number of line segments and `D` is the number of dimensions</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1207</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1208</span>: <span class="sd">  end_points : (N,D) array </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1209</span>: <span class="sd">    Vertices describing the other end of the line segments</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1210</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1211</span>: <span class="sd">  vertices : (M,D) array </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1212</span>: <span class="sd">    Vertices within the simplicial complex. *M* is the number of </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1212</span>: <span class="sd">    Vertices within the simplicial complex. `M` is the number of </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1213</span>: <span class="sd">    vertices</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1214</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1215</span>: <span class="sd">  simplices : (P,D) array</span></pre>
@@ -5087,7 +5053,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_4intersection_index(CYTHON_UNUSED PyObj
 <pre class="cython line score-0">&#xA0;<span class="">1225</span>: <span class="sd">  -----</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1226</span>: <span class="sd">  This function fails when a intersection is not found for a line</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1227</span>: <span class="sd">  segment. If there are multiple intersections then the intersection </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1228</span>: <span class="sd">  closest to *start_point* is used.</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1228</span>: <span class="sd">  closest to `start_point` is used.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1229</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1230</span>: <span class="sd">  &#39;&#39;&#39;</span></pre>
 <pre class="cython line score-25" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1231</span>:   <span class="n">start_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">start_points</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></pre>
@@ -5698,7 +5664,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_4intersection_index(CYTHON_UNUSED PyObj
 <pre class="cython line score-69" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1276</span>: <span class="k">def</span> <span class="nf">intersection_count</span><span class="p">(</span><span class="n">start_points</span><span class="p">,</span><span class="n">end_points</span><span class="p">,</span><span class="n">vertices</span><span class="p">,</span><span class="n">simplices</span><span class="p">):</span></pre>
 <pre class='cython code score-69 '>/* Python wrapper */
 static PyObject *__pyx_pw_3rbf_8geometry_7intersection_count(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_8geometry_6intersection_count[] = " \n  Returns the number of simplices crossed by the line segments. The \n  line segments are described by *start_points* and *end_points*. This \n  function works for 1, 2, and 3 spatial dimensions.\n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. *N* is the \n    number of line segments and *D* is the number of dimensions\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments\n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. *M* is the number of \n    vertices\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,) int array\n    intersection counts\n\n  Notes\n  -----\n  This function is parallelized. Set the number of threads used with \n  the environment variable *OMP_NUM_THREADS*.\n\n  ";
+static char __pyx_doc_3rbf_8geometry_6intersection_count[] = " \n  Returns the number of simplices crossed by the line segments. The \n  line segments are described by `start_points` and `end_points`. This \n  function works for 1, 2, and 3 spatial dimensions.\n\n  Parameters\n  ----------\n  start_points : (N,D) array\n    Vertices describing one end of the line segments. `N` is the \n    number of line segments and `D` is the number of dimensions\n\n  end_points : (N,D) array \n    Vertices describing the other end of the line segments\n\n  vertices : (M,D) array \n    Vertices within the simplicial complex. `M` is the number of \n    vertices\n\n  simplices : (P,D) array\n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,) int array\n    intersection counts\n\n  Notes\n  -----\n  This function is parallelized. Set the number of threads used with \n  the environment variable `OMP_NUM_THREADS`.\n\n  ";
 static PyMethodDef __pyx_mdef_3rbf_8geometry_7intersection_count = {"intersection_count", (PyCFunction)__pyx_pw_3rbf_8geometry_7intersection_count, METH_VARARGS|METH_KEYWORDS, __pyx_doc_3rbf_8geometry_6intersection_count};
 static PyObject *__pyx_pw_3rbf_8geometry_7intersection_count(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_start_points = 0;
@@ -5835,20 +5801,20 @@ static PyObject *__pyx_pf_3rbf_8geometry_6intersection_count(CYTHON_UNUSED PyObj
   __pyx_codeobj__82 = (PyObject*)<span class='pyx_c_api'>__Pyx_PyCode_New</span>(4, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__81, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_rbf_geometry_pyx, __pyx_n_s_intersection_count, 1276, __pyx_empty_bytes);<span class='error_goto'> if (unlikely(!__pyx_codeobj__82)) __PYX_ERR(0, 1276, __pyx_L1_error)</span>
 </pre><pre class="cython line score-0">&#xA0;<span class="">1277</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1278</span>: <span class="sd">  Returns the number of simplices crossed by the line segments. The </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1279</span>: <span class="sd">  line segments are described by *start_points* and *end_points*. This </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1279</span>: <span class="sd">  line segments are described by `start_points` and `end_points`. This </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1280</span>: <span class="sd">  function works for 1, 2, and 3 spatial dimensions.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1281</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1282</span>: <span class="sd">  Parameters</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1283</span>: <span class="sd">  ----------</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1284</span>: <span class="sd">  start_points : (N,D) array</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1285</span>: <span class="sd">    Vertices describing one end of the line segments. *N* is the </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1286</span>: <span class="sd">    number of line segments and *D* is the number of dimensions</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1285</span>: <span class="sd">    Vertices describing one end of the line segments. `N` is the </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1286</span>: <span class="sd">    number of line segments and `D` is the number of dimensions</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1287</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1288</span>: <span class="sd">  end_points : (N,D) array </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1289</span>: <span class="sd">    Vertices describing the other end of the line segments</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1290</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1291</span>: <span class="sd">  vertices : (M,D) array </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1292</span>: <span class="sd">    Vertices within the simplicial complex. *M* is the number of </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1292</span>: <span class="sd">    Vertices within the simplicial complex. `M` is the number of </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1293</span>: <span class="sd">    vertices</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1294</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1295</span>: <span class="sd">  simplices : (P,D) array</span></pre>
@@ -5863,7 +5829,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_6intersection_count(CYTHON_UNUSED PyObj
 <pre class="cython line score-0">&#xA0;<span class="">1304</span>: <span class="sd">  Notes</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1305</span>: <span class="sd">  -----</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1306</span>: <span class="sd">  This function is parallelized. Set the number of threads used with </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1307</span>: <span class="sd">  the environment variable *OMP_NUM_THREADS*.</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1307</span>: <span class="sd">  the environment variable `OMP_NUM_THREADS`.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1308</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1309</span>: <span class="sd">  &#39;&#39;&#39;</span></pre>
 <pre class="cython line score-25" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1310</span>:   <span class="n">start_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">start_points</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></pre>
@@ -6224,7 +6190,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_6intersection_count(CYTHON_UNUSED PyObj
 <pre class="cython line score-64" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1345</span>: <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="n">points</span><span class="p">,</span><span class="n">vertices</span><span class="p">,</span><span class="n">simplices</span><span class="p">):</span></pre>
 <pre class='cython code score-64 '>/* Python wrapper */
 static PyObject *__pyx_pw_3rbf_8geometry_9contains(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_3rbf_8geometry_8contains[] = " \n  Returns a boolean array identifying whether the points are contained \n  within a closed simplicial complex. The simplicial complex is \n  described by *vertices* and *simplices*. This function works for 1, \n  2, and 3 spatial dimensions.\n\n  Parameters\n  ----------\n  points : (N,D) array\n    Test points\n\n  vertices : (M,D) array\n    Vertices of the simplicial complex\n\n  simplices : (P,D) int array \n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,) bool array \n    Indicates which test points are in the simplicial complex\n\n  Notes\n  -----\n  This function does not ensure that the simplicial complex is\n  closed.  If it is not then bogus results will be returned. \n    \n  This function determines whether a point is contained within the\n  simplicial complex by finding the number of intersections between\n  each point and an arbitrary outside point.  It is possible,\n  although rare, that this function will fail if the line segment\n  intersects a simplex at an edge.\n\n  This function does not require any particular orientation for the \n  simplices\n\n  This function is parallelized. Set the number of threads used with \n  the environment variable *OMP_NUM_THREADS*.\n\n  ";
+static char __pyx_doc_3rbf_8geometry_8contains[] = " \n  Returns a boolean array identifying whether the points are contained \n  within a closed simplicial complex. The simplicial complex is \n  described by `vertices` and `simplices`. This function works for 1, \n  2, and 3 spatial dimensions.\n\n  Parameters\n  ----------\n  points : (N,D) array\n    Test points\n\n  vertices : (M,D) array\n    Vertices of the simplicial complex\n\n  simplices : (P,D) int array \n    Connectivity of the vertices. Each row contains the vertex \n    indices which form one simplex of the simplicial complex\n\n  Returns\n  -------\n  out : (N,) bool array \n    Indicates which test points are in the simplicial complex\n\n  Notes\n  -----\n  This function does not ensure that the simplicial complex is\n  closed.  If it is not then bogus results will be returned. \n    \n  This function determines whether a point is contained within the\n  simplicial complex by finding the number of intersections between\n  each point and an arbitrary outside point.  It is possible,\n  although rare, that this function will fail if the line segment\n  intersects a simplex at an edge.\n\n  This function does not require any particular orientation for the \n  simplices\n\n  This function is parallelized. Set the number of threads used with \n  the environment variable `OMP_NUM_THREADS`.\n\n  ";
 static PyMethodDef __pyx_mdef_3rbf_8geometry_9contains = {"contains", (PyCFunction)__pyx_pw_3rbf_8geometry_9contains, METH_VARARGS|METH_KEYWORDS, __pyx_doc_3rbf_8geometry_8contains};
 static PyObject *__pyx_pw_3rbf_8geometry_9contains(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_points = 0;
@@ -6354,7 +6320,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_8contains(CYTHON_UNUSED PyObject *__pyx
 </pre><pre class="cython line score-0">&#xA0;<span class="">1346</span>:   <span class="sd">&#39;&#39;&#39; </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1347</span>: <span class="sd">  Returns a boolean array identifying whether the points are contained </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1348</span>: <span class="sd">  within a closed simplicial complex. The simplicial complex is </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1349</span>: <span class="sd">  described by *vertices* and *simplices*. This function works for 1, </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1349</span>: <span class="sd">  described by `vertices` and `simplices`. This function works for 1, </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1350</span>: <span class="sd">  2, and 3 spatial dimensions.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1351</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1352</span>: <span class="sd">  Parameters</span></pre>
@@ -6389,7 +6355,7 @@ static PyObject *__pyx_pf_3rbf_8geometry_8contains(CYTHON_UNUSED PyObject *__pyx
 <pre class="cython line score-0">&#xA0;<span class="">1381</span>: <span class="sd">  simplices</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1382</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1383</span>: <span class="sd">  This function is parallelized. Set the number of threads used with </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1384</span>: <span class="sd">  the environment variable *OMP_NUM_THREADS*.</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1384</span>: <span class="sd">  the environment variable `OMP_NUM_THREADS`.</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1385</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">1386</span>: <span class="sd">  &#39;&#39;&#39;</span></pre>
 <pre class="cython line score-43" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">1387</span>:   <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">points</span><span class="p">)</span></pre>
@@ -7034,9 +7000,9 @@ static PyObject *__pyx_pf_3rbf_8geometry_10simplex_normals(CYTHON_UNUSED PyObjec
   <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_tuple__31);
   <span class='refnanny'>__Pyx_GIVEREF</span>(__pyx_tuple__31);
 </pre><pre class="cython line score-0">&#xA0;<span class="">1450</span>: </pre>
-<pre class="cython line score-0">&#xA0;<span class="">1451</span>:   <span class="c"># I *could* find the normal vectors for each simplex by converting </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1451</span>:   <span class="c"># I `could` find the normal vectors for each simplex by converting </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1452</span>:   <span class="c"># the vertices and simplices to segment and triangle C structures </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">1453</span>:   <span class="c"># and then use the *segment_normal_2d* and *triangle_normal_3d* C </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">1453</span>:   <span class="c"># and then use the `segment_normal_2d` and `triangle_normal_3d` C </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1454</span>:   <span class="c"># functions. However, I will compute the normals directly from the </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1455</span>:   <span class="c"># numpy arrays. This is all vectorized so it should not be any </span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">1456</span>:   <span class="c"># slower than using the C functions.</span></pre>

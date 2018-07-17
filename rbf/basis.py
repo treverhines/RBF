@@ -1,12 +1,12 @@
 ''' 
-This module contains the *RBF* class, which is used to symbolically 
-define and numerically evaluate a radial basis function. *RBF* 
+This module contains the `RBF` class, which is used to symbolically 
+define and numerically evaluate a radial basis function. `RBF` 
 instances have been predefined in this module for some of the commonly 
 used radial basis functions. The predefined radial basis functions are 
 shown in the table below. For each expression in the table,
 :math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter. 
 :math:`x` and :math:`c` are the evaluation points and radial basis 
-function centers, respectively. The names of the predefined *RBF* 
+function centers, respectively. The names of the predefined `RBF` 
 instances are given in the abbreviation column. 
 
 =================================  ============  ===================  ======================================
@@ -98,7 +98,7 @@ class _CallbackDict(dict):
 def get_r():
   ''' 
   returns the symbolic variable for :math:`r` which is used to 
-  instantiate an *RBF*
+  instantiate an `RBF`
   '''
   return sympy.symbols('r')
 
@@ -106,7 +106,7 @@ def get_r():
 def get_eps():
   ''' 
   returns the symbolic variable for :math:`\epsilon` which is used to 
-  instantiate an *RBF*
+  instantiate an `RBF`
   '''
   return sympy.symbols('eps')
 
@@ -126,30 +126,30 @@ class RBF(object):
   ----------
   expr : sympy expression
     Sympy expression for the RBF. This must be a function of the
-    symbolic variable *r*, which can be obtained by calling *get_r()*
-    or *sympy.symbols('r')*. *r* is the radial distance to the RBF
-    center.  The expression may optionally be a function of *eps*,
-    which is a shape parameter obtained by calling *get_eps()* or
-    *sympy.symbols('eps')*.  If *eps* is not provided then *r* is
-    substituted with *r*eps*.
+    symbolic variable `r`, which can be obtained by calling `get_r()`
+    or `sympy.symbols('r')`. `r` is the radial distance to the RBF
+    center.  The expression may optionally be a function of `eps`,
+    which is a shape parameter obtained by calling `get_eps()` or
+    `sympy.symbols('eps')`.  If `eps` is not provided then `r` is
+    substituted with `r*eps`.
   
   tol : float or sympy expression, optional  
     This is for when an RBF or its derivatives contain a removable
-    singularity at the center. If *tol* is specified, then a numerical
+    singularity at the center. If `tol` is specified, then a numerical
     estimate of the RBF center will be made, using linear
     extrapolation, and that estimate will be returned for all
-    evaluation points, *x*, that are within *tol* of the RBF center,
-    *c*. If the limit of the RBF at *x = c* is known, then it can be
-    manually specified with the *limits* arguments. *tol* can be a
-    float or a sympy expression containing *eps*. It may be necessary
-    to specify *tol* as a high precision float with *sympy.Float* to
+    evaluation points, `x`, that are within `tol` of the RBF center,
+    `c`. If the limit of the RBF at `x = c` is known, then it can be
+    manually specified with the `limits` arguments. `tol` can be a
+    float or a sympy expression containing `eps`. It may be necessary
+    to specify `tol` as a high precision float with `sympy.Float` to
     avoid numerical rounding errors.
 
   limits : dict, optional
     Contains the values of the RBF or its derivatives at the center.
-    For example, *{(0,1):2*eps}* indicates that the derivative of the
-    RBF along the second Cartesian direction is *2*eps* at *x = c*. If
-    this dictionary is provided and *tol* is not *None*, then it will
+    For example, `{(0,1):2*eps}` indicates that the derivative of the
+    RBF along the second Cartesian direction is `2*eps` at `x = c`. If
+    this dictionary is provided and `tol` is not `None`, then it will
     be searched before estimating the limit with the method describe
     above.
 
@@ -172,11 +172,11 @@ class RBF(object):
   >>> values = iq(x,center)
     
   Instantiate a sinc RBF. This has a singularity at the RBF center and 
-  it must be handled separately by specifying a number for *tol*.
+  it must be handled separately by specifying a number for `tol`.
   
   >>> import sympy
   >>> sinc_expr = sympy.sin(r)/r
-  >>> sinc = RBF(sinc_expr) # instantiate WITHOUT specifying *tol*
+  >>> sinc = RBF(sinc_expr) # instantiate WITHOUT specifying `tol`
   >>> x = np.array([[-1.0],[0.0],[1.0]])
   >>> c = np.array([[0.0]])
   >>> sinc(x,c) # this incorrectly evaluates to nan at the center
@@ -184,7 +184,7 @@ class RBF(object):
          [        nan],
          [ 0.84147098]])
 
-  >>> sinc = RBF(sinc_expr,tol=1e-10) # instantiate specifying *tol*
+  >>> sinc = RBF(sinc_expr,tol=1e-10) # instantiate specifying `tol`
   >>> sinc(x,c) # this now correctly evaluates to 1.0 at the center
   array([[ 0.84147098],
          [ 1.        ],
@@ -192,12 +192,12 @@ class RBF(object):
   
   Notes
   -----
-  It is safe to change the attributes *tol* and *limits*. Changes will
+  It is safe to change the attributes `tol` and `limits`. Changes will
   cause the cache of numerical functions to be cleared.
   '''
   @property
   def expr(self):
-    # *expr* is read-only. 
+    # `expr` is read-only. 
     return self._expr
 
   @property
@@ -211,15 +211,15 @@ class RBF(object):
   @tol.setter
   def tol(self,value):
     if value is not None:
-      # make sure *tol* is a scalar or a sympy expression of *eps*
+      # make sure `tol` is a scalar or a sympy expression of `eps`
       value = sympy.sympify(value)
       other_symbols = value.free_symbols.difference({_EPS})
       if len(other_symbols) != 0:
         raise ValueError(
-          '*tol* cannot contain any symbols other than *eps*')
+          '`tol` cannot contain any symbols other than `eps`')
   
     self._tol = value
-    # reset *cache* now that we have a new *tol*
+    # reset `cache` now that we have a new `tol`
     self.clear_cache()
   
   @limits.setter
@@ -227,23 +227,23 @@ class RBF(object):
     if value is None:
       value = {}
       
-    # if *limits* is ever changed then *clear_cache* is called
+    # if `limits` is ever changed then `clear_cache` is called
     self._limits = _CallbackDict(value,self.clear_cache)
-    # reset *cache* now that we have a new *limits*
+    # reset `cache` now that we have a new `limits`
     self.clear_cache()
 
   def __init__(self,expr,tol=None,limits=None):
-    # make sure that *expr* does not contain any symbols other than 
-    # *_R* and *_EPS*
+    # make sure that `expr` does not contain any symbols other than 
+    # `_R` and `_EPS`
     other_symbols = expr.free_symbols.difference({_R,_EPS})
     if len(other_symbols) != 0:
       raise ValueError(
-        '*expr* cannot contain any symbols other than *r* and *eps*')
+        '`expr` cannot contain any symbols other than `r` and `eps`')
         
     if not expr.has(_R):
       raise ValueError(
-        '*expr* must be a sympy expression containing the symbolic '
-        'variable returned by *rbf.basis.get_r()*')
+        '`expr` must be a sympy expression containing the symbolic '
+        'variable returned by `rbf.basis.get_r()`')
     
     if not expr.has(_EPS):
       # if eps is not in the expression then substitute eps*r for r
@@ -279,7 +279,7 @@ class RBF(object):
     Returns
     -------
     out : (N,M) float array
-      Returns the RBFs with centers *c* evaluated at *x*
+      Returns the RBFs with centers `c` evaluated at `x`
 
     '''
     x = np.asarray(x,dtype=float)
@@ -357,13 +357,13 @@ class RBF(object):
         # form a linear polynomial and evaluate it at x=c
         lim = a - self.tol*b
         # try to simplify the expression to reduce numerical rounding
-        # error. Note that this should only be a function of *eps* now
+        # error. Note that this should only be a function of `eps` now
         # and the simplification should not take long
         lim = sympy.cancel(lim) 
         logger.debug('Done')
 
-      # create a piecewise symbolic function which is *lim* when *r_sym*<*tol*
-      # and *expr* otherwise
+      # create a piecewise symbolic function which is `lim` when `r_sym`<`tol`
+      # and `expr` otherwise
       expr = sympy.Piecewise((lim,r_sym<self.tol),(expr,True)) 
       
     func = ufuncify(x_sym+c_sym+(_EPS,),expr,backend='numpy')
@@ -381,42 +381,42 @@ class SparseRBF(RBF):
   ''' 
   Stores a symbolic expression of a compact Radial Basis Function
   (RBF) and evaluates the expression numerically when called. Calling
-  a *SparseRBF* instance will return a csc sparse matrix.
+  a `SparseRBF` instance will return a csc sparse matrix.
   
   Parameters
   ----------
   expr : sympy expression
     Sympy expression for the RBF. This must be a function of the
-    symbolic variable *r*, which can be obtained by calling *get_r()*
-    or *sympy.symbols('r')*. *r* is the radial distance to the RBF
-    center.  The expression may optionally be a function of *eps*,
-    which is a shape parameter obtained by calling *get_eps()* or
-    *sympy.symbols('eps')*.  If *eps* is not provided then *r* is
-    substituted with *r*eps*.
+    symbolic variable `r`, which can be obtained by calling `get_r()`
+    or `sympy.symbols('r')`. `r` is the radial distance to the RBF
+    center.  The expression may optionally be a function of `eps`,
+    which is a shape parameter obtained by calling `get_eps()` or
+    `sympy.symbols('eps')`.  If `eps` is not provided then `r` is
+    substituted with `r*eps`.
   
   support : float or sympy expression
     Indicates the support of the RBF. The RBF is set to zero for
-    radial distances greater than *support*, regardless of what *expr*
+    radial distances greater than `support`, regardless of what `expr`
     evaluates to. This can be a float or a sympy expression containing
-    *eps*.
+    `eps`.
     
   tol : float or sympy expression, optional  
     This is for when an RBF or its derivatives contain a removable
-    singularity at the center. If *tol* is specified, then a numerical
+    singularity at the center. If `tol` is specified, then a numerical
     estimate of the RBF center will be made, using linear
     extrapolation, and that estimate will be returned for all
-    evaluation points, *x*, that are within *tol* of the RBF center,
-    *c*. If the limit of the RBF at *x = c* is known, then it can be
-    manually specified with the *limits* arguments. *tol* can be a
-    float or a sympy expression containing *eps*. It may be necessary
-    to specify *tol* as a high precision float with *sympy.Float* to
+    evaluation points, `x`, that are within `tol` of the RBF center,
+    `c`. If the limit of the RBF at `x = c` is known, then it can be
+    manually specified with the `limits` arguments. `tol` can be a
+    float or a sympy expression containing `eps`. It may be necessary
+    to specify `tol` as a high precision float with `sympy.Float` to
     avoid numerical rounding errors.
 
   limits : dict, optional
     Contains the values of the RBF or its derivatives at the center.
-    For example, *{(0,1):2*eps}* indicates that the derivative of the
-    RBF along the second Cartesian direction is *2*eps* at *x = c*. If
-    this dictionary is provided and *tol* is not *None*, then it will
+    For example, `{(0,1):2*eps}` indicates that the derivative of the
+    RBF along the second Cartesian direction is `2*eps` at `x = c`. If
+    this dictionary is provided and `tol` is not `None`, then it will
     be searched before numerically estimating the limit.
 
   ''' 
@@ -426,15 +426,15 @@ class SparseRBF(RBF):
     
   @supp.setter
   def supp(self,value):
-    # make sure *supp* is a scalar or a sympy expression of *eps*
+    # make sure `supp` is a scalar or a sympy expression of `eps`
     value = sympy.sympify(value)
     other_symbols = value.free_symbols.difference({_EPS})
     if len(other_symbols) != 0:
       raise ValueError(
-        '*supp* cannot contain any symbols other than *eps*')
+        '`supp` cannot contain any symbols other than `eps`')
   
     self._supp = value
-    # reset *cache* now that we have a new *supp*
+    # reset `cache` now that we have a new `supp`
     self.clear_cache()
   
   def __init__(self,expr,supp,**kwargs):
@@ -466,7 +466,7 @@ class SparseRBF(RBF):
     Returns
     -------
     out : (N,M) csc sparse matrix
-      The RBFs with centers *c* evaluated at *x*
+      The RBFs with centers `c` evaluated at `x`
       
     '''
     x = np.asarray(x,dtype=float)
@@ -476,7 +476,7 @@ class SparseRBF(RBF):
 
     if not np.isscalar(eps):
       raise NotImplementedError(
-        '*eps* must be a scalar for *SparseRBF* instances')
+        '`eps` must be a scalar for `SparseRBF` instances')
 
     # convert scalar to (1,) array
     eps = np.array([eps],dtype=float)
@@ -497,12 +497,12 @@ class SparseRBF(RBF):
     # convert self.supp from a sympy expression to a float
     supp = float(self.supp.subs(_EPS,eps[0]))
 
-    # find the nonzero entries based on distances between *x* and *c*
+    # find the nonzero entries based on distances between `x` and `c`
     nx,nc = x.shape[0],c.shape[0]
     xtree = cKDTree(x)
     ctree = cKDTree(c)
-    # *idx* contains the indices of *x* which are within
-    # *supp* of each node in *c*
+    # `idx` contains the indices of `x` which are within
+    # `supp` of each node in `c`
     idx = ctree.query_ball_tree(xtree,supp)
 
     # total nonzero entries in the output array
@@ -511,12 +511,12 @@ class SparseRBF(RBF):
     data = np.zeros(nnz,dtype=float)
     rows = np.zeros(nnz,dtype=int)
     cols = np.zeros(nnz,dtype=int)
-    # *n* is the total number of data entries thus far
+    # `n` is the total number of data entries thus far
     n = 0
     for i,idxi in enumerate(idx):
-      # *m* is the number of nodes in *x* close to *c[[i]]*
+      # `m` is the number of nodes in `x` close to `c[[i]]`
       m = len(idxi)
-      # properly shape *x* and *c* for broadcasting
+      # properly shape `x` and `c` for broadcasting
       xi = x.T[:,idxi,None]
       ci = c.T[:,None,i][:,:,None]
       args = (tuple(xi) + tuple(ci) + (eps,))

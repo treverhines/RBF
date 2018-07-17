@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 def neighbors(x,m,p=None,vert=None,smp=None):
   ''' 
-  Returns the indices and distances for the *m* nearest neighbors to 
-  each node in *x*. If *p* is specified then this function returns the 
-  *m* nearest nodes in *p* to each nodes in *x*. Nearest neighbors 
-  cannot extend across the boundary defined by *vert* and *smp*.
+  Returns the indices and distances for the `m` nearest neighbors to 
+  each node in `x`. If `p` is specified then this function returns the 
+  `m` nearest nodes in `p` to each nodes in `x`. Nearest neighbors 
+  cannot extend across the boundary defined by `vert` and `smp`.
   
   Parameters
   ----------
@@ -30,7 +30,7 @@ def neighbors(x,m,p=None,vert=None,smp=None):
     Node positions.
     
   m : integer
-    Number of neighbors to find for each point in *x*.
+    Number of neighbors to find for each point in `x`.
     
   p : (M,D) array, optional
     Node positions.
@@ -43,10 +43,10 @@ def neighbors(x,m,p=None,vert=None,smp=None):
     
   Returns
   -------
-  idx : (N,*m*) integer array
+  idx : (N,m) integer array
     Indices of nearest points.
 
-  dist : (N,*m*) float array
+  dist : (N,m) float array
     Distance to the nearest points.
 
   '''
@@ -59,8 +59,8 @@ def neighbors(x,m,p=None,vert=None,smp=None):
 
 def neighbor_argsort(nodes,m=10,vert=None,smp=None):
   ''' 
-  Returns a permutation array that sorts *nodes* so that each node and 
-  its *m* nearest neighbors are close together in memory. This is done 
+  Returns a permutation array that sorts `nodes` so that each node and 
+  its `m` nearest neighbors are close together in memory. This is done 
   through the use of a KD Tree and the Reverse Cuthill-McKee 
   algorithm.
 
@@ -105,7 +105,7 @@ def neighbor_argsort(nodes,m=10,vert=None,smp=None):
 
 def snap_to_boundary(nodes,vert,smp,delta=1.0):
   ''' 
-  Snaps nodes to the boundary defined by *vert* and *smp*. This is 
+  Snaps nodes to the boundary defined by `vert` and `smp`. This is 
   done by slightly shifting each node along the basis directions and 
   checking to see if that caused a boundary intersection. If so, then 
   the intersecting node is reset at the point of intersection.
@@ -125,7 +125,7 @@ def snap_to_boundary(nodes,vert,smp,delta=1.0):
     
   delta : float, optional
     Controls the maximum snapping distance. The maximum snapping 
-    distance for each node is *delta* times the distance to the 
+    distance for each node is `delta` times the distance to the 
     nearest neighbor. This defaults to 1.0.
   
   Returns
@@ -151,14 +151,14 @@ def snap_to_boundary(nodes,vert,smp,delta=1.0):
   min_dist = np.full(n,np.inf,dtype=float)
   for i in range(dim):
     for sign in [-1.0,1.0]:
-      # *pert_nodes* is *nodes* shifted slightly along dimension *i*
+      # `pert_nodes` is `nodes` shifted slightly along dimension `i`
       pert_nodes = np.array(nodes,copy=True)
       pert_nodes[:,i] += delta*sign*dx
       # find which segments intersect the boundary
       idx, = (intersection_count(nodes,pert_nodes,vert,smp) > 0).nonzero()
       # find the intersection points
       pnt = intersection_point(nodes[idx],pert_nodes[idx],vert,smp)
-      # find the distance between *nodes* and the intersection point
+      # find the distance between `nodes` and the intersection point
       dist = np.linalg.norm(nodes[idx] - pnt,axis=1)
       # only snap nodes which have an intersection point that is 
       # closer than any of their previously found intersection points
@@ -190,7 +190,7 @@ def _disperse(free_nodes,fix_nodes,rho,m,delta,vert,smp):
   # compute the force proportionality constant between each node
   # based on their charges
   c = 1.0/(rho(nodes)[i,None]*rho(free_nodes)[:,None,None])
-  # calculate forces on each node resulting from the *n* nearest nodes 
+  # calculate forces on each node resulting from the `n` nearest nodes 
   forces = c*(free_nodes[:,None,:] - nodes[i,:])/d[:,:,None]**3
   # sum up all the forces for each node
   direction = np.sum(forces,1)
@@ -209,15 +209,15 @@ def _disperse(free_nodes,fix_nodes,rho,m,delta,vert,smp):
 def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
              m=None,delta=0.1,bound_force=False): 
   '''   
-  Returns *nodes* after beingly slightly dispersed. The disperson is 
+  Returns `nodes` after beingly slightly dispersed. The disperson is 
   analogous to electrostatic repulsion, where neighboring node exert a 
   repulsive force on eachother. The repulsive force for each node is 
-  constant, by default, but it can vary spatially by specifying *rho*. 
-  If a node intersects the boundary defined by *vert* and *smp* then 
+  constant, by default, but it can vary spatially by specifying `rho`. 
+  If a node intersects the boundary defined by `vert` and `smp` then 
   it will bounce off the boundary elastically. This ensures that no 
   nodes will leave the domain, assuming the domain is closed and all 
   nodes are initially inside. Using the electrostatic analogy, this 
-  function returns the nodes after a single *time step*, and greater 
+  function returns the nodes after a single `time step`, and greater 
   amounts of dispersion can be attained by calling this function 
   iteratively.
   
@@ -245,13 +245,13 @@ def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
 
   m : int, optional
     Number of neighboring nodes to use when calculating the repulsion 
-    force. When *m* is small, the equilibrium state tends to be a 
-    uniform node distribution (regardless of *rho*), when *m* is 
+    force. When `m` is small, the equilibrium state tends to be a 
+    uniform node distribution (regardless of `rho`), when `m` is 
     large, nodes tend to get pushed up against the boundaries.
 
   delta : float, optional
     Scaling factor for the node step size. The step size is equal to 
-    *delta* times the distance to the nearest neighbor.
+    `delta` times the distance to the nearest neighbor.
 
   bound_force : bool, optional
     If True, then nodes cannot repel other nodes through the domain 
@@ -360,13 +360,13 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
 
   m : int, optional
     Number of neighboring nodes to use when calculating the repulsion 
-    force. When *m* is small, the equilibrium state tends to be a 
-    uniform node distribution (regardless of *rho*), when *m* is 
+    force. When `m` is small, the equilibrium state tends to be a 
+    uniform node distribution (regardless of `rho`), when `m` is 
     large, nodes tend to get pushed up against the boundaries.
 
   delta : float, optional
     Scaling factor for the node step size in each iteration. The 
-    step size is equal to *delta* times the distance to the nearest 
+    step size is equal to `delta` times the distance to the nearest 
     neighbor.
 
   sort_nodes : bool, optional
@@ -391,7 +391,7 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
 
   Notes
   -----
-  It is assumed that *vert* and *smp* define a closed domain. If 
+  It is assumed that `vert` and `smp` define a closed domain. If 
   this is not the case, then it is likely that an error message will 
   be raised which says "ValueError: No intersection found for 
   segment ...".

@@ -59,7 +59,7 @@ def parmap(f,args,workers=None):
   f : callable
 
   a : list
-    list of arguments to *f*
+    list of arguments to `f`
     
   workers : int, optional
     number of subprocess to spawn. Defaults to half the available 
@@ -67,7 +67,7 @@ def parmap(f,args,workers=None):
 
   NOTES
   -----
-  If the *mkl* package is installed then this function first sets the 
+  If the `mkl` package is installed then this function first sets the 
   maximum number of allowed threads per process to 1. This is to help 
   prevents spawned subprocesses from using multiple cores. The number 
   of allowed threads is reset after all subprocesses have finished.

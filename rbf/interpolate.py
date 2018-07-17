@@ -177,7 +177,7 @@ class RBFInterpolant(object):
 
   def __call__(self,x,diff=None,chunk_size=1000):
     ''' 
-    Evaluates the interpolant at *x*
+    Evaluates the interpolant at `x`
 
     Parameters 
     ---------- 

@@ -16,7 +16,7 @@ class StencilError(Exception):
 
 def stencils_to_edges(stencils):
   ''' 
-  returns an array of edges defined by the *stencils*
+  returns an array of edges defined by the `stencils`
   
   Parameters
   ----------
@@ -38,7 +38,7 @@ def stencils_to_edges(stencils):
 
 def is_connected(stencils):
   ''' 
-  returns True if *stencils* forms a connected graph (i.e. connectivity 
+  returns True if `stencils` forms a connected graph (i.e. connectivity 
   greater than 0)
 
   Parameters
@@ -60,7 +60,7 @@ def is_connected(stencils):
 def connectivity(stencils):
   ''' 
   returns the minimum number of edges that must be removed in order to 
-  break the connectivity of the graph defined by the *stencils*
+  break the connectivity of the graph defined by the `stencils`
 
   Parameters
   ----------
@@ -80,7 +80,7 @@ def connectivity(stencils):
 
 def _closest_argsort(c,x):
   ''' 
-  Returns the indices of nodes in *x* sorted in order of distance to *c*
+  Returns the indices of nodes in `x` sorted in order of distance to `c`
   '''
   dist = np.sum((x - c[None,:])**2,axis=1)
   idx = np.argsort(dist)
@@ -89,8 +89,8 @@ def _closest_argsort(c,x):
 
 def _has_intersections(c,x,vert,smp):
   ''' 
-  Check if any of the edges (*c*,*x[i]*) intersect the boundary 
-  defined by *vert* and *smp*. 
+  Check if any of the edges (`c`,`x[i]`) intersect the boundary 
+  defined by `vert` and `smp`. 
   '''
   N = len(x)
   cext = np.repeat(c[None,:],N,axis=0)
@@ -103,9 +103,9 @@ def _has_intersections(c,x,vert,smp):
 
 def _stencil(c,x,n,vert,smp):
   ''' 
-  Forms a stencil about *c* made up of *n* nearby nodes in *x*. The 
+  Forms a stencil about `c` made up of `n` nearby nodes in `x`. The 
   stencil is constrained so that it does not reach across the boundary 
-  defined by *vert* and *smp*.
+  defined by `vert` and `smp`.
   '''
   sorted_idx = _closest_argsort(c,x)
   stencil_idx = []    
@@ -125,7 +125,7 @@ def _stencil(c,x,n,vert,smp):
 
 def _stencil_network_no_boundary(x,p,n):
   ''' 
-  Returns the *n* nearest points in *p* for each point in *x*
+  Returns the `n` nearest points in `p` for each point in `x`
   '''
   if n == 0:
     out = np.zeros((x.shape[0],0),dtype=int)
@@ -140,17 +140,17 @@ def _stencil_network_no_boundary(x,p,n):
 
 def stencil_network(x,p,n,vert=None,smp=None):
   ''' 
-  Forms a stencil for each point in *x*. Each stencil is made up of 
-  *n* nearby points from *p*. Stencils can be constrained to not 
-  intersect a boundary defined by *vert* and *smp*.
+  Forms a stencil for each point in `x`. Each stencil is made up of 
+  `n` nearby points from `p`. Stencils can be constrained to not 
+  intersect a boundary defined by `vert` and `smp`.
   
   Parameters
   ----------
   x : (N,D) array
-    Target points. A stencil will be made for each point in *x*.
+    Target points. A stencil will be made for each point in `x`.
 
   p : (M,D) array
-    Source points. The stencils will be made up of points from *p*.
+    Source points. The stencils will be made up of points from `p`.
 
   n : int
     Stencil size.
@@ -164,8 +164,8 @@ def stencil_network(x,p,n,vert=None,smp=None):
   Returns
   -------
   sn : (N,D) array
-    Indices of points in *p* which form a stencil for each point in 
-    *x*.
+    Indices of points in `p` which form a stencil for each point in 
+    `x`.
     
   '''
   x = np.asarray(x,dtype=float)

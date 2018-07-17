@@ -66,7 +66,7 @@ cpdef np.ndarray halton(long N,
                         long skip=1,
                         long prime_index=0):   
   ''' 
-  Computes a halton sequence with length *N* and dimensions *D*
+  Computes a halton sequence with length `N` and dimensions `D`
 
   Parameters
   ----------

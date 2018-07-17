@@ -52,8 +52,8 @@ two examples:
 This module is primarily use to find whether and where line segments 
 intersect a simplicial complex and whether points are contained within 
 a closed simplicial complex.  For example, one can determine whether a 
-collection of points, saved as *points*, are contained within a 
-simplicial complex, defined by *vertices* and *simplices* with the 
+collection of points, saved as `points`, are contained within a 
+simplicial complex, defined by `vertices` and `simplices` with the 
 command
 
 >>> contains(points,vertices,simplices)
@@ -61,7 +61,7 @@ command
 which returns a boolean array.
 
 One can find the number of times a collection of line segments, 
-defined by *start_points* and *end_points*, intersect a simplicial 
+defined by `start_points` and `end_points`, intersect a simplicial 
 complex with the command
 
 >> intersection_count(start_points,end_points,vertices,simplices)
@@ -145,7 +145,7 @@ cdef struct triangle3d:
 
 cdef segment2d* allocate_segment2d_array(long n):
   ''' 
-  This is used in *contains_2d* and *intersection_count_2d*
+  This is used in `contains_2d` and `intersection_count_2d`
   '''
   cdef:
     segment2d* out = <segment2d*>malloc(n*sizeof(segment2d))
@@ -157,7 +157,7 @@ cdef segment2d* allocate_segment2d_array(long n):
 
 cdef segment3d* allocate_segment3d_array(long n):
   ''' 
-  This is used in *contains_3d* and *intersection_count_3d*
+  This is used in `contains_3d` and `intersection_count_3d`
   '''
   cdef:
     segment3d* out = <segment3d*>malloc(n*sizeof(segment3d))
@@ -1054,15 +1054,15 @@ def intersection_point(start_points,end_points,vertices,simplices):
   ''' 
   Returns the intersection points between line segments and a 
   simplicial complex.  The line segments are described by 
-  *start_points* and *end_points*, and the simplicial complex is 
-  described by *vertices* and *simplices*. This function works for 1, 
+  `start_points` and `end_points`, and the simplicial complex is 
+  described by `vertices` and `simplices`. This function works for 1, 
   2, and 3 spatial dimensions.
 
   Parameters
   ----------
   start_points : (N,D) array
-    Vertices describing one end of the line segments. *N* is the 
-    number of line segments and *D* is the number of dimensions
+    Vertices describing one end of the line segments. `N` is the 
+    number of line segments and `D` is the number of dimensions
 
   end_points : (N,D) array 
     Vertices describing the other end of the line segments. 
@@ -1123,22 +1123,22 @@ def intersection_point(start_points,end_points,vertices,simplices):
 def intersection_normal(start_points,end_points,vertices,simplices):
   ''' 
   Returns the normal vectors to the simplices intersected by the line 
-  segments. The line segments are described by *start_points* and 
-  *end_points*. This function works for 1, 2, and 3 spatial 
+  segments. The line segments are described by `start_points` and 
+  `end_points`. This function works for 1, 2, and 3 spatial 
   dimensions. The normal vector is in the direction that points 
   towards end_points
 
   Parameters
   ----------
   start_points : (N,D) array
-    Vertices describing one end of the line segments. *N* is the 
-    number of line segments and *D* is the number of dimensions.
+    Vertices describing one end of the line segments. `N` is the 
+    number of line segments and `D` is the number of dimensions.
 
   end_points : (N,D) array 
     Vertices describing the other end of the line segments.
 
   vertices : (M,D) array 
-    Vertices within the simplicial complex. *M* is the number of 
+    Vertices within the simplicial complex. `M` is the number of 
     vertices
 
   simplices : (P,D) array
@@ -1195,21 +1195,21 @@ def intersection_normal(start_points,end_points,vertices,simplices):
 def intersection_index(start_points,end_points,vertices,simplices):
   ''' 
   Returns the indices of the simplices intersected by the line 
-  segments. The line segments are described by *start_points* and 
-  *end_points*. This function works for 1, 2, and 3 spatial 
+  segments. The line segments are described by `start_points` and 
+  `end_points`. This function works for 1, 2, and 3 spatial 
   dimensions. 
 
   Parameters
   ----------
   start_points : (N,D) array
-    Vertices describing one end of the line segments. *N* is the 
-    number of line segments and *D* is the number of dimensions
+    Vertices describing one end of the line segments. `N` is the 
+    number of line segments and `D` is the number of dimensions
 
   end_points : (N,D) array 
     Vertices describing the other end of the line segments
 
   vertices : (M,D) array 
-    Vertices within the simplicial complex. *M* is the number of 
+    Vertices within the simplicial complex. `M` is the number of 
     vertices
 
   simplices : (P,D) array
@@ -1225,7 +1225,7 @@ def intersection_index(start_points,end_points,vertices,simplices):
   -----
   This function fails when a intersection is not found for a line
   segment. If there are multiple intersections then the intersection 
-  closest to *start_point* is used.
+  closest to `start_point` is used.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1276,20 +1276,20 @@ def intersection_index(start_points,end_points,vertices,simplices):
 def intersection_count(start_points,end_points,vertices,simplices):
   ''' 
   Returns the number of simplices crossed by the line segments. The 
-  line segments are described by *start_points* and *end_points*. This 
+  line segments are described by `start_points` and `end_points`. This 
   function works for 1, 2, and 3 spatial dimensions.
 
   Parameters
   ----------
   start_points : (N,D) array
-    Vertices describing one end of the line segments. *N* is the 
-    number of line segments and *D* is the number of dimensions
+    Vertices describing one end of the line segments. `N` is the 
+    number of line segments and `D` is the number of dimensions
 
   end_points : (N,D) array 
     Vertices describing the other end of the line segments
 
   vertices : (M,D) array 
-    Vertices within the simplicial complex. *M* is the number of 
+    Vertices within the simplicial complex. `M` is the number of 
     vertices
 
   simplices : (P,D) array
@@ -1304,7 +1304,7 @@ def intersection_count(start_points,end_points,vertices,simplices):
   Notes
   -----
   This function is parallelized. Set the number of threads used with 
-  the environment variable *OMP_NUM_THREADS*.
+  the environment variable `OMP_NUM_THREADS`.
 
   '''
   start_points = np.asarray(start_points,dtype=float)
@@ -1346,7 +1346,7 @@ def contains(points,vertices,simplices):
   ''' 
   Returns a boolean array identifying whether the points are contained 
   within a closed simplicial complex. The simplicial complex is 
-  described by *vertices* and *simplices*. This function works for 1, 
+  described by `vertices` and `simplices`. This function works for 1, 
   2, and 3 spatial dimensions.
 
   Parameters
@@ -1381,7 +1381,7 @@ def contains(points,vertices,simplices):
   simplices
 
   This function is parallelized. Set the number of threads used with 
-  the environment variable *OMP_NUM_THREADS*.
+  the environment variable `OMP_NUM_THREADS`.
 
   '''
   points = np.asarray(points)
@@ -1448,9 +1448,9 @@ def simplex_normals(vert,smp):
   if (dim != 2) & (dim != 3):
     raise ValueError('simplicial complex must be 2 or 3 dimensional')
 
-  # I *could* find the normal vectors for each simplex by converting 
+  # I `could` find the normal vectors for each simplex by converting 
   # the vertices and simplices to segment and triangle C structures 
-  # and then use the *segment_normal_2d* and *triangle_normal_3d* C 
+  # and then use the `segment_normal_2d` and `triangle_normal_3d` C 
   # functions. However, I will compute the normals directly from the 
   # numpy arrays. This is all vectorized so it should not be any 
   # slower than using the C functions.

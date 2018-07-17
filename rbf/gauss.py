@@ -166,7 +166,7 @@ where
   \\bar{z}(x) = \\bar{u}(x) + 
                 \mathbf{k}(x,\mathbf{y})
                 \mathbf{K}(\mathbf{y})^{-1}
-                \mathbf{r}^`,
+                \mathbf{r}^*,
 
 .. math::
   C_{z}(x,x') = C_u(x,x') - 
@@ -210,7 +210,7 @@ We define the residual vector as
 .. math::
   \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
   
-and :math:`\mathbf{r}^`` is the residual vector which has been
+and :math:`\mathbf{r}^*` is the residual vector which has been
 suitably padded with zeros. Note that there are no improper basis 
 functions in :math:`z` because it is assumed that there is enough data
 in :math:`\mathbf{d}` to constrain the basis functions in :math:`u`.
