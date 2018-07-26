@@ -384,13 +384,118 @@ from rbf.linalg import (as_array, as_sparse_or_array,
 LOGGER = logging.getLogger(__name__)
 
 
+def differentiator(delta):
+  '''
+  Decorator that makes a function differentiable. The derivatives of
+  the function are approximated by finite differences. The function
+  must take a single (N,D) array of positions as input. The output
+  function takes a single (N,D) array of positions and a (D,) array
+  derivative specification.
+
+  Parameters
+  ----------
+  delta : float
+    step size to use for finite differences
+
+  '''        
+  def _differentiator(fin):
+    '''The actual decorator'''
+    def fout(x,diff):
+      '''The returned differentiable mean function'''
+      if sum(diff) == 0:
+        # If no derivatives are specified then return the
+        # undifferentiated mean. Make sure the output is a numpy
+        # array.
+        out = as_array(fin(x))
+        return out
+            
+      else:
+        # get the axis we are differentiating with respect to
+        diff_axis = np.argmax(diff)
+        # make the perturbations    
+        x_plus_dx = np.copy(x)
+        x_plus_dx[:,diff_axis] += delta
+        # make a copy of `diff` and lower the derivative along
+        # `diff_axis` by one.
+        diff_minus_one = np.copy(diff)
+        diff_minus_one[diff_axis] -= 1
+        # compute a first order forward finite difference
+        out = ( fout(x_plus_dx, diff_minus_one) - 
+                fout(x,         diff_minus_one) ) / delta
+        return out
+
+    return fout
+
+  return _differentiator
+            
+
+def covariance_differentiator(delta):
+  '''
+  Decorator that makes a covariance function differentiable. The
+  derivatives of the covariance function are approximated by finite
+  differences. The covariance function must take an (N,D) array and an
+  (M,D) array of positions as input. The output function takes an
+  (N,D) array and an (M,D) array of positionals and two (D,) array
+  derivative specifications.
+
+  Parameters
+  ----------
+  delta : float
+    step size to use for finite differences
+
+  '''        
+  def _covariance_differentiator(fin):
+    '''The actual decorator'''
+    def fout(x1,x2,diff1,diff2):
+      '''The returned differentiable mean function'''
+      if (sum(diff1) == 0) & (sum(diff2) == 0):
+        # If no derivatives are specified then return the
+        # undifferentiated covariance. 
+        return as_sparse_or_array(fin(x1,x2))
+                
+      elif sum(diff1) != 0:
+        # get the axis we are differentiating with respect to
+        diff1_axis = np.argmax(diff1)
+        # make the perturbations    
+        x1_plus_dx = np.copy(x1)
+        x1_plus_dx[:, diff1_axis] += delta
+        # make a copy of `diff1` and lower the derivative along
+        # `diff1_axis` by one.
+        diff1_minus_one = np.copy(diff1)
+        diff1_minus_one[diff1_axis] -= 1
+        # compute a first order forward finite difference
+        out = ( fout(x1_plus_dx, x2, diff1_minus_one, diff2) - 
+                fout(x1,         x2, diff1_minus_one, diff2) ) / delta
+        return out
+
+      else:
+        # sum(diff2) != 0 
+        # get the axis we are differentiating with respect to
+        diff2_axis = np.argmax(diff2)
+        # make the perturbations    
+        x2_plus_dx = np.copy(x2)
+        x2_plus_dx[:, diff2_axis] += delta
+        # make a copy of `diff2` and lower the derivative along
+        # `diff2_axis` by one.
+        diff2_minus_one = np.copy(diff2)
+        diff2_minus_one[diff2_axis] -= 1
+        # compute a first order forward finite difference
+        out = ( fout(x1, x2_plus_dx, diff1, diff2_minus_one) - 
+                fout(x1,         x2, diff1, diff2_minus_one) ) / delta
+        return out
+    
+    return fout
+       
+  return _covariance_differentiator
+
+
 def _max(a,b):
   '''
   Redefine max for python 3 compatibility. `None` is considered
   smaller than everything.
   '''
   if (a is None) & (b is None):
-    return None
+        return None
     
   elif a is None:
     return b
@@ -1651,16 +1756,11 @@ def gpiso(phi,params,dim=None):
 
   Notes
   -----
-  1. If `phi` is scale invariant, such as for odd order polyharmonic 
-  splines, then `b` and `c` have inverse effects on the resulting 
-  `GaussianProcess` and thus only one of them needs to be chosen while 
-  the other can be fixed at an arbitary value.
-  
-  2. Not all radial basis functions are positive definite, which means 
-  that it is possible to instantiate an invalid `GaussianProcess`. The 
-  method `is_positive_definite` provides a necessary but not 
-  sufficient test for positive definiteness. Examples of predefined 
-  `RBF` instances which are positive definite include: `rbf.basis.se`, 
+  Not all radial basis functions are positive definite, which means
+  that it is possible to instantiate an invalid `GaussianProcess`. The
+  method `is_positive_definite` provides a necessary but not
+  sufficient test for positive definiteness. Examples of predefined
+  `RBF` instances which are positive definite include: `rbf.basis.se`,
   `rbf.basis.ga`, `rbf.basis.exp`, `rbf.basis.iq`, `rbf.basis.imq`.
 
   '''
@@ -1881,3 +1981,60 @@ def gppoly(order,dim=None):
   
   out = gpbfci(basis,dim=dim)  
   return out
+
+
+def gpgibbs(ls,sigma,delta=1e-4):
+  '''
+  Returns a `GaussianProcess` with zero mean and a Gibbs covariance
+  function. The Gibbs kernel has a spatially varying lengthscale.
+
+  Parameters
+  ----------
+  ls: func
+    Function that takes an (N,D) array of positions and returns an
+    (N,D) array indicating the lengthscale along each dimension at
+    those positions.
+
+  sigma: float
+    Standard deviation of the Gaussian process.
+    
+  delta: float, optional
+    Finite difference spacing to use when calculating the
+    derivative of the `GaussianProcess`. An analytical solution
+    for the derivative is not available because the derivative of
+    the `ls` function is unknown.
+  '''        
+  @covariance_differentiator(delta)
+  def covariance(x1,x2):
+    '''
+    covariance function for the Gibbs Gaussian process. 
+    '''
+    dim = x1.shape[1]
+    lsx1 = ls(x1)
+    lsx2 = ls(x2)
+
+    # sanitize the output for `ls`
+    lsx1 = as_array(lsx1,dtype=float)
+    lsx2 = as_array(lsx2,dtype=float)
+    assert_shape(lsx1,x1.shape,'ls(x1)')
+    assert_shape(lsx2,x2.shape,'ls(x2)')
+
+    coeff = np.ones((x1.shape[0],x2.shape[0]))
+    exponent = np.zeros((x1.shape[0],x2.shape[0]))
+
+    for i in range(dim):
+        a = 2 * lsx1[:,None,i] * lsx2[None,:,i]
+        b = lsx1[:,None,i]**2 + lsx2[None,:,i]**2
+        coeff *= np.sqrt( a / b )
+
+    for i in range(dim):
+        a = ( x1[:,None,i] - x2[None,:,i] )**2
+        b = lsx1[:,None,i]**2 + lsx2[None,:,i]**2
+        exponent -= ( a / b )
+
+    out = sigma**2*coeff*np.exp(exponent)
+    return out
+
+  out = GaussianProcess(_zero_mean,covariance)
+  return out
+
