@@ -14,9 +14,6 @@ def test_func1d(x):
 def test_func1d_diffx(x):
   return np.cos(x[:,0])
 
-def test_func1d(x):
-  return np.sin(x[:,0])
-
 def test_func2d(x):
   return np.sin(x[:,0])*np.cos(x[:,1])
 
@@ -156,3 +153,69 @@ class Test(unittest.TestCase):
     #plt.fill_between(x[:,0],mean-std,mean+std,color='b',alpha=0.2)
     #plt.plot(x,test_func1d(x),'k-')
     #plt.show()
+
+  def test_differentiator(self):
+    # make sure the differentiaion decorator works
+    @rbf.gauss.differentiator(1e-5)
+    def func1(x):
+      return np.sin(x[:,0])*np.cos(x[:,1])
+
+    def func1_dx0(x):    
+      return np.cos(x[:,0])*np.cos(x[:,1])
+
+    def func1_dx1(x):    
+      return -np.sin(x[:,0])*np.sin(x[:,1])
+
+    x = np.random.random((5,2))    
+    dudx0 = func1(x, (1, 0))
+    dudx1 = func1(x, (0, 1))
+    true_dudx0 = func1_dx0(x)
+    true_dudx1 = func1_dx1(x)
+    self.assertTrue(np.allclose(dudx0,true_dudx0,atol=1e-4,rtol=1e-4))
+    self.assertTrue(np.allclose(dudx1,true_dudx1,atol=1e-4,rtol=1e-4))
+
+  def test_covariance_differentiator_0(self):
+    # make sure the covariance differentiaion decorator works
+    @rbf.gauss.covariance_differentiator(1e-5)
+    def func2(x,y):
+      return np.sin(x[:,0])*np.cos(y[:,0])
+
+    def func2_dx0(x,y):    
+      return np.cos(x[:,0])*np.cos(y[:,0])
+
+    def func2_dy0(x,y):    
+      return -np.sin(x[:,0])*np.sin(y[:,0])
+
+    x = np.random.random((5,1))    
+    y = np.random.random((5,1))    
+    dudx0 = func2(x, y, (1,), (0,))
+    dudy0 = func2(x, y, (0,), (1,))
+    true_dudx0 = func2_dx0(x, y)
+    true_dudy0 = func2_dy0(x, y)
+    self.assertTrue(np.allclose(dudx0,true_dudx0,atol=1e-4,rtol=1e-4))
+    self.assertTrue(np.allclose(dudy0,true_dudy0,atol=1e-4,rtol=1e-4))
+
+  def test_covariance_differentiator_1(self):
+    '''make sure the covariance differentiator works for sparse
+       covariance functions'''
+    @rbf.gauss.covariance_differentiator(1e-5)
+    def sparse_cov(x,y):
+      gp = rbf.gauss.gpiso(rbf.basis.spwen12,(0.0,1.0,1.0))
+      return gp._covariance(x,y,np.array([0]),np.array([0]))    
+
+    def sparse_cov_dx0(x,y):
+      gp = rbf.gauss.gpiso(rbf.basis.spwen12,(0.0,1.0,1.0))
+      return gp._covariance(x,y,np.array([1]),np.array([0]))    
+
+    def sparse_cov_dy0(x,y):
+      gp = rbf.gauss.gpiso(rbf.basis.spwen12,(0.0,1.0,1.0))
+      return gp._covariance(x,y,np.array([0]),np.array([1]))    
+
+    x = np.random.random((3,1))    
+    y = np.random.random((2,1))    
+    dudx0 = sparse_cov(x, y, (1,), (0,)).A
+    dudy0 = sparse_cov(x, y, (0,), (1,)).A
+    true_dudx0 = sparse_cov_dx0(x, y).A
+    true_dudy0 = sparse_cov_dy0(x, y).A
+    self.assertTrue(np.allclose(dudx0,true_dudx0,atol=1e-4,rtol=1e-4))
+    self.assertTrue(np.allclose(dudy0,true_dudy0,atol=1e-4,rtol=1e-4))

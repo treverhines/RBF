@@ -388,7 +388,7 @@ def differentiator(delta):
   '''
   Decorator that makes a function differentiable. The derivatives of
   the function are approximated by finite differences. The function
-  must take a single (N,D) array of positions as input. The output
+  must take a single (N,D) array of positions as input. The returned
   function takes a single (N,D) array of positions and a (D,) array
   derivative specification.
 
@@ -434,8 +434,8 @@ def covariance_differentiator(delta):
   Decorator that makes a covariance function differentiable. The
   derivatives of the covariance function are approximated by finite
   differences. The covariance function must take an (N,D) array and an
-  (M,D) array of positions as input. The output function takes an
-  (N,D) array and an (M,D) array of positionals and two (D,) array
+  (M,D) array of positions as input. The returned function takes an
+  (N,D) array and an (M,D) array of positions and two (D,) array
   derivative specifications.
 
   Parameters
