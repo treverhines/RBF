@@ -10,7 +10,7 @@ import numpy as np
 from rbf.fd import weight_matrix
 from rbf.basis import phs3
 from rbf.geometry import contains
-from rbf.nodes import menodes
+from rbf.nodes import min_energy_nodes
 import matplotlib.pyplot as plt
 from scipy.sparse import vstack
 from scipy.sparse.linalg import spsolve
@@ -37,17 +37,15 @@ order = 2 # Order of the added polynomials. This should be at least as
           # case). Larger values may improve accuracy
 
 # generate nodes
-nodes,smpid = menodes(N,vert,smp) 
-edge_idx, = (smpid>=0).nonzero() 
-interior_idx, = (smpid==-1).nonzero() 
+nodes,indices = min_energy_nodes(N,vert,smp) 
 # create "left hand side" matrix
-A_int = weight_matrix(nodes[interior_idx],nodes,diffs=[[2,0],[0,2]],
-                      n=n,basis=basis,order=order)
-A_edg = weight_matrix(nodes[edge_idx],nodes,diffs=[0,0]) 
+A_int = weight_matrix(nodes[indices['interior']],nodes,
+                      diffs=[[2,0],[0,2]],n=n,basis=basis,order=order)
+A_edg = weight_matrix(nodes[indices['boundary']],nodes,diffs=[0,0]) 
 A = vstack((A_int,A_edg))
 # create "right hand side" vector
-d_int = -1*np.ones_like(interior_idx)
-d_edg = np.zeros_like(edge_idx)
+d_int = -1*np.ones_like(indices['interior'])
+d_edg = np.zeros_like(indices['boundary'])
 d = np.hstack((d_int,d_edg))
 # find the solution at the nodes
 u_soln = spsolve(A,d) 

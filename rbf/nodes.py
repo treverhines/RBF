@@ -6,18 +6,19 @@ from __future__ import division
 import numpy as np
 import rbf.halton
 import logging
-from scipy.sparse import csr_matrix
+from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 from rbf.stencil import stencil_network
 from rbf.geometry import (intersection_count,
                           intersection_index,
                           intersection_point,
                           intersection_normal,
+                          simplex_outward_normals,
                           contains)
 logger = logging.getLogger(__name__)
 
-
-def neighbors(x,m,p=None,vert=None,smp=None):
+  
+def _neighbors(x,m,p=None,vert=None,smp=None):
   ''' 
   Returns the indices and distances for the `m` nearest neighbors to 
   each node in `x`. If `p` is specified then this function returns the 
@@ -50,14 +51,15 @@ def neighbors(x,m,p=None,vert=None,smp=None):
     Distance to the nearest points.
 
   '''
-  x = np.asarray(x,dtype=float)
-  if p is None: p = x
+  if p is None: 
+    p = x
+    
   idx = stencil_network(x,p,m,vert=vert,smp=smp)
   dist = np.sqrt(np.sum((x[:,None,:] - p[idx])**2,axis=2))
   return idx,dist
 
 
-def neighbor_argsort(nodes,m=10,vert=None,smp=None):
+def neighbor_argsort(nodes,m=None,vert=None,smp=None):
   ''' 
   Returns a permutation array that sorts `nodes` so that each node and 
   its `m` nearest neighbors are close together in memory. This is done 
@@ -91,14 +93,17 @@ def neighbor_argsort(nodes,m=10,vert=None,smp=None):
 
   '''
   nodes = np.asarray(nodes,dtype=float)
+  if m is None:
+    m = 3**nodes.shape[1]
+    
   m = min(m,nodes.shape[0])
   # find the indices of the nearest n nodes for each node
-  idx,dist = neighbors(nodes,m,vert=vert,smp=smp)
+  idx,dist = _neighbors(nodes,m,vert=vert,smp=smp)
   # efficiently form adjacency matrix
   col = idx.ravel()
   row = np.repeat(np.arange(nodes.shape[0]),m)
   data = np.ones(nodes.shape[0]*m,dtype=bool)
-  mat = csr_matrix((data,(row,col)),dtype=bool)
+  mat = csc_matrix((data,(row,col)),dtype=bool)
   permutation = reverse_cuthill_mckee(mat)
   return permutation
 
@@ -144,7 +149,7 @@ def snap_to_boundary(nodes,vert,smp,delta=1.0):
   smp = np.asarray(smp,dtype=int)
   n,dim = nodes.shape
   # find the distance to the nearest node
-  dx = neighbors(nodes,2)[1][:,1]
+  dx = _neighbors(nodes,2)[1][:,1]
   # allocate output arrays
   out_smpid = np.full(n,-1,dtype=int)
   out_nodes = np.array(nodes,copy=True)
@@ -164,7 +169,9 @@ def snap_to_boundary(nodes,vert,smp,delta=1.0):
       # closer than any of their previously found intersection points
       snap = dist < min_dist[idx]
       snap_idx = idx[snap]
-      out_smpid[snap_idx] = intersection_index(nodes[snap_idx],pert_nodes[snap_idx],vert,smp)
+      out_smpid[snap_idx] = intersection_index(nodes[snap_idx],
+                                               pert_nodes[snap_idx],
+                                               vert,smp)
       out_nodes[snap_idx] = pnt[snap]
       min_dist[snap_idx] = dist[snap]
 
@@ -184,7 +191,7 @@ def _disperse(free_nodes,fix_nodes,rho,m,delta,vert,smp):
   # form collection of all nodes
   nodes = np.vstack((free_nodes,fix_nodes))
   # find index and distance to nearest nodes
-  i,d = neighbors(free_nodes,m,p=nodes,vert=vert,smp=smp)
+  i,d = _neighbors(free_nodes,m,p=nodes,vert=vert,smp=smp)
   # dont consider a node to be one of its own nearest neighbors
   i,d = i[:,1:],d[:,1:]
   # compute the force proportionality constant between each node
@@ -315,11 +322,38 @@ def disperse(nodes,vert=None,smp=None,rho=None,fix_nodes=None,
   crossed = intersection_count(nodes,out,vert,smp) > 0
   out[crossed] = nodes[crossed]
   return out
-
   
-def menodes(N,vert,smp,rho=None,fix_nodes=None,
-            itr=100,m=None,delta=0.05,
-            sort_nodes=True,bound_force=False):
+
+def _create_ghost_nodes(nodes,smpid,vert,smp,idx):      
+  '''
+  Create ghost nodes for `nodes[idx]`
+  '''
+  # make sure that we are creating ghost nodes only for boundary nodes
+  if np.any(smpid[idx] == -1):
+    raise ValueError('cannot create ghost nodes for interior nodes')
+
+  # get the normal vectors for each simplex  
+  simplex_normals = simplex_outward_normals(vert,smp)
+  # get the normal vectors for each boundary node
+  node_normals = simplex_normals[smpid[idx]]
+  # get the shortest distance between any two nodes. This will be used
+  # to determine how far the ghost nodes should be from the boundary
+  dx = np.min(_neighbors(nodes,2)[1][:,1])
+  # create ghost nodes
+  out = nodes[idx] + dx*node_normals
+  return out
+  
+
+def min_energy_nodes(N,vert,smp,
+                     rho=None,
+                     fix_nodes=None,
+                     itr=100,
+                     m=None,
+                     delta=0.05,
+                     boundary_groups=None,
+                     boundary_groups_with_ghosts=None,
+                     return_normals=False,
+                     bound_force=False):
   ''' 
   Generates nodes within a 1, 2, or 3 dimensional domain using a 
   minimum energy algorithm.
@@ -369,9 +403,15 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     step size is equal to `delta` times the distance to the nearest 
     neighbor.
 
-  sort_nodes : bool, optional
-    If True, nodes that are close in space will also be close in 
-    memory. This is done with the Reverse Cuthill-McKee algorithm.
+  boundary_groups: dict, optional
+    Dictionary defining the boundary groups. The keys are the names of
+    the groups and the values are lists of simplex indices making up
+    each group. This defaults to one group named 'boundary' which is
+    made up of all the simplices.
+
+  boundary_groups_with_ghosts: list of strs, optional
+    List of boundary groups that will be given ghost nodes. By
+    default, no groups are given ghost nodes
       
   bound_force : bool, optional
     If True, then nodes cannot repel other nodes through the domain 
@@ -410,6 +450,12 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
     # spatial dimensions
     m = 3**vert.shape[1]
 
+  if boundary_groups is None:
+    boundary_groups = {'boundary':range(smp.shape[0])}
+
+  if boundary_groups_with_ghosts is None:
+    boundary_groups_with_ghosts = []
+        
   # form bounding box for the domain so that a RNG can produce values
   # that mostly lie within the domain
   lb = np.min(vert,axis=0)
@@ -466,12 +512,63 @@ def menodes(N,vert,smp,rho=None,fix_nodes=None,
 
   logger.debug('snapping nodes to boundary') 
   nodes,smpid = snap_to_boundary(nodes,vert,smp,delta=0.5)
-  if sort_nodes:
-    # sort so that nodes that are close in space are also close in 
-    # memory
-    idx = neighbor_argsort(nodes,m=m)
-    nodes = nodes[idx]
-    smpid = smpid[idx] 
+
+  # put the nodes into groups based on which (if any) simplex the
+  # nodes are attached to. The groups are defined in the
+  # `boundary_groups` dictionary.
+  indices = {}
+  # There will always be an 'interior' group  
+  indices['interior'] = [i for i,s in enumerate(smpid) if s == -1]
+  indices['interior'] = np.array(indices['interior'],dtype=int)
+  # Form the boundary groups
+  for group_name,group_smp in boundary_groups.items():
+    indices[group_name] = [i for i,s in enumerate(smpid) if s in group_smp]
+    indices[group_name] = np.array(indices[group_name],dtype=int)
+
+  # create the normal vectors for the boundary nodes if requested
+  if return_normals:
+    normals = {} 
+    simplex_normals = simplex_outward_normals(vert,smp)
+    for group_name in boundary_groups.keys():
+      group_indices = indices[group_name]
+      # get the normal vectors for each boundary node
+      normals[group_name] = simplex_normals[smpid[group_indices]]
+
+
+  # create the ghost nodes and create groups for them
+  if boundary_groups_with_ghosts:
+      logger.debug('forming ghost nodes') 
   
-  logger.debug('finished generating nodes') 
-  return nodes,smpid
+  for group_name in boundary_groups_with_ghosts:
+    # get the indices of nodes in this group
+    idx = indices[group_name]
+    # create the ghost nodes for this group. Do not use any existing
+    # ghost nodes in this computation
+    ghosts = _create_ghost_nodes(nodes[:N],smpid,vert,smp,idx)
+    # append the ghost nodes indices to the dictionary of group
+    # indices
+    start = nodes.shape[0] 
+    stop = nodes.shape[0] + ghosts.shape[0]
+    indices[group_name + '_ghosts'] = np.arange(start,stop)
+    # append the ghosts to the nodes
+    nodes = np.vstack((nodes,ghosts))
+
+  # sort so that nodes that are close in space are also close in
+  # memory
+  logger.debug('sorting nodes') 
+  sort_idx = neighbor_argsort(nodes)
+  nodes = nodes[sort_idx]
+  # update the indices because of this sorting
+  reverse_sort_idx = np.argsort(sort_idx)
+  for k,v in indices.items():
+    indices[k] = reverse_sort_idx[v]
+  
+  logger.debug('done') 
+  if return_normals:
+    return nodes, indices, normals
+
+  else:  
+    return nodes, indices
+
+
+
