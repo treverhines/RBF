@@ -8,17 +8,17 @@ nodes which, for all intents and purposes, are necessary when dealing
 with Neumann boundary conditions.
 '''
 import numpy as np
-from mayavi import mlab
-from matplotlib import cm
-from scipy.sparse import vstack,hstack
-from scipy.sparse.linalg import spsolve
-from scipy.interpolate import griddata
-from rbf.nodes import menodes,neighbors
-from rbf.fd import weight_matrix
-from rbf.geometry import simplex_outward_normals,contains
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import scipy.sparse as sp
+import scipy.sparse.linalg as spla
+from rbf.nodes import min_energy_nodes
+from rbf.fd import weight_matrix, add_rows
 from rbf.fdbuild import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement) 
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 ## User defined parameters
 #####################################################################
@@ -31,9 +31,9 @@ smp = np.array([[0,1,3],[0,2,3],[0,1,4],[1,5,4],
                 [0,2,6],[0,4,6],[1,7,5],[1,3,7],
                 [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
 # number of nodes 
-N = 1500
+N = 500
 # size of RBF-FD stencils
-n = 35
+n = 25
 # lame parameters
 lamb = 1.0
 mu = 1.0
@@ -43,48 +43,95 @@ body_force = 1.0
 ## Build and solve for displacements and strain
 #####################################################################
 # generate nodes. Note that this may take a while
-nodes,smpid = menodes(N,vert,smp)
-# find which nodes are attached to each simplex
-int_idx = np.nonzero(smpid == -1)[0].tolist()
-fix_idx = np.nonzero((smpid == 0) | (smpid == 1))[0].tolist()
-free_idx = np.nonzero(smpid > 1)[0].tolist()
-# find normal vectors to each free surface node
-simplex_normals = simplex_outward_normals(vert,smp)
-normals = simplex_normals[smpid[free_idx]]
-# add ghost nodes next to free surface nodes
-dx = np.min(neighbors(nodes,2)[1][:,1])
-nodes = np.vstack((nodes,nodes[free_idx] + dx*normals))
+boundary_groups = {'fix':[0,1],
+                   'free':range(2,12)}
+nodes, indices, normals = min_energy_nodes(
+                            N,vert,smp,
+                            boundary_groups=boundary_groups,
+                            boundary_groups_with_ghosts=['free'])
+N = nodes.shape[0]
 
-# The "left hand side" matrices are built with the convenience 
-# functions from *rbf.fdbuild*. Read the documentation for these 
+fix = indices['fix']
+free = indices['free']
+interior_and_free = np.hstack((indices['interior'], indices['free']))
+interior_and_ghosts = np.hstack((indices['interior'], indices['free_ghosts']))
+interior_and_boundary = np.hstack((indices['interior'], indices['free'], indices['fix']))
+
+# The "left hand side" matrices are built with the convenience
+# functions from *rbf.fdbuild*. Read the documentation for these
 # functions to better understand this step.
-A = elastic3d_body_force(nodes[int_idx+free_idx],nodes,lamb=lamb,mu=mu,n=n)
-A += elastic3d_surface_force(nodes[free_idx],normals,nodes,lamb=lamb,mu=mu,n=n)
-A += elastic3d_displacement(nodes[fix_idx],nodes,lamb=lamb,mu=mu,n=1)
-A = vstack(hstack(i) for i in A).tocsr()
-# Create the "right hand side" vector components for body forces
-f_x = np.zeros(len(int_idx+free_idx))
-f_y = np.zeros(len(int_idx+free_idx)) 
-f_z = body_force*np.ones(len(int_idx+free_idx)) # THIS IS WHERE GRAVITY IS ADDED
-f = np.hstack((f_x,f_y,f_z))
-# Create the "right hand side" vector components for surface tractions 
-# constraints
-fix_x = np.zeros(len(fix_idx))
-fix_y = np.zeros(len(fix_idx))
-fix_z = np.zeros(len(fix_idx))
-fix = np.hstack((fix_x,fix_y,fix_z))
-# Create the "right hand side" vector components for displacement 
-# constraints
-free_x = np.zeros(len(free_idx))
-free_y = np.zeros(len(free_idx))
-free_z = np.zeros(len(free_idx))
-free = np.hstack((free_x,free_y,free_z))
-# combine to form the full "right hand side" vector
-b = np.hstack((f,fix,free))
-# solve
-u = spsolve(A,b,permc_spec='MMD_ATA')
+G_xx = sp.csr_matrix((N, N))
+G_xy = sp.csr_matrix((N, N))
+G_xz = sp.csr_matrix((N, N))
+
+G_yx = sp.csr_matrix((N, N))
+G_yy = sp.csr_matrix((N, N))
+G_yz = sp.csr_matrix((N, N))
+
+G_zx = sp.csr_matrix((N, N))
+G_zy = sp.csr_matrix((N, N))
+G_zz = sp.csr_matrix((N, N))
+
+out = elastic3d_body_force(nodes[interior_and_free], nodes, 
+                           lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out[0], interior_and_ghosts)
+G_xy = add_rows(G_xy, out[1], interior_and_ghosts)
+G_xz = add_rows(G_xz, out[2], interior_and_ghosts)
+G_yx = add_rows(G_yx, out[3], interior_and_ghosts)
+G_yy = add_rows(G_yy, out[4], interior_and_ghosts)
+G_yz = add_rows(G_yz, out[5], interior_and_ghosts)
+G_zx = add_rows(G_zx, out[6], interior_and_ghosts)
+G_zy = add_rows(G_zy, out[7], interior_and_ghosts)
+G_zz = add_rows(G_zz, out[8], interior_and_ghosts)
+
+out = elastic3d_surface_force(nodes[free], normals['free'], nodes, 
+                              lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out[0], free)
+G_xy = add_rows(G_xy, out[1], free)
+G_xz = add_rows(G_xz, out[2], free)
+G_yx = add_rows(G_yx, out[3], free)
+G_yy = add_rows(G_yy, out[4], free)
+G_yz = add_rows(G_yz, out[5], free)
+G_zx = add_rows(G_zx, out[6], free)
+G_zy = add_rows(G_zy, out[7], free)
+G_zz = add_rows(G_zz, out[8], free)
+
+out = elastic3d_displacement(nodes[fix], nodes, 
+                             lamb=lamb, mu=mu, n=1)
+G_xx = add_rows(G_xx, out[0], fix)
+G_yy = add_rows(G_yy, out[1], fix)
+G_zz = add_rows(G_zz, out[2], fix)
+
+G_x = sp.hstack((G_xx, G_xy, G_xz))
+G_y = sp.hstack((G_yx, G_yy, G_yz))
+G_z = sp.hstack((G_zx, G_zy, G_zz))
+G = sp.vstack((G_x, G_y, G_z))
+G = G.tocsr()
+
+# build the right-hand-side vector
+d_x = np.zeros((N,))
+d_y = np.zeros((N,))
+d_z = np.ones((N,))
+
+d_x[interior_and_ghosts] = 0.0
+d_x[free] = 0.0
+d_x[fix] = 0.0
+
+d_y[interior_and_ghosts] = 0.0
+d_y[free] = 0.0
+d_y[fix] = 0.0
+
+d_z[interior_and_ghosts] = 1.0
+d_z[free] = 0.0
+d_z[fix] = 0.0
+
+d = np.hstack((d_x, d_y, d_z))
+
+# solve it
+u = spla.spsolve(G,d,permc_spec='MMD_ATA')
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
+
 # Calculate strain from displacements
 D_x = weight_matrix(nodes,nodes,(1,0,0),n=n)
 D_y = weight_matrix(nodes,nodes,(0,1,0),n=n)
@@ -100,54 +147,23 @@ I2 = np.sqrt(e_xx**2 + e_yy**2 + e_zz**2 +
 
 ## Plot the results
 #####################################################################
+nodes = nodes[interior_and_boundary]
+u_x,u_y,u_z = (u_x[interior_and_boundary],
+               u_y[interior_and_boundary],
+               u_z[interior_and_boundary])
 
-def make_scalar_field(nodes,vals,step=100j,
-                      bnd_vert=None,bnd_smp=None):
-  ''' 
-  Returns a structured data object used for plotting scalar fields 
-  with Mayavi
-  '''
-  xmin = np.min(nodes[:,0])
-  xmax = np.max(nodes[:,0])
-  ymin = np.min(nodes[:,1])
-  ymax = np.max(nodes[:,1])
-  zmin = np.min(nodes[:,2])
-  zmax = np.max(nodes[:,2])
-  x,y,z = np.mgrid[xmin:xmax:step,ymin:ymax:step,zmin:zmax:step]
-  f = griddata(nodes, vals, (x,y,z),method='linear')
-  # mask all points that are outside of the domain
-  grid_points_flat = np.array([x,y,z]).reshape((3,-1)).T
-  if (bnd_smp is not None) & (bnd_vert is not None):
-    is_outside = ~contains(grid_points_flat,bnd_vert,bnd_smp)
-    is_outside = is_outside.reshape(x.shape)
-    f[is_outside] = np.nan
+fig = plt.figure()
+ax = fig.add_subplot(111,projection='3d')
+ax.set_aspect('equal')
 
-  out = mlab.pipeline.scalar_field(x,y,z,f)
-  return out
-
-# remove ghost nodes
-nodes = nodes[:N]
-u_x,u_y,u_z = u_x[:N],u_y[:N],u_z[:N]
-I2 = I2[:N]
-cmap = cm.viridis
-fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
-# plot the domain
-mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[2:],color=(0.0,0.0,0.0),opacity=0.05)
-mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],color=(0.0,0.0,0.0),opacity=0.5)
-# plot displacement vectors
-mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],u_x,u_y,u_z,mode='arrow',color=(0.2,0.2,0.2),scale_factor=0.01)
-# plot slice of second strain invariant
-dat = make_scalar_field(nodes,I2)
-p = mlab.pipeline.scalar_cut_plane(dat,vmin=0.1,vmax=3.2,plane_orientation='y_axes')
-# add colorbar and set colormap to viridis
-colors = cmap(np.linspace(0.0,1.0,256))*255
-p.module_manager.scalar_lut_manager.lut.table = colors
-cbar = mlab.scalarbar(p,title='second strain invariant')
-cbar.lut.scale = 'log10'
-cbar.number_of_labels = 5
-cbar.title_text_property.bold = False
-cbar.title_text_property.italic = False
-cbar.label_text_property.bold = False
-cbar.label_text_property.italic = False
-mlab.show()
-
+ax.plot_trisurf(vert[:,0],vert[:,1],vert[:,2],triangles=smp,
+                color=(0.1,0.1,0.1),  
+                shade=False,alpha=0.2)
+ax.quiver(nodes[:,0], nodes[:,1], nodes[:,2], u_x, u_y, u_z,
+          length=0.01, color='k')
+          
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+plt.tight_layout()
+plt.show()
