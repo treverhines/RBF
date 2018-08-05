@@ -53,7 +53,7 @@ def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   D_xy = weight_matrix(x,p,diffs_xy,coeffs=coeffs_xy,**kwargs)
   D_yx = weight_matrix(x,p,diffs_yx,coeffs=coeffs_yx,**kwargs)
   D_yy = weight_matrix(x,p,diffs_yy,coeffs=coeffs_yy,**kwargs)
-  return [[D_xx,D_xy],[D_yx,D_yy]]
+  return D_xx,D_xy,D_yx,D_yy
 
 
 def elastic2d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
@@ -108,7 +108,7 @@ def elastic2d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
   D_xy = weight_matrix(x,p,diffs_xy,coeffs=coeffs_xy,**kwargs)
   D_yx = weight_matrix(x,p,diffs_yx,coeffs=coeffs_yx,**kwargs)
   D_yy = weight_matrix(x,p,diffs_yy,coeffs=coeffs_yy,**kwargs)
-  return [[D_xx,D_xy],[D_yx,D_yy]]
+  return D_xx, D_xy, D_yx, D_yy
 
 
 def elastic2d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
@@ -143,10 +143,8 @@ def elastic2d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
 
   '''
   D_xx = weight_matrix(x,p,(0,0),**kwargs)
-  D_xy = csr_matrix((x.shape[0],p.shape[0]))
-  D_yx = csr_matrix((x.shape[0],p.shape[0]))
   D_yy = weight_matrix(x,p,(0,0),**kwargs)
-  return [[D_xx,D_xy],[D_yx,D_yy]]
+  return D_xx, D_yy
 
 
 def elastic3d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):

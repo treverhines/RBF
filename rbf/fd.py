@@ -8,7 +8,7 @@ import rbf.poly
 import rbf.stencil
 import rbf.linalg
 from rbf.linalg import PartitionedSolver
-import scipy.sparse
+import scipy.sparse as sp
 
 
 def _reshape_diffs(diffs):
@@ -319,6 +319,38 @@ def weight_matrix(x,p,diffs,coeffs=None,
   cols = sn.ravel()
   data = data.ravel()
   shape = x.shape[0],p.shape[0]
-  L = scipy.sparse.csr_matrix((data,(rows,cols)),shape)
+  L = sp.csr_matrix((data,(rows,cols)),shape)
   return L
                 
+
+def add_rows(A,B,idx):
+  '''
+  This function effectively returns `A` after the operation `A[idx,:]
+  += B`, where `A` and `B` are both sparse matrices. This function
+  exists because the current implementation of `A[idx,:] += B` expands
+  out `B` and takes up way too much memory.
+
+  Parameters
+  ----------
+  A: (n1,m) scipy sparse matrix
+
+  B: (n2,m) scipy sparse matrix
+
+  idx: int array
+    rows of `A` that `B` will be added to
+    
+  Returns
+  -------
+  (n1,m) csr sparse matrix
+  
+  '''
+  idx = np.asarray(idx,dtype=int)
+  # coerce `A` to csr to enforce a consistent output type
+  A = sp.csr_matrix(A)
+  # convert `B` to a coo matrix, and expand out its rows
+  B = sp.coo_matrix(B)
+  B = sp.csr_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
+  # Now add the expanded `B` to `A`, 
+  out = A + B
+  return out
+

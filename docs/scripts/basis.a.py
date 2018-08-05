@@ -7,7 +7,7 @@ neighbor distance.
 import numpy as np
 from rbf.basis import mq
 from rbf.geometry import contains
-from rbf.nodes import menodes,neighbors
+from rbf.nodes import min_energy_nodes
 import matplotlib.pyplot as plt
 
 # Define the problem domain with line segments.
@@ -15,20 +15,17 @@ vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],
                  [1.0,1.0],[1.0,2.0],[0.0,2.0]])
 smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]])
 N = 500 # total number of nodes
-nodes,smpid = menodes(N,vert,smp) # generate nodes
-edge_idx, = (smpid>=0).nonzero() # identify edge nodes
-interior_idx, = (smpid==-1).nonzero() # identify interior nodes
-dx = np.mean(neighbors(nodes,2)[1][:,1]) # avg. distance to nearest neighbor
-eps = 0.5/dx  # shape parameter
+nodes,idx,_ = min_energy_nodes(N,vert,smp) # generate nodes
+eps = 5.0  # shape parameter
 # create "left hand side" matrix
 A = np.empty((N,N))
-A[interior_idx]  = mq(nodes[interior_idx],nodes,eps=eps,diff=[2,0])
-A[interior_idx] += mq(nodes[interior_idx],nodes,eps=eps,diff=[0,2])
-A[edge_idx] = mq(nodes[edge_idx],nodes,eps=eps)
+A[idx['interior']]  = mq(nodes[idx['interior']],nodes,eps=eps,diff=[2,0])
+A[idx['interior']] += mq(nodes[idx['interior']],nodes,eps=eps,diff=[0,2])
+A[idx['boundary']]  = mq(nodes[idx['boundary']],nodes,eps=eps)
 # create "right hand side" vector
 d = np.empty(N)
-d[interior_idx] = -1.0 # forcing term
-d[edge_idx] = 0.0 # boundary condition
+d[idx['interior']] = -1.0 # forcing term
+d[idx['boundary']] = 0.0 # boundary condition
 # Solve for the RBF coefficients
 coeff = np.linalg.solve(A,d) 
 # interpolate the solution on a grid

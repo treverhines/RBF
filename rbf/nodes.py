@@ -31,30 +31,13 @@ def _neighbors(x,m,p=None,vert=None,smp=None):
   each node in `x`. If `p` is specified then this function returns the 
   `m` nearest nodes in `p` to each nodes in `x`. Nearest neighbors 
   cannot extend across the boundary defined by `vert` and `smp`.
-  
-  Parameters
-  ----------
-  x : (N,D) array
-    Node positions.
-    
-  m : integer
-    Number of neighbors to find for each point in `x`.
-    
-  p : (M,D) array, optional
-    Node positions.
-        
-  vert : (P,D) array, optional     
-    Vertices of the boundary.
 
-  smp : (Q,D) array, optional  
-    Connectivity of vertices to form the boundary.
-    
   Returns
   -------
-  idx : (N,m) integer array
+  (N,m) integer array
     Indices of nearest points.
 
-  dist : (N,m) float array
+  (N,m) float array
     Distance to the nearest points.
 
   '''
@@ -73,18 +56,9 @@ def _neighbor_argsort(nodes,m=None,vert=None,smp=None):
   through the use of a KD Tree and the Reverse Cuthill-McKee 
   algorithm.
 
-  Parameters
-  ----------
-  nodes : (N,D) array
-    Node positions.
-
-  m : int, optional
-    Number of neighboring nodes to place close together in memory. 
-    This should be about equal to the stencil size for RBF-FD method.
-
   Returns
   -------
-  permutation: (N,) array 
+  (N,) int array 
     Sorting indices.
 
   Examples
@@ -99,7 +73,6 @@ def _neighbor_argsort(nodes,m=None,vert=None,smp=None):
          [ 0.,  1.]])
 
   '''
-  nodes = np.asarray(nodes,dtype=float)
   if m is None:
     m = 3**nodes.shape[1]
     
@@ -120,40 +93,19 @@ def _snap_to_boundary(nodes,vert,smp,delta=1.0):
   Snaps nodes to the boundary defined by `vert` and `smp`. This is 
   done by slightly shifting each node along the basis directions and 
   checking to see if that caused a boundary intersection. If so, then 
-  the intersecting node is reset at the point of intersection.
-
-  Parameters
-  ----------
-  nodes : (N,D) float array
-    Node positions.
-  
-  vert : (M,D) float array
-    Vertices making up the boundary.
-  
-  smp : (P,D) int array
-    Connectivity of the vertices to form the boundary. Each row 
-    contains the indices of the vertices which form one simplex of the 
-    boundary.
-    
-  delta : float, optional
-    Controls the maximum snapping distance. The maximum snapping 
-    distance for each node is `delta` times the distance to the 
-    nearest neighbor. This defaults to 1.0.
+  the intersecting node is reset at the point of intersection. 
   
   Returns
   -------
-  out_nodes : (N,D) float array
+  (N,D) float array
     New nodes positions.
   
-  out_smp : (N,D) int array
-    Index of the simplex that each node is on. If a node is not on a 
-    simplex (i.e. it is an interior node) then the simplex index is 
+  (N,D) int array
+    Index of the simplex that each node is on. If a node is not on a
+    simplex (i.e. it is an interior node) then the simplex index is
     -1.
-    
+
   '''
-  nodes = np.asarray(nodes,dtype=float)
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
   n,dim = nodes.shape
   # find the distance to the nearest node
   dx = _neighbors(nodes,2)[1][:,1]

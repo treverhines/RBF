@@ -3,15 +3,13 @@ This script demonstrates using the RBF-FD method to calculate
 two-dimensional topographic stresses with roller boundary conditions. 
 '''
 import numpy as np
-from scipy.sparse import vstack,hstack,diags
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve, gmres
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from scipy.interpolate import griddata
-from scipy.spatial import cKDTree
-from rbf.nodes import menodes,neighbors
-from rbf.fd import weight_matrix
-from rbf.geometry import simplex_outward_normals
+import scipy.sparse as sp
+from rbf.nodes import min_energy_nodes
+from rbf.fd import weight_matrix, add_rows
 from rbf.fdbuild import (elastic2d_body_force,
                          elastic2d_surface_force,
                          elastic2d_displacement)
@@ -33,7 +31,7 @@ vert_top = np.array([vert_top_x,vert_top_y]).T
 vert = np.vstack((vert_bot,vert_top))
 smp = np.array([np.arange(300),np.roll(np.arange(300),-1)]).T
 # number of nodes 
-N = 5000
+N_approx = 20000
 # size of RBF-FD stencils
 n = 20
 # Lame parameters
@@ -64,65 +62,84 @@ def find_orthogonals(n):
   return out
 
 # generate nodes. Note that this may take a while
-nodes,smpid = menodes(N,vert,smp,rho=node_density)
-# roller nodes are on the bottom and sides of the domain
-roller_idx = np.nonzero((smpid == 0) |
-                        (smpid == 1) |
-                        (smpid == 299))[0].tolist()
-# free nodes are on the top of the domain
-free_idx = np.nonzero(~((smpid == -1) |
-                        (smpid == 0)  |
-                        (smpid == 1)  |
-                        (smpid == 299)))[0].tolist()
-# interior nodes
-int_idx = np.nonzero(smpid == -1)[0].tolist()
-# find normal vectors for each simplex
-simplex_normals = simplex_outward_normals(vert,smp)
-# find normal vectors for each boundary node
-roller_normals = simplex_normals[smpid[roller_idx]]
-free_normals = simplex_normals[smpid[free_idx]]
-# surface parallel vectors
-roller_parallels = find_orthogonals(roller_normals)
-# add ghost nodes next to free surface and roller nodes
-dx = np.min(neighbors(nodes,2)[1][:,1])
-nodes = np.vstack((nodes,nodes[roller_idx] + dx*roller_normals))
-nodes = np.vstack((nodes,nodes[free_idx] + dx*free_normals))
+groups = {'roller':[0,1,299],
+          'free':range(2,299)}
+nodes, indices, normals = min_energy_nodes(
+                            N_approx, vert, smp, 
+                            boundary_groups=groups,
+                            boundary_groups_with_ghosts=['roller','free'],
+                            rho=node_density)
+N = nodes.shape[0]
+
+
+free = indices['free']
+roller = indices['roller']
+interior_and_boundary = np.hstack((indices['interior'],indices['roller'],indices['free']))
+interior_and_ghost = np.hstack((indices['interior'],indices['roller_ghosts'],indices['free_ghosts']))
+
+# allocate the left-hand-side matrix components
+G_xx = sp.csr_matrix((N,N))
+G_xy = sp.csr_matrix((N,N))
+G_yx = sp.csr_matrix((N,N))
+G_yy = sp.csr_matrix((N,N))
+
 # build the "left hand side" matrices for body force constraints
-A_body = elastic2d_body_force(nodes[int_idx+free_idx+roller_idx],nodes,lamb=lamb,mu=mu,n=n)
-A_body_x,A_body_y = (hstack(i) for i in A_body)
-# build the "right hand side" vectors for body force constraints
-b_body_x = np.zeros_like(int_idx+free_idx+roller_idx)
-b_body_y = np.ones_like(int_idx+free_idx+roller_idx) # THIS IS WHERE GRAVITY IS IMPOSED
+D_xx, D_xy, D_yx, D_yy = elastic2d_body_force(
+                           nodes[interior_and_boundary],nodes,
+                           lamb=lamb,mu=mu,n=n)
+G_xx = add_rows(G_xx,D_xx,interior_and_ghost)
+G_xy = add_rows(G_xy,D_xy,interior_and_ghost)
+G_yx = add_rows(G_yx,D_yx,interior_and_ghost)
+G_yy = add_rows(G_yy,D_yy,interior_and_ghost)
+
 # build the "left hand side" matrices for free surface constraints
-A_surf = elastic2d_surface_force(nodes[free_idx],free_normals,nodes,lamb=lamb,mu=mu,n=n)
-A_surf_x,A_surf_y = (hstack(i) for i in A_surf)
-# build the "right hand side" vectors for free surface constraints
-b_surf_x = np.zeros_like(free_idx)
-b_surf_y = np.zeros_like(free_idx)
+dD_free_xx, dD_free_xy, dD_free_yx, dD_free_yy = elastic2d_surface_force(
+                                                   nodes[free],normals['free'],
+                                                   nodes,lamb=lamb,mu=mu,n=n)
+G_xx = add_rows(G_xx,dD_free_xx,free)
+G_xy = add_rows(G_xy,dD_free_xy,free)
+G_yx = add_rows(G_yx,dD_free_yx,free)
+G_yy = add_rows(G_yy,dD_free_yy,free)
+
 # build the "left hand side" matrices for roller constraints
 # constrain displacements in the surface normal direction
-A_roller_disp = elastic2d_displacement(nodes[roller_idx],nodes,lamb=lamb,mu=mu,n=1)
-A_roller_disp_x,A_roller_disp_y = (hstack(i) for i in A_roller_disp)
-normals_x = diags(roller_normals[:,0])
-normals_y = diags(roller_normals[:,1])
-A_roller_n = normals_x.dot(A_roller_disp_x) + normals_y.dot(A_roller_disp_y)
-# constrain surface traction in the surface parallel direction
-A_roller_surf = elastic2d_surface_force(nodes[roller_idx],roller_normals,nodes,lamb=lamb,mu=mu,n=n)
-A_roller_surf_x,A_roller_surf_y = (hstack(i) for i in A_roller_surf)
-parallels_x = diags(roller_parallels[:,0])
-parallels_y = diags(roller_parallels[:,1])
-A_roller_p = parallels_x.dot(A_roller_surf_x) + parallels_y.dot(A_roller_surf_y)
-# build the "right hand side" vectors for roller constraints
-b_roller_n = np.zeros_like(roller_idx)
-b_roller_p = np.zeros_like(roller_idx)
-# stack it all together and solve
-A = vstack((A_body_x,A_body_y,
-            A_surf_x,A_surf_y,
-            A_roller_n,A_roller_p)).tocsr()
-b = np.hstack((b_body_x,b_body_y,
-               b_surf_x,b_surf_y,
-               b_roller_n,b_roller_p))
-u = spsolve(A,b,permc_spec='MMD_ATA')
+dD_fix_xx,dD_fix_yy = elastic2d_displacement(
+                        nodes[roller],nodes,
+                        lamb=lamb,mu=mu,n=1)
+normals_x = sp.diags(normals['roller'][:,0])
+normals_y = sp.diags(normals['roller'][:,1])
+G_xx = add_rows(G_xx, normals_x.dot(dD_fix_xx), roller)
+G_xy = add_rows(G_xy, normals_y.dot(dD_fix_yy), roller)
+
+dD_free_xx, dD_free_xy, dD_free_yx, dD_free_yy = elastic2d_surface_force(
+                                                   nodes[roller],normals['roller'],
+                                                   nodes,lamb=lamb,mu=mu,n=n)
+parallels = find_orthogonals(normals['roller'])
+parallels_x = sp.diags(parallels[:,0])
+parallels_y = sp.diags(parallels[:,1])
+G_yx = add_rows(G_yx, parallels_x.dot(dD_free_xx) + parallels_y.dot(dD_free_yx), roller)
+G_yy = add_rows(G_yy, parallels_x.dot(dD_free_xy) + parallels_y.dot(dD_free_yy), roller)
+
+G_x = sp.hstack((G_xx, G_xy))
+G_y = sp.hstack((G_yx, G_yy))
+G = sp.vstack((G_x, G_y))
+G = G.tocsr()
+
+# form the right-hand-side vector
+d_x = np.zeros((N,))
+d_y = np.zeros((N,))
+
+d_x[interior_and_ghost] = 0.0
+d_x[free] = 0.0
+d_x[roller] = 0.0
+
+d_y[interior_and_ghost] = 1.0
+d_y[free] = 0.0
+d_y[roller] = 0.0
+
+d = np.hstack((d_x,d_y))
+
+u = spsolve(G,d,permc_spec='MMD_ATA')
 u = np.reshape(u,(2,-1))
 u_x,u_y = u
 # Calculate strain and stress from displacements
@@ -144,10 +161,10 @@ def grid(x, y, z):
     return xg,yg,zg
 
 # toss out ghosts
-nodes = nodes[:N]
-u_x,u_y = u_x[:N],u_y[:N]
-e_xx,e_yy,e_xy = e_xx[:N],e_yy[:N],e_xy[:N]
-s_xx,s_yy,s_xy = s_xx[:N],s_yy[:N],s_xy[:N]
+nodes = nodes[interior_and_boundary]
+u_x,u_y = u_x[interior_and_boundary],u_y[interior_and_boundary]
+e_xx,e_yy,e_xy = e_xx[interior_and_boundary],e_yy[interior_and_boundary],e_xy[interior_and_boundary]
+s_xx,s_yy,s_xy = s_xx[interior_and_boundary],s_yy[interior_and_boundary],s_xy[interior_and_boundary]
 
 fig,axs = plt.subplots(2,2,figsize=(10,7))
 poly = Polygon(vert,facecolor='none',edgecolor='k',zorder=3)
