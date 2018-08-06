@@ -192,9 +192,10 @@ def weights(x,s,diffs,coeffs=None,
   except np.linalg.LinAlgError:
     raise np.linalg.LinAlgError(
       'An error was raised while computing the RBF-FD weights at '
-      'point %s. This may be due to a stencil with duplicate or '
-      'collinear points. The stencil contains the following '
-      'points:\n%s' % (x,s))
+      'point %s with the RBF %s and the polynomial order %s. This '
+      'may be due to a stencil with duplicate or collinear points. '
+      'The stencil contains the following points:\n%s' % 
+      (x, basis, order, s))
 
 
 def weight_matrix(x,p,diffs,coeffs=None,

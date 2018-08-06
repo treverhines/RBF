@@ -296,13 +296,12 @@ def _form_normal_vectors(smpid,vert,smp,indices):
   return normals
 
   
-def _form_ghost_nodes(nodes,smpid,vert,smp,indices,
-                      boundary_groups_with_ghosts):      
+def _append_ghost_nodes(nodes,smpid,vert,smp,indices,
+                        boundary_groups_with_ghosts):      
   '''
   add ghost nodes to the node set
   '''
   out_nodes = nodes.copy()
-  out_smpid = smpid.copy()
   out_indices = indices.copy()
 
   # get the normal vectors for each simplex  
@@ -326,14 +325,13 @@ def _form_ghost_nodes(nodes,smpid,vert,smp,indices,
 
     # append the ghost nodes to the output
     out_nodes = np.vstack((out_nodes,ghosts))
-    # record the simplex that each ghost node is associated with
-    out_smpid = np.hstack((out_smpid,smpid[idx]))
+
     # record the ghost node indices for this group
     start = out_nodes.shape[0] - ghosts.shape[0] 
     stop = out_nodes.shape[0] 
     out_indices[group_name + '_ghosts'] = np.arange(start,stop)
 
-  return out_nodes, out_smpid, out_indices
+  return out_nodes, out_indices
   
 
 def _rejection_sampling_nodes(N, vert, smp, rho=None, max_sample_size=1000000):
@@ -523,30 +521,30 @@ def min_energy_nodes(N,vert,smp,
                                       delta=delta,bound_force=bound_force)
 
   logger.debug('snapping nodes to boundary') 
-  nodes,smpid = _snap_to_boundary(nodes,vert,smp,delta=0.5)
+  nodes, smpid = _snap_to_boundary(nodes,vert,smp,delta=0.5)
 
   # get the indices of nodes belonging to each group
   logger.debug('assigning nodes to groups') 
   indices = _form_node_groups(smpid,boundary_groups) 
 
+  # form the normal vectors for the boundary groups
+  logger.debug('creating normal vectors for boundary nodes')
+  normals = _form_normal_vectors(smpid,vert,smp,indices)
+
   # form ghost nodes for the specified groups
   if boundary_groups_with_ghosts:
     logger.debug('creating ghost nodes for groups: %s' % 
                  ', '.join(boundary_groups_with_ghosts))
-    nodes,smpid,indices = _form_ghost_nodes(
-                            nodes,smpid,vert,smp,indices,
-                            boundary_groups_with_ghosts)
-
-  # form the normal vectors for the boundary groups
-  logger.debug('creating normal vectors for boundary nodes')
-  normals = _form_normal_vectors(smpid,vert,smp,indices)
+    nodes, indices = _append_ghost_nodes(
+                       nodes,smpid,vert,smp,indices,
+                       boundary_groups_with_ghosts)
   
   # sort `nodes` so that spatially adjacent nodes are close together
   # in memory. Update `indices` so that it is still pointing to the
   # same nodes
   logger.debug('sorting nodes so that neighboring nodes are close in '
                'memory') 
-  nodes,indices = _sort_nodes(nodes,indices)
+  nodes, indices = _sort_nodes(nodes,indices)
 
   logger.debug('finished generating %s nodes' % nodes.shape[0])
   return nodes, indices, normals
