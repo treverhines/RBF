@@ -6,7 +6,7 @@ spectral RBF method or thr RBF-FD method.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.nodes import menodes
+from rbf.nodes import min_energy_nodes
 
 # Define the problem domain with line segments.
 vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],
@@ -21,16 +21,19 @@ def rho(x):
 
 N = 1000 # total number of nodes
 
-nodes,smpid = menodes(N,vert,smp,rho=rho)
+nodes,indices,normals = min_energy_nodes(
+                          N,vert,smp,rho=rho,
+                          boundary_groups_with_ghosts=['boundary'])
 # identify boundary and interior nodes
-interior = smpid == -1
-boundary = smpid >  -1
-
 fig,ax = plt.subplots(figsize=(6,6))
 # plot the domain
-for s in smp: ax.plot(vert[s,0],vert[s,1],'k-')
-ax.plot(nodes[interior,0],nodes[interior,1],'k.')
-ax.plot(nodes[boundary,0],nodes[boundary,1],'b.')
+for s in smp: 
+  ax.plot(vert[s,0],vert[s,1],'k-')
+
+for i,(name,idx) in enumerate(indices.items()):
+  ax.plot(nodes[idx,0],nodes[idx,1],'C%s.' % i, label=name)
+
+ax.legend()
 ax.set_aspect('equal')
 fig.tight_layout()
 plt.savefig('../figures/nodes.a.png')
