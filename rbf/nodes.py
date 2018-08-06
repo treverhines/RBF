@@ -308,10 +308,6 @@ def _form_ghost_nodes(nodes,smpid,vert,smp,indices,
   # get the normal vectors for each simplex  
   simplex_normals = simplex_outward_normals(vert,smp)
 
-  # get the shortest distance between any two nodes. This will be used
-  # to determine how far the ghost nodes should be from the boundary
-  dx = np.min(_neighbors(nodes,2)[1][:,1])
-
   for group_name in boundary_groups_with_ghosts:
     # get the indices of nodes in this group
     idx = indices[group_name]
@@ -321,8 +317,12 @@ def _form_ghost_nodes(nodes,smpid,vert,smp,indices,
 
     # get the normal vectors for these nodes
     normals = simplex_normals[smpid[idx]]
+
+    # get the distance to the nearest neighbor for these nodes
+    dx = _neighbors(nodes[idx],2,p=nodes)[1][:,1]
+    
     # create ghost nodes for this group
-    ghosts = nodes[idx] + dx*normals
+    ghosts = nodes[idx] + dx[:,None]*normals
 
     # append the ghost nodes to the output
     out_nodes = np.vstack((out_nodes,ghosts))

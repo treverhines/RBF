@@ -3,7 +3,6 @@ This modules contains functions for building frequently used RBF-FD
 weight matrices.
 '''
 from rbf.fd import weight_matrix
-from scipy.sparse import csr_matrix
 
 def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   ''' 
@@ -53,7 +52,7 @@ def elastic2d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   D_xy = weight_matrix(x,p,diffs_xy,coeffs=coeffs_xy,**kwargs)
   D_yx = weight_matrix(x,p,diffs_yx,coeffs=coeffs_yx,**kwargs)
   D_yy = weight_matrix(x,p,diffs_yy,coeffs=coeffs_yy,**kwargs)
-  return D_xx,D_xy,D_yx,D_yy
+  return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
 
 
 def elastic2d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
@@ -108,7 +107,7 @@ def elastic2d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
   D_xy = weight_matrix(x,p,diffs_xy,coeffs=coeffs_xy,**kwargs)
   D_yx = weight_matrix(x,p,diffs_yx,coeffs=coeffs_yx,**kwargs)
   D_yy = weight_matrix(x,p,diffs_yy,coeffs=coeffs_yy,**kwargs)
-  return D_xx, D_xy, D_yx, D_yy
+  return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
 
 
 def elastic2d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
@@ -144,7 +143,7 @@ def elastic2d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
   '''
   D_xx = weight_matrix(x,p,(0,0),**kwargs)
   D_yy = weight_matrix(x,p,(0,0),**kwargs)
-  return D_xx, D_yy
+  return {'xx':D_xx, 'yy':D_yy}
 
 
 def elastic3d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
@@ -204,7 +203,9 @@ def elastic3d_body_force(x,p,lamb=1.0,mu=1.0,**kwargs):
   D_zx = weight_matrix(x,p,diffs_zx,coeffs=coeffs_zx,**kwargs)
   D_zy = weight_matrix(x,p,diffs_zy,coeffs=coeffs_zy,**kwargs)
   D_zz = weight_matrix(x,p,diffs_zz,coeffs=coeffs_zz,**kwargs)
-  return D_xx, D_xy, D_xz, D_yx, D_yy, D_yz, D_zx, D_zy, D_zz
+  return {'xx':D_xx, 'xy':D_xy, 'xz':D_xz, 
+          'yx':D_yx, 'yy':D_yy, 'yz':D_yz, 
+          'zx':D_zx, 'zy':D_zy, 'zz':D_zz}
 
 
 def elastic3d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
@@ -267,7 +268,9 @@ def elastic3d_surface_force(x,nrm,p,lamb=1.0,mu=1.0,**kwargs):
   D_zx = weight_matrix(x,p,diffs_zx,coeffs=coeffs_zx,**kwargs)
   D_zy = weight_matrix(x,p,diffs_zy,coeffs=coeffs_zy,**kwargs)
   D_zz = weight_matrix(x,p,diffs_zz,coeffs=coeffs_zz,**kwargs)
-  return D_xx, D_xy, D_xz, D_yx, D_yy, D_yz, D_zx, D_zy, D_zz
+  return {'xx':D_xx, 'xy':D_xy, 'xz':D_xz, 
+          'yx':D_yx, 'yy':D_yy, 'yz':D_yz, 
+          'zx':D_zx, 'zy':D_zy, 'zz':D_zz}
 
 
 def elastic3d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
@@ -303,7 +306,7 @@ def elastic3d_displacement(x,p,lamb=1.0,mu=1.0,**kwargs):
   D_xx = weight_matrix(x,p,(0,0,0),**kwargs)
   D_yy = weight_matrix(x,p,(0,0,0),**kwargs)
   D_zz = weight_matrix(x,p,(0,0,0),**kwargs)
-  return D_xx, D_yy, D_zz
+  return {'xx':D_xx, 'yy':D_yy, 'zz':D_zz}
 
 
   

@@ -31,7 +31,7 @@ vert_top = np.array([vert_top_x,vert_top_y]).T
 vert = np.vstack((vert_bot,vert_top))
 smp = np.array([np.arange(300),np.roll(np.arange(300),-1)]).T
 # number of nodes 
-N_approx = 20000
+N_approx = 2000
 # size of RBF-FD stencils
 n = 20
 # Lame parameters
@@ -84,41 +84,37 @@ G_yx = sp.csr_matrix((N,N))
 G_yy = sp.csr_matrix((N,N))
 
 # build the "left hand side" matrices for body force constraints
-D_xx, D_xy, D_yx, D_yy = elastic2d_body_force(
-                           nodes[interior_and_boundary],nodes,
+out = elastic2d_body_force(nodes[interior_and_boundary],nodes,
                            lamb=lamb,mu=mu,n=n)
-G_xx = add_rows(G_xx,D_xx,interior_and_ghost)
-G_xy = add_rows(G_xy,D_xy,interior_and_ghost)
-G_yx = add_rows(G_yx,D_yx,interior_and_ghost)
-G_yy = add_rows(G_yy,D_yy,interior_and_ghost)
+G_xx = add_rows(G_xx, out['xx'], interior_and_ghost)
+G_xy = add_rows(G_xy, out['xy'], interior_and_ghost)
+G_yx = add_rows(G_yx, out['yx'], interior_and_ghost)
+G_yy = add_rows(G_yy, out['yy'], interior_and_ghost)
 
 # build the "left hand side" matrices for free surface constraints
-dD_free_xx, dD_free_xy, dD_free_yx, dD_free_yy = elastic2d_surface_force(
-                                                   nodes[free],normals['free'],
-                                                   nodes,lamb=lamb,mu=mu,n=n)
-G_xx = add_rows(G_xx,dD_free_xx,free)
-G_xy = add_rows(G_xy,dD_free_xy,free)
-G_yx = add_rows(G_yx,dD_free_yx,free)
-G_yy = add_rows(G_yy,dD_free_yy,free)
+out = elastic2d_surface_force(nodes[free],normals['free'],
+                              nodes,lamb=lamb,mu=mu,n=n)
+G_xx = add_rows(G_xx, out['xx'], free)
+G_xy = add_rows(G_xy, out['xy'], free)
+G_yx = add_rows(G_yx, out['yx'], free)
+G_yy = add_rows(G_yy, out['yy'], free)
 
 # build the "left hand side" matrices for roller constraints
 # constrain displacements in the surface normal direction
-dD_fix_xx,dD_fix_yy = elastic2d_displacement(
-                        nodes[roller],nodes,
-                        lamb=lamb,mu=mu,n=1)
+out = elastic2d_displacement(nodes[roller],nodes,
+                             lamb=lamb,mu=mu,n=1)
 normals_x = sp.diags(normals['roller'][:,0])
 normals_y = sp.diags(normals['roller'][:,1])
-G_xx = add_rows(G_xx, normals_x.dot(dD_fix_xx), roller)
-G_xy = add_rows(G_xy, normals_y.dot(dD_fix_yy), roller)
+G_xx = add_rows(G_xx, normals_x.dot(out['xx']), roller)
+G_xy = add_rows(G_xy, normals_y.dot(out['yy']), roller)
 
-dD_free_xx, dD_free_xy, dD_free_yx, dD_free_yy = elastic2d_surface_force(
-                                                   nodes[roller],normals['roller'],
-                                                   nodes,lamb=lamb,mu=mu,n=n)
+out = elastic2d_surface_force(nodes[roller],normals['roller'],
+                              nodes,lamb=lamb,mu=mu,n=n)
 parallels = find_orthogonals(normals['roller'])
 parallels_x = sp.diags(parallels[:,0])
 parallels_y = sp.diags(parallels[:,1])
-G_yx = add_rows(G_yx, parallels_x.dot(dD_free_xx) + parallels_y.dot(dD_free_yx), roller)
-G_yy = add_rows(G_yy, parallels_x.dot(dD_free_xy) + parallels_y.dot(dD_free_yy), roller)
+G_yx = add_rows(G_yx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']), roller)
+G_yy = add_rows(G_yy, parallels_x.dot(out['xy']) + parallels_y.dot(out['yy']), roller)
 
 G_x = sp.hstack((G_xx, G_xy))
 G_y = sp.hstack((G_yx, G_yy))

@@ -8,18 +8,19 @@ randomly and is intended to simulate topography.
 '''
 import rbf
 import numpy as np
-from scipy.sparse import vstack,hstack,diags
-from scipy.sparse.linalg import spsolve
-from mayavi import mlab
-from matplotlib import cm
+import scipy.sparse as sp
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.sparse.linalg import spsolve, gmres, LinearOperator, splu
 from scipy.interpolate import griddata
-from rbf.nodes import menodes,neighbors
-from rbf.fd import weight_matrix
-from rbf.geometry import simplex_outward_normals,contains
+from rbf.nodes import min_energy_nodes
+from rbf.fd import weight_matrix, add_rows
 from rbf.domain import topography
 from rbf.fdbuild import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement)
+import logging
+logging.basicConfig(level=logging.DEBUG)                         
 
 ## User defined parameters
 #####################################################################
@@ -56,18 +57,20 @@ def density_func(x):
   node densities. This function is normalized such that all values are 
   between 0.0 and 1.0.
   '''
-  z = x[:,2]
-  out = np.zeros(x.shape[0])
-  out[z > -0.5] = 1.0
-  out[z <= -0.5] = 0.25
-  return out
+  return np.ones(x.shape[0])
+  #z = x[:,2]
+  #out = np.zeros(x.shape[0])
+  #out[z > -0.5] = 1.0
+  #out[z <= -0.5] = 0.25
+  #return out
 
 # generates the domain according to topo_func 
 vert,smp = topography(topo_func,[-1.3,1.3],[-1.3,1.3],1.0,n=60)
 # number of nodes 
-N = 2000
+N = 20000
 # size of RBF-FD stencils
-n = 35
+n_pre = 15
+n_full = 50
 # Lame parameters
 lamb = 1.0
 mu = 1.0
@@ -106,83 +109,152 @@ def find_orthogonals(n):
   out2 /= np.linalg.norm(out2,axis=1)[:,None] # normalize length
   return out1,out2
 
+
+def build_system(nodes, indices, normals, n):
+    print('building system with %s nodes' % nodes.shape[0])
+    N = nodes.shape[0]
+
+    free = indices['free']
+    roller = indices['roller']
+    interior_and_boundary = np.hstack((indices['interior'], 
+                                       indices['roller'],
+                                       indices['free']))
+    interior_and_ghost = np.hstack((indices['interior'],
+                                    indices['roller_ghosts'],
+                                    indices['free_ghosts']))
+
+    # allocate the left-hand-side matrix components
+    G_xx = sp.csr_matrix((N,N))
+    G_xy = sp.csr_matrix((N,N))
+    G_xz = sp.csr_matrix((N,N))
+    G_yx = sp.csr_matrix((N,N))
+    G_yy = sp.csr_matrix((N,N))
+    G_yz = sp.csr_matrix((N,N))
+    G_zx = sp.csr_matrix((N,N))
+    G_zy = sp.csr_matrix((N,N))
+    G_zz = sp.csr_matrix((N,N))
+
+    # build the "left hand side" matrices for body force constraints
+    out = elastic3d_body_force(nodes[interior_and_boundary],nodes,
+                               lamb=lamb,mu=mu,n=n)
+    G_xx = add_rows(G_xx, out['xx'], interior_and_ghost)
+    G_xy = add_rows(G_xy, out['xy'], interior_and_ghost)
+    G_xz = add_rows(G_xz, out['xz'], interior_and_ghost)
+    G_yx = add_rows(G_yx, out['yx'], interior_and_ghost)
+    G_yy = add_rows(G_yy, out['yy'], interior_and_ghost)
+    G_yz = add_rows(G_yz, out['yz'], interior_and_ghost)
+    G_zx = add_rows(G_zx, out['zx'], interior_and_ghost)
+    G_zy = add_rows(G_zy, out['zy'], interior_and_ghost)
+    G_zz = add_rows(G_zz, out['zz'], interior_and_ghost)
+
+    # build the "left hand side" matrices for free surface constraints
+    out = elastic3d_surface_force(nodes[free],normals['free'],
+                                  nodes,lamb=lamb,mu=mu,n=n)
+    G_xx = add_rows(G_xx, out['xx'], free)
+    G_xy = add_rows(G_xy, out['xy'], free)
+    G_xz = add_rows(G_xz, out['xz'], free)
+    G_yx = add_rows(G_yx, out['yx'], free)
+    G_yy = add_rows(G_yy, out['yy'], free)
+    G_yz = add_rows(G_yz, out['yz'], free)
+    G_zx = add_rows(G_zx, out['zx'], free)
+    G_zy = add_rows(G_zy, out['zy'], free)
+    G_zz = add_rows(G_zz, out['zz'], free)
+
+    # build the "left hand side" matrices for roller constraints
+    # constrain displacements in the surface normal direction
+    out = elastic3d_displacement(nodes[roller],nodes,
+                                 lamb=lamb,mu=mu,n=1)
+    normals_x = sp.diags(normals['roller'][:,0])
+    normals_y = sp.diags(normals['roller'][:,1])
+    normals_z = sp.diags(normals['roller'][:,2])
+
+    G_xx = add_rows(G_xx, normals_x.dot(out['xx']), roller)
+    G_xy = add_rows(G_xy, normals_y.dot(out['yy']), roller)
+    G_xz = add_rows(G_xz, normals_z.dot(out['zz']), roller)
+
+    out = elastic3d_surface_force(nodes[roller],normals['roller'],
+                                  nodes,lamb=lamb,mu=mu,n=n)
+    parallels_1,parallels_2 = find_orthogonals(normals['roller'])
+
+    parallels_x = sp.diags(parallels_1[:,0])
+    parallels_y = sp.diags(parallels_1[:,1])
+    parallels_z = sp.diags(parallels_1[:,2])
+    G_yx = add_rows(G_yx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']) + parallels_z.dot(out['zx']), roller)
+    G_yy = add_rows(G_yy, parallels_x.dot(out['xy']) + parallels_y.dot(out['yy']) + parallels_z.dot(out['zy']), roller)
+    G_yz = add_rows(G_yz, parallels_x.dot(out['xz']) + parallels_y.dot(out['yz']) + parallels_z.dot(out['zz']), roller)
+
+    parallels_x = sp.diags(parallels_2[:,0])
+    parallels_y = sp.diags(parallels_2[:,1])
+    parallels_z = sp.diags(parallels_2[:,2])
+    G_zx = add_rows(G_zx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']) + parallels_z.dot(out['zx']), roller)
+    G_zy = add_rows(G_zy, parallels_x.dot(out['xy']) + parallels_y.dot(out['yy']) + parallels_z.dot(out['zy']), roller)
+    G_zz = add_rows(G_zz, parallels_x.dot(out['xz']) + parallels_y.dot(out['yz']) + parallels_z.dot(out['zz']), roller)
+
+    # stack it all together
+    G_x = sp.hstack((G_xx, G_xy, G_xz))
+    G_y = sp.hstack((G_yx, G_yy, G_yz))
+    G_z = sp.hstack((G_zx, G_zy, G_zz))
+
+    G = sp.vstack((G_x, G_y, G_z))
+    G = G.tocsr()
+
+    # create the right-hand-side vector
+    d_x = np.zeros((N,))
+    d_y = np.zeros((N,))
+    d_z = np.zeros((N,))
+
+    d_x[interior_and_ghost] = 0.0
+    d_x[free] = 0.0
+    d_x[roller] = 0.0
+
+    d_y[interior_and_ghost] = 0.0
+    d_y[free] = 0.0
+    d_y[roller] = 0.0
+
+    d_z[interior_and_ghost] = 1.0
+    d_z[free] = 0.0
+    d_z[roller] = 0.0
+
+    d = np.hstack((d_x, d_y, d_z))
+
+    print('done')
+    return G,d    
+
+
 # generate nodes. Note that this may take a while
-nodes,smpid = menodes(N,vert,smp,rho=density_func,itr=50)
-# find which nodes are attached to each simplex
-int_idx = np.nonzero(smpid == -1)[0].tolist()
-roller_idx = np.nonzero((smpid >= 0) & (smpid <= 9))[0].tolist()
-free_idx = np.nonzero(smpid > 9)[0].tolist()
-# find normal vectors to each free surface node
-simplex_normals = simplex_outward_normals(vert,smp)
-free_normals = simplex_normals[smpid[free_idx]]
-# find the normal vectors to each roller node
-roller_normals = simplex_normals[smpid[roller_idx]]
-# find two orthogonal vectors that are parallel to the surface at each 
-# roller node. This is used to determine the directions along which 
-# traction forces will be constrained. Note that any two orthogonal 
-# vectors that are parallel to the surface would do.
-roller_parallels1,roller_parallels2 = find_orthogonals(roller_normals)
-# add ghost nodes next to free and roller nodes
-dx = np.min(neighbors(nodes,2)[1][:,1])
-nodes = np.vstack((nodes,nodes[free_idx] + dx*free_normals))
-nodes = np.vstack((nodes,nodes[roller_idx] + dx*roller_normals))
-# build the "left hand side" matrices for body force constraints
-A_body = elastic3d_body_force(nodes[int_idx+free_idx+roller_idx],nodes,lamb=lamb,mu=mu,n=n)
-A_body_x,A_body_y,A_body_z = (hstack(i) for i in A_body)
-# build the "right hand side" vectors for body force constraints
-b_body_x = np.zeros_like(int_idx+free_idx+roller_idx)
-b_body_y = np.zeros_like(int_idx+free_idx+roller_idx)
-b_body_z = body_force*np.ones_like(int_idx+free_idx+roller_idx)
-# build the "left hand side" matrices for free surface constraints
-A_surf = elastic3d_surface_force(nodes[free_idx],free_normals,nodes,lamb=lamb,mu=mu,n=n)
-A_surf_x,A_surf_y,A_surf_z = (hstack(i) for i in A_surf)
-# build the "right hand side" vectors for free surface constraints
-b_surf_x = np.zeros_like(free_idx)
-b_surf_y = np.zeros_like(free_idx)
-b_surf_z = np.zeros_like(free_idx)
-# build the "left hand side" matrices for roller constraints
-# constrain displacements in the surface normal direction
-A_roller = elastic3d_displacement(nodes[roller_idx],nodes,lamb=lamb,mu=mu,n=1)
-A_roller_x,A_roller_y,A_roller_z = (hstack(i) for i in A_roller)
-normals_x = diags(roller_normals[:,0])
-normals_y = diags(roller_normals[:,1])
-normals_z = diags(roller_normals[:,2])
-A_roller_n = (normals_x.dot(A_roller_x) + 
-              normals_y.dot(A_roller_y) +
-              normals_z.dot(A_roller_z))
-# constrain surface traction in the surface parallel directions
-A_roller = elastic3d_surface_force(nodes[roller_idx],roller_normals,nodes,lamb=lamb,mu=mu,n=n)
-A_roller_x,A_roller_y,A_roller_z = (hstack(i) for i in A_roller)
-parallels_x = diags(roller_parallels1[:,0])
-parallels_y = diags(roller_parallels1[:,1])
-parallels_z = diags(roller_parallels1[:,2])
-A_roller_p1 = (parallels_x.dot(A_roller_x) + 
-               parallels_y.dot(A_roller_y) +
-               parallels_z.dot(A_roller_z))
-parallels_x = diags(roller_parallels2[:,0])
-parallels_y = diags(roller_parallels2[:,1])
-parallels_z = diags(roller_parallels2[:,2])
-A_roller_p2 = (parallels_x.dot(A_roller_x) + 
-               parallels_y.dot(A_roller_y) +
-               parallels_z.dot(A_roller_z))
-# build the "right hand side" vectors for roller constraints
-b_roller_n = np.zeros_like(roller_idx) # enforce zero normal displacement
-b_roller_p1 = np.zeros_like(roller_idx) # enforce zero parallel traction
-b_roller_p2 = np.zeros_like(roller_idx) # enforce zero parallel traction
-# stack it all together and solve
-A = vstack((A_body_x,A_body_y,A_body_z,
-            A_surf_x,A_surf_y,A_surf_z,
-            A_roller_n,A_roller_p1,A_roller_p2)).tocsr()
-b = np.hstack((b_body_x,b_body_y,b_body_z,
-               b_surf_x,b_surf_y,b_surf_z,
-               b_roller_n,b_roller_p1,b_roller_p2))
-u = spsolve(A,b,permc_spec='MMD_ATA')
+boundary_groups = {'free': range(10, smp.shape[0]),
+                   'roller': range(0, 10)}
+
+nodes, indices, normals = min_energy_nodes(
+                            N,vert,smp,
+                            boundary_groups=boundary_groups,
+                            boundary_groups_with_ghosts=['free','roller'],
+                            rho=density_func,itr=50)
+
+G_pre, _ = build_system(nodes, indices, normals, n_pre)
+G_pre = G_pre.tocsc() # convert to csc for splu
+G, d = build_system(nodes, indices, normals, n_full)
+
+def callback(res,_itr=[0]):
+  l2 = np.linalg.norm(res)
+  print('gmres error on iteration %s: %s' % (_itr[0],l2))
+  _itr[0] += 1
+  
+print('forming preconditioner')
+lu = splu(G_pre)
+M = LinearOperator(G_pre.shape,lu.solve)
+
+print('solving with gmres')
+u,info = gmres(G,d,M=M,callback=callback)
+print('finished gmres with info %s' % info)
+
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
+
 # Calculate strain from displacements
-D_x = weight_matrix(nodes,nodes,(1,0,0),n=n)
-D_y = weight_matrix(nodes,nodes,(0,1,0),n=n)
-D_z = weight_matrix(nodes,nodes,(0,0,1),n=n)
+D_x = weight_matrix(nodes,nodes,(1,0,0),n=n_full)
+D_y = weight_matrix(nodes,nodes,(0,1,0),n=n_full)
+D_z = weight_matrix(nodes,nodes,(0,0,1),n=n_full)
 e_xx = D_x.dot(u_x)
 e_yy = D_y.dot(u_y)
 e_zz = D_z.dot(u_z)
@@ -197,62 +269,39 @@ s_xy = 2*mu*e_xy
 s_xz = 2*mu*e_xz
 s_yz = 2*mu*e_yz
 
+
+interior_and_boundary = np.hstack((indices['interior'], 
+                                   indices['roller'],
+                                   indices['free']))
+
+nodes = nodes[interior_and_boundary]
+u_x,u_y,u_z = u_x[interior_and_boundary], u_y[interior_and_boundary], u_z[interior_and_boundary]
+e_xx,e_yy,e_zz = e_xx[interior_and_boundary], e_yy[interior_and_boundary], e_zz[interior_and_boundary]
+e_xy,e_xz,e_yz = e_xy[interior_and_boundary], e_xz[interior_and_boundary], e_yz[interior_and_boundary]
+s_xx,s_yy,s_zz = s_xx[interior_and_boundary], s_yy[interior_and_boundary], s_zz[interior_and_boundary]
+s_xy,s_xz,s_yz = s_xy[interior_and_boundary], s_xz[interior_and_boundary], s_yz[interior_and_boundary]
+
+
+I2 = e_xx**2 + e_yy**2 + e_zz**2 + 2*e_xy**2 + 2*e_xz**2 + 2*e_yz**2
+print('mean strain energy: %s' % np.mean(I2))
+
+quit()
 ## Plot the results
 #####################################################################
-
-def make_scalar_field(nodes,vals,step=100j,
-                      bnd_vert=None,bnd_smp=None):
-  ''' 
-  Returns a structured data object used for plotting scalar fields 
-  with Mayavi
-  '''
-  xmin = np.min(nodes[:,0])
-  xmax = np.max(nodes[:,0])
-  ymin = np.min(nodes[:,1])
-  ymax = np.max(nodes[:,1])
-  zmin = np.min(nodes[:,2])
-  zmax = np.max(nodes[:,2])
-  x,y,z = np.mgrid[xmin:xmax:step,ymin:ymax:step,zmin:zmax:step]
-  f = griddata(nodes, vals, (x,y,z),method='linear')
-  # mask all points that are outside of the domain
-  grid_points_flat = np.array([x,y,z]).reshape((3,-1)).T
-  if (bnd_smp is not None) & (bnd_vert is not None):
-    is_outside = ~contains(grid_points_flat,bnd_vert,bnd_smp)
-    is_outside = is_outside.reshape(x.shape)
-    f[is_outside] = np.nan
-    
-  out = mlab.pipeline.scalar_field(x,y,z,f)
-  return out
-
 # remove ghost nodes
-nodes = nodes[:N]
-u_x,u_y,u_z = u_x[:N],u_y[:N],u_z[:N]
-e_xx,e_yy,e_zz = e_xx[:N],e_yy[:N],e_zz[:N]
-e_xy,e_xz,e_yz = e_xy[:N],e_xz[:N],e_yz[:N]
-s_xx,s_yy,s_zz = s_xx[:N],s_yy[:N],s_zz[:N]
-s_xy,s_xz,s_yz = s_xy[:N],s_xz[:N],s_yz[:N]
-cmap = cm.viridis
-# Plot this component of the stress tensor
-stress = s_zz
-stress_label = 'vertical stress'
-fig = mlab.figure(bgcolor=(0.9,0.9,0.9),fgcolor=(0.0,0.0,0.0),size=(600, 600))
-# turn second invariant into structured data
-dat = make_scalar_field(nodes,stress,bnd_vert=vert,bnd_smp=smp)
-# plot the top surface simplices
-mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2]+1e-2,smp[10:],opacity=1.0,colormap='gist_earth',vmin=-1.0,vmax=0.25)
-# plot the bottom simplices
-mlab.triangular_mesh(vert[:,0],vert[:,1],vert[:,2],smp[:2],color=(0.0,0.0,0.0),opacity=0.5)
-p = mlab.pipeline.iso_surface(dat,opacity=0.5,contours=7)
-mlab.quiver3d(nodes[:,0],nodes[:,1],nodes[:,2],u_x,u_y,u_z,mode='arrow',color=(0.2,0.2,0.2),scale_factor=1.0)
-# set colormap to cmap
-colors = cmap(np.linspace(0.0,1.0,256))*255
-p.module_manager.scalar_lut_manager.lut.table = colors
-# add colorbar
-cbar = mlab.scalarbar(p,title=stress_label)
-cbar.number_of_labels = 5
-cbar.title_text_property.bold = False
-cbar.title_text_property.italic = False
-cbar.label_text_property.bold = False
-cbar.label_text_property.italic = False
-mlab.show()
 
+fig = plt.figure()
+ax = fig.add_subplot(111,projection='3d')
+ax.set_aspect('equal')
+
+ax.plot_trisurf(vert[:,0],vert[:,1],vert[:,2],triangles=smp,
+                edgecolor=(0.0,0.0,0.2,0.2),color=(0.2,0.2,0.2,0.1),lw=1.0,
+                shade=False)
+ax.quiver(nodes[:,0], nodes[:,1], nodes[:,2], u_x, u_y, u_z,
+          length=0.25, color='k')
+
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+plt.show()
+quit()
