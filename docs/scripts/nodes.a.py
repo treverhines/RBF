@@ -24,14 +24,22 @@ N = 1000 # total number of nodes
 nodes,indices,normals = min_energy_nodes(
                           N,vert,smp,rho=rho,
                           boundary_groups_with_ghosts=['boundary'])
-# identify boundary and interior nodes
+
+# plot the results
 fig,ax = plt.subplots(figsize=(6,6))
+
 # plot the domain
 for s in smp: 
   ax.plot(vert[s,0],vert[s,1],'k-')
 
+# plot the different node groups
 for i,(name,idx) in enumerate(indices.items()):
   ax.plot(nodes[idx,0],nodes[idx,1],'C%s.' % i, label=name)
+
+# plot the boundary normal vectors
+for name,val in normals.items():
+  ax.quiver(nodes[indices[name],0],nodes[indices[name],1],
+            val[:,0],val[:,1])
 
 ax.legend()
 ax.set_aspect('equal')
