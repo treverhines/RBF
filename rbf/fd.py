@@ -9,6 +9,9 @@ import rbf.stencil
 import rbf.linalg
 from rbf.linalg import PartitionedSolver
 import scipy.sparse as sp
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _reshape_diffs(diffs):
@@ -77,27 +80,28 @@ def weights(x,s,diffs,coeffs=None,
     weighted sum of the function values at this point.
 
   diffs : (D,) int array or (K,D) int array 
-    Derivative orders for each spatial variable. For example [2,0] 
-    indicates that the weights should approximate the second 
-    derivative along the x axis in two-dimensional space.  diffs can 
-    also be a (K,D) array, where each (D,) sub-array is a term in a 
-    differential operator. For example the two-dimensional Laplacian 
-    can be represented as [[2,0],[0,2]].  
+    Derivative orders for each spatial dimension. For example `[2,0]`
+    indicates that the weights should approximate the second
+    derivative with respect to the first spatial dimension in
+    two-dimensional space.  diffs can also be a (K,D) array, where
+    each (D,) sub-array is a term in a differential operator. For
+    example the two-dimensional Laplacian can be represented as
+    `[[2,0],[0,2]]`.
 
   coeffs : (K,) array, optional 
-    Coefficients for each term in the differential operator 
-    specified with `diffs`.  Defaults to an array of ones. If diffs 
-    was specified as a (D,) array then coeffs should be a length 1 
+    Coefficients for each term in the differential operator specified
+    with `diffs`.  Defaults to an array of ones. If `diffs` was
+    specified as a (D,) array then `coeffs` should be a length 1
     array.
 
   basis : rbf.basis.RBF, optional
-    Type of RBF. Select from those available in rbf.basis or create 
+    Type of RBF. Select from those available in `rbf.basis` or create
     your own.
  
   order : int, optional
-    Order of the added polynomial. This defaults to the highest 
-    derivative order. For example, if `diffs` is [[2,0],[0,1]], then 
-    order is set to 2. 
+    Order of the added polynomial. This defaults to the highest
+    derivative order. For example, if `diffs` is `[[2,0],[0,1]]`, then
+    order is set to 2.
 
   eps : float or (N,) array, optional
     Shape parameter for each RBF, which have centers `s`. This only 
@@ -202,9 +206,9 @@ def weight_matrix(x,p,diffs,coeffs=None,
                   basis=rbf.basis.phs3,order=None,
                   eps=1.0,n=None,vert=None,smp=None):
   ''' 
-  Returns a weight matrix which maps a functions values at `p` to an 
-  approximation of that functions derivative at `x`.  This is a 
-  convenience function which first creates a stencil network and then 
+  Returns a weight matrix which maps a functions values at `p` to an
+  approximation of that functions derivative at `x`. This is a
+  convenience function which first creates a stencil network and then
   computed the RBF-FD weights for each stencil.
   
   Parameters
@@ -216,18 +220,19 @@ def weight_matrix(x,p,diffs,coeffs=None,
     Source points. The stencils will be made up of these points.
 
   diffs : (D,) int array or (K,D) int array 
-    Derivative orders for each spatial variable. For example [2,0] 
-    indicates that the weights should approximate the second 
-    derivative along the x axis in two-dimensional space.  diffs can 
-    also be a (K,D) array, where each (D,) sub-array is a term in a 
-    differential operator. For example the two-dimensional Laplacian 
-    can be represented as [[2,0],[0,2]].  
+    Derivative orders for each spatial dimension. For example `[2,0]`
+    indicates that the weights should approximate the second
+    derivative with respect to the first spatial dimension in
+    two-dimensional space.  diffs can also be a (K,D) array, where
+    each (D,) sub-array is a term in a differential operator. For
+    example the two-dimensional Laplacian can be represented as
+    `[[2,0],[0,2]]`.
 
   coeffs : (K,) float array or (K,N) float, optional 
-    Coefficients for each term in the differential operator specified 
-    with `diffs`. Defaults to an array of ones. If `diffs` was 
-    specified as a (D,) array then `coeffs` should be a length 1 
-    array. If the coefficients for the differential operator vary with 
+    Coefficients for each term in the differential operator specified
+    with `diffs`. Defaults to an array of ones. If `diffs` was
+    specified as a (D,) array then `coeffs` should be a length 1
+    array. If the coefficients for the differential operator vary with
     `x` then `coeffs` can be specified as a (K,N) array.
 
   basis : rbf.basis.RBF, optional
@@ -235,9 +240,9 @@ def weight_matrix(x,p,diffs,coeffs=None,
     your own.
 
   order : int, optional
-    Order of the added polynomial. This defaults to the highest 
-    derivative order. For example, if `diffs` is [[2,0],[0,1]], then 
-    `order` is set to 2. 
+    Order of the added polynomial. This defaults to the highest
+    derivative order. For example, if `diffs` is `[[2,0],[0,1]]`, then
+    `order` is set to 2.
 
   eps : float or (M,) array, optional
     shape parameter for each RBF, which have centers `p`. This only 
@@ -253,15 +258,10 @@ def weight_matrix(x,p,diffs,coeffs=None,
    
   smp : (Q,D) int array, optional
     Connectivity of the vertices to form the boundary
-    
-  use_pinv : bool, optional
-    Use the Moore-Penrose pseudo-inverse matrix to find the RBF-FD 
-    weights. This should be used for stencils where the weights cannot 
-    be uniquely resolved (e.g. when there are duplicate nodes).
 
   Returns
   -------
-  L : (N,M) csr sparse matrix          
+  (N,M) csc sparse matrix          
       
   Examples
   --------
@@ -309,18 +309,27 @@ def weight_matrix(x,p,diffs,coeffs=None,
   else:
     sn = rbf.stencil.stencil_network(x,p,n,vert=vert,smp=smp)
   
+  logger.debug('building a (%s, %s) RBF-FD weight matrix with %s '
+               'nonzeros...' % (x.shape[0],p.shape[0],sn.size))   
+
   # values that will be put into the sparse matrix
   data = np.zeros(sn.shape,dtype=float)
   for i,si in enumerate(sn):
+    # intermittently log the progress 
+    if i % (sn.shape[0] // 5) == 0:
+      logger.debug('  %d%% complete' % (100*i / sn.shape[0]))
+
     data[i,:] = weights(x[i],p[si],diffs,
                         coeffs=coeffs[:,i],eps=eps[si],
                         basis=basis,order=order)
 
+    
   rows = np.repeat(range(data.shape[0]),data.shape[1])
   cols = sn.ravel()
   data = data.ravel()
   shape = x.shape[0],p.shape[0]
-  L = sp.csr_matrix((data,(rows,cols)),shape)
+  L = sp.csc_matrix((data,(rows,cols)),shape)
+  logger.debug('  done')
   return L
                 
 
@@ -342,15 +351,15 @@ def add_rows(A,B,idx):
     
   Returns
   -------
-  (n1,m) csr sparse matrix
+  (n1,m) csc sparse matrix
   
   '''
   idx = np.asarray(idx,dtype=int)
-  # coerce `A` to csr to enforce a consistent output type
-  A = sp.csr_matrix(A)
+  # coerce `A` to csc to enforce a consistent output type
+  A = sp.csc_matrix(A)
   # convert `B` to a coo matrix, and expand out its rows
   B = sp.coo_matrix(B)
-  B = sp.csr_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
+  B = sp.csc_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
   # Now add the expanded `B` to `A`, 
   out = A + B
   return out

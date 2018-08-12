@@ -110,14 +110,12 @@ spectral RBF method. An example of the two methods is provided below.
 
   ''' 
   In this example we solve the Poisson equation over an L-shaped domain 
-  with fixed boundary conditions. We use the multiquadratic RBF (*mq*) 
-  with a shape parameter that scales inversely with the average nearest 
-  neighbor distance.
+  with fixed boundary conditions. We use the multiquadratic RBF (`mq`) 
   '''
   import numpy as np
   from rbf.basis import mq
   from rbf.geometry import contains
-  from rbf.nodes import menodes,neighbors
+  from rbf.nodes import min_energy_nodes
   import matplotlib.pyplot as plt
 
   # Define the problem domain with line segments.
@@ -125,20 +123,17 @@ spectral RBF method. An example of the two methods is provided below.
                    [1.0,1.0],[1.0,2.0],[0.0,2.0]])
   smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]])
   N = 500 # total number of nodes
-  nodes,smpid = menodes(N,vert,smp) # generate nodes
-  edge_idx, = (smpid>=0).nonzero() # identify edge nodes
-  interior_idx, = (smpid==-1).nonzero() # identify interior nodes
-  dx = np.mean(neighbors(nodes,2)[1][:,1]) # avg. distance to nearest neighbor
-  eps = 0.5/dx  # shape parameter
+  nodes,idx,_ = min_energy_nodes(N,vert,smp) # generate nodes
+  eps = 5.0  # shape parameter
   # create "left hand side" matrix
   A = np.empty((N,N))
-  A[interior_idx]  = mq(nodes[interior_idx],nodes,eps=eps,diff=[2,0])
-  A[interior_idx] += mq(nodes[interior_idx],nodes,eps=eps,diff=[0,2])
-  A[edge_idx] = mq(nodes[edge_idx],nodes,eps=eps)
+  A[idx['interior']]  = mq(nodes[idx['interior']],nodes,eps=eps,diff=[2,0])
+  A[idx['interior']] += mq(nodes[idx['interior']],nodes,eps=eps,diff=[0,2])
+  A[idx['boundary']]  = mq(nodes[idx['boundary']],nodes,eps=eps)
   # create "right hand side" vector
   d = np.empty(N)
-  d[interior_idx] = -1.0 # forcing term
-  d[edge_idx] = 0.0 # boundary condition
+  d[idx['interior']] = -1.0 # forcing term
+  d[idx['boundary']] = 0.0 # boundary condition
   # Solve for the RBF coefficients
   coeff = np.linalg.solve(A,d)
   # interpolate the solution on a grid
@@ -149,11 +144,11 @@ spectral RBF method. An example of the two methods is provided below.
   ug = u.reshape((400,400)) # fold back into a grid
   # make a contour plot of the solution
   fig,ax = plt.subplots()
-  p = ax.contourf(xg,yg,ug,cmap='viridis')
+  p = ax.contourf(xg,yg,ug,np.linspace(0.0,0.16,9),cmap='viridis')
   ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
   for s in smp:
     ax.plot(vert[s,0],vert[s,1],'k-',lw=2)
-  
+
   ax.set_aspect('equal')
   fig.colorbar(p,ax=ax)
   fig.tight_layout()
@@ -165,59 +160,84 @@ spectral RBF method. An example of the two methods is provided below.
 
   ''' 
   In this example we solve the Poisson equation over an L-shaped domain
-  with fixed boundary conditions. We use the RBF-FD method. 
+  with fixed boundary conditions. We use the RBF-FD method. The RBF-FD
+  method is preferable over the spectral RBF method because it is
+  scalable and does not require the user to specify a shape parameter
+  (assuming that we use odd order polyharmonic splines to generate the
+  weights).
   '''
   import numpy as np
-  from rbf.fd import weight_matrix
+  from rbf.fd import weight_matrix, add_rows
   from rbf.basis import phs3
   from rbf.geometry import contains
-  from rbf.nodes import menodes
+  from rbf.nodes import min_energy_nodes
   import matplotlib.pyplot as plt
-  from scipy.sparse import vstack
+  from scipy.sparse import csc_matrix
   from scipy.sparse.linalg import spsolve
   from scipy.interpolate import LinearNDInterpolator
-  
+
   # Define the problem domain with line segments.
-  vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],
-                   [1.0,1.0],[1.0,2.0],[0.0,2.0]])
-  smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]])
-  
+  vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],
+                   [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
+  smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
+
   N = 500 # total number of nodes.
-  n = 20 # stencil size.
-  basis = phs3 # radial basis function used to compute the weights. 
-  order = 2 # Order of the added polynomials. 
+
+  n = 20 # stencil size. Increase this will generally improve accuracy
+
+  basis = phs3 # radial basis function used to compute the weights. Odd
+               # order polyharmonic splines (e.g., phs3) have always
+               # performed well for me and they do not require the user
+               # to tune a shape parameter. Use higher order
+               # polyharmonic splines for higher order PDEs.
+
+  order = 2 # Order of the added polynomials. This should be at least as
+            # large as the order of the PDE being solved (2 in this
+            # case). Larger values may improve accuracy
+
   # generate nodes
-  nodes,smpid = menodes(N,vert,smp)
-  edge_idx, = (smpid>=0).nonzero()
-  interior_idx, = (smpid==-1).nonzero()
-  # create "left hand side" matrix
-  A_int = weight_matrix(nodes[interior_idx],nodes,diffs=[[2,0],[0,2]],
-                        n=n,basis=basis,order=order)
-  A_edg = weight_matrix(nodes[edge_idx],nodes,diffs=[0,0])
-  A = vstack((A_int,A_edg))
+  nodes, idx, _ = min_energy_nodes(N, vert, smp) 
+
+  # create the "left hand side" matrix. 
+  # create the component which evaluates the PDE
+  A_interior = weight_matrix(nodes[idx['interior']], nodes,
+                             diffs=[[2, 0], [0, 2]], n=n, 
+                           basis=basis, order=order)
+  # create the component for the fixed boundary conditions
+  A_boundary = weight_matrix(nodes[idx['boundary']], nodes, 
+                             diffs=[0, 0]) 
+  # Add the components to the corresponding rows of `A`
+  A = csc_matrix((N, N))
+  A = add_rows(A,A_interior,idx['interior'])
+  A = add_rows(A,A_boundary,idx['boundary'])
+                           
   # create "right hand side" vector
-  d_int = -1*np.ones_like(interior_idx)
-  d_edg = np.zeros_like(edge_idx)
-  d = np.hstack((d_int,d_edg))
+  d = np.zeros((N,))
+  d[idx['interior']] = -1.0
+  d[idx['boundary']] = 0.0
+
   # find the solution at the nodes
-  u_soln = spsolve(A,d)
+  u_soln = spsolve(A, d) 
+
   # interpolate the solution on a grid
-  xg,yg = np.meshgrid(np.linspace(-0.05,2.05,400),np.linspace(-0.05,2.05,400))
-  points = np.array([xg.flatten(),yg.flatten()]).T
-  u_itp = LinearNDInterpolator(nodes,u_soln)(points)
+  xg, yg = np.meshgrid(np.linspace(-0.05, 2.05, 400), 
+                       np.linspace(-0.05, 2.05, 400))
+  points = np.array([xg.flatten(), yg.flatten()]).T                    
+  u_itp = LinearNDInterpolator(nodes, u_soln)(points)
   # mask points outside of the domain
-  u_itp[~contains(points,vert,smp)] = np.nan
-  ug = u_itp.reshape((400,400)) # fold back into a grid
+  u_itp[~contains(points, vert, smp)] = np.nan 
+  ug = u_itp.reshape((400, 400)) # fold back into a grid
   # make a contour plot of the solution
-  fig,ax = plt.subplots()
-  p = ax.contourf(xg,yg,ug,cmap='viridis')
-  ax.plot(nodes[:,0],nodes[:,1],'ko',markersize=4)
+  fig, ax = plt.subplots()
+  p = ax.contourf(xg, yg, ug, np.linspace(-1e-6, 0.16, 9), cmap='viridis')
+  ax.plot(nodes[:, 0], nodes[:, 1], 'ko', markersize=4)
   for s in smp:
-    ax.plot(vert[s,0],vert[s,1],'k-',lw=2)
-  
+  ax.plot(vert[s, 0], vert[s, 1], 'k-', lw=2)
+
   ax.set_aspect('equal')
-  fig.colorbar(p,ax=ax)
+  fig.colorbar(p, ax=ax)
   fig.tight_layout()
   plt.show()
+
   
 .. figure:: docs/figures/fd.i.png

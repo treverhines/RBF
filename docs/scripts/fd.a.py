@@ -17,7 +17,7 @@ vert = np.array([[0.0,0.0],[2.0,0.0],[2.0,1.0],
                  [1.0,1.0],[1.0,2.0],[0.0,2.0]])
 smp = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]])
 times = np.linspace(0.0,2.0,5) # output times
-N = 40000 # total number of nodes
+N = 20000 # total number of nodes
 nodes,idx,_ = min_energy_nodes(N,vert,smp) # generate nodes
 # create differentiation matrices for the interior and boundary nodes
 D = weight_matrix(nodes[idx['interior']],nodes,[(2,0),(0,2)],n=30)

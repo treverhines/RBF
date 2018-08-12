@@ -12,7 +12,7 @@ from rbf.basis import phs3
 from rbf.geometry import contains
 from rbf.nodes import min_energy_nodes
 import matplotlib.pyplot as plt
-from scipy.sparse import csr_matrix
+from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve
 from scipy.interpolate import LinearNDInterpolator
 
@@ -24,7 +24,6 @@ smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 N = 500 # total number of nodes.
 
 n = 20 # stencil size. Increase this will generally improve accuracy
-       # at the expense of computation time.
 
 basis = phs3 # radial basis function used to compute the weights. Odd
              # order polyharmonic splines (e.g., phs3) have always
@@ -39,16 +38,17 @@ order = 2 # Order of the added polynomials. This should be at least as
 # generate nodes
 nodes, idx, _ = min_energy_nodes(N, vert, smp) 
 
-# create "left hand side" matrix. 
-A = csr_matrix((N, N))
+# create the "left hand side" matrix. 
+# create the component which evaluates the PDE
 A_interior = weight_matrix(nodes[idx['interior']], nodes,
                            diffs=[[2, 0], [0, 2]], n=n, 
                            basis=basis, order=order)
-# this is effectively equivalent to `A[idx['interior']] += A_interior`
-# but this is much more efficient
-A = add_rows(A,A_interior,idx['interior'])
+# create the component for the fixed boundary conditions
 A_boundary = weight_matrix(nodes[idx['boundary']], nodes, 
                            diffs=[0, 0]) 
+# Add the components to the corresponding rows of `A`
+A = csc_matrix((N, N))
+A = add_rows(A,A_interior,idx['interior'])
 A = add_rows(A,A_boundary,idx['boundary'])
                            
 # create "right hand side" vector
@@ -69,7 +69,7 @@ u_itp[~contains(points, vert, smp)] = np.nan
 ug = u_itp.reshape((400, 400)) # fold back into a grid
 # make a contour plot of the solution
 fig, ax = plt.subplots()
-p = ax.contourf(xg, yg, ug, np.linspace(0.0, 0.16, 9), cmap='viridis')
+p = ax.contourf(xg, yg, ug, np.linspace(-1e-6, 0.16, 9), cmap='viridis')
 ax.plot(nodes[:, 0], nodes[:, 1], 'ko', markersize=4)
 for s in smp:
   ax.plot(vert[s, 0], vert[s, 1], 'k-', lw=2)

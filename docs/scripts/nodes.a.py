@@ -1,8 +1,8 @@
 ''' 
-This script demonstrates how to use *menodes* to generate nodes over a
-domain with spatially variable density. These nodes can then be used
-to solve partial differential equation for this domain using the
-spectral RBF method or thr RBF-FD method.
+This script demonstrates how to use `min_energy_nodes` to generate
+nodes over a domain with spatially variable density. These nodes can
+then be used to solve partial differential equation for this domain
+using the spectral RBF method or the RBF-FD method.
 '''
 import numpy as np
 import matplotlib.pyplot as plt

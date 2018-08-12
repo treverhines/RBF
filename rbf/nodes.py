@@ -490,13 +490,15 @@ def min_energy_nodes(N,vert,smp,
 
   Returns
   -------
-  nodes: (N,D) float array 
+  (N,D) float array 
     Nodes positions.
 
-  smpid: (N,) int array
-    Index of the simplex that each node is on. If a node is not on a 
-    simplex (i.e. it is an interior node) then the simplex index is 
-    -1.
+  dict of int arrays
+    Dictionary containing the indices of nodes that belong to each
+    group
+  
+  dict of float arrays
+    Dictionary containing the normal vectors for each boundary group.
 
   Notes
   -----

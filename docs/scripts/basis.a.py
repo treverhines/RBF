@@ -1,8 +1,6 @@
 ''' 
 In this example we solve the Poisson equation over an L-shaped domain 
-with fixed boundary conditions. We use the multiquadratic RBF (*mq*) 
-with a shape parameter that scales inversely with the average nearest 
-neighbor distance.
+with fixed boundary conditions. We use the multiquadratic RBF (`mq`) 
 '''
 import numpy as np
 from rbf.basis import mq

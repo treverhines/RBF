@@ -14,6 +14,8 @@ from matplotlib.colors import LogNorm
 from rbf.nodes import min_energy_nodes
 from rbf.fd import weight_matrix, add_rows
 import scipy.sparse.linalg as spla
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 ## User defined parameters
 #####################################################################
@@ -21,9 +23,8 @@ import scipy.sparse.linalg as spla
 # simplex will be fixed, and the others will be free
 vert = np.array([[0.0, 0.0], [0.0, 1.0], [2.0, 1.0], [2.0, 0.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
-# approximate number of nodes that we want (the node generation
-# algorithm can get this exactly correct when we have ghost nodes)
-N_approx = 1000
+# The number of nodes excluding ghost nodes
+N = 1000
 # size of RBF-FD stencils
 n = 20
 # lame parameters
@@ -38,18 +39,21 @@ body_force = 1.0
 # they lay on
 boundary_groups = {'fixed':[0],
                    'free':[1, 2, 3]}
-nodes, indices, normals = min_energy_nodes(
-                            N_approx, vert, smp,
-                            boundary_groups=boundary_groups,
-                            boundary_groups_with_ghosts=['free'])
+nodes, idx, normals = min_energy_nodes(
+                        N, vert, smp,
+                        boundary_groups=boundary_groups,
+                        boundary_groups_with_ghosts=['free'])
+# update `N` to include ghost nodes
 N = nodes.shape[0]
 
 # form additional useful node groups
-free = indices['free']
-fixed = indices['fixed']
-interior_and_free = np.hstack((indices['interior'], indices['free']))
-interior_and_ghosts = np.hstack((indices['interior'], indices['free_ghosts']))
-interior_and_boundary = np.hstack((indices['interior'], indices['free'], indices['fixed']))
+idx['interior+free'] = np.hstack((idx['interior'], 
+                                  idx['free']))
+idx['interior+ghosts'] = np.hstack((idx['interior'], 
+                                    idx['free_ghosts']))
+idx['interior+boundary'] = np.hstack((idx['interior'], 
+                                      idx['free'], 
+                                      idx['fixed']))
 
 ## Create the sparse submatrices for the system matrix 
 G_xx = sp.csr_matrix((N, N))
@@ -72,17 +76,17 @@ coeffs_yy = [lamb+2*mu, mu]
 diffs_yy =  [(0, 2), (2, 0)]
 # make the differentiation matrices that enforce the PDE on the 
 # interior nodes.
-D_xx = weight_matrix(nodes[interior_and_free], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-G_xx = add_rows(G_xx, D_xx, interior_and_ghosts)
+D_xx = weight_matrix(nodes[idx['interior+free']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
+G_xx = add_rows(G_xx, D_xx, idx['interior+ghosts'])
 
-D_xy = weight_matrix(nodes[interior_and_free], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
-G_xy = add_rows(G_xy, D_xy, interior_and_ghosts)
+D_xy = weight_matrix(nodes[idx['interior+free']], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
+G_xy = add_rows(G_xy, D_xy, idx['interior+ghosts'])
 
-D_yx = weight_matrix(nodes[interior_and_free], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
-G_yx = add_rows(G_yx, D_yx, interior_and_ghosts)
+D_yx = weight_matrix(nodes[idx['interior+free']], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
+G_yx = add_rows(G_yx, D_yx, idx['interior+ghosts'])
 
-D_yy = weight_matrix(nodes[interior_and_free], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
-G_yy = add_rows(G_yy, D_yy, interior_and_ghosts)
+D_yy = weight_matrix(nodes[idx['interior+free']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+G_yy = add_rows(G_yy, D_yy, idx['interior+ghosts'])
 
 ## Enforce fixed boundary conditions
 # Enforce that x and y are as specified with the fixed boundary 
@@ -95,11 +99,11 @@ diffs_xx = [(0, 0)]
 coeffs_yy = [1.0]
 diffs_yy = [(0, 0)]
 
-dD_fix_xx = weight_matrix(nodes[fixed], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-G_xx = add_rows(G_xx, dD_fix_xx, fixed)
+dD_fix_xx = weight_matrix(nodes[idx['fixed']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
+G_xx = add_rows(G_xx, dD_fix_xx, idx['fixed'])
 
-dD_fix_yy = weight_matrix(nodes[fixed], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
-G_yy = add_rows(G_yy, dD_fix_yy, fixed)
+dD_fix_yy = weight_matrix(nodes[idx['fixed']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+G_yy = add_rows(G_yy, dD_fix_yy, idx['fixed'])
 
 ## Enforce free surface boundary conditions
 # x component of traction force resulting from x displacement 
@@ -116,17 +120,17 @@ coeffs_yy = [normals['free'][:, 1]*(lamb+2*mu), normals['free'][:, 0]*mu]
 diffs_yy =  [(0, 1), (1, 0)]
 # make the differentiation matrices that enforce the free surface boundary 
 # conditions.
-dD_free_xx = weight_matrix(nodes[free], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-G_xx = add_rows(G_xx, dD_free_xx, free)
+dD_free_xx = weight_matrix(nodes[idx['free']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
+G_xx = add_rows(G_xx, dD_free_xx, idx['free'])
 
-dD_free_xy = weight_matrix(nodes[free], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
-G_xy = add_rows(G_xy, dD_free_xy, free)
+dD_free_xy = weight_matrix(nodes[idx['free']], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
+G_xy = add_rows(G_xy, dD_free_xy, idx['free'])
 
-dD_free_yx = weight_matrix(nodes[free], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
-G_yx = add_rows(G_yx, dD_free_yx, free)
+dD_free_yx = weight_matrix(nodes[idx['free']], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
+G_yx = add_rows(G_yx, dD_free_yx, idx['free'])
 
-dD_free_yy = weight_matrix(nodes[free], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
-G_yy = add_rows(G_yy, dD_free_yy, free)
+dD_free_yy = weight_matrix(nodes[idx['free']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+G_yy = add_rows(G_yy, dD_free_yy, idx['free'])
 
 # stack the components together to form the left-hand-side matrix
 G_x = sp.hstack((G_xx, G_xy))
@@ -138,13 +142,13 @@ G = G.tocsr()
 d_x = np.zeros((N,))
 d_y = np.zeros((N,))
 
-d_x[interior_and_ghosts] = 0.0
-d_x[free] = 0.0
-d_x[fixed] = 0.0
+d_x[idx['interior+ghosts']] = 0.0
+d_x[idx['free']] = 0.0
+d_x[idx['fixed']] = 0.0
 
-d_y[interior_and_ghosts] = body_force
-d_y[free] = 0.0
-d_y[fixed] = 0.0
+d_y[idx['interior+ghosts']] = body_force
+d_y[idx['free']] = 0.0
+d_y[idx['fixed']] = 0.0
 
 d = np.hstack((d_x, d_y))
 
@@ -166,10 +170,11 @@ I2 = np.sqrt(e_xx**2 + e_yy**2 + 2*e_xy**2)
 ## Plot the results
 #####################################################################
 # toss out ghost nodes
-g = len(free)
-nodes = nodes[interior_and_boundary]
-u_x, u_y = u_x[interior_and_boundary], u_y[interior_and_boundary]
-I2 = I2[interior_and_boundary]
+g = len(idx['free'])
+nodes = nodes[idx['interior+boundary']]
+u_x = u_x[idx['interior+boundary']]
+u_y = u_y[idx['interior+boundary']]
+I2 = I2[idx['interior+boundary']]
 
 fig, ax = plt.subplots(figsize=(7, 3.5))
 # plot the fixed boundary

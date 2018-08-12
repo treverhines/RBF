@@ -33,7 +33,7 @@ smp = np.array([[0,1,3],[0,2,3],[0,1,4],[1,5,4],
 # number of nodes 
 N = 500
 # size of RBF-FD stencils
-n = 25
+n = 30
 # lame parameters
 lamb = 1.0
 mu = 1.0
@@ -45,17 +45,18 @@ body_force = 1.0
 # generate nodes. Note that this may take a while
 boundary_groups = {'fix':[0,1],
                    'free':range(2,12)}
-nodes, indices, normals = min_energy_nodes(
-                            N,vert,smp,
-                            boundary_groups=boundary_groups,
-                            boundary_groups_with_ghosts=['free'])
+nodes, idx, normals = min_energy_nodes(
+                        N,vert,smp,
+                        boundary_groups=boundary_groups,
+                        boundary_groups_with_ghosts=['free'])
 N = nodes.shape[0]
-
-fix = indices['fix']
-free = indices['free']
-interior_and_free = np.hstack((indices['interior'], indices['free']))
-interior_and_ghosts = np.hstack((indices['interior'], indices['free_ghosts']))
-interior_and_boundary = np.hstack((indices['interior'], indices['free'], indices['fix']))
+idx['interior+free'] = np.hstack((idx['interior'],
+                                  idx['free']))
+idx['interior+ghosts'] = np.hstack((idx['interior'],
+                                    idx['free_ghosts']))
+idx['interior+boundary'] = np.hstack((idx['interior'],
+                                      idx['free'],
+                                      idx['fix']))
 
 # The "left hand side" matrices are built with the convenience
 # functions from *rbf.fdbuild*. Read the documentation for these
@@ -72,35 +73,35 @@ G_zx = sp.csr_matrix((N, N))
 G_zy = sp.csr_matrix((N, N))
 G_zz = sp.csr_matrix((N, N))
 
-out = elastic3d_body_force(nodes[interior_and_free], nodes, 
+out = elastic3d_body_force(nodes[idx['interior+free']], nodes, 
                            lamb=lamb, mu=mu, n=n)
-G_xx = add_rows(G_xx, out['xx'], interior_and_ghosts)
-G_xy = add_rows(G_xy, out['xy'], interior_and_ghosts)
-G_xz = add_rows(G_xz, out['xz'], interior_and_ghosts)
-G_yx = add_rows(G_yx, out['yx'], interior_and_ghosts)
-G_yy = add_rows(G_yy, out['yy'], interior_and_ghosts)
-G_yz = add_rows(G_yz, out['yz'], interior_and_ghosts)
-G_zx = add_rows(G_zx, out['zx'], interior_and_ghosts)
-G_zy = add_rows(G_zy, out['zy'], interior_and_ghosts)
-G_zz = add_rows(G_zz, out['zz'], interior_and_ghosts)
+G_xx = add_rows(G_xx, out['xx'], idx['interior+ghosts'])
+G_xy = add_rows(G_xy, out['xy'], idx['interior+ghosts'])
+G_xz = add_rows(G_xz, out['xz'], idx['interior+ghosts'])
+G_yx = add_rows(G_yx, out['yx'], idx['interior+ghosts'])
+G_yy = add_rows(G_yy, out['yy'], idx['interior+ghosts'])
+G_yz = add_rows(G_yz, out['yz'], idx['interior+ghosts'])
+G_zx = add_rows(G_zx, out['zx'], idx['interior+ghosts'])
+G_zy = add_rows(G_zy, out['zy'], idx['interior+ghosts'])
+G_zz = add_rows(G_zz, out['zz'], idx['interior+ghosts'])
 
-out = elastic3d_surface_force(nodes[free], normals['free'], nodes, 
+out = elastic3d_surface_force(nodes[idx['free']], normals['free'], nodes, 
                               lamb=lamb, mu=mu, n=n)
-G_xx = add_rows(G_xx, out['xx'], free)
-G_xy = add_rows(G_xy, out['xy'], free)
-G_xz = add_rows(G_xz, out['xz'], free)
-G_yx = add_rows(G_yx, out['yx'], free)
-G_yy = add_rows(G_yy, out['yy'], free)
-G_yz = add_rows(G_yz, out['yz'], free)
-G_zx = add_rows(G_zx, out['zx'], free)
-G_zy = add_rows(G_zy, out['zy'], free)
-G_zz = add_rows(G_zz, out['zz'], free)
+G_xx = add_rows(G_xx, out['xx'], idx['free'])
+G_xy = add_rows(G_xy, out['xy'], idx['free'])
+G_xz = add_rows(G_xz, out['xz'], idx['free'])
+G_yx = add_rows(G_yx, out['yx'], idx['free'])
+G_yy = add_rows(G_yy, out['yy'], idx['free'])
+G_yz = add_rows(G_yz, out['yz'], idx['free'])
+G_zx = add_rows(G_zx, out['zx'], idx['free'])
+G_zy = add_rows(G_zy, out['zy'], idx['free'])
+G_zz = add_rows(G_zz, out['zz'], idx['free'])
 
-out = elastic3d_displacement(nodes[fix], nodes, 
+out = elastic3d_displacement(nodes[idx['fix']], nodes, 
                              lamb=lamb, mu=mu, n=1)
-G_xx = add_rows(G_xx, out['xx'], fix)
-G_yy = add_rows(G_yy, out['yy'], fix)
-G_zz = add_rows(G_zz, out['zz'], fix)
+G_xx = add_rows(G_xx, out['xx'], idx['fix'])
+G_yy = add_rows(G_yy, out['yy'], idx['fix'])
+G_zz = add_rows(G_zz, out['zz'], idx['fix'])
 
 G_x = sp.hstack((G_xx, G_xy, G_xz))
 G_y = sp.hstack((G_yx, G_yy, G_yz))
@@ -113,17 +114,17 @@ d_x = np.zeros((N,))
 d_y = np.zeros((N,))
 d_z = np.ones((N,))
 
-d_x[interior_and_ghosts] = 0.0
-d_x[free] = 0.0
-d_x[fix] = 0.0
+d_x[idx['interior+ghosts']] = 0.0
+d_x[idx['free']] = 0.0
+d_x[idx['fix']] = 0.0
 
-d_y[interior_and_ghosts] = 0.0
-d_y[free] = 0.0
-d_y[fix] = 0.0
+d_y[idx['interior+ghosts']] = 0.0
+d_y[idx['free']] = 0.0
+d_y[idx['fix']] = 0.0
 
-d_z[interior_and_ghosts] = 1.0
-d_z[free] = 0.0
-d_z[fix] = 0.0
+d_z[idx['interior+ghosts']] = body_force
+d_z[idx['free']] = 0.0
+d_z[idx['fix']] = 0.0
 
 d = np.hstack((d_x, d_y, d_z))
 
@@ -132,25 +133,12 @@ u = spla.spsolve(G,d,permc_spec='MMD_ATA')
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
 
-# Calculate strain from displacements
-D_x = weight_matrix(nodes,nodes,(1,0,0),n=n)
-D_y = weight_matrix(nodes,nodes,(0,1,0),n=n)
-D_z = weight_matrix(nodes,nodes,(0,0,1),n=n)
-e_xx = D_x.dot(u_x)
-e_yy = D_y.dot(u_y)
-e_zz = D_z.dot(u_z)
-e_xy = 0.5*(D_y.dot(u_x) + D_x.dot(u_y))
-e_xz = 0.5*(D_z.dot(u_x) + D_x.dot(u_z))
-e_yz = 0.5*(D_z.dot(u_y) + D_y.dot(u_z))
-I2 = np.sqrt(e_xx**2 + e_yy**2 + e_zz**2 + 
-             2*e_xy**2 + 2*e_xz**2 + 2*e_yz**2)
-
 ## Plot the results
 #####################################################################
-nodes = nodes[interior_and_boundary]
-u_x,u_y,u_z = (u_x[interior_and_boundary],
-               u_y[interior_and_boundary],
-               u_z[interior_and_boundary])
+nodes = nodes[idx['interior+boundary']]
+u_x,u_y,u_z = (u_x[idx['interior+boundary']],
+               u_y[idx['interior+boundary']],
+               u_z[idx['interior+boundary']])
 
 fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
