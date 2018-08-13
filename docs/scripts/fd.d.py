@@ -73,11 +73,11 @@ def density_func(x):
   between 0.0 and 1.0.
   '''
   r = np.sqrt(x[:,0]**2 + x[:,1]**2 + x[:,2]**2)
-  out = 0.1 + 0.9 / (1.0 + (r/0.4)**2)
+  out = 0.1 + 0.9 / (1.0 + (r/0.5)**2)
   return out
   
 # number of nodes (excluding ghost nodes)
-N = 10000 
+N = 20000
 
 # size of RBF-FD stencils.   
 n = 50
@@ -274,9 +274,6 @@ s_zz = lamb*e_xx + lamb*e_yy + (2*mu + lamb)*e_zz
 s_xy = 2*mu*e_xy
 s_xz = 2*mu*e_xz
 s_yz = 2*mu*e_yz
-# compute the strain magnitude
-I2 = np.sqrt(e_xx**2 + e_yy**2 + e_zz**2 + 
-             2*e_xy**2 + 2*e_xz**2 + 2*e_yz**2)
 
 ## PLOT THE RESULTS
 # figure 1
@@ -291,31 +288,29 @@ plt.clabel(CS, inline=1, fontsize=8)
 ax.set_aspect('equal')
 ax.set_xlim(-2,2)
 ax.set_ylim(-2,2)
+ax.set_xlabel('x')
+ax.set_ylabel('y')
 ax.set_title('surface nodes and topography')
 fig.tight_layout()
 
 # figure 2
-# plot I2 at z=-0.1
-fig,ax = plt.subplots()
-depth = -0.1
-x,y = np.meshgrid(np.linspace(-2.0,2.0,100),
-                  np.linspace(-2.0,2.0,100))
+# plot the a cross section of shear stress
+fig,ax = plt.subplots(figsize=(9,4))
+x,z = np.meshgrid(np.linspace(-1.0,1.0,200),
+                  np.linspace(-1.0,0.0,100))
 x = x.flatten()
-y = y.flatten()
-z = depth*np.ones_like(x)
+z = z.flatten()
+y = np.zeros_like(x)
 points = np.array([x,y,z]).T                   
-I2_interp = LinearNDInterpolator(nodes,I2)(points)
-p = ax.tripcolor(x,y,I2_interp)
+s_xz_interp = LinearNDInterpolator(nodes,s_xz)(points)
+p = ax.tricontourf(x,z,s_xz_interp)
 fig.colorbar(p,ax=ax)
-# plot a contour map of the topography
-CS = ax.tricontour(nodes[idx['free'],0],
-                   nodes[idx['free'],1],
-                   nodes[idx['free'],2],4,colors='k',zorder=1)
-plt.clabel(CS, inline=1, fontsize=8)                   
-
 ax.set_aspect('equal')
-ax.set_xlim(-2,2)
-ax.set_ylim(-2,2)
-ax.set_title('strain magnitude at depth %s' % depth)
+ax.set_xlim(-1.0,1.0)
+ax.set_ylim(-1.0,0.0)
+ax.set_xlabel('x')
+ax.set_ylabel('z (depth)')
+ax.set_title('sigma_xz cross section at y=0')
+ax.grid(ls=':',color='k')
 fig.tight_layout()
 plt.show()
