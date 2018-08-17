@@ -316,7 +316,7 @@ def weight_matrix(x,p,diffs,coeffs=None,
   data = np.zeros(sn.shape,dtype=float)
   for i,si in enumerate(sn):
     # intermittently log the progress 
-    if i % (sn.shape[0] // 5) == 0:
+    if i % max(sn.shape[0] // 10, 1) == 0:
       logger.debug('  %d%% complete' % (100*i / sn.shape[0]))
 
     data[i,:] = weights(x[i],p[si],diffs,
