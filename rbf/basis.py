@@ -346,7 +346,7 @@ class RBF(object):
         lim = self.limits[diff]
 
       else: 
-        logger.debug('Estimating limit for the RBF center ...')
+        logger.debug('Approximating the value at the RBF center ...')
         # make the substitutions for the point
         # (x0=tol+c0, x1=c1, x2=c2, ...)
         subs_list  = [(x_sym[0],self.tol+c_sym[0])]
@@ -360,7 +360,7 @@ class RBF(object):
         # error. Note that this should only be a function of `eps` now
         # and the simplification should not take long
         lim = sympy.cancel(lim) 
-        logger.debug('Done')
+        logger.debug('Approximate value at the RBF center: %s' % lim)
 
       # create a piecewise symbolic function which is `lim` when `r_sym`<`tol`
       # and `expr` otherwise
