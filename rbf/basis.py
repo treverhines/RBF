@@ -218,6 +218,11 @@ class RBF(object):
         raise ValueError(
           '`tol` cannot contain any symbols other than `eps`')
   
+      # replace any numbers in `value` with high precision floats
+      mapping = {n : sympy.Float(n, 50) for n in 
+                 value.atoms(sympy.Number)}
+      value = value.xreplace(mapping)
+      
     self._tol = value
     # reset `cache` now that we have a new `tol`
     self.clear_cache()
@@ -360,6 +365,9 @@ class RBF(object):
         # error. Note that this should only be a function of `eps` now
         # and the simplification should not take long
         lim = sympy.cancel(lim) 
+        # return any remaining numbers to regular precision floats
+        mapping = {n : float(n) for n in lim.atoms(sympy.Number)}
+        lim = lim.xreplace(mapping)
         logger.debug('Approximate value at the RBF center: %s' % lim)
 
       # create a piecewise symbolic function which is `lim` when `r_sym`<`tol`
@@ -408,9 +416,7 @@ class SparseRBF(RBF):
     evaluation points, `x`, that are within `tol` of the RBF center,
     `c`. If the limit of the RBF at `x = c` is known, then it can be
     manually specified with the `limits` arguments. `tol` can be a
-    float or a sympy expression containing `eps`. It may be necessary
-    to specify `tol` as a high precision float with `sympy.Float` to
-    avoid numerical rounding errors.
+    float or a sympy expression containing `eps`. 
 
   limits : dict, optional
     Contains the values of the RBF or its derivatives at the center.
@@ -539,14 +545,14 @@ class SparseRBF(RBF):
 #####################################################################
 # polyharmonic splines
 
-phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),tol=sympy.Float('1e-10',50))
-phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),tol=sympy.Float('1e-10',50))
-phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),tol=sympy.Float('1e-10',50))
-phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),tol=sympy.Float('1e-10',50))
-phs7 = RBF((_EPS*_R)**7,tol=sympy.Float('1e-10',50))
-phs5 = RBF((_EPS*_R)**5,tol=sympy.Float('1e-10',50))
-phs3 = RBF((_EPS*_R)**3,tol=sympy.Float('1e-10',50))
-phs1 = RBF(_EPS*_R,tol=sympy.Float('1e-10',50))
+phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R),tol=1e-10)
+phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R),tol=1e-10)
+phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R),tol=1e-10)
+phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R),tol=1e-10)
+phs7 = RBF((_EPS*_R)**7,tol=1e-10)
+phs5 = RBF((_EPS*_R)**5,tol=1e-10)
+phs3 = RBF((_EPS*_R)**3,tol=1e-10)
+phs1 = RBF(_EPS*_R,tol=1e-10)
 # inverse multiquadratic
 imq = RBF(1/sympy.sqrt(1+(_EPS*_R)**2))
 # inverse quadratic
@@ -560,22 +566,22 @@ exp = RBF(sympy.exp(-_R/_EPS))
 # squared exponential
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 # Matern
-mat32 = RBF( (1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS) , tol=sympy.Float('1e-10',50)*_EPS)
-mat52 = RBF( (1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS) , tol=sympy.Float('1e-10',50)*_EPS)
+mat32 = RBF( (1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS) , tol=1e-10*_EPS)
+mat52 = RBF( (1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS) , tol=1e-10*_EPS)
 # Wendland 
-wen10 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)                                             , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS )
-wen11 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                          , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS ) 
-wen12 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)        , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS ) 
-wen30 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**2                                          , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS )  
-wen31 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                          , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS ) 
-wen32 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3    , _R < _EPS), (0.0,True) ), tol=sympy.Float('1e-10',50)*_EPS ) 
+wen10 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)                                             , _R < _EPS), (0.0,True) ), tol=1e-10*_EPS )
+wen11 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                          , _R < _EPS), (0.0,True) ), tol=1e-10*_EPS ) 
+wen12 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)        , _R < _EPS), (0.0,True) ), tol=1e-10*_EPS ) 
+wen30 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**2                                          , _R < _EPS), (0.0,True) ), tol=1e-10*_EPS )  
+wen31 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                          , _R < _EPS), (0.0,True) ), tol=1e-10*_EPS ) 
+wen32 = RBF(sympy.Piecewise( ( (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3    , _R < _EPS), (0.0,True) ), tol=1e-10*_EPS ) 
 # sparse Wendland 
-spwen10 = SparseRBF(           (1 - _R/_EPS)                                             , _EPS, tol=sympy.Float('1e-10',50)*_EPS)
-spwen11 = SparseRBF(           (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                          , _EPS, tol=sympy.Float('1e-10',50)*_EPS)
-spwen12 = SparseRBF(           (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)        , _EPS, tol=sympy.Float('1e-10',50)*_EPS)
-spwen30 = SparseRBF(           (1 - _R/_EPS)**2                                          , _EPS, tol=sympy.Float('1e-10',50)*_EPS)
-spwen31 = SparseRBF(           (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                          , _EPS, tol=sympy.Float('1e-10',50)*_EPS)
-spwen32 = SparseRBF(           (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3    , _EPS, tol=sympy.Float('1e-10',50)*_EPS)
+spwen10 = SparseRBF(           (1 - _R/_EPS)                                             , _EPS, tol=1e-10*_EPS)
+spwen11 = SparseRBF(           (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                          , _EPS, tol=1e-10*_EPS)
+spwen12 = SparseRBF(           (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)        , _EPS, tol=1e-10*_EPS)
+spwen30 = SparseRBF(           (1 - _R/_EPS)**2                                          , _EPS, tol=1e-10*_EPS)
+spwen31 = SparseRBF(           (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                          , _EPS, tol=1e-10*_EPS)
+spwen32 = SparseRBF(           (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3    , _EPS, tol=1e-10*_EPS)
 
 # set some known RBF limits
 phs1.limits.update((tuple(i),0) for i in powers(0,1))
