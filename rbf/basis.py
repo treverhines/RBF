@@ -114,7 +114,7 @@ class RBF(object):
   >>> from rbf.basis import *
   >>> r = get_r()
   >>> eps = get_eps()
-  >>> iq_expr = 1/(1 + (_EPS*_R)**2)
+  >>> iq_expr = 1/(1 + (eps*r)**2)
   >>> iq = RBF(iq_expr)
   
   Evaluate an inverse quadratic at 10 points ranging from -5 to 5. 
