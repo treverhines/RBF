@@ -567,32 +567,32 @@ exp = RBF(sympy.exp(-_R/_EPS))
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 
 # Matern
-mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS), tol=1e-10*_EPS)
+mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS), tol=1e-8*_EPS)
 
-mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-10*_EPS)
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-6*_EPS)
 
 # Wendland 
-wen10 = RBF(sympy.Piecewise(((1 - _R/_EPS)                                         , _R < _EPS), (0.0, True)), tol=1e-10*_EPS)
+wen10 = RBF(sympy.Piecewise(((1 - _R/_EPS)                                         , _R < _EPS), (0.0, True)), tol=1e-8*_EPS)
 
-wen11 = RBF(sympy.Piecewise(((1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-10*_EPS) 
+wen11 = RBF(sympy.Piecewise(((1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS) 
 
-wen12 = RBF(sympy.Piecewise(((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _R < _EPS), (0.0, True)), tol=1e-5*_EPS) 
+wen12 = RBF(sympy.Piecewise(((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _R < _EPS), (0.0, True)), tol=1e-3*_EPS) 
 
-wen30 = RBF(sympy.Piecewise(((1 - _R/_EPS)**2                                      , _R < _EPS), (0.0, True)), tol=1e-10*_EPS)  
+wen30 = RBF(sympy.Piecewise(((1 - _R/_EPS)**2                                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS)  
 
-wen31 = RBF(sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-10*_EPS) 
+wen31 = RBF(sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS) 
     
-wen32 = RBF(sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)), tol=1e-5*_EPS) 
+wen32 = RBF(sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)), tol=1e-3*_EPS) 
 
 # sparse Wendland 
-spwen10 = SparseRBF(         (1 - _R/_EPS)                                         , _EPS, tol=1e-10*_EPS)
+spwen10 = SparseRBF(         (1 - _R/_EPS)                                         , _EPS, tol=1e-8*_EPS)
 
-spwen11 = SparseRBF(         (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _EPS, tol=1e-10*_EPS)
+spwen11 = SparseRBF(         (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS)
 
-spwen12 = SparseRBF(         (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _EPS, tol=1e-5*_EPS)
+spwen12 = SparseRBF(         (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _EPS, tol=1e-3*_EPS)
 
-spwen30 = SparseRBF(         (1 - _R/_EPS)**2                                      , _EPS, tol=1e-10*_EPS)
+spwen30 = SparseRBF(         (1 - _R/_EPS)**2                                      , _EPS, tol=1e-8*_EPS)
 
-spwen31 = SparseRBF(         (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _EPS, tol=1e-10*_EPS)
+spwen31 = SparseRBF(         (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS)
 
-spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-5*_EPS)
+spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-3*_EPS)
