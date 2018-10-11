@@ -77,7 +77,7 @@ def density_func(x):
   return out
   
 # number of nodes (excluding ghost nodes)
-N = 20000
+N = 20000 
 
 # size of RBF-FD stencils.   
 n = 50
@@ -146,7 +146,7 @@ G_zy = add_rows(G_zy, out['zy'], idx['interior+ghost'])
 G_zz = add_rows(G_zz, out['zz'], idx['interior+ghost'])
 
 # add free surface constraints
-out = elastic3d_surface_force(nodes[idx['free']],normals['free'],
+out = elastic3d_surface_force(nodes[idx['free']],normals[idx['free']],
                               nodes,lamb=lamb,mu=mu,n=n)
 G_xx = add_rows(G_xx, out['xx'], idx['free'])
 G_xy = add_rows(G_xy, out['xy'], idx['free'])
@@ -164,17 +164,17 @@ G_zz = add_rows(G_zz, out['zz'], idx['free'])
 # fixed normal to the surface
 out = elastic3d_displacement(nodes[idx['roller']],nodes,
                              lamb=lamb,mu=mu,n=1)
-normals_x = sp.diags(normals['roller'][:,0])
-normals_y = sp.diags(normals['roller'][:,1])
-normals_z = sp.diags(normals['roller'][:,2])
+normals_x = sp.diags(normals[idx['roller']][:,0])
+normals_y = sp.diags(normals[idx['roller']][:,1])
+normals_z = sp.diags(normals[idx['roller']][:,2])
 G_xx = add_rows(G_xx, normals_x.dot(out['xx']), idx['roller'])
 G_xy = add_rows(G_xy, normals_y.dot(out['yy']), idx['roller'])
 G_xz = add_rows(G_xz, normals_z.dot(out['zz']), idx['roller'])
 
 # free parallel to the surface
-out = elastic3d_surface_force(nodes[idx['roller']],normals['roller'],
+out = elastic3d_surface_force(nodes[idx['roller']],normals[idx['roller']],
                               nodes,lamb=lamb,mu=mu,n=n)
-parallels_1,parallels_2 = find_orthogonals(normals['roller'])
+parallels_1,parallels_2 = find_orthogonals(normals[idx['roller']])
 
 parallels_x = sp.diags(parallels_1[:,0])
 parallels_y = sp.diags(parallels_1[:,1])

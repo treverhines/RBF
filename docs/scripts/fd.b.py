@@ -42,7 +42,8 @@ boundary_groups = {'fixed':[0],
 nodes, idx, normals = min_energy_nodes(
                         N, vert, smp,
                         boundary_groups=boundary_groups,
-                        boundary_groups_with_ghosts=['free'])
+                        boundary_groups_with_ghosts=['free'],
+                        include_vertices=True)
 # update `N` to include ghost nodes
 N = nodes.shape[0]
 
@@ -107,16 +108,16 @@ G_yy = add_rows(G_yy, dD_fix_yy, idx['fixed'])
 
 ## Enforce free surface boundary conditions
 # x component of traction force resulting from x displacement 
-coeffs_xx = [normals['free'][:, 0]*(lamb+2*mu), normals['free'][:, 1]*mu]
+coeffs_xx = [normals[idx['free']][:, 0]*(lamb+2*mu), normals[idx['free']][:, 1]*mu]
 diffs_xx = [(1, 0), (0, 1)]
 # x component of traction force resulting from y displacement
-coeffs_xy = [normals['free'][:, 0]*lamb, normals['free'][:, 1]*mu]
+coeffs_xy = [normals[idx['free']][:, 0]*lamb, normals[idx['free']][:, 1]*mu]
 diffs_xy = [(0, 1), (1, 0)]
 # y component of traction force resulting from x displacement
-coeffs_yx = [normals['free'][:, 0]*mu, normals['free'][:, 1]*lamb]
+coeffs_yx = [normals[idx['free']][:, 0]*mu, normals[idx['free']][:, 1]*lamb]
 diffs_yx = [(0, 1), (1, 0)]
 # y component of force resulting from displacement in the y direction
-coeffs_yy = [normals['free'][:, 1]*(lamb+2*mu), normals['free'][:, 0]*mu]
+coeffs_yy = [normals[idx['free']][:, 1]*(lamb+2*mu), normals[idx['free']][:, 0]*mu]
 diffs_yy =  [(0, 1), (1, 0)]
 # make the differentiation matrices that enforce the free surface boundary 
 # conditions.

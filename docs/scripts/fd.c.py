@@ -48,7 +48,8 @@ boundary_groups = {'fix':[0,1],
 nodes, idx, normals = min_energy_nodes(
                         N,vert,smp,
                         boundary_groups=boundary_groups,
-                        boundary_groups_with_ghosts=['free'])
+                        boundary_groups_with_ghosts=['free'],
+                        include_vertices=True)
 N = nodes.shape[0]
 idx['interior+free'] = np.hstack((idx['interior'],
                                   idx['free']))
@@ -85,7 +86,7 @@ G_zx = add_rows(G_zx, out['zx'], idx['interior+ghosts'])
 G_zy = add_rows(G_zy, out['zy'], idx['interior+ghosts'])
 G_zz = add_rows(G_zz, out['zz'], idx['interior+ghosts'])
 
-out = elastic3d_surface_force(nodes[idx['free']], normals['free'], nodes, 
+out = elastic3d_surface_force(nodes[idx['free']], normals[idx['free']], nodes, 
                               lamb=lamb, mu=mu, n=n)
 G_xx = add_rows(G_xx, out['xx'], idx['free'])
 G_xy = add_rows(G_xy, out['xy'], idx['free'])

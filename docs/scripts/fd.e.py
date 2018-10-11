@@ -94,7 +94,7 @@ G_yx = add_rows(G_yx, out['yx'], idx['interior+ghost'])
 G_yy = add_rows(G_yy, out['yy'], idx['interior+ghost'])
 
 # build the "left hand side" matrices for free surface constraints
-out = elastic2d_surface_force(nodes[idx['free']],normals['free'],
+out = elastic2d_surface_force(nodes[idx['free']],normals[idx['free']],
                               nodes,lamb=lamb,mu=mu,n=n)
 G_xx = add_rows(G_xx, out['xx'], idx['free'])
 G_xy = add_rows(G_xy, out['xy'], idx['free'])
@@ -105,14 +105,14 @@ G_yy = add_rows(G_yy, out['yy'], idx['free'])
 # constrain displacements in the surface normal direction
 out = elastic2d_displacement(nodes[idx['roller']],nodes,
                              lamb=lamb,mu=mu,n=1)
-normals_x = sp.diags(normals['roller'][:,0])
-normals_y = sp.diags(normals['roller'][:,1])
+normals_x = sp.diags(normals[idx['roller']][:,0])
+normals_y = sp.diags(normals[idx['roller']][:,1])
 G_xx = add_rows(G_xx, normals_x.dot(out['xx']), idx['roller'])
 G_xy = add_rows(G_xy, normals_y.dot(out['yy']), idx['roller'])
 # have zero traction parallel to the boundary
-out = elastic2d_surface_force(nodes[idx['roller']],normals['roller'],
+out = elastic2d_surface_force(nodes[idx['roller']],normals[idx['roller']],
                               nodes,lamb=lamb,mu=mu,n=n)
-parallels = find_orthogonals(normals['roller'])
+parallels = find_orthogonals(normals[idx['roller']])
 parallels_x = sp.diags(parallels[:,0])
 parallels_y = sp.diags(parallels[:,1])
 G_yx = add_rows(G_yx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']), idx['roller'])
