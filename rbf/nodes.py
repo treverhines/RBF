@@ -135,7 +135,7 @@ def _neighbors(x, m, p=None, vert=None, smp=None):
 
 def _disperse(nodes,
               rho=None,
-              fixed_nodes=None,
+              pinned_nodes=None,
               m=None,
               delta=0.1,
               vert=None,
@@ -149,10 +149,10 @@ def _disperse(nodes,
   if rho is None:
     rho = _default_rho
 
-  if fixed_nodes is None:
-    fixed_nodes = np.zeros((0, nodes.shape[1]), dtype=float)
+  if pinned_nodes is None:
+    pinned_nodes = np.zeros((0, nodes.shape[1]), dtype=float)
 
-  fixed_nodes = np.asarray(fixed_nodes, dtype=float)
+  pinned_nodes = np.asarray(pinned_nodes, dtype=float)
   if m is None:
     # number of neighbors defaults to 3 raised to the number of
     # spatial dimensions
@@ -160,13 +160,13 @@ def _disperse(nodes,
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
-  m = min(m, nodes.shape[0]+fixed_nodes.shape[0])
+  m = min(m, nodes.shape[0]+pinned_nodes.shape[0])
   # if m is 0 or 1 then the nodes remain stationary
   if m <= 1:
     return np.array(nodes, copy=True)
 
   # form collection of all nodes
-  all_nodes = np.vstack((nodes, fixed_nodes))
+  all_nodes = np.vstack((nodes, pinned_nodes))
   # find index and distance to nearest nodes
   i, d = _neighbors(nodes, m, p=all_nodes, vert=vert, smp=smp)
   # dont consider a node to be one of its own nearest neighbors
@@ -194,7 +194,7 @@ def _disperse_within_boundary(nodes,
                               vert,
                               smp,
                               rho=None,
-                              fixed_nodes=None,
+                              pinned_nodes=None,
                               m=None,
                               delta=0.1,
                               bound_force=False):
@@ -211,7 +211,7 @@ def _disperse_within_boundary(nodes,
     bound_vert, bound_smp = None, None
 
   # node positions after repulsion
-  out = _disperse(nodes, rho=rho, fixed_nodes=fixed_nodes, m=m,
+  out = _disperse(nodes, rho=rho, pinned_nodes=pinned_nodes, m=m,
                   delta=delta, vert=bound_vert, smp=bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = intersection_count(nodes, out, vert, smp) > 0
@@ -449,7 +449,7 @@ def _sort_nodes(nodes, indices, normals):
 
 def min_energy_nodes(N, vert, smp,
                      rho=None,
-                     fixed_nodes=None,
+                     pinned_nodes=None,
                      itr=100,
                      m=None,
                      delta=0.05,
@@ -494,8 +494,9 @@ def min_energy_nodes(N, vert, smp,
     normalized to something less than 1.0; however it will be less
     efficient.
 
-  fixed_nodes : (F, D) array, optional
-    Nodes which do not move and only provide a repulsion force.
+  pinned_nodes : (F, D) array, optional
+    Nodes which do not move and only provide a repulsion force. These
+    nodes are not included in nodes returned by this function.
 
   itr : int, optional
     Number of repulsion iterations. If this number is small then the
@@ -572,23 +573,23 @@ def min_energy_nodes(N, vert, smp,
   if boundary_groups is None:
     boundary_groups = {'boundary': range(smp.shape[0])}
     
-  if fixed_nodes is None:
-    fixed_nodes = np.zeros((0, vert.shape[1]), dtype=float)
+  if pinned_nodes is None:
+    pinned_nodes = np.zeros((0, vert.shape[1]), dtype=float)
   
   logger.debug('finding node positions with rejection sampling')
   nodes = _rejection_sampling_nodes(N, vert, smp, rho=rho)
 
-  # `fixed_nodes` consist of specific nodes that we want included in
+  # `pinned_nodes` consist of specific nodes that we want included in
   # the output nodes. If `include_vertices` is True then add the
-  # vertices to the fixed nodes
+  # vertices to the pinned nodes
   if include_vertices:  
-      fixed_nodes = np.vstack((fixed_nodes, vert))
+      pinned_nodes = np.vstack((pinned_nodes, vert))
     
   # use a minimum energy algorithm to spread out the nodes
   for i in range(itr):
     logger.debug('starting node repulsion iteration %s of %s' % (i+1, itr))
     nodes = _disperse_within_boundary(
-      nodes, vert, smp, rho=rho, fixed_nodes=fixed_nodes, m=m, 
+      nodes, vert, smp, rho=rho, pinned_nodes=pinned_nodes, m=m, 
       delta=delta, bound_force=bound_force)
 
   nodes, smpid = _snap_to_boundary(nodes, vert, smp, delta=0.5)
@@ -610,6 +611,7 @@ def min_energy_nodes(N, vert, smp,
 
   logger.debug('finished generating %s nodes' % nodes.shape[0])
   return nodes, indices, normals
+
 
 
 

@@ -242,12 +242,12 @@ M = spla.LinearOperator(G.shape,ilu.solve)
 
 # solve the system using GMRES and define the callback function to
 # print info for each iteration
-print('solving with GMRES')
 def callback(res,_itr=[0]):
   l2 = np.linalg.norm(res)
   print('gmres error on iteration %s: %s' % (_itr[0],l2))
   _itr[0] += 1
 
+print('solving with GMRES')
 u,info = spla.gmres(G,d,M=M,callback=callback)
 print('finished gmres with info %s' % info)
 
