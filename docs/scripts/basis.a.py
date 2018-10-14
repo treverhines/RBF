@@ -19,11 +19,11 @@ eps = 5.0  # shape parameter
 A = np.empty((N,N))
 A[idx['interior']]  = mq(nodes[idx['interior']],nodes,eps=eps,diff=[2,0])
 A[idx['interior']] += mq(nodes[idx['interior']],nodes,eps=eps,diff=[0,2])
-A[idx['boundary']]  = mq(nodes[idx['boundary']],nodes,eps=eps)
+A[idx['boundary:all']]  = mq(nodes[idx['boundary:all']],nodes,eps=eps)
 # create "right hand side" vector
 d = np.empty(N)
 d[idx['interior']] = -1.0 # forcing term
-d[idx['boundary']] = 0.0 # boundary condition
+d[idx['boundary:all']] = 0.0 # boundary condition
 # Solve for the RBF coefficients
 coeff = np.linalg.solve(A,d) 
 # interpolate the solution on a grid

@@ -51,13 +51,6 @@ nodes, idx, normals = min_energy_nodes(
                         boundary_groups_with_ghosts=['free'],
                         include_vertices=True)
 N = nodes.shape[0]
-idx['interior+free'] = np.hstack((idx['interior'],
-                                  idx['free']))
-idx['interior+ghosts'] = np.hstack((idx['interior'],
-                                    idx['free_ghosts']))
-idx['interior+boundary'] = np.hstack((idx['interior'],
-                                      idx['free'],
-                                      idx['fix']))
 
 # The "left hand side" matrices are built with the convenience
 # functions from *rbf.fdbuild*. Read the documentation for these
@@ -74,35 +67,49 @@ G_zx = sp.csr_matrix((N, N))
 G_zy = sp.csr_matrix((N, N))
 G_zz = sp.csr_matrix((N, N))
 
-out = elastic3d_body_force(nodes[idx['interior+free']], nodes, 
+out = elastic3d_body_force(nodes[idx['interior']], nodes, 
                            lamb=lamb, mu=mu, n=n)
-G_xx = add_rows(G_xx, out['xx'], idx['interior+ghosts'])
-G_xy = add_rows(G_xy, out['xy'], idx['interior+ghosts'])
-G_xz = add_rows(G_xz, out['xz'], idx['interior+ghosts'])
-G_yx = add_rows(G_yx, out['yx'], idx['interior+ghosts'])
-G_yy = add_rows(G_yy, out['yy'], idx['interior+ghosts'])
-G_yz = add_rows(G_yz, out['yz'], idx['interior+ghosts'])
-G_zx = add_rows(G_zx, out['zx'], idx['interior+ghosts'])
-G_zy = add_rows(G_zy, out['zy'], idx['interior+ghosts'])
-G_zz = add_rows(G_zz, out['zz'], idx['interior+ghosts'])
+G_xx = add_rows(G_xx, out['xx'], idx['interior'])
+G_xy = add_rows(G_xy, out['xy'], idx['interior'])
+G_xz = add_rows(G_xz, out['xz'], idx['interior'])
+G_yx = add_rows(G_yx, out['yx'], idx['interior'])
+G_yy = add_rows(G_yy, out['yy'], idx['interior'])
+G_yz = add_rows(G_yz, out['yz'], idx['interior'])
+G_zx = add_rows(G_zx, out['zx'], idx['interior'])
+G_zy = add_rows(G_zy, out['zy'], idx['interior'])
+G_zz = add_rows(G_zz, out['zz'], idx['interior'])
 
-out = elastic3d_surface_force(nodes[idx['free']], normals[idx['free']], nodes, 
-                              lamb=lamb, mu=mu, n=n)
-G_xx = add_rows(G_xx, out['xx'], idx['free'])
-G_xy = add_rows(G_xy, out['xy'], idx['free'])
-G_xz = add_rows(G_xz, out['xz'], idx['free'])
-G_yx = add_rows(G_yx, out['yx'], idx['free'])
-G_yy = add_rows(G_yy, out['yy'], idx['free'])
-G_yz = add_rows(G_yz, out['yz'], idx['free'])
-G_zx = add_rows(G_zx, out['zx'], idx['free'])
-G_zy = add_rows(G_zy, out['zy'], idx['free'])
-G_zz = add_rows(G_zz, out['zz'], idx['free'])
+out = elastic3d_body_force(nodes[idx['boundary:free']], nodes, 
+                           lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out['xx'], idx['ghosts:free'])
+G_xy = add_rows(G_xy, out['xy'], idx['ghosts:free'])
+G_xz = add_rows(G_xz, out['xz'], idx['ghosts:free'])
+G_yx = add_rows(G_yx, out['yx'], idx['ghosts:free'])
+G_yy = add_rows(G_yy, out['yy'], idx['ghosts:free'])
+G_yz = add_rows(G_yz, out['yz'], idx['ghosts:free'])
+G_zx = add_rows(G_zx, out['zx'], idx['ghosts:free'])
+G_zy = add_rows(G_zy, out['zy'], idx['ghosts:free'])
+G_zz = add_rows(G_zz, out['zz'], idx['ghosts:free'])
 
-out = elastic3d_displacement(nodes[idx['fix']], nodes, 
+
+out = elastic3d_surface_force(nodes[idx['boundary:free']], 
+                              normals[idx['boundary:free']], 
+                              nodes, lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out['xx'], idx['boundary:free'])
+G_xy = add_rows(G_xy, out['xy'], idx['boundary:free'])
+G_xz = add_rows(G_xz, out['xz'], idx['boundary:free'])
+G_yx = add_rows(G_yx, out['yx'], idx['boundary:free'])
+G_yy = add_rows(G_yy, out['yy'], idx['boundary:free'])
+G_yz = add_rows(G_yz, out['yz'], idx['boundary:free'])
+G_zx = add_rows(G_zx, out['zx'], idx['boundary:free'])
+G_zy = add_rows(G_zy, out['zy'], idx['boundary:free'])
+G_zz = add_rows(G_zz, out['zz'], idx['boundary:free'])
+
+out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes, 
                              lamb=lamb, mu=mu, n=1)
-G_xx = add_rows(G_xx, out['xx'], idx['fix'])
-G_yy = add_rows(G_yy, out['yy'], idx['fix'])
-G_zz = add_rows(G_zz, out['zz'], idx['fix'])
+G_xx = add_rows(G_xx, out['xx'], idx['boundary:fix'])
+G_yy = add_rows(G_yy, out['yy'], idx['boundary:fix'])
+G_zz = add_rows(G_zz, out['zz'], idx['boundary:fix'])
 
 G_x = sp.hstack((G_xx, G_xy, G_xz))
 G_y = sp.hstack((G_yx, G_yy, G_yz))
@@ -115,17 +122,20 @@ d_x = np.zeros((N,))
 d_y = np.zeros((N,))
 d_z = np.ones((N,))
 
-d_x[idx['interior+ghosts']] = 0.0
-d_x[idx['free']] = 0.0
-d_x[idx['fix']] = 0.0
+d_x[idx['interior']] = 0.0
+d_x[idx['ghosts:free']] = 0.0
+d_x[idx['boundary:free']] = 0.0
+d_x[idx['boundary:fix']] = 0.0
 
-d_y[idx['interior+ghosts']] = 0.0
-d_y[idx['free']] = 0.0
-d_y[idx['fix']] = 0.0
+d_y[idx['interior']] = 0.0
+d_y[idx['ghosts:free']] = 0.0
+d_y[idx['boundary:free']] = 0.0
+d_y[idx['boundary:fix']] = 0.0
 
-d_z[idx['interior+ghosts']] = body_force
-d_z[idx['free']] = 0.0
-d_z[idx['fix']] = 0.0
+d_z[idx['interior']] = body_force
+d_z[idx['ghosts:free']] = body_force
+d_z[idx['boundary:free']] = 0.0
+d_z[idx['boundary:fix']] = 0.0
 
 d = np.hstack((d_x, d_y, d_z))
 
@@ -136,10 +146,14 @@ u_x,u_y,u_z = u
 
 ## Plot the results
 #####################################################################
-nodes = nodes[idx['interior+boundary']]
-u_x,u_y,u_z = (u_x[idx['interior+boundary']],
-               u_y[idx['interior+boundary']],
-               u_z[idx['interior+boundary']])
+idx_int_and_bnd = np.hstack((idx['interior'],
+                             idx['boundary:free'],
+                             idx['boundary:fix']))
+
+nodes = nodes[idx_int_and_bnd]
+u_x,u_y,u_z = (u_x[idx_int_and_bnd],
+               u_y[idx_int_and_bnd],
+               u_z[idx_int_and_bnd])
 
 fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')

@@ -40,9 +40,9 @@ boundary_groups = {'fixed': [0, 1, 2, 3],
                    'free': [4, 5]}
 
 N_nominal = 500 # The nominal number of nodes. The actual number of
-                # nodes will be slightly larger in this example
+                # nodes will be larger in this example
 
-n = 20 # stencil size. Increase this will generally improve accuracy
+n = 20 # stencil size. Increasing this will generally improve accuracy
 
 basis = phs3 # radial basis function used to compute the weights. Odd
              # order polyharmonic splines (e.g., phs3) have always
@@ -55,26 +55,26 @@ order = 2 # Order of the added polynomials. This should be at least as
           # case). Larger values may improve accuracy
 
 # generate nodes
-nodes, idx, normals = min_energy_nodes(
-    N_nominal, 
-    vert, 
-    smp, 
-    boundary_groups=boundary_groups,
-    boundary_groups_with_ghosts=['free'],
-    include_vertices=True) 
+nodes, groups, normals = min_energy_nodes(
+  N_nominal, 
+  vert, 
+  smp, 
+  boundary_groups=boundary_groups,
+  boundary_groups_with_ghosts=['free'],
+  include_vertices=True) 
 
 N = nodes.shape[0] 
 
 # create the "left hand side" matrix. 
 # create the component which evaluates the PDE
-A_interior = weight_matrix(nodes[idx['interior']], 
+A_interior = weight_matrix(nodes[groups['interior']], 
                            nodes,
                            n=n, 
                            diffs=[[2, 0], [0, 2]], 
                            basis=basis, order=order)
 
 # use the ghost nodes to evaluate the PDE at the free boundary nodes
-A_ghost = weight_matrix(nodes[idx['free']], 
+A_ghost = weight_matrix(nodes[groups['boundary:free']], 
                         nodes, 
                         n=n,
                         diffs=[[2, 0], [0, 2]],
@@ -83,7 +83,7 @@ A_ghost = weight_matrix(nodes[idx['free']],
 # create the component for the fixed boundary conditions. This is
 # essentially an identity operation and so we only need a stencil size
 # of 1
-A_fixed = weight_matrix(nodes[idx['fixed']], 
+A_fixed = weight_matrix(nodes[groups['boundary:fixed']], 
                         nodes, 
                         n=1,
                         diffs=[0, 0]) 
@@ -91,37 +91,27 @@ A_fixed = weight_matrix(nodes[idx['fixed']],
 # create the component for the free boundary conditions. This dots the
 # derivative with respect to x and y with the x and y components of
 # normal vectors on the free surface (i.e., n_x * du/dx + n_y * du/dy)
-A_free = weight_matrix(nodes[idx['free']], 
+A_free = weight_matrix(nodes[groups['boundary:free']], 
                        nodes, 
                        n=n,
                        diffs=[[1, 0], [0, 1]],
-                       coeffs=[normals[idx['free'], 0],
-                               normals[idx['free'], 1]],
+                       coeffs=[normals[groups['boundary:free'], 0],
+                               normals[groups['boundary:free'], 1]],
                        basis=basis, order=order)
                            
 # Add the components to the corresponding rows of `A`
 A = csc_matrix((N, N))
-A = add_rows(A, A_interior, idx['interior'])
-A = add_rows(A, A_ghost, idx['free_ghosts'])
-A = add_rows(A, A_fixed, idx['fixed'])
-A = add_rows(A, A_free, idx['free'])
-
-# since we built it this way rather than stacking the sub-matrices on
-# top of eachother, we have a left-hand-side matrix with non-zero
-# elements clustered around the diagonal. This improves the
-# performance of iterative solvers (although we use a direct solver in
-# this example)
-fig, ax = plt.subplots()
-ax.imshow(A.A != 0)
-ax.set_title('non-zero elements of the left-hand-side matrix')
-fig.tight_layout()
+A = add_rows(A, A_interior, groups['interior'])
+A = add_rows(A, A_ghost, groups['ghosts:free'])
+A = add_rows(A, A_fixed, groups['boundary:fixed'])
+A = add_rows(A, A_free, groups['boundary:free'])
                            
 # create "right hand side" vector
 d = np.zeros((N,))
-d[idx['interior']] = -1.0
-d[idx['free_ghosts']] = -1.0
-d[idx['fixed']] = 0.0
-d[idx['free']] = 0.0
+d[groups['interior']] = -1.0
+d[groups['ghosts:free']] = -1.0
+d[groups['boundary:fixed']] = 0.0
+d[groups['boundary:free']] = 0.0
 
 # find the solution at the nodes
 u_soln = spsolve(A, d) 
@@ -145,7 +135,7 @@ for s in smp:
   axs[0].plot(vert[s, 0], vert[s, 1], 'k-', lw=2)
 
 # show the locations of the nodes
-for i, (k, v)  in enumerate(idx.items()):
+for i, (k, v)  in enumerate(groups.items()):
     axs[0].plot(nodes[v, 0], nodes[v, 1], 'C%so' % i, 
                 markersize=4, label=k)
 
@@ -154,9 +144,9 @@ axs[0].set_aspect('equal')
 axs[0].legend()
 
 # plot the error at the location of the non-ghost nodes 
-idx_no_ghosts = np.hstack((idx['interior'], 
-                           idx['free'],
-                           idx['fixed']))
+idx_no_ghosts = np.hstack((groups['interior'], 
+                           groups['boundary:free'],
+                           groups['boundary:fixed']))
 p = axs[1].scatter(nodes[idx_no_ghosts,0], 
                    nodes[idx_no_ghosts,1], 
                    s=20, c=error[idx_no_ghosts])

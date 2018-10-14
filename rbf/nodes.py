@@ -300,7 +300,10 @@ def _make_group_indices(smpid, boundary_groups):
   Create a dictionary identifying the nodes in each group.
   '''
   groups = {'interior': [-1]}
-  groups.update(boundary_groups)
+  # each boundary group name is prepended with "boundary:" 
+  for k, v in boundary_groups.items():
+    groups['boundary:%s' % k] =  v
+    
   # put the nodes into groups based on which (if any) simplex the
   # nodes are attached to.
   indices = {}
@@ -328,7 +331,7 @@ def _vertex_outward_normals(vert, smp):
 
 
 def _append_vertices(nodes,
-                     indices, 
+                     groups, 
                      normals,
                      vert,
                      smp,
@@ -344,52 +347,55 @@ def _append_vertices(nodes,
   # find the first simplex containing each vertex
   smpid = [np.nonzero(smp == i)[0][0] for i in range(vert.shape[0])] 
   # find out which group each vertex belongs to
-  vertex_indices = _make_group_indices(smpid, boundary_groups)
-  out_indices = indices.copy()
-  for group_name, group_idx in vertex_indices.items():  
-    # append the vertex indices to each group
+  vertex_groups = _make_group_indices(smpid, boundary_groups)
+  out_groups = groups.copy()
+  for group_name, group_idx in vertex_groups.items():  
+    # append the vertex groups to each group
     group_idx = group_idx + nodes.shape[0]
-    group_idx = np.hstack((indices[group_name], group_idx))
-    out_indices[group_name] = group_idx
+    group_idx = np.hstack((groups[group_name], group_idx))
+    out_groups[group_name] = group_idx
               
-  return out_nodes, out_indices, out_normals      
+  return out_nodes, out_groups, out_normals      
 
 
-def _append_ghost_nodes(nodes,
-                        indices,
+def _append_ghost_nodes(nodes, 
+                        groups,
                         normals,
                         boundary_groups_with_ghosts):
+  '''                        
+  add ghost nodes for the specified groups. This is smart enough to
+  not create duplicate ghost nodes if the boundary groups share
+  simplices
   '''
-  add ghost nodes for the specified groups
-  '''
-  out_nodes = nodes.copy()
-  out_normals = normals.copy()
-  out_indices = indices.copy()
-  for group_name in boundary_groups_with_ghosts:
-    # get the indices of nodes in this group
-    idx = indices[group_name]
-    # make sure all the nodes in this group have corresponding normal
-    # vectors (i.e., they are boundary nodes)
-    if np.any(np.isnan(normals[idx])):
-      raise ValueError(
-        'Cannot create ghost nodes for the group %s because not all '
-        'nodes in the group are boundary nodes' % group_name)
+  # collect the indices of all nodes that get a ghost
+  idx = set()
+  for k in boundary_groups_with_ghosts:
+    idx = idx.union(groups['boundary:%s' % k])
+  
+  idx = list(idx)      
+  # get the distance to the nearest neighbor for these nodes
+  dx = _neighbors(nodes[idx], 2, p=nodes)[1][:, 1]
+  # create ghost nodes for this group
+  ghosts = nodes[idx] + dx[:, None]*normals[idx]
+  # append the ghosts to the nodes
+  out_nodes = np.vstack((nodes, ghosts))
+  # append a set of nans to the normals
+  ghost_normals = np.full_like(ghosts, np.nan)
+  out_normals = np.vstack((normals, ghost_normals))
+  # find the indices of ghost nodes that belong to each boundary
+  # group
+  out_groups = groups.copy()
+  for k in boundary_groups_with_ghosts:
+    ghost_group_k = []
+    for n in groups['boundary:%s' % k]:
+        # find the index of the ghost node corresponding to node `n`
+        g = nodes.shape[0] + idx.index(n)
+        ghost_group_k.append(g)
     
-    # get the distance to the nearest neighbor for these nodes
-    dx = _neighbors(nodes[idx], 2, p=nodes)[1][:, 1]
-    # create ghost nodes for this group
-    ghosts = nodes[idx] + dx[:, None]*normals[idx]
-    # append the ghost nodes to the output nodes
-    out_nodes = np.vstack((out_nodes, ghosts))
-    # append a set of nans to the output normals
-    ghost_normals = np.full_like(ghosts, np.nan)
-    out_normals = np.vstack((out_normals, ghost_normals))
-    # record the ghost node indices for this group
-    start = out_nodes.shape[0] - ghosts.shape[0]
-    stop = out_nodes.shape[0]
-    out_indices[group_name + '_ghosts'] = np.arange(start, stop)
+    out_groups['ghosts:%s' % k] = np.array(ghost_group_k, dtype=int)    
 
-  return out_nodes, out_indices, out_normals
+  # add the indices for the remaining groups  
+  return out_nodes, out_groups, out_normals
 
 
 def _neighbor_argsort(nodes, m=None, vert=None, smp=None):
@@ -431,20 +437,20 @@ def _neighbor_argsort(nodes, m=None, vert=None, smp=None):
   return permutation
 
 
-def _sort_nodes(nodes, indices, normals):
+def _sort_nodes(nodes, groups, normals):
   '''
   sort so that nodes that are close in space are also close in memory
   '''
   sort_idx = _neighbor_argsort(nodes)
   out_nodes = nodes[sort_idx]
   out_normals = normals[sort_idx]
-  # update the indices because of this sorting
-  out_indices = {}
+  # update the groups because of this sorting
+  out_groups = {}
   reverse_sort_idx = np.argsort(sort_idx)
-  for key, val in indices.items():
-    out_indices[key] = reverse_sort_idx[val]
+  for key, val in groups.items():
+    out_groups[key] = reverse_sort_idx[val]
 
-  return out_nodes, out_indices, out_normals
+  return out_nodes, out_groups, out_normals
 
 
 def min_energy_nodes(N, vert, smp,
@@ -516,9 +522,11 @@ def min_energy_nodes(N, vert, smp,
   boundary_groups: dict, optional 
     Dictionary defining the boundary groups. The keys are the names of
     the groups and the values are lists of simplex indices making up
-    each group. This defaults to one group named 'boundary' which is
-    made up of all the simplices (i.e., `{'boundary':
-    range(len(smp))}`)
+    each group. This function will return a dictionary identifying
+    which nodes belong to each boundary group. By default, there is a
+    group for each simplex making up the boundary and another group
+    named 'all' for the entire boundary. Specifically, The default
+    value is `{'all':range(len(smp)), '0':[0], '1':[1], ...}`.
 
   boundary_groups_with_ghosts: list of strs, optional
     List of boundary groups that will be given ghost nodes. By
@@ -544,13 +552,16 @@ def min_energy_nodes(N, vert, smp,
     Nodes positions.
 
   dict 
-    The indices of nodes belonging to each group. By default, there
-    are two groups: 'interior' and 'boundary'. If `boundary_groups`
-    was set, then the groups will be 'interior' and the specified
-    boundary groups. If `boundary_groups_with_ghosts` was set, then
-    additional groups will be made for the ghost nodes. The names of
-    the ghost node groups are the names of the corresponding boundary
-    group with the suffix '_ghosts'.
+    The indices of nodes belonging to each group. There will always be
+    a group called 'interior' containing the nodes that are not on the
+    boundary. By default there is a group containing all the boundary
+    nodes called 'boundary:all', and there are groups containing the
+    boundary nodes for each simplex called 'boundary:0', 'boundary:1',
+    ..., 'boundary:Q'. If `boundary_groups` was specified, then those
+    groups will be included in this dictionary and their names will be
+    given a 'boundary:' prefix. If `boundary_groups_with_ghosts` was
+    specified then those groups of ghost nodes will be included in
+    this dictionary and their names will be given a 'ghosts:' prefix.
     
   (N, D) float array
     Outward normal vectors for each node. If a node is not on the
@@ -568,10 +579,10 @@ def min_energy_nodes(N, vert, smp,
   logger.debug('starting minimum energy node generation')
   vert = np.asarray(vert, dtype=float)
   smp = np.asarray(smp, dtype=int)
-  # create the index set that will map boundary nodes to groups based
-  # on which simplex the node is attached to
   if boundary_groups is None:
-    boundary_groups = {'boundary': range(smp.shape[0])}
+    boundary_groups = {'all': range(smp.shape[0])}
+    for i in range(smp.shape[0]):
+        boundary_groups[str(i)] = [i]
     
   if pinned_nodes is None:
     pinned_nodes = np.zeros((0, vert.shape[1]), dtype=float)
@@ -594,23 +605,23 @@ def min_energy_nodes(N, vert, smp,
 
   nodes, smpid = _snap_to_boundary(nodes, vert, smp, delta=0.5)
   normals = _make_normal_vectors(smpid, vert, smp)
-  indices = _make_group_indices(smpid, boundary_groups)
+  groups = _make_group_indices(smpid, boundary_groups)
   
   if include_vertices:
-    nodes, indices, normals = _append_vertices(
-      nodes, indices, normals, vert, smp, boundary_groups)
+    nodes, groups, normals = _append_vertices(
+      nodes, groups, normals, vert, smp, boundary_groups)
 
   if boundary_groups_with_ghosts is not None:  
-    nodes, indices, normals = _append_ghost_nodes(
-      nodes, indices, normals, boundary_groups_with_ghosts)
+    nodes, groups, normals = _append_ghost_nodes(
+      nodes, groups, normals, boundary_groups_with_ghosts)
 
   # sort `nodes` so that spatially adjacent nodes are close together
   # in memory. Update `indices` so that it is still pointing to the
   # same nodes
-  nodes, indices, normals = _sort_nodes(nodes, indices, normals)
+  nodes, groups, normals = _sort_nodes(nodes, groups, normals)
 
   logger.debug('finished generating %s nodes' % nodes.shape[0])
-  return nodes, indices, normals
+  return nodes, groups, normals
 
 
 

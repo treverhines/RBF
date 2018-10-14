@@ -26,7 +26,7 @@ def rho(x):
   return 0.2 + 0.8/((r/0.3)**4 + 1.0)
 
 
-nodes, indices, normals = min_energy_nodes(
+nodes, groups, normals = min_energy_nodes(
     N, vert, smp,
     rho=rho,
     boundary_groups=boundary_groups,
@@ -40,7 +40,7 @@ for s in smp:
   ax.plot(vert[s, 0], vert[s, 1], 'k-')
 
 # plot the different node groups and their normal vectors
-for i, (name, idx) in enumerate(indices.items()):
+for i, (name, idx) in enumerate(groups.items()):
   ax.plot(nodes[idx, 0], nodes[idx, 1], 'C%s.' % i, label=name, ms=8)
   ax.quiver(nodes[idx, 0], nodes[idx, 1], 
             normals[idx, 0], normals[idx, 1], 

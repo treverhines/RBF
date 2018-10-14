@@ -26,7 +26,7 @@ r = np.sqrt((nodes[idx['interior'],0] - 0.5)**2 +
             (nodes[idx['interior'],1] - 0.5)**2)
 u_init = 1.0/(1 + (r/0.05)**4) # initial u in the interior
 dudt_init = np.zeros(len(idx['interior'])) # initial velocity in the interior
-u_bnd = np.zeros(len(idx['boundary'])) # boundary conditions
+u_bnd = np.zeros(len(idx['boundary:all'])) # boundary conditions
 # Make state vector containing the initial displacements and velocities
 v = np.hstack([u_init,dudt_init])
 
@@ -37,7 +37,7 @@ def f(t,v):
   '''
   v = v.reshape((2,-1))
   u = np.empty(N)
-  u[idx['interior']],u[idx['boundary']] = v[0],u_bnd
+  u[idx['interior']],u[idx['boundary:all']] = v[0],u_bnd
   return np.hstack([v[1],D.dot(u)])
               
 # perform time integration with 'dopri5', which is Runge Kutta 
@@ -57,7 +57,7 @@ for i,t in enumerate(times[1:]):
   points = np.array([xg.ravel(),yg.ravel()]).T
   # interpolate the solution onto a grid
   u = np.empty(N)
-  u[idx['interior']],u[idx['boundary']] = soln[i],u_bnd 
+  u[idx['interior']],u[idx['boundary:all']] = soln[i],u_bnd 
   ug = griddata(nodes,u,(xg,yg),method='linear')
   # mask the points outside of the domain
   ug.ravel()[~contains(points,vert,smp)] = np.nan 

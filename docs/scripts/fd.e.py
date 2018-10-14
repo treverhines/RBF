@@ -31,10 +31,10 @@ def find_orthogonals(n):
     corresponding vector in *n*.
     
   '''
-  out = np.empty_like(n,dtype=float)
-  out[:,0] = -np.sum(n,axis=1) + n[:,0]
-  out[:,1:] = n[:,[0]]
-  out /= np.linalg.norm(out,axis=1)[:,None]
+  out = np.empty_like(n, dtype=float)
+  out[:, 0] = -np.sum(n, axis=1) + n[:,0]
+  out[:, 1:] = n[:, [0]]
+  out /= np.linalg.norm(out, axis=1)[:,None]
   return out
 
 ####################### USER PARAMETERS #############################
@@ -62,22 +62,15 @@ lamb = 1.0
 mu = 1.0
 #####################################################################
 # generate nodes. Note that this may take a while
-groups = {'roller':[0,1,299],
-          'free':range(2,299)}
+groups = {'roller':[0, 1, 299],
+          'free':range(2, 299)}
 nodes, idx, normals = min_energy_nodes(
-                        N, vert, smp, 
-                        boundary_groups=groups,
-                        boundary_groups_with_ghosts=['roller','free'],
-                        rho=node_density)
+  N, vert, smp, 
+  boundary_groups=groups,
+  boundary_groups_with_ghosts=['roller', 'free'],
+  rho=node_density)
 # update `N` to include ghosts
 N = nodes.shape[0]
-
-idx['interior+boundary'] = np.hstack((idx['interior'],
-                                      idx['roller'],
-                                      idx['free']))
-idx['interior+ghost'] = np.hstack((idx['interior'],
-                                   idx['roller_ghosts'],
-                                   idx['free_ghosts']))
 
 # allocate the left-hand-side matrix components
 G_xx = sp.csc_matrix((N,N))
@@ -86,37 +79,47 @@ G_yx = sp.csc_matrix((N,N))
 G_yy = sp.csc_matrix((N,N))
 
 # build the "left hand side" matrices for body force constraints
-out = elastic2d_body_force(nodes[idx['interior+boundary']],nodes,
-                           lamb=lamb,mu=mu,n=n)
-G_xx = add_rows(G_xx, out['xx'], idx['interior+ghost'])
-G_xy = add_rows(G_xy, out['xy'], idx['interior+ghost'])
-G_yx = add_rows(G_yx, out['yx'], idx['interior+ghost'])
-G_yy = add_rows(G_yy, out['yy'], idx['interior+ghost'])
+out = elastic2d_body_force(nodes[idx['interior']], nodes, lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out['xx'], idx['interior'])
+G_xy = add_rows(G_xy, out['xy'], idx['interior'])
+G_yx = add_rows(G_yx, out['yx'], idx['interior'])
+G_yy = add_rows(G_yy, out['yy'], idx['interior'])
+
+
+out = elastic2d_body_force(nodes[idx['boundary:free']], nodes, lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out['xx'], idx['ghosts:free'])
+G_xy = add_rows(G_xy, out['xy'], idx['ghosts:free'])
+G_yx = add_rows(G_yx, out['yx'], idx['ghosts:free'])
+G_yy = add_rows(G_yy, out['yy'], idx['ghosts:free'])
+
+out = elastic2d_body_force(nodes[idx['boundary:roller']], nodes, lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out['xx'], idx['ghosts:roller'])
+G_xy = add_rows(G_xy, out['xy'], idx['ghosts:roller'])
+G_yx = add_rows(G_yx, out['yx'], idx['ghosts:roller'])
+G_yy = add_rows(G_yy, out['yy'], idx['ghosts:roller'])
+
 
 # build the "left hand side" matrices for free surface constraints
-out = elastic2d_surface_force(nodes[idx['free']],normals[idx['free']],
-                              nodes,lamb=lamb,mu=mu,n=n)
-G_xx = add_rows(G_xx, out['xx'], idx['free'])
-G_xy = add_rows(G_xy, out['xy'], idx['free'])
-G_yx = add_rows(G_yx, out['yx'], idx['free'])
-G_yy = add_rows(G_yy, out['yy'], idx['free'])
+out = elastic2d_surface_force(nodes[idx['boundary:free']], normals[idx['boundary:free']], nodes, lamb=lamb, mu=mu, n=n)
+G_xx = add_rows(G_xx, out['xx'], idx['boundary:free'])
+G_xy = add_rows(G_xy, out['xy'], idx['boundary:free'])
+G_yx = add_rows(G_yx, out['yx'], idx['boundary:free'])
+G_yy = add_rows(G_yy, out['yy'], idx['boundary:free'])
 
 # build the "left hand side" matrices for roller constraints
 # constrain displacements in the surface normal direction
-out = elastic2d_displacement(nodes[idx['roller']],nodes,
-                             lamb=lamb,mu=mu,n=1)
-normals_x = sp.diags(normals[idx['roller']][:,0])
-normals_y = sp.diags(normals[idx['roller']][:,1])
-G_xx = add_rows(G_xx, normals_x.dot(out['xx']), idx['roller'])
-G_xy = add_rows(G_xy, normals_y.dot(out['yy']), idx['roller'])
+out = elastic2d_displacement(nodes[idx['boundary:roller']], nodes, lamb=lamb, mu=mu, n=1)
+normals_x = sp.diags(normals[idx['boundary:roller']][:, 0])
+normals_y = sp.diags(normals[idx['boundary:roller']][:, 1])
+G_xx = add_rows(G_xx, normals_x.dot(out['xx']), idx['boundary:roller'])
+G_xy = add_rows(G_xy, normals_y.dot(out['yy']), idx['boundary:roller'])
 # have zero traction parallel to the boundary
-out = elastic2d_surface_force(nodes[idx['roller']],normals[idx['roller']],
-                              nodes,lamb=lamb,mu=mu,n=n)
-parallels = find_orthogonals(normals[idx['roller']])
-parallels_x = sp.diags(parallels[:,0])
-parallels_y = sp.diags(parallels[:,1])
-G_yx = add_rows(G_yx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']), idx['roller'])
-G_yy = add_rows(G_yy, parallels_x.dot(out['xy']) + parallels_y.dot(out['yy']), idx['roller'])
+out = elastic2d_surface_force(nodes[idx['boundary:roller']], normals[idx['boundary:roller']], nodes, lamb=lamb, mu=mu, n=n)
+parallels = find_orthogonals(normals[idx['boundary:roller']])
+parallels_x = sp.diags(parallels[:, 0])
+parallels_y = sp.diags(parallels[:, 1])
+G_yx = add_rows(G_yx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']), idx['boundary:roller'])
+G_yy = add_rows(G_yy, parallels_x.dot(out['xy']) + parallels_y.dot(out['yy']), idx['boundary:roller'])
 
 G_x = sp.hstack((G_xx, G_xy))
 G_y = sp.hstack((G_yx, G_yy))
@@ -127,13 +130,17 @@ G = G.tocsc()
 d_x = np.zeros((N,))
 d_y = np.zeros((N,))
 
-d_x[idx['interior+ghost']] = 0.0
-d_x[idx['free']] = 0.0
-d_x[idx['roller']] = 0.0
+d_x[idx['interior']] = 0.0
+d_x[idx['ghosts:free']] = 0.0
+d_x[idx['ghosts:roller']] = 0.0
+d_x[idx['boundary:free']] = 0.0
+d_x[idx['boundary:roller']] = 0.0
 
-d_y[idx['interior+ghost']] = 1.0
-d_y[idx['free']] = 0.0
-d_y[idx['roller']] = 0.0
+d_y[idx['interior']] = 1.0
+d_y[idx['ghosts:free']] = 1.0
+d_y[idx['ghosts:roller']] = 1.0
+d_y[idx['boundary:free']] = 0.0
+d_y[idx['boundary:roller']] = 0.0
 
 d = np.hstack((d_x,d_y))
 
@@ -161,61 +168,64 @@ def grid(x, y, z):
     return xg,yg,zg
 
 # toss out ghosts
-nodes = nodes[idx['interior+boundary']]
-u_x,u_y = u_x[idx['interior+boundary']],u_y[idx['interior+boundary']]
-e_xx,e_yy,e_xy = e_xx[idx['interior+boundary']],e_yy[idx['interior+boundary']],e_xy[idx['interior+boundary']]
-s_xx,s_yy,s_xy = s_xx[idx['interior+boundary']],s_yy[idx['interior+boundary']],s_xy[idx['interior+boundary']]
+idx_no_ghosts = np.hstack((idx['interior'],
+                           idx['boundary:roller'],
+                           idx['boundary:free']))
 
-fig,axs = plt.subplots(2,2,figsize=(10,7))
-poly = Polygon(vert,facecolor='none',edgecolor='k',zorder=3)
+nodes = nodes[idx_no_ghosts]
+u_x, u_y = u_x[idx_no_ghosts], u_y[idx_no_ghosts]
+e_xx, e_yy, e_xy = e_xx[idx_no_ghosts], e_yy[idx_no_ghosts], e_xy[idx_no_ghosts]
+s_xx, s_yy, s_xy = s_xx[idx_no_ghosts], s_yy[idx_no_ghosts], s_xy[idx_no_ghosts]
+
+fig, axs = plt.subplots(2, 2, figsize=(10, 7))
+poly = Polygon(vert, facecolor='none', edgecolor='k', zorder=3)
 axs[0][0].add_artist(poly)
-poly = Polygon(vert,facecolor='none',edgecolor='k',zorder=3)
+poly = Polygon(vert, facecolor='none', edgecolor='k', zorder=3)
 axs[0][1].add_artist(poly)
-poly = Polygon(vert,facecolor='none',edgecolor='k',zorder=3)
+poly = Polygon(vert, facecolor='none', edgecolor='k', zorder=3)
 axs[1][0].add_artist(poly)
-poly = Polygon(vert,facecolor='none',edgecolor='k',zorder=3)
+poly = Polygon(vert, facecolor='none', edgecolor='k', zorder=3)
 axs[1][1].add_artist(poly)
 # flip the bottom vertices to make a mask polygon
-vert[vert[:,-1] < 0.0] *= -1 
-poly = Polygon(vert,facecolor='w',edgecolor='k',zorder=3)
+vert[vert[:, -1] < 0.0] *= -1 
+poly = Polygon(vert, facecolor='w', edgecolor='k', zorder=3)
 axs[0][0].add_artist(poly)
-poly = Polygon(vert,facecolor='w',edgecolor='k',zorder=3)
+poly = Polygon(vert, facecolor='w', edgecolor='k', zorder=3)
 axs[0][1].add_artist(poly)
-poly = Polygon(vert,facecolor='w',edgecolor='k',zorder=3)
+poly = Polygon(vert, facecolor='w', edgecolor='k', zorder=3)
 axs[1][0].add_artist(poly)
-poly = Polygon(vert,facecolor='w',edgecolor='k',zorder=3)
+poly = Polygon(vert, facecolor='w', edgecolor='k', zorder=3)
 axs[1][1].add_artist(poly)
 
-axs[0][0].quiver(nodes[:,0],nodes[:,1],u_x,u_y,scale=1000.0,width=0.005)
-axs[0][0].set_xlim((0,3))
-axs[0][0].set_ylim((-2,1))
+axs[0][0].quiver(nodes[:,0], nodes[:,1], u_x, u_y, scale=1000.0, width=0.005)
+axs[0][0].set_xlim((0, 3))
+axs[0][0].set_ylim((-2, 1))
 axs[0][0].set_aspect('equal')
-axs[0][0].set_title('displacements',fontsize=10)
+axs[0][0].set_title('displacements', fontsize=10)
 
-xg,yg,s_xyg = grid(nodes[:,0],nodes[:,1],s_xx)
-p = axs[0][1].contourf(xg,yg,s_xyg,np.arange(-1.0,0.04,0.04),cmap='viridis',zorder=1)
+xg, yg, s_xxg = grid(nodes[:,0], nodes[:,1], s_xx)
+p = axs[0][1].contourf(xg, yg, s_xxg, np.arange(-1.0, 0.04, 0.04), cmap='viridis', zorder=1)
 axs[0][1].set_xlim((0,3))
 axs[0][1].set_ylim((-2,1))
 axs[0][1].set_aspect('equal')
 cbar = fig.colorbar(p,ax=axs[0][1])
 cbar.set_label('sigma_xx',fontsize=10)
 
-xg,yg,s_xyg = grid(nodes[:,0],nodes[:,1],s_yy)
-p = axs[1][0].contourf(xg,yg,s_xyg,np.arange(-2.6,0.2,0.2),cmap='viridis',zorder=1)
-axs[1][0].set_xlim((0,3))
-axs[1][0].set_ylim((-2,1))
+xg, yg, s_yyg = grid(nodes[:,0], nodes[:,1], s_yy)
+p = axs[1][0].contourf(xg, yg, s_yyg, np.arange(-2.6, 0.2, 0.2), cmap='viridis', zorder=1)
+axs[1][0].set_xlim((0, 3))
+axs[1][0].set_ylim((-2, 1))
 axs[1][0].set_aspect('equal')
-cbar = fig.colorbar(p,ax=axs[1][0])
-cbar.set_label('sigma_yy',fontsize=10)
+cbar = fig.colorbar(p, ax=axs[1][0])
+cbar.set_label('sigma_yy', fontsize=10)
 
-xg,yg,s_xyg = grid(nodes[:,0],nodes[:,1],s_xy)
-p = axs[1][1].contourf(xg,yg,s_xyg,np.arange(0.0,0.24,0.02),cmap='viridis',zorder=1)
-axs[1][1].set_xlim((0,3))
-axs[1][1].set_ylim((-2,1))
+xg, yg, s_xyg = grid(nodes[:,0], nodes[:,1], s_xy)
+p = axs[1][1].contourf(xg, yg, s_xyg, np.arange(0.0, 0.24, 0.02), cmap='viridis',zorder=1)
+axs[1][1].set_xlim((0, 3))
+axs[1][1].set_ylim((-2, 1))
 axs[1][1].set_aspect('equal')
-cbar = fig.colorbar(p,ax=axs[1][1])
-cbar.set_label('sigma_xy',fontsize=10)
-
+cbar = fig.colorbar(p, ax=axs[1][1])
+cbar.set_label('sigma_xy', fontsize=10)
 
 plt.tight_layout()
 plt.show()

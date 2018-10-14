@@ -36,25 +36,25 @@ order = 2 # Order of the added polynomials. This should be at least as
           # case). Larger values may improve accuracy
 
 # generate nodes
-nodes, idx, _ = min_energy_nodes(N, vert, smp) 
+nodes, groups, _ = min_energy_nodes(N, vert, smp) 
 
 # create the "left hand side" matrix. 
 # create the component which evaluates the PDE
-A_interior = weight_matrix(nodes[idx['interior']], nodes,
+A_interior = weight_matrix(nodes[groups['interior']], nodes,
                            diffs=[[2, 0], [0, 2]], n=n, 
                            basis=basis, order=order)
 # create the component for the fixed boundary conditions
-A_boundary = weight_matrix(nodes[idx['boundary']], nodes, 
+A_boundary = weight_matrix(nodes[groups['boundary:all']], nodes, 
                            diffs=[0, 0]) 
 # Add the components to the corresponding rows of `A`
 A = csc_matrix((N, N))
-A = add_rows(A,A_interior,idx['interior'])
-A = add_rows(A,A_boundary,idx['boundary'])
+A = add_rows(A,A_interior,groups['interior'])
+A = add_rows(A,A_boundary,groups['boundary:all'])
                            
 # create "right hand side" vector
 d = np.zeros((N,))
-d[idx['interior']] = -1.0
-d[idx['boundary']] = 0.0
+d[groups['interior']] = -1.0
+d[groups['boundary:all']] = 0.0
 
 # find the solution at the nodes
 u_soln = spsolve(A, d) 
@@ -79,4 +79,5 @@ fig.colorbar(p, ax=ax)
 fig.tight_layout()
 plt.savefig('../figures/fd.i.png')
 plt.show()
+
 
