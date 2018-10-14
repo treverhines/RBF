@@ -29,7 +29,7 @@ nobs = 50
 # make the observation points in spherical coordinates 
 theta_obs = np.random.uniform(0.0,2*np.pi,nobs)
 phi_obs = np.random.uniform(0.0,np.pi,nobs)
-# get the catesian coordinates for the observation points
+# get the cartesian coordinates for the observation points
 cart_obs = spherical_to_cartesian(theta_obs,phi_obs)
 # get the latent function at the observation points
 val_obs = true_function(theta_obs,phi_obs)
@@ -62,6 +62,7 @@ plt.xlim(0,2*np.pi)
 plt.ylim(0,np.pi)
 plt.grid(ls=':',color='k')
 plt.tight_layout()
+plt.savefig('../figures/interpolate.b.1.png')
 
 # plot the interpolant in spherical coordinates
 plt.figure(2)
@@ -81,6 +82,7 @@ plt.ylim(0,np.pi)
 plt.grid()
 plt.grid(ls=':',color='k')
 plt.tight_layout()
+plt.savefig('../figures/interpolate.b.2.png')
 
 # compute and print the mean L2 error
 mean_error = np.mean(np.abs(val_true - val_itp))
