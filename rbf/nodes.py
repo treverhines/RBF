@@ -577,13 +577,15 @@ def min_energy_nodes(N, vert, smp,
 
   Examples
   --------
-  # make 9 nodes within the unit square   
+  make 9 nodes within the unit square   
+
   >>> vert = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])  
   >>> smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
   >>> out = min_energy_nodes(9, vert, smp)  
-  # view the nodes
-  >>> out[0]  
 
+  view the nodes
+
+  >>> out[0]  
   array([[ 0.50325675,  0.        ],
          [ 0.00605261,  1.        ],
          [ 1.        ,  0.51585247],
@@ -594,9 +596,9 @@ def min_energy_nodes(N, vert, smp,
          [ 0.48867638,  1.        ],
          [ 0.54063894,  0.47960892]])
 
-  # view the indices making each group
-  >>> out[1] 
+  view the indices making each group
 
+  >>> out[1] 
   {'boundary:0': array([0]),
    'boundary:1': array([6, 4, 2]),
    'boundary:2': array([7, 1]),
@@ -604,10 +606,10 @@ def min_energy_nodes(N, vert, smp,
    'boundary:all': array([7, 6, 5, 4, 3, 2, 1, 0]),
    'interior': array([8])}
 
-  # view the outward normal vectors for each node, note that the
-  # normal vector for the interior node is `nan`
+  view the outward normal vectors for each node, note that the normal
+  vector for the interior node is `nan`
+
   >>> out[2] 
-             
   array([[  0.,  -1.],
          [  0.,   1.],
          [  1.,  -0.],
