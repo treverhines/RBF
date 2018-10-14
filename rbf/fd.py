@@ -204,7 +204,7 @@ def weights(x, s, diffs, coeffs=None,
 
 def weight_matrix(x, p, diffs, coeffs=None,
                   basis=rbf.basis.phs3, order=None,
-                  eps=1.0, n=None, vert=None, smp=None):
+                  eps=1.0, n=None, stencils=None):
   ''' 
   Returns a weight matrix which maps a functions values at `p` to an
   approximation of that functions derivative at `x`. This is a
@@ -253,11 +253,10 @@ def weight_matrix(x, p, diffs, coeffs=None,
   n : int, optional
     Stencil size.
     
-  vert : (P, D) array, optional
-    Vertices of the boundary which stencils cannot intersect
-   
-  smp : (Q, D) int array, optional
-    Connectivity of the vertices to form the boundary
+  stencils : (N, n) int array
+    The stencils for each node in `x`. This consists of indices of
+    nodes in `p` that make up each stencil. If this is given then the
+    value for `n` will be ignored.
 
   Returns
   -------
@@ -294,30 +293,26 @@ def weight_matrix(x, p, diffs, coeffs=None,
     if coeffs.ndim == 1:
       coeffs = np.repeat(coeffs[:, None], x.shape[0], axis=1) 
    
-  if n is None:
-    # if stencil size is not given then use the default stencil size. 
-    # If the default stencil size is too large then incrementally 
-    # decrease it
-    n = _default_stencil_size(diffs)
-    while True:
-      try:    
-        sn = rbf.stencil.stencil_network(x, p, n, vert=vert, smp=smp)
-        break 
+  if stencils is None:
+    if n is None:
+      # if stencil size is not given then use the default stencil
+      # size. Make sure that this is no larger than `p`
+      n = _default_stencil_size(diffs)
+      n = min(n, p.shape[0])
 
-      except rbf.stencil.StencilError:
-        n -= 1
-  else:
-    sn = rbf.stencil.stencil_network(x, p, n, vert=vert, smp=smp)
-  
-  logger.debug('building a (%s, %s) RBF-FD weight matrix with %s '
-               'nonzeros...' % (x.shape[0], p.shape[0], sn.size))   
+    stencils = rbf.stencil.stencil_network(x, p, n)
+
+  stencils = np.asarray(stencils, dtype=int)
+  logger.debug(
+    'building a (%s, %s) RBF-FD weight matrix with %s nonzeros...' 
+    % (x.shape[0], p.shape[0], stencils.size))   
 
   # values that will be put into the sparse matrix
-  data = np.zeros(sn.shape, dtype=float)
-  for i, si in enumerate(sn):
+  data = np.zeros(stencils.shape, dtype=float)
+  for i, si in enumerate(stencils):
     # intermittently log the progress 
-    if i % max(sn.shape[0] // 10, 1) == 0:
-      logger.debug('  %d%% complete' % (100*i / sn.shape[0]))
+    if i % max(stencils.shape[0] // 10, 1) == 0:
+      logger.debug('  %d%% complete' % (100*i / stencils.shape[0]))
 
     data[i, :] = weights(x[i], p[si], diffs,
                          coeffs=coeffs[:, i], eps=eps[si],
@@ -325,7 +320,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
 
     
   rows = np.repeat(range(data.shape[0]), data.shape[1])
-  cols = sn.ravel()
+  cols = stencils.ravel()
   data = data.ravel()
   shape = x.shape[0], p.shape[0]
   L = sp.csc_matrix((data, (rows, cols)), shape)

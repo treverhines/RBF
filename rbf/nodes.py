@@ -575,6 +575,49 @@ def min_energy_nodes(N, vert, smp,
   be raised which says "ValueError: No intersection found for
   segment ...".
 
+  Example
+  -------
+  # make 9 nodes within the unit square   
+  >>> vert = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])  
+  >>> smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
+  >>> out = min_energy_nodes(9, vert, smp)  
+  # view the nodes
+  >>> out[0]  
+
+  array([[ 0.50325675,  0.        ],
+         [ 0.00605261,  1.        ],
+         [ 1.        ,  0.51585247],
+         [ 0.        ,  0.00956821],
+         [ 1.        ,  0.99597894],
+         [ 0.        ,  0.5026365 ],
+         [ 1.        ,  0.00951112],
+         [ 0.48867638,  1.        ],
+         [ 0.54063894,  0.47960892]])
+
+  # view the indices making each group
+  >>> out[1] 
+
+  {'boundary:0': array([0]),
+   'boundary:1': array([6, 4, 2]),
+   'boundary:2': array([7, 1]),
+   'boundary:3': array([5, 3]),
+   'boundary:all': array([7, 6, 5, 4, 3, 2, 1, 0]),
+   'interior': array([8])}
+
+  # view the outward normal vectors for each node, note that the
+  # normal vector for the interior node is `nan`
+  >>> out[2] 
+             
+  array([[  0.,  -1.],
+         [  0.,   1.],
+         [  1.,  -0.],
+         [ -1.,  -0.],
+         [  1.,  -0.],
+         [ -1.,  -0.],
+         [  1.,  -0.],
+         [  0.,   1.],
+         [ nan,  nan]])
+    
   '''
   logger.debug('starting minimum energy node generation')
   vert = np.asarray(vert, dtype=float)
