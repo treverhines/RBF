@@ -129,11 +129,11 @@ spectral RBF method. An example of the two methods is provided below.
   A = np.empty((N,N))
   A[idx['interior']]  = mq(nodes[idx['interior']],nodes,eps=eps,diff=[2,0])
   A[idx['interior']] += mq(nodes[idx['interior']],nodes,eps=eps,diff=[0,2])
-  A[idx['boundary']]  = mq(nodes[idx['boundary']],nodes,eps=eps)
+  A[idx['boundary:all']]  = mq(nodes[idx['boundary:all']],nodes,eps=eps)
   # create "right hand side" vector
   d = np.empty(N)
   d[idx['interior']] = -1.0 # forcing term
-  d[idx['boundary']] = 0.0 # boundary condition
+  d[idx['boundary:all']] = 0.0 # boundary condition
   # Solve for the RBF coefficients
   coeff = np.linalg.solve(A,d)
   # interpolate the solution on a grid
@@ -204,17 +204,17 @@ spectral RBF method. An example of the two methods is provided below.
                              diffs=[[2, 0], [0, 2]], n=n, 
                            basis=basis, order=order)
   # create the component for the fixed boundary conditions
-  A_boundary = weight_matrix(nodes[idx['boundary']], nodes, 
+  A_boundary = weight_matrix(nodes[idx['boundary:all']], nodes, 
                              diffs=[0, 0]) 
   # Add the components to the corresponding rows of `A`
   A = csc_matrix((N, N))
   A = add_rows(A,A_interior,idx['interior'])
-  A = add_rows(A,A_boundary,idx['boundary'])
+  A = add_rows(A,A_boundary,idx['boundary:all'])
                            
   # create "right hand side" vector
   d = np.zeros((N,))
   d[idx['interior']] = -1.0
-  d[idx['boundary']] = 0.0
+  d[idx['boundary:all']] = 0.0
 
   # find the solution at the nodes
   u_soln = spsolve(A, d) 
