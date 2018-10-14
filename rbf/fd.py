@@ -253,10 +253,12 @@ def weight_matrix(x, p, diffs, coeffs=None,
   n : int, optional
     Stencil size.
     
-  stencils : (N, n) int array
+  stencils : (N, n) int array, optional
     The stencils for each node in `x`. This consists of indices of
     nodes in `p` that make up each stencil. If this is given then the
-    value for `n` will be ignored.
+    value for `n` will be ignored. If this is not given then the
+    stencils will be created based on nearest neighbors.
+    
 
   Returns
   -------
