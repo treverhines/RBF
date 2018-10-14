@@ -596,7 +596,7 @@ def min_energy_nodes(N, vert, smp,
          [ 0.48867638,  1.        ],
          [ 0.54063894,  0.47960892]])
 
-  view the indices making each group
+  view the indices of nodes making each group
 
   >>> out[1] 
   {'boundary:0': array([0]),
