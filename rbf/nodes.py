@@ -575,8 +575,8 @@ def min_energy_nodes(N, vert, smp,
   be raised which says "ValueError: No intersection found for
   segment ...".
 
-  Example
-  -------
+  Examples
+  --------
   # make 9 nodes within the unit square   
   >>> vert = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])  
   >>> smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
