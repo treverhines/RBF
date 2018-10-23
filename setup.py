@@ -23,7 +23,7 @@ if __name__ == '__main__':
         author='Trever Hines',
         author_email='treverhines@gmail.com',
         url='www.github.com/treverhines/RBF',
-        packages=['rbf','rbf.misc'],
+        packages=['rbf', 'rbf.misc'],
         ext_modules=cythonize(ext),
         license='MIT')
 
