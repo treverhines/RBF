@@ -9,6 +9,7 @@ import logging
 from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 from rbf.stencil import stencil_network
+from rbf.utils import assert_shape
 from rbf.geometry import (intersection_count,
                           intersection_index,
                           intersection_point,
@@ -484,17 +485,17 @@ def min_energy_nodes(N, vert, smp,
   Parameters
   ----------
   N : int
-    Number of nodes.
+    Number of nodes
 
   vert : (P, D) array
-    Vertices making up the boundary.
+    Vertices making up the boundary
 
   smp : (Q, D) array
-    Describes how the vertices are connected to form the boundary.
+    Describes how the vertices are connected to form the boundary
 
   rho : function, optional
-    Node density function. Takes a (*, D) array of coordinates in D
-    dimensional space and returns an (*,) array of densities which
+    Node density function. Takes a (?, D) array of coordinates in D
+    dimensional space and returns an (?,) array of densities which
     have been normalized so that the maximum density in the domain is
     1.0. This function will still work if the maximum value is
     normalized to something less than 1.0; however it will be less
@@ -542,14 +543,14 @@ def min_energy_nodes(N, vert, smp,
   include_vertices : bool, optional
     If `True`, then the vertices will be included in the output nodes.
     Each vertex will be assigned to the boundary group that its
-    ajoining simplices are part of. If the simplices are in multiple
+    adjoining simplices are part of. If the simplices are in multiple
     groups, then the vertex will be assigned to the group containing
     the simplex that comes first in `smp`.
 
   Returns
   -------
   (N, D) float array
-    Nodes positions.
+    Nodes positions
 
   dict 
     The indices of nodes belonging to each group. There will always be
@@ -566,7 +567,6 @@ def min_energy_nodes(N, vert, smp,
   (N, D) float array
     Outward normal vectors for each node. If a node is not on the
     boundary then its corresponding row will contain NaNs.
-    then the corresponding row will contain NaN's.
 
   Notes
   -----
@@ -623,7 +623,11 @@ def min_energy_nodes(N, vert, smp,
   '''
   logger.debug('starting minimum energy node generation')
   vert = np.asarray(vert, dtype=float)
+  assert_shape(vert, (None, None), 'vert')
+  
   smp = np.asarray(smp, dtype=int)
+  assert_shape(smp, (None, vert.shape[1]), 'smp')
+  
   if boundary_groups is None:
     boundary_groups = {'all': range(smp.shape[0])}
     for i in range(smp.shape[0]):
@@ -631,6 +635,8 @@ def min_energy_nodes(N, vert, smp,
     
   if pinned_nodes is None:
     pinned_nodes = np.zeros((0, vert.shape[1]), dtype=float)
+
+  assert_shape(pinned_nodes, (None, vert.shape[1]), 'pinned_nodes')
   
   logger.debug('finding node positions with rejection sampling')
   nodes = _rejection_sampling_nodes(N, vert, smp, rho=rho)

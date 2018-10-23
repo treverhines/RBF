@@ -306,8 +306,8 @@ For example, the below code block demonstrates how to create a
 >>> import numpy as np
 >>> from rbf.gauss import GaussianProcess
 >>> def mean(x): return np.zeros(x.shape[0]) 
->>> def cov(x1,x2): return np.min(np.meshgrid(x1[:,0],x2[:,0],indexing='ij'),axis=0)
->>> gp = GaussianProcess(mean,cov,dim=1) # Brownian motion is 1D
+>>> def cov(x1, x2): return np.min(np.meshgrid(x1[:, 0], x2[:, 0], indexing='ij'), axis=0)
+>>> gp = GaussianProcess(mean, cov, dim=1) # Brownian motion is 1D
 
 This module contains a helper function for generating isotropic
 `GaussianProcess` instances, which is named `gpiso`. It requires the
@@ -318,7 +318,7 @@ and c=2.0.
 
 >>> from rbf.basis import se
 >>> from rbf.gauss import gpiso
->>> gp = gpiso(se,(0.0,1.0,2.0))
+>>> gp = gpiso(se, (0.0, 1.0, 2.0))
 
 Since the squared exponential is so commonly used, this module 
 contains the function `gpse` for generating a squared exponential 
@@ -326,23 +326,23 @@ contains the function `gpse` for generating a squared exponential
 `GaussianProcess` that is equivalent to the one generated above.
 
 >>> from rbf.gauss import gpse
->>> gp = gpse((0.0,1.0,2.0))
+>>> gp = gpse((0.0, 1.0, 2.0))
 
 The function `gpbfci` is used for generating `GaussianProcess`
 instances with improper basis functions. It requires the user to
 specify a function which returns a set of basis functions evaluted at
 `x`. For example,
 
->>> from rbf.gauss import gpbfc,gpbfci
->>> def basis(x): return np.array([np.sin(x[:,0]),np.cos(x[:,0])]).T
+>>> from rbf.gauss import gpbfc, gpbfci
+>>> def basis(x): return np.array([np.sin(x[:, 0]), np.cos(x[:, 0])]).T
 >>> gp = gpbfci(basis)
 
 Use `gpbfc` to make a basis function-constrained `GaussianProcess`
 which has coefficients with finite variance.
 
->>> mean = [0.0,0.0] # mean basis function coefficients
->>> sigma = [1.0,1.0] # uncertainty of basis function coefficients
->>> gp = gpbfc(basis,mean,sigma)
+>>> mean = [0.0, 0.0] # mean basis function coefficients
+>>> sigma = [1.0, 1.0] # uncertainty of basis function coefficients
+>>> gp = gpbfc(basis, mean, sigma)
 
 The function `gppoly` is a helper function for creating a Gaussian
 process which has monomials for the improper basis functions. The
@@ -356,7 +356,7 @@ Lastly, a `GaussianProcess` can be created by adding, subtracting,
 scaling, differentiating, or conditioning existing `GaussianProcess` 
 instances. For example,
 
->>> gp  = gpse((0.0,1.0,2.0))
+>>> gp  = gpse((0.0, 1.0, 2.0))
 >>> gp += gppoly(2) # add second order polynomial basis 
 >>> gp *= 2.0 # scale by 2
 >>> gp  = gp.differentiate((2,)) # compute second derivative
@@ -388,8 +388,8 @@ def differentiator(delta):
   '''
   Decorator that makes a function differentiable. The derivatives of
   the function are approximated by finite differences. The function
-  must take a single (N,D) array of positions as input. The returned
-  function takes a single (N,D) array of positions and a (D,) array
+  must take a single (N, D) array of positions as input. The returned
+  function takes a single (N, D) array of positions and a (D,) array
   derivative specification.
 
   Parameters
@@ -400,7 +400,7 @@ def differentiator(delta):
   '''        
   def _differentiator(fin):
     '''The actual decorator'''
-    def fout(x,diff):
+    def fout(x, diff):
       '''The returned differentiable mean function'''
       if sum(diff) == 0:
         # If no derivatives are specified then return the
@@ -414,7 +414,7 @@ def differentiator(delta):
         diff_axis = np.argmax(diff)
         # make the perturbations    
         x_plus_dx = np.copy(x)
-        x_plus_dx[:,diff_axis] += delta
+        x_plus_dx[:, diff_axis] += delta
         # make a copy of `diff` and lower the derivative along
         # `diff_axis` by one.
         diff_minus_one = np.copy(diff)
@@ -433,9 +433,9 @@ def covariance_differentiator(delta):
   '''
   Decorator that makes a covariance function differentiable. The
   derivatives of the covariance function are approximated by finite
-  differences. The covariance function must take an (N,D) array and an
-  (M,D) array of positions as input. The returned function takes an
-  (N,D) array and an (M,D) array of positions and two (D,) array
+  differences. The covariance function must take an (N, D) array and an
+  (M, D) array of positions as input. The returned function takes an
+  (N, D) array and an (M, D) array of positions and two (D,) array
   derivative specifications.
 
   Parameters
@@ -446,12 +446,12 @@ def covariance_differentiator(delta):
   '''        
   def _covariance_differentiator(fin):
     '''The actual decorator'''
-    def fout(x1,x2,diff1,diff2):
+    def fout(x1, x2, diff1, diff2):
       '''The returned differentiable mean function'''
       if (sum(diff1) == 0) & (sum(diff2) == 0):
         # If no derivatives are specified then return the
         # undifferentiated covariance. 
-        return as_sparse_or_array(fin(x1,x2))
+        return as_sparse_or_array(fin(x1, x2))
                 
       elif sum(diff1) != 0:
         # get the axis we are differentiating with respect to
@@ -504,7 +504,7 @@ def _max(a,b):
     return a
   
   else:
-    return max(a,b)  
+    return max(a, b)  
   
 
 def _as_covariance(sigma):
@@ -514,10 +514,10 @@ def _as_covariance(sigma):
   run `sigma` through `as_sparse_or_array`
   '''
   if np.ndim(sigma) == 1:
-    sigma = np.array(sigma,dtype=float,copy=False)
+    sigma = np.array(sigma, dtype=float, copy=False)
     sigma = sp.diags(sigma**2).tocsc()
 
-  sigma = as_sparse_or_array(sigma,dtype=float)
+  sigma = as_sparse_or_array(sigma, dtype=float)
   return sigma
   
 
@@ -534,7 +534,7 @@ def _all_is_finite(A):
     return np.all(np.isfinite(A))
 
 
-def _sample(mean,cov,use_cholesky=False):
+def _sample(mean, cov, use_cholesky=False):
   ''' 
   Draws a random sample from the Gaussian process with the specified 
   mean and covariance. 
@@ -544,108 +544,108 @@ def _sample(mean,cov,use_cholesky=False):
     # `cov` is numerically positive definite (i.e. no small negative
     # eigenvalues from rounding error).
     L = PosDefSolver(cov).L()
-    w = np.random.normal(0.0,1.0,mean.shape[0])
+    w = np.random.normal(0.0, 1.0, mean.shape[0])
     u = mean + L.dot(w)
   
   else:
     # otherwise use an eigenvalue decomposition, ignoring negative
     # eigenvalues. If `cov` is sparse then begrudgingly make it dense.
     cov = as_array(cov)
-    s,Q = np.linalg.eigh(cov)
+    s, Q = np.linalg.eigh(cov)
     keep = (s > 0.0)
-    w = np.random.normal(0.0,np.sqrt(s[keep]))
-    u = mean + Q[:,keep].dot(w)
+    w = np.random.normal(0.0, np.sqrt(s[keep]))
+    u = mean + Q[:, keep].dot(w)
      
   return u
 
 
-def _add(gp1,gp2):
+def _add(gp1, gp2):
   '''   
   Returns a `GaussianProcess` which is the sum of two 
   `GaussianProcess` instances.
   '''
-  def mean(x,diff):
-    out = gp1._mean(x,diff) + gp2._mean(x,diff)
+  def mean(x, diff):
+    out = gp1._mean(x, diff) + gp2._mean(x, diff)
     return out       
 
-  def covariance(x1,x2,diff1,diff2):
-    out = (gp1._covariance(x1,x2,diff1,diff2) + 
-           gp2._covariance(x1,x2,diff1,diff2))
+  def covariance(x1, x2, diff1, diff2):
+    out = (gp1._covariance(x1, x2, diff1, diff2) + 
+           gp2._covariance(x1, x2, diff1, diff2))
     return out
 
-  def basis(x,diff):
-    out = np.hstack((gp1._basis(x,diff),
-                     gp2._basis(x,diff)))
+  def basis(x, diff):
+    out = np.hstack((gp1._basis(x, diff),
+                     gp2._basis(x, diff)))
     return out                     
             
-  dim = _max(gp1.dim,gp2.dim)
-  out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
+  dim = _max(gp1.dim, gp2.dim)
+  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
   return out
   
 
-def _subtract(gp1,gp2):
+def _subtract(gp1, gp2):
   '''   
   Returns a `GaussianProcess` which is the difference of two 
   `GaussianProcess` instances.
   '''
-  def mean(x,diff):
-    out = gp1._mean(x,diff) - gp2._mean(x,diff)
+  def mean(x, diff):
+    out = gp1._mean(x, diff) - gp2._mean(x, diff)
     return out
       
-  def covariance(x1,x2,diff1,diff2):
-    out = (gp1._covariance(x1,x2,diff1,diff2) + 
-           gp2._covariance(x1,x2,diff1,diff2))
+  def covariance(x1, x2, diff1, diff2):
+    out = (gp1._covariance(x1, x2, diff1, diff2) + 
+           gp2._covariance(x1, x2, diff1, diff2))
     return out       
             
-  def basis(x,diff):
-    out = np.hstack((gp1._basis(x,diff),
-                     gp2._basis(x,diff)))
+  def basis(x, diff):
+    out = np.hstack((gp1._basis(x, diff),
+                     gp2._basis(x, diff)))
     return out                     
 
-  dim = _max(gp1.dim,gp2.dim)
-  out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
+  dim = _max(gp1.dim, gp2.dim)
+  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
   return out
 
 
-def _scale(gp,c):
+def _scale(gp, c):
   '''   
   Returns a scaled `GaussianProcess`.
   '''
-  def mean(x,diff):
-    out = c*gp._mean(x,diff)
+  def mean(x, diff):
+    out = c*gp._mean(x, diff)
     return out
 
-  def covariance(x1,x2,diff1,diff2):
-    out = c**2*gp._covariance(x1,x2,diff1,diff2)
+  def covariance(x1, x2, diff1, diff2):
+    out = c**2*gp._covariance(x1, x2, diff1, diff2)
     return out
       
   # the basis functions are unchanged by scaling
-  out = GaussianProcess(mean,covariance,basis=gp._basis,dim=gp.dim)
+  out = GaussianProcess(mean, covariance, basis=gp._basis, dim=gp.dim)
   return out
 
 
-def _differentiate(gp,d):
+def _differentiate(gp, d):
   '''   
   Differentiates a `GaussianProcess`.
   '''
-  def mean(x,diff):
-    out = gp._mean(x,diff + d)
+  def mean(x, diff):
+    out = gp._mean(x, diff + d)
     return out 
 
-  def covariance(x1,x2,diff1,diff2):
-    out = gp._covariance(x1,x2,diff1+d,diff2+d)
+  def covariance(x1, x2, diff1, diff2):
+    out = gp._covariance(x1, x2, diff1 + d, diff2 + d)
     return out
       
-  def basis(x,diff):
-    out = gp._basis(x,diff + d)
+  def basis(x, diff):
+    out = gp._basis(x, diff + d)
     return out 
     
   dim = d.shape[0]
-  out = GaussianProcess(mean,covariance,basis=basis,dim=dim)
+  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
   return out
 
 
-def _condition(gp,y,d,sigma,p,obs_diff):
+def _condition(gp, y, d, sigma, p, obs_diff):
   '''   
   Returns a conditioned `GaussianProcess`.
   '''
@@ -657,58 +657,58 @@ def _condition(gp,y,d,sigma,p,obs_diff):
     # "clear_caches".
     LOGGER.debug('Calculating and caching kernel inverse ...')
     # GP mean at the observation points
-    mu_y = gp._mean(y,obs_diff)
+    mu_y = gp._mean(y, obs_diff)
     # GP covariance at the observation points
-    C_y = gp._covariance(y,y,obs_diff,obs_diff)
+    C_y = gp._covariance(y, y, obs_diff, obs_diff)
     # GP basis functions at the observation points
-    p_y = gp._basis(y,obs_diff)    
+    p_y = gp._basis(y, obs_diff)    
     # add data noise to the covariance matrix
     C_y = as_sparse_or_array(C_y + sigma)
     # append the data noise basis vectors 
-    p_y = np.hstack((p_y,p)) 
-    K_y_solver = PartitionedPosDefSolver(C_y,p_y)
+    p_y = np.hstack((p_y, p)) 
+    K_y_solver = PartitionedPosDefSolver(C_y, p_y)
     r  = d - mu_y
     LOGGER.debug('Done')
-    return K_y_solver,r
+    return K_y_solver, r
     
-  def mean(x,diff):
-    K_y_solver,r = precompute()
-    mu_x = gp._mean(x,diff)
-    C_xy = gp._covariance(x,y,diff,obs_diff)
+  def mean(x, diff):
+    K_y_solver, r = precompute()
+    mu_x = gp._mean(x, diff)
+    C_xy = gp._covariance(x, y, diff, obs_diff)
 
     # pad p_x with as many zero columns as there are noise basis vectors
-    p_x = gp._basis(x,diff)
-    p_x_pad = np.zeros((p_x.shape[0],p.shape[1]),dtype=float)
-    p_x = np.hstack((p_x,p_x_pad))
+    p_x = gp._basis(x, diff)
+    p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
+    p_x = np.hstack((p_x, p_x_pad))
 
-    vec1,vec2 = K_y_solver.solve(r,np.zeros(p_x.shape[1]))
+    vec1, vec2 = K_y_solver.solve(r, np.zeros(p_x.shape[1]))
     out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
     return out
 
-  def covariance(x1,x2,diff1,diff2):
-    K_y_solver,r = precompute()
-    C_x1x2 = gp._covariance(x1,x2,diff1,diff2)
-    C_x1y = gp._covariance(x1,y,diff1,obs_diff)
-    C_x2y = gp._covariance(x2,y,diff2,obs_diff)
+  def covariance(x1, x2, diff1, diff2):
+    K_y_solver, r = precompute()
+    C_x1x2 = gp._covariance(x1, x2, diff1, diff2)
+    C_x1y = gp._covariance(x1, y, diff1, obs_diff)
+    C_x2y = gp._covariance(x2, y, diff2, obs_diff)
 
-    p_x1 = gp._basis(x1,diff1)
-    p_x1_pad = np.zeros((p_x1.shape[0],p.shape[1]),dtype=float)
-    p_x1 = np.hstack((p_x1,p_x1_pad))
+    p_x1 = gp._basis(x1, diff1)
+    p_x1_pad = np.zeros((p_x1.shape[0], p.shape[1]), dtype=float)
+    p_x1 = np.hstack((p_x1, p_x1_pad))
 
-    p_x2 = gp._basis(x2,diff2)
-    p_x2_pad = np.zeros((p_x2.shape[0],p.shape[1]),dtype=float)
-    p_x2 = np.hstack((p_x2,p_x2_pad))
+    p_x2 = gp._basis(x2, diff2)
+    p_x2_pad = np.zeros((p_x2.shape[0], p.shape[1]), dtype=float)
+    p_x2 = np.hstack((p_x2, p_x2_pad))
 
-    mat1,mat2 = K_y_solver.solve(C_x2y.T,p_x2.T)
+    mat1, mat2 = K_y_solver.solve(C_x2y.T, p_x2.T)
     out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
     return out
   
   dim = y.shape[1]
-  out = GaussianProcess(mean,covariance,dim=dim)
+  out = GaussianProcess(mean, covariance, dim=dim)
   return out
 
 
-def likelihood(d,mu,sigma,p=None):
+def likelihood(d, mu, sigma, p=None):
   ''' 
   Returns the log likelihood. If `p` is not specified, then the
   likelihood is the probability of observing `d` from a normally
@@ -736,12 +736,12 @@ def likelihood(d,mu,sigma,p=None):
   mu : (N,) array
     mean of the random vector
   
-  sigma : (N,) array, (N,N) array, or (N,N) scipy sparse matrix    
+  sigma : (N,) array, (N, N) array, or (N, N) scipy sparse matrix    
     If this is an (N,) array then it describes one standard deviation
-    of the random vector. If this is an (N,N) array then it describes
+    of the random vector. If this is an (N, N) array then it describes
     the covariances.
   
-  p : (N,P) array, optional 
+  p : (N, P) array, optional 
     Improper basis vectors. If specified, then `d` is assumed to
     contain some unknown linear combination of the columns of `p`.
 
@@ -761,24 +761,24 @@ def likelihood(d,mu,sigma,p=None):
   Sons.
      
   '''
-  d = as_array(d,dtype=float)
-  assert_shape(d,(None,),'d')
+  d = as_array(d, dtype=float)
+  assert_shape(d, (None,), 'd')
   # number of observations
   n = d.shape[0]
 
-  mu = as_array(mu,dtype=float)
-  assert_shape(mu,(n,),'mu')
+  mu = as_array(mu, dtype=float)
+  assert_shape(mu, (n,), 'mu')
   
   sigma = _as_covariance(sigma)
-  assert_shape(sigma,(n,n),'sigma')
+  assert_shape(sigma, (n, n), 'sigma')
 
   if p is None:
-    p = np.zeros((n,0),dtype=float)
+    p = np.zeros((n, 0), dtype=float)
   
   else:  
-    p = as_array(p,dtype=float)
+    p = as_array(p, dtype=float)
   
-  assert_shape(p,(n,None),'p')
+  assert_shape(p, (n, None), 'p')
   # number of basis vectors
   m = p.shape[1]
 
@@ -799,7 +799,7 @@ def likelihood(d,mu,sigma,p=None):
   return out
 
 
-def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
+def outliers(d, s, mu=None, sigma=None, p=None, tol=4.0, maxitr=50):
   ''' 
   Uses a data editing algorithm to identify outliers in `d`. Outliers
   are considered to be the data that are abnormally inconsistent with
@@ -827,13 +827,13 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
     Mean of the Gaussian process at the observation points. Defaults
     to zeros.
 
-  sigma : (N,) array, (N,N) array, or (N,N) scipy sparse matrix, optional
+  sigma : (N,) array, (N, N) array, or (N, N) scipy sparse matrix, optional
     Covariance of the Gaussian process at the observation points.
     Defaults to zeros.
   
-  p : (N,P) float array, optional
+  p : (N, P) float array, optional
     Improper basis vectors for the Gaussian process evaluated at the
-    observation points. Defaults to an (N,0) array.
+    observation points. Defaults to an (N, 0) array.
   
   tol : float, optional
     Outlier tolerance. Smaller values make the algorithm more likely
@@ -849,45 +849,45 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
     Array indicating which data are outliers
 
   '''
-  d = as_array(d,dtype=float)
-  assert_shape(d,(None,),'d')
+  d = as_array(d, dtype=float)
+  assert_shape(d, (None,), 'd')
   # number of observations
   n = d.shape[0]
 
-  s = as_array(s,dtype=float)
-  assert_shape(s,(n,),'s')
+  s = as_array(s, dtype=float)
+  assert_shape(s, (n,), 's')
 
   if mu is None:
-    mu = np.zeros((n,),dtype=float)
+    mu = np.zeros((n,), dtype=float)
   
   else:  
-    mu = as_array(mu,dtype=float)
-    assert_shape(mu,(n,),'mu')
+    mu = as_array(mu, dtype=float)
+    assert_shape(mu, (n,), 'mu')
 
   if sigma is None:
-    sigma = sp.csc_matrix((n,n),dtype=float)
+    sigma = sp.csc_matrix((n, n), dtype=float)
   
   else:
     sigma = _as_covariance(sigma)
-    assert_shape(sigma,(n,n),'sigma')
+    assert_shape(sigma, (n, n), 'sigma')
   
   if p is None:  
-    p = np.zeros((n,0),dtype=float)
+    p = np.zeros((n, 0), dtype=float)
   
   else:  
-    p = as_array(p,dtype=float)
-    assert_shape(p,(n,None),'p')
+    p = as_array(p, dtype=float)
+    assert_shape(p, (n, None), 'p')
   
   # number of basis functions
   m = p.shape[1]
   # total number of outlier detection iterations completed thus far
   itr = 0
   # boolean array indicating outliers
-  out = np.zeros(n,dtype=bool)
+  out = np.zeros(n, dtype=bool)
   while True:
     LOGGER.debug('Starting iteration %s of outlier detection routine' % (itr+1))
     # remove rows and cols where `out` is True
-    sigma_i = sigma[:,~out][~out,:]
+    sigma_i = sigma[:, ~out][~out, :]
     p_i = p[~out]
     mu_i = mu[~out]
     d_i = d[~out]
@@ -896,13 +896,13 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
     # sparse matrix then the output is a matrix. as_sparse_or_array
     # coerces it back to an array
     sigma_i = as_sparse_or_array(sigma_i + _as_covariance(s_i))
-    Ksolver = PartitionedPosDefSolver(sigma_i,p_i)
-    vec1,vec2 = Ksolver.solve(d_i - mu_i,np.zeros(m))
+    Ksolver = PartitionedPosDefSolver(sigma_i, p_i)
+    vec1, vec2 = Ksolver.solve(d_i - mu_i, np.zeros(m))
 
     # dereference everything that we no longer need
-    del sigma_i,mu_i,p_i,d_i,s_i,Ksolver
+    del sigma_i, mu_i, p_i, d_i, s_i, Ksolver
     
-    fit = mu + sigma[:,~out].dot(vec1) + p.dot(vec2)
+    fit = mu + sigma[:, ~out].dot(vec1) + p.dot(vec2)
     # find new outliers
     res = np.abs(fit - d)/s
     rms = np.sqrt(np.mean(res[~out]**2))
@@ -917,24 +917,24 @@ def outliers(d,s,mu=None,sigma=None,p=None,tol=4.0,maxitr=50):
         break
 
   LOGGER.debug('Detected %s outliers out of %s observations' %
-               (sum(out),len(out)))
+               (sum(out), len(out)))
 
   return out
 
 
-def _zero_mean(x,diff):
+def _zero_mean(x, diff):
   '''mean function that returns zeros'''
-  return np.zeros((x.shape[0],),dtype=float)  
+  return np.zeros((x.shape[0],), dtype=float)  
 
 
-def _zero_covariance(x1,x2,diff1,diff2):
+def _zero_covariance(x1, x2, diff1, diff2):
   '''covariance function that returns zeros'''
-  return sp.csc_matrix((x1.shape[0],x2.shape[0]),dtype=float)  
+  return sp.csc_matrix((x1.shape[0], x2.shape[0]), dtype=float)  
 
 
-def _empty_basis(x,diff):
+def _empty_basis(x, diff):
   '''empty set of basis functions'''
-  return np.zeros((x.shape[0],0),dtype=float)  
+  return np.zeros((x.shape[0], 0), dtype=float)  
   
 
 def _mean_io_check(fin):
@@ -943,11 +943,11 @@ def _mean_io_check(fin):
   coerces the output to an array, and makes sure the output has a
   valid shape.
   '''
-  if hasattr(fin,'_io_is_checked'):
+  if hasattr(fin, '_io_is_checked'):
     return fin
     
   arg_count = get_arg_count(fin)
-  def fout(x,diff):
+  def fout(x, diff):
     if arg_count == 1:
       # `fin` only takes one argument and is assumed to not be
       # differentiable
@@ -959,10 +959,10 @@ def _mean_io_check(fin):
     
     else:
       # otherwise it is assumed that `fin` takes two arguments
-      out = fin(x,diff)  
+      out = fin(x, diff)  
       
     out = as_array(out)
-    assert_shape(out,(x.shape[0],),"mean_output")
+    assert_shape(out, (x.shape[0],), "mean_output")
     return out
           
   # add a tag to the function indicating that the output has been
@@ -978,11 +978,11 @@ def _covariance_io_check(fin):
   the output was already sparse), and makes sure the output has a valid
   shape.
   '''
-  if hasattr(fin,'_io_is_checked'):
+  if hasattr(fin, '_io_is_checked'):
     return fin
     
   arg_count = get_arg_count(fin)
-  def fout(x1,x2,diff1,diff2):
+  def fout(x1, x2, diff1, diff2):
     if arg_count == 2:
       # *fin* only takes two argument and is assumed to not be
       # differentiable
@@ -991,14 +991,14 @@ def _covariance_io_check(fin):
           'The covariance of the `GaussianProcess` is not '
           'differentiable')
         
-      out = fin(x1,x2)
+      out = fin(x1, x2)
     
     else:
       # otherwise it is assumed that `fin` takes four arguments
-      out = fin(x1,x2,diff1,diff2)  
+      out = fin(x1, x2, diff1, diff2)  
       
     out = as_sparse_or_array(out)
-    assert_shape(out,(x1.shape[0],x2.shape[0]),"covariance_output")
+    assert_shape(out, (x1.shape[0], x2.shape[0]), "covariance_output")
     return out
           
   # add a tag to the function indicating that the output has been
@@ -1013,11 +1013,11 @@ def _basis_io_check(fin):
   coerces the output to an array, and makes sure the output has a
   valid shape.
   '''
-  if hasattr(fin,'_io_is_checked'):
+  if hasattr(fin, '_io_is_checked'):
     return fin
     
   arg_count = get_arg_count(fin)
-  def fout(x,diff):
+  def fout(x, diff):
     if arg_count == 1:
       # `fin` only takes two argument and is assumed to not be
       # differentiable
@@ -1030,10 +1030,10 @@ def _basis_io_check(fin):
     
     else:
       # otherwise it is assumed that `fin` takes two arguments
-      out = fin(x,diff)  
+      out = fin(x, diff)  
       
     out = as_array(out)
-    assert_shape(out,(x.shape[0],None),"basis_output")
+    assert_shape(out, (x.shape[0], None), "basis_output")
     return out
           
   # add a tag to the function indicating that the output has been
@@ -1062,10 +1062,10 @@ class GaussianProcess(object):
 
     or 
     
-    `out = mean(x,diff)`
+    `out = mean(x, diff)`
     
-    `x` is an (N,D) array of positions. `diff` is a (D,) int array
-    derivative specification (e.g. [0,1] indicates to return the
+    `x` is an (N, D) array of positions. `diff` is a (D,) int array
+    derivative specification (e.g. [0, 1] indicates to return the
     derivative along the second basis direction). `out` must be an
     (N,) array. If this function only takes one argument then it is
     assumed to not be differentiable and the `differentiate` method
@@ -1077,15 +1077,15 @@ class GaussianProcess(object):
     specified derivatives of the Gaussian process between points `x1`
     and `x2`. This has the call signature
     
-    `out = covariance(x1,x2)`
+    `out = covariance(x1, x2)`
 
     or 
     
-    `out = covariance(x1,x2,diff1,diff2)`
+    `out = covariance(x1, x2, diff1, diff2)`
 
-    `x1` and `x2` are (N,D) and (M,D) arrays of positions,
+    `x1` and `x2` are (N, D) and (M, D) arrays of positions,
     respectively. `diff1` and `diff2` are (D,) int array derivative
-    specifications. `out` can be an (N,M) array or scipy sparse matrix
+    specifications. `out` can be an (N, M) array or scipy sparse matrix
     (csc format would be most efficient). If this function only takes
     two arguments, then it is assumed to not be differentiable and the
     `differentiate` method for the `GaussianProcess` instance will
@@ -1100,10 +1100,10 @@ class GaussianProcess(object):
 
     or 
     
-    `out = basis(x,diff)`
+    `out = basis(x, diff)`
 
-    `x` is an (N,D) array of positions. `diff` is a (D,) int array
-    derivative specification. `out` is an (N,P) array where each
+    `x` is an (N, D) array of positions. `diff` is a (D,) int array
+    derivative specification. `out` is an (N, P) array where each
     column corresponds to a basis function. By default, a
     `GaussianProcess` instance contains no improper basis functions.
     If this function only takes one argument, then it is assumed to
@@ -1130,7 +1130,7 @@ class GaussianProcess(object):
   number of generations of children (for lack of a better term) is 
   limited by the maximum recursion depth.
   '''
-  def __init__(self,mean,covariance,basis=None,dim=None):
+  def __init__(self, mean, covariance, basis=None, dim=None):
     self._mean = _mean_io_check(mean)
     self._covariance = _covariance_io_check(covariance)
     if basis is None:
@@ -1139,44 +1139,44 @@ class GaussianProcess(object):
     self._basis = _basis_io_check(basis)              
     self.dim = dim
   
-  def __call__(self,*args,**kwargs):
+  def __call__(self, *args, **kwargs):
     ''' 
     equivalent to calling `meansd`
     '''
-    return self.meansd(*args,**kwargs)
+    return self.meansd(*args, **kwargs)
 
-  def __add__(self,other):
+  def __add__(self, other):
     ''' 
     equivalent to calling `add`
     '''
     return self.add(other)
 
-  def __sub__(self,other):
+  def __sub__(self, other):
     ''' 
     equivalent to calling `subtract`
     '''
     return self.subtract(other)
 
-  def __mul__(self,c):
+  def __mul__(self, c):
     ''' 
     equivalent to calling `scale`
     '''
     return self.scale(c)
 
-  def __rmul__(self,c):
+  def __rmul__(self, c):
     ''' 
     equivalent to calling `scale`
     '''
     return self.__mul__(c)
 
-  def __or__(self,args):
+  def __or__(self, args):
     ''' 
     equivalent to calling `condition` with positional arguments 
     `args`.
     '''
     return self.condition(*args)
 
-  def add(self,other):
+  def add(self, other):
     ''' 
     Adds two `GaussianProcess` instances. 
     
@@ -1197,10 +1197,10 @@ class GaussianProcess(object):
           'The number of spatial dimensions for the '
           '`GaussianProcess` instances are inconsitent.')
         
-    out = _add(self,other)
+    out = _add(self, other)
     return out
 
-  def subtract(self,other):
+  def subtract(self, other):
     '''  
     Subtracts two `GaussianProcess` instances.
     
@@ -1221,10 +1221,10 @@ class GaussianProcess(object):
           'The number of spatial dimensions for the '
           '`GaussianProcess` instances are inconsitent.')
 
-    out = _subtract(self,other)
+    out = _subtract(self, other)
     return out
     
-  def scale(self,c):
+  def scale(self, c):
     ''' 
     Scales a `GaussianProcess`.
     
@@ -1238,10 +1238,10 @@ class GaussianProcess(object):
       
     '''
     c = np.float64(c)
-    out = _scale(self,c)
+    out = _scale(self, c)
     return out
 
-  def differentiate(self,d):
+  def differentiate(self, d):
     ''' 
     Returns the derivative of a `GaussianProcess`.
     
@@ -1255,34 +1255,34 @@ class GaussianProcess(object):
     out : GaussianProcess       
 
     '''
-    d = as_array(d,dtype=int)
-    assert_shape(d,(self.dim,),'d')
+    d = as_array(d, dtype=int)
+    assert_shape(d, (self.dim,), 'd')
 
-    out = _differentiate(self,d)
+    out = _differentiate(self, d)
     return out  
 
-  def condition(self,y,d,sigma=None,p=None,obs_diff=None):
+  def condition(self, y, d, sigma=None, p=None, obs_diff=None):
     ''' 
     Returns a conditional `GaussianProcess` which incorporates the 
     observed data, `d`.
     
     Parameters
     ----------
-    y : (N,D) float array
+    y : (N, D) float array
       Observation points
     
     d : (N,) float array
       Observed values at `y`
       
-    sigma : (N,) array, (N,N) array, or (N,N) scipy sparse matrix, optional
+    sigma : (N,) array, (N, N) array, or (N, N) scipy sparse matrix, optional
       Data uncertainty. If this is an (N,) array then it describes one 
-      standard deviation of the data error. If this is an (N,N) array 
+      standard deviation of the data error. If this is an (N, N) array 
       then it describes the covariances of the data error. If nothing 
       is provided then the error is assumed to be zero. Note that 
       having zero uncertainty can result in numerically unstable 
       calculations for large N.
 
-    p : (N,P) array, optional  
+    p : (N, P) array, optional  
       Improper basis vectors for the noise. The data noise is assumed
       to contain some unknown linear combination of the columns of
       `p`.
@@ -1297,39 +1297,39 @@ class GaussianProcess(object):
       
     '''
     ## Check the input for errors 
-    y = as_array(y,dtype=float)
-    assert_shape(y,(None,self.dim),'y')
+    y = as_array(y, dtype=float)
+    assert_shape(y, (None, self.dim), 'y')
 		# number of observations and spatial dimensions
-    n,dim = y.shape 
+    n, dim = y.shape 
 
-    d = as_array(d,dtype=float)
-    assert_shape(d,(n,),'d')
+    d = as_array(d, dtype=float)
+    assert_shape(d, (n,), 'd')
 
     if sigma is None:
-      sigma = sp.csc_matrix((n,n),dtype=float)
+      sigma = sp.csc_matrix((n, n), dtype=float)
     
     else:
       sigma = _as_covariance(sigma)
-      assert_shape(sigma,(n,n),'sigma')
+      assert_shape(sigma, (n, n), 'sigma')
         
     if p is None:
-      p = np.zeros((n,0),dtype=float)
+      p = np.zeros((n, 0), dtype=float)
     
     else:
-      p = as_array(p,dtype=float)
-      assert_shape(p,(n,None),'p')
+      p = as_array(p, dtype=float)
+      assert_shape(p, (n, None), 'p')
       
     if obs_diff is None:
-      obs_diff = np.zeros(dim,dtype=int)
+      obs_diff = np.zeros(dim, dtype=int)
     
     else:
-      obs_diff = as_array(obs_diff,dtype=int)
-      assert_shape(obs_diff,(dim,),'obs_diff')
+      obs_diff = as_array(obs_diff, dtype=int)
+      assert_shape(obs_diff, (dim,), 'obs_diff')
     
-    out = _condition(self,y,d,sigma,p,obs_diff)
+    out = _condition(self, y, d, sigma, p, obs_diff)
     return out
 
-  def likelihood(self,y,d,sigma=None,p=None):
+  def likelihood(self, y, d, sigma=None, p=None):
     ''' 
     Returns the log likelihood of drawing the observations `d` from
     this `GaussianProcess`. The observations could potentially have noise
@@ -1340,21 +1340,21 @@ class GaussianProcess(object):
 
     Parameters
     ----------
-    y : (N,D) array
+    y : (N, D) array
       Observation points.
     
     d : (N,) array
       Observed values at `y`.
       
-    sigma : (N,) array, (N,N) array, or (N,N) sparse matrix, optional
+    sigma : (N,) array, (N, N) array, or (N, N) sparse matrix, optional
       Data uncertainty. If this is an (N,) array then it describes one
-      standard deviation of the data error. If this is an (N,N) array
+      standard deviation of the data error. If this is an (N, N) array
       then it describes the covariances of the data error. If nothing
       is provided then the error is assumed to be zero. Note that
       having zero uncertainty can result in numerically unstable
       calculations for large N.
    
-    p : (N,P) float array, optional 
+    p : (N, P) float array, optional 
       Improper basis vectors for the noise. The data noise is assumed
       to contain some unknown linear combination of the columns of
       `p`. 
@@ -1365,43 +1365,43 @@ class GaussianProcess(object):
       log likelihood.
       
     '''
-    y = as_array(y,dtype=float)
-    assert_shape(y,(None,self.dim),'y')
-    n,dim = y.shape # number of observations and dimensions
+    y = as_array(y, dtype=float)
+    assert_shape(y, (None, self.dim), 'y')
+    n, dim = y.shape # number of observations and dimensions
 
-    d = as_array(d,dtype=float)
-    assert_shape(d,(n,),'d')
+    d = as_array(d, dtype=float)
+    assert_shape(d, (n,), 'd')
 
     if sigma is None:
-      sigma = sp.csc_matrix((n,n),dtype=float)
+      sigma = sp.csc_matrix((n, n), dtype=float)
 
     else:
       sigma = _as_covariance(sigma)
-      assert_shape(sigma,(n,n),'sigma')
+      assert_shape(sigma, (n, n), 'sigma')
     
     if p is None:
-      p = np.zeros((n,0),dtype=float)
+      p = np.zeros((n, 0), dtype=float)
 
     else:
-      p = as_array(p,dtype=float)
-      assert_shape(p,(n,None),'p')
+      p = as_array(p, dtype=float)
+      assert_shape(p, (n, None), 'p')
 
-    obs_diff = np.zeros(dim,dtype=int)
+    obs_diff = np.zeros(dim, dtype=int)
 
     # find the mean, covariance, and improper basis for the combination
     # of the Gaussian process and the noise.
-    mu = self._mean(y,obs_diff)
+    mu = self._mean(y, obs_diff)
 
-    gp_sigma = self._covariance(y,y,obs_diff,obs_diff)
+    gp_sigma = self._covariance(y, y, obs_diff, obs_diff)
     sigma = as_sparse_or_array(gp_sigma + sigma)
 
-    gp_p = self._basis(y,obs_diff)
-    p = np.hstack((gp_p,p))
+    gp_p = self._basis(y, obs_diff)
+    p = np.hstack((gp_p, p))
     
-    out = likelihood(d,mu,sigma,p=p)
+    out = likelihood(d, mu, sigma, p=p)
     return out
 
-  def outliers(self,y,d,sigma,tol=4.0,maxitr=50):  
+  def outliers(self, y, d, sigma, tol=4.0, maxitr=50):  
     ''' 
     Uses a data editing algorithm to identify outliers in `d`.
     Outliers are considered to be the data that are abnormally
@@ -1418,7 +1418,7 @@ class GaussianProcess(object):
     
     Parameters
     ----------
-    y : (N,D) float array
+    y : (N, D) float array
       Observation points.
     
     d : (N,) float array
@@ -1438,36 +1438,36 @@ class GaussianProcess(object):
       Boolean array indicating which data are outliers
     
     '''
-    y = as_array(y,dtype=float)
-    assert_shape(y,(None,self.dim),'y')
-    n,dim = y.shape # number of observations and dimensions
+    y = as_array(y, dtype=float)
+    assert_shape(y, (None, self.dim), 'y')
+    n, dim = y.shape # number of observations and dimensions
 
-    d = as_array(d,dtype=float)
-    assert_shape(d,(n,),'d')
+    d = as_array(d, dtype=float)
+    assert_shape(d, (n,), 'd')
 
     # sigma is kept as a 1-D array
-    sigma = as_array(sigma,dtype=float)
-    assert_shape(sigma,(n,),'sigma')
+    sigma = as_array(sigma, dtype=float)
+    assert_shape(sigma, (n,), 'sigma')
     
-    obs_diff = np.zeros(dim,dtype=int)
+    obs_diff = np.zeros(dim, dtype=int)
    
 	  # find the mean, covariance, and improper basis for the combination
   	# of the Gaussian process and the noise.
-    gp_mu = self._mean(y,obs_diff)
-    gp_sigma = self._covariance(y,y,obs_diff,obs_diff)
-    gp_p = self._basis(y,obs_diff)
-    out = outliers(d,sigma,
-                   mu=gp_mu,sigma=gp_sigma,
-                   p=gp_p,tol=tol,maxitr=maxitr)
+    gp_mu = self._mean(y, obs_diff)
+    gp_sigma = self._covariance(y, y, obs_diff, obs_diff)
+    gp_p = self._basis(y, obs_diff)
+    out = outliers(d, sigma,
+                   mu=gp_mu, sigma=gp_sigma,
+                   p=gp_p, tol=tol, maxitr=maxitr)
     return out
     
-  def basis(self,x,diff=None):
+  def basis(self, x, diff=None):
     ''' 
     Returns the improper basis functions evaluated at `x`.
     
     Parameters
     ----------
-    x : (N,D) array
+    x : (N, D) array
       Evaluation points
         
     diff : (D,) int array
@@ -1475,31 +1475,31 @@ class GaussianProcess(object):
       
     Returns
     -------
-    out : (N,P) array  
+    out : (N, P) array  
 
     '''
-    x = as_array(x,dtype=float)
-    assert_shape(x,(None,self.dim),'x')
+    x = as_array(x, dtype=float)
+    assert_shape(x, (None, self.dim), 'x')
     
     if diff is None:  
-      diff = np.zeros(x.shape[1],dtype=int)
+      diff = np.zeros(x.shape[1], dtype=int)
 
     else:
-      diff = as_array(diff,dtype=int)
-      assert_shape(diff,(x.shape[1],),'diff')
+      diff = as_array(diff, dtype=int)
+      assert_shape(diff, (x.shape[1],), 'diff')
       
-    out = self._basis(x,diff)
+    out = self._basis(x, diff)
     # return a dense copy of out
-    out = as_array(out,copy=True)
+    out = as_array(out, copy=True)
     return out
 
-  def mean(self,x,diff=None):
+  def mean(self, x, diff=None):
     ''' 
     Returns the mean of the proper component of the `GaussianProcess`.
     
     Parameters
     ----------
-    x : (N,D) array
+    x : (N, D) array
       Evaluation points
         
     diff : (D,) int array
@@ -1510,32 +1510,32 @@ class GaussianProcess(object):
     out : (N,) array  
 
     '''
-    x = as_array(x,dtype=float)
-    assert_shape(x,(None,self.dim),'x')
+    x = as_array(x, dtype=float)
+    assert_shape(x, (None, self.dim), 'x')
     
     if diff is None:  
-      diff = np.zeros(x.shape[1],dtype=int)
+      diff = np.zeros(x.shape[1], dtype=int)
 
     else:
-      diff = as_array(diff,dtype=int)
-      assert_shape(diff,(x.shape[1],),'diff')
+      diff = as_array(diff, dtype=int)
+      assert_shape(diff, (x.shape[1],), 'diff')
       
-    out = self._mean(x,diff)
+    out = self._mean(x, diff)
     # return a dense copy of out
-    out = as_array(out,copy=True)
+    out = as_array(out, copy=True)
     return out
 
-  def covariance(self,x1,x2,diff1=None,diff2=None):
+  def covariance(self, x1, x2, diff1=None, diff2=None):
     ''' 
     Returns the covariance of the proper component of the
     `GaussianProcess`.
     
     Parameters
     ----------
-    x1,x2 : (N,D) array
+    x1, x2 : (N, D) array
       Evaluation points
         
-    diff1,diff2 : (D,) int array
+    diff1, diff2 : (D,) int array
       Derivative specification. For example, if `diff1` is (0,) and 
       `diff2` is (1,), then the returned covariance matrix will indicate 
       how the Gaussian process at `x1` covaries with the derivative of 
@@ -1543,35 +1543,35 @@ class GaussianProcess(object):
 
     Returns
     -------
-    out : (N,N) array    
+    out : (N, N) array    
     
     '''
-    x1 = as_array(x1,dtype=float)
-    assert_shape(x1,(None,self.dim),'x1')
+    x1 = as_array(x1, dtype=float)
+    assert_shape(x1, (None, self.dim), 'x1')
 
-    x2 = as_array(x2,dtype=float)
-    assert_shape(x2,(None,self.dim),'x2')
+    x2 = as_array(x2, dtype=float)
+    assert_shape(x2, (None, self.dim), 'x2')
 
     if diff1 is None:
-      diff1 = np.zeros(x1.shape[1],dtype=int)
+      diff1 = np.zeros(x1.shape[1], dtype=int)
 
     else:
-      diff1 = as_array(diff1,dtype=int)
-      assert_shape(diff1,(x1.shape[1],),'diff1')
+      diff1 = as_array(diff1, dtype=int)
+      assert_shape(diff1, (x1.shape[1],), 'diff1')
 
     if diff2 is None:  
-      diff2 = np.zeros(x2.shape[1],dtype=int)
+      diff2 = np.zeros(x2.shape[1], dtype=int)
 
     else:
-      diff2 = as_array(diff2,dtype=int)
-      assert_shape(diff2,(x1.shape[1],),'diff2')
+      diff2 = as_array(diff2, dtype=int)
+      assert_shape(diff2, (x1.shape[1],), 'diff2')
       
-    out = self._covariance(x1,x2,diff1,diff2)
+    out = self._covariance(x1, x2, diff1, diff2)
     # return a dense copy of out
-    out = as_array(out,copy=True)
+    out = as_array(out, copy=True)
     return out
     
-  def meansd(self,x,chunk_size=100):
+  def meansd(self, x, chunk_size=100):
     ''' 
     Returns the mean and standard deviation of the proper component of
     the `GaussianProcess`. This does not return the full covariance
@@ -1580,7 +1580,7 @@ class GaussianProcess(object):
     
     Parameters
     ----------
-    x : (N,D) array
+    x : (N, D) array
       Evaluation points
       
     chunk_size : int, optional  
@@ -1600,16 +1600,16 @@ class GaussianProcess(object):
       One standard deviation at `x`
       
     '''
-    x = as_array(x,dtype=float)
-    assert_shape(x,(None,self.dim),'x')
+    x = as_array(x, dtype=float)
+    assert_shape(x, (None, self.dim), 'x')
     # derivative of output will be zero
-    diff = np.zeros(x.shape[1],dtype=int)
+    diff = np.zeros(x.shape[1], dtype=int)
 
     # count is the total number of points evaluated thus far
     count = 0
     xlen = x.shape[0]
-    out_mean = np.zeros(xlen,dtype=float)
-    out_sd = np.zeros(xlen,dtype=float)
+    out_mean = np.zeros(xlen, dtype=float)
+    out_sd = np.zeros(xlen, dtype=float)
     # This block should run at least once to catch any potential
     # errors
     while True:
@@ -1618,11 +1618,11 @@ class GaussianProcess(object):
       if xlen > chunk_size:
         LOGGER.debug(
           'Computing the mean and std. dev. (chunk size = %s) : '
-          '%5.1f%% complete' % (chunk_size,(100.0*count)/xlen))
+          '%5.1f%% complete' % (chunk_size, (100.0*count)/xlen))
       
-      start,stop = count,min(count+chunk_size,xlen)
-      out_mean[start:stop] = self._mean(x[start:stop],diff) 
-      cov = self._covariance(x[start:stop],x[start:stop],diff,diff) 
+      start, stop = count, min(count+chunk_size, xlen)
+      out_mean[start:stop] = self._mean(x[start:stop], diff) 
+      cov = self._covariance(x[start:stop], x[start:stop], diff, diff) 
       var = cov.diagonal()
       out_sd[start:stop] = np.sqrt(var) 
       count = stop
@@ -1635,15 +1635,15 @@ class GaussianProcess(object):
         'Computing the mean and std. dev. (chunk size = %s) : '
         '100.0%% complete' % chunk_size)
 
-    return out_mean,out_sd
+    return out_mean, out_sd
 
-  def sample(self,x,c=None,use_cholesky=False):  
+  def sample(self, x, c=None, use_cholesky=False):  
     '''  
     Draws a random sample from the `GaussianProcess`.  
     
     Parameters
     ----------
-    x : (N,D) array
+    x : (N, D) array
       Evaluation points.
     
     c : (P,) array, optional
@@ -1662,26 +1662,26 @@ class GaussianProcess(object):
     out : (N,) array      
     
     '''
-    x = as_array(x,dtype=float)
-    assert_shape(x,(None,self.dim),'x')
+    x = as_array(x, dtype=float)
+    assert_shape(x, (None, self.dim), 'x')
     # derivative of the sample will be zero
-    diff = np.zeros(x.shape[1],dtype=int)
+    diff = np.zeros(x.shape[1], dtype=int)
 
-    mu = self._mean(x,diff)
-    sigma = self._covariance(x,x,diff,diff)
-    p = self._basis(x,diff)
+    mu = self._mean(x, diff)
+    sigma = self._covariance(x, x, diff, diff)
+    p = self._basis(x, diff)
     
     if c is not None:
-      c = as_array(c,dtype=float)
+      c = as_array(c, dtype=float)
     
     else:
       c = np.zeros(p.shape[1])  
 
-    assert_shape(c,(p.shape[1],),'c')    
-    out = _sample(mu,sigma,use_cholesky=use_cholesky) + p.dot(c)
+    assert_shape(c, (p.shape[1],), 'c')    
+    out = _sample(mu, sigma, use_cholesky=use_cholesky) + p.dot(c)
     return out
     
-  def is_positive_definite(self,x):
+  def is_positive_definite(self, x):
     '''     
     Tests if the covariance matrix, which is the covariance function
     evaluated at `x`, is positive definite. This is done by testing if
@@ -1690,7 +1690,7 @@ class GaussianProcess(object):
     
     Parameters
     ----------
-    x : (N,D) array
+    x : (N, D) array
       Evaluation points
 
     Returns
@@ -1705,11 +1705,11 @@ class GaussianProcess(object):
     negative due to numerical rounding error. This is most notably the
     case for the squared exponential covariance function.    
     '''
-    x = as_array(x,dtype=float)
-    assert_shape(x,(None,self.dim),'x')
-    diff = np.zeros(x.shape[1],dtype=int)
+    x = as_array(x, dtype=float)
+    assert_shape(x, (None, self.dim), 'x')
+    diff = np.zeros(x.shape[1], dtype=int)
 
-    cov = self._covariance(x,x,diff,diff)    
+    cov = self._covariance(x, x, diff, diff)    
     out = is_positive_definite(cov)
     return out  
     
@@ -1725,7 +1725,7 @@ class GaussianProcess(object):
     self._basis = Memoize(self._basis)
 
 
-def gpiso(phi,params,dim=None):
+def gpiso(phi, params, dim=None):
   ''' 
   Creates an isotropic `GaussianProcess` instance which has a constant 
   mean and a covariance function that is described by a radial basis 
@@ -1764,22 +1764,22 @@ def gpiso(phi,params,dim=None):
   `rbf.basis.ga`, `rbf.basis.exp`, `rbf.basis.iq`, `rbf.basis.imq`.
 
   '''
-  params = as_array(params,dtype=float)  
+  params = as_array(params, dtype=float)  
   
-  def mean(x,diff):
-    a,b,c = params  
+  def mean(x, diff):
+    a, b, c = params  
     if sum(diff) == 0:
-      out = np.full(x.shape[0],a,dtype=float)
+      out = np.full(x.shape[0], a, dtype=float)
     
     else:
-      out = np.zeros(x.shape[0],dtype=float)
+      out = np.zeros(x.shape[0], dtype=float)
 
     return out
       
-  def covariance(x1,x2,diff1,diff2):
-    a,b,c = params  
+  def covariance(x1, x2, diff1, diff2):
+    a, b, c = params  
     diff = diff1 + diff2
-    out = b*(-1)**sum(diff2)*phi(x1,x2,eps=c,diff=diff)
+    out = b*(-1)**sum(diff2)*phi(x1, x2, eps=c, diff=diff)
     if not _all_is_finite(out):
       raise ValueError(
         'Encountered a non-finite RBF covariance. This may be '
@@ -1788,11 +1788,11 @@ def gpiso(phi,params,dim=None):
 
     return out
 
-  out = GaussianProcess(mean,covariance,dim=dim)
+  out = GaussianProcess(mean, covariance, dim=dim)
   return out
 
 
-def gpse(params,dim=None):
+def gpse(params, dim=None):
   ''' 
   Creates an isotropic `GaussianProcess` with a squared exponential 
   covariance function. 
@@ -1822,11 +1822,11 @@ def gpse(params,dim=None):
   becomes a problem when conditioning a squared exponential
   `GaussianProcess` with noise-free data.
   '''
-  out = gpiso(rbf.basis.se,params,dim=dim)
+  out = gpiso(rbf.basis.se, params, dim=dim)
   return out
 
 
-def gpexp(params,dim=None):
+def gpexp(params, dim=None):
   ''' 
   Creates an isotropic `GaussianProcess` with an exponential 
   covariance function.
@@ -1847,11 +1847,11 @@ def gpexp(params,dim=None):
   -------
   out : GaussianProcess
   '''
-  out = gpiso(rbf.basis.exp,params,dim=dim)
+  out = gpiso(rbf.basis.exp, params, dim=dim)
   return out
 
 
-def gpbfc(basis,mu,sigma,dim=None):
+def gpbfc(basis, mu, sigma, dim=None):
   ''' 
   Creates a basis function-constrained `GaussianProcess` instance.
   Realizations of the `GaussianProcess` are linear combinations of the
@@ -1862,17 +1862,17 @@ def gpbfc(basis,mu,sigma,dim=None):
   ----------
   basis : function
     Function that takes either one argument, `x`, or two arguments, 
-    `x` and `diff`. `x` is an (N,D) array of positions and `diff` is a 
+    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is a 
     (D,) array specifying the derivative. This function returns an 
-    (N,P) array, where each column is a basis function evaluated at 
+    (N, P) array, where each column is a basis function evaluated at 
     `x`. 
   
   mu : (P,) array
     Expected value of the basis function coefficients.
   
-  sigma : (P,) array or (P,P) array 
+  sigma : (P,) array or (P, P) array 
     If this is a (P,) array then it indicates the standard deviation 
-    of the basis function coefficients. If it is a (P,P) array then it 
+    of the basis function coefficients. If it is a (P, P) array then it 
     indicates the covariances. 
 
   dim : int, optional
@@ -1889,7 +1889,7 @@ def gpbfc(basis,mu,sigma,dim=None):
   if get_arg_count(basis) == 1:
     # if the basis function only takes one argument then make a 
     # wrapper for it which takes two arguments.
-    def basis_with_diff(x,diff):
+    def basis_with_diff(x, diff):
       if sum(diff) != 0: 
         raise ValueError(
           'The basis functions for the `GaussianProcess` instance '
@@ -1901,29 +1901,29 @@ def gpbfc(basis,mu,sigma,dim=None):
     # otherwise, assume that the function can take two arguments
     basis_with_diff = basis
       
-  mu = as_array(mu,dtype=float)
-  sigma = as_array(sigma,dtype=float)
+  mu = as_array(mu, dtype=float)
+  sigma = as_array(sigma, dtype=float)
   if sigma.ndim == 1:
       # if `sigma` is one dimensional then it contains standard
       # deviations. These are converted to a DENSE covariance matrix.
       sigma = np.diag(sigma**2)
   
-  def mean(x,diff):
-    G = basis_with_diff(x,diff)
+  def mean(x, diff):
+    G = basis_with_diff(x, diff)
     out = G.dot(mu)
     return out
     
-  def covariance(x1,x2,diff1,diff2):
-    G1 = basis_with_diff(x1,diff1)
-    G2 = basis_with_diff(x2,diff2)
+  def covariance(x1, x2, diff1, diff2):
+    G1 = basis_with_diff(x1, diff1)
+    G2 = basis_with_diff(x2, diff2)
     out = G1.dot(sigma).dot(G2.T)
     return out
     
-  out = GaussianProcess(mean,covariance,dim=dim)
+  out = GaussianProcess(mean, covariance, dim=dim)
   return out  
 
 
-def gpbfci(basis,dim=None):
+def gpbfci(basis, dim=None):
   ''' 
   Creates an `GaussianProcess` consisting of improper basis functions.
 
@@ -1931,9 +1931,9 @@ def gpbfci(basis,dim=None):
   ----------
   basis : function
     Function that takes either one argument, `x`, or two arguments, 
-    `x` and `diff`. `x` is an (N,D) array of positions and `diff` is a 
+    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is a 
     (D,) array specifying the derivative. This function returns an 
-    (N,P) array, where each column is a basis function evaluated at 
+    (N, P) array, where each column is a basis function evaluated at 
     `x`.
 
   dim : int, optional
@@ -1946,12 +1946,12 @@ def gpbfci(basis,dim=None):
   out : GaussianProcess
     
   '''
-  out = GaussianProcess(_zero_mean,_zero_covariance,
-                        basis=basis,dim=dim)
+  out = GaussianProcess(_zero_mean, _zero_covariance,
+                        basis=basis, dim=dim)
   return out
 
 
-def gppoly(order,dim=None):
+def gppoly(order, dim=None):
   ''' 
   Returns a `GaussianProcess` consisting of monomial improper basis
   functions. The monomials span the space of all polynomials with a
@@ -1974,16 +1974,16 @@ def gppoly(order,dim=None):
   out : GaussianProcess  
     
   '''
-  def basis(x,diff):
-    powers = rbf.poly.powers(order,x.shape[1])
-    out = rbf.poly.mvmonos(x,powers,diff)
+  def basis(x, diff):
+    powers = rbf.poly.powers(order, x.shape[1])
+    out = rbf.poly.mvmonos(x, powers, diff)
     return out
   
-  out = gpbfci(basis,dim=dim)  
+  out = gpbfci(basis, dim=dim)  
   return out
 
 
-def gpgibbs(ls,sigma,delta=1e-4):
+def gpgibbs(ls, sigma, delta=1e-4):
   '''
   Returns a `GaussianProcess` with zero mean and a Gibbs covariance
   function. The Gibbs kernel has a spatially varying lengthscale.
@@ -1991,8 +1991,8 @@ def gpgibbs(ls,sigma,delta=1e-4):
   Parameters
   ----------
   ls: func
-    Function that takes an (N,D) array of positions and returns an
-    (N,D) array indicating the lengthscale along each dimension at
+    Function that takes an (N, D) array of positions and returns an
+    (N, D) array indicating the lengthscale along each dimension at
     those positions.
 
   sigma: float
@@ -2005,7 +2005,7 @@ def gpgibbs(ls,sigma,delta=1e-4):
     the `ls` function is unknown.
   '''        
   @covariance_differentiator(delta)
-  def covariance(x1,x2):
+  def covariance(x1, x2):
     '''
     covariance function for the Gibbs Gaussian process. 
     '''
@@ -2014,27 +2014,27 @@ def gpgibbs(ls,sigma,delta=1e-4):
     lsx2 = ls(x2)
 
     # sanitize the output for `ls`
-    lsx1 = as_array(lsx1,dtype=float)
-    lsx2 = as_array(lsx2,dtype=float)
-    assert_shape(lsx1,x1.shape,'ls(x1)')
-    assert_shape(lsx2,x2.shape,'ls(x2)')
+    lsx1 = as_array(lsx1, dtype=float)
+    lsx2 = as_array(lsx2, dtype=float)
+    assert_shape(lsx1, x1.shape, 'ls(x1)')
+    assert_shape(lsx2, x2.shape, 'ls(x2)')
 
-    coeff = np.ones((x1.shape[0],x2.shape[0]))
-    exponent = np.zeros((x1.shape[0],x2.shape[0]))
+    coeff = np.ones((x1.shape[0], x2.shape[0]))
+    exponent = np.zeros((x1.shape[0], x2.shape[0]))
 
     for i in range(dim):
-        a = 2 * lsx1[:,None,i] * lsx2[None,:,i]
-        b = lsx1[:,None,i]**2 + lsx2[None,:,i]**2
+        a = 2 * lsx1[:, None, i] * lsx2[None, :, i]
+        b = lsx1[:, None, i]**2 + lsx2[None, :, i]**2
         coeff *= np.sqrt( a / b )
 
     for i in range(dim):
-        a = ( x1[:,None,i] - x2[None,:,i] )**2
-        b = lsx1[:,None,i]**2 + lsx2[None,:,i]**2
+        a = ( x1[:, None, i] - x2[None, :, i] )**2
+        b = lsx1[:, None, i]**2 + lsx2[None, :, i]**2
         exponent -= ( a / b )
 
     out = sigma**2*coeff*np.exp(exponent)
     return out
 
-  out = GaussianProcess(_zero_mean,covariance)
+  out = GaussianProcess(_zero_mean, covariance)
   return out
 

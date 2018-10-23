@@ -7,6 +7,7 @@ import rbf.basis
 import rbf.poly
 import rbf.stencil
 import rbf.linalg
+from rbf.utils import assert_shape
 from rbf.linalg import PartitionedSolver
 import scipy.sparse as sp
 import logging
@@ -19,7 +20,8 @@ def _reshape_diffs(diffs):
   turns diffs into a 2D array
   '''
   if diffs.ndim > 2:
-    raise ValueError('diffs can only be a 1 or 2 dimensional array')
+    raise ValueError('`diffs` can only be a 1 or 2 dimensional array')
+
   D = diffs.shape[-1]
   out = diffs.reshape((-1, D))
   return out
@@ -148,17 +150,21 @@ def weights(x, s, diffs, coeffs=None,
     
   '''
   x = np.asarray(x, dtype=float)
+  assert_shape(x, (None,), 'x')
+  
   s = np.asarray(s, dtype=float)
+  assert_shape(s, (None, x.shape[0]), 's')
+  
   diffs = np.asarray(diffs, dtype=int)
   diffs = _reshape_diffs(diffs)
+  
   # stencil size and number of dimensions
   size, dim = s.shape
   if coeffs is None:
     coeffs = np.ones(diffs.shape[0], dtype=float)
   else:
     coeffs = np.asarray(coeffs, dtype=float)
-    if (coeffs.ndim != 1) | (coeffs.shape[0] != diffs.shape[0]):
-      raise ValueError('`coeffs` and `diffs` have incompatible shapes')
+    assert_shape(coeffs, (diffs.shape[0],), 'coeffs')
 
   max_order = _max_poly_order(size, dim)
   if order is None:
@@ -279,13 +285,20 @@ def weight_matrix(x, p, diffs, coeffs=None,
                          
   '''
   x = np.asarray(x, dtype=float)
+  assert_shape(x, (None, None), 'x')
+  
   p = np.asarray(p, dtype=float)
+  assert_shape(p, (None, x.shape[1]), 'p')
+  
   diffs = np.asarray(diffs, dtype=int)
   diffs = _reshape_diffs(diffs)
+
   if np.isscalar(eps):
     eps = np.full(p.shape[0], eps, dtype=float)
   else:
     eps = np.asarray(eps, dtype=float)  
+    assert_shape(eps, (p.shape[0],), 'eps')
+    
   
   # make `coeffs` a (K, N) array
   if coeffs is None:
@@ -294,6 +307,8 @@ def weight_matrix(x, p, diffs, coeffs=None,
     coeffs = np.asarray(coeffs, dtype=float)
     if coeffs.ndim == 1:
       coeffs = np.repeat(coeffs[:, None], x.shape[0], axis=1) 
+
+    assert_shape(coeffs, (diffs.shape[0], x.shape[0]), 'coeffs')      
    
   if stencils is None:
     if n is None:
@@ -303,8 +318,10 @@ def weight_matrix(x, p, diffs, coeffs=None,
       n = min(n, p.shape[0])
 
     stencils = rbf.stencil.stencil_network(x, p, n)
-
-  stencils = np.asarray(stencils, dtype=int)
+  else:    
+    stencils = np.asarray(stencils, dtype=int)
+    assert_shape(stencils, (x.shape[0], None), 'stencils')
+  
   logger.debug(
     'building a (%s, %s) RBF-FD weight matrix with %s nonzeros...' 
     % (x.shape[0], p.shape[0], stencils.size))   
@@ -351,11 +368,15 @@ def add_rows(A, B, idx):
   (n1, m) csc sparse matrix
   
   '''
-  idx = np.asarray(idx, dtype=int)
   # coerce `A` to csc to enforce a consistent output type
   A = sp.csc_matrix(A)
   # convert `B` to a coo matrix, and expand out its rows
   B = sp.coo_matrix(B)
+  assert_shape(B, (None, A.shape[1]), 'B')
+    
+  idx = np.asarray(idx, dtype=int)
+  assert_shape(idx, (B.shape[0],), 'idx')
+
   B = sp.csc_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
   # Now add the expanded `B` to `A`, 
   out = A + B

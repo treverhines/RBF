@@ -55,8 +55,9 @@ import scipy.sparse
 import scipy.optimize
 import scipy.spatial
 import rbf.basis
-import rbf.poly
 import rbf.geometry
+import rbf.poly 
+from rbf.utils import assert_shape
 from rbf.linalg import PartitionedSolver
 
 
@@ -68,7 +69,7 @@ def _in_hull(p, hull):
   # if there are not enough points in `hull` to form a simplex then 
   # return False for each point in `p`.
   if hull.shape[0] <= dim:
-    return np.zeros(p.shape[0],dtype=bool)
+    return np.zeros(p.shape[0], dtype=bool)
   
   if dim >= 2:
     hull = scipy.spatial.Delaunay(hull)
@@ -77,7 +78,7 @@ def _in_hull(p, hull):
     # one dimensional points
     min = np.min(hull)
     max = np.max(hull)
-    return (p[:,0] >= min) & (p[:,0] <= max)
+    return (p[:, 0] >= min) & (p[:, 0] <= max)
 
 
 class RBFInterpolant(object):
@@ -86,7 +87,7 @@ class RBFInterpolant(object):
 
   Parameters 
   ---------- 
-  y : (N,D) array
+  y : (N, D) array
     Observation points.
 
   d : (N,) array
@@ -135,11 +136,18 @@ class RBFInterpolant(object):
   [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
   and Applications. John Wiley & Sons, 2000.
   '''
-  def __init__(self,y,d,sigma=None,eps=1.0,basis=rbf.basis.phs3,
-               order=1,extrapolate=True):
-
+  def __init__(self, y, d,
+               sigma=None,
+               eps=1.0,
+               basis=rbf.basis.phs3,
+               order=1,
+               extrapolate=True):
     y = np.asarray(y) 
+    assert_shape(y, (None, None), 'y')
+    
     d = np.asarray(d)
+    assert_shape(d, (y.shape[0],), 'd')
+    
     q,dim = y.shape
 
     if sigma is None:
@@ -153,18 +161,19 @@ class RBFInterpolant(object):
 
     else:
       sigma = np.asarray(sigma)
+      assert_shape(sigma, (y.shape[0],), 'sigma')
       
     # form block consisting of the RBF and uncertainties on the
     # diagonal
-    K = basis(y,y,eps=eps) 
+    K = basis(y, y, eps=eps) 
     Cd = scipy.sparse.diags(sigma**2)
-    # for the block consisting of the monomials
-    powers = rbf.poly.powers(order,dim)
-    P = rbf.poly.mvmonos(y,powers)
+    # form the block consisting of the monomials
+    powers = rbf.poly.powers(order, dim)
+    P = rbf.poly.mvmonos(y, powers)
     # create zeros vector for the right-hand-side
     z = np.zeros((powers.shape[0],))
     # solve for the RBF and mononomial coefficients
-    basis_coeff,poly_coeff = PartitionedSolver(K + Cd,P).solve(d,z) 
+    basis_coeff, poly_coeff = PartitionedSolver(K + Cd, P).solve(d, z) 
 
     self._y = y
     self._basis = basis
@@ -175,21 +184,21 @@ class RBFInterpolant(object):
     self._powers = powers 
     self.extrapolate = extrapolate
 
-  def __call__(self,x,diff=None,chunk_size=1000):
+  def __call__(self, x, diff=None, chunk_size=1000):
     ''' 
     Evaluates the interpolant at `x`
 
     Parameters 
     ---------- 
-    x : (N,D) array
+    x : (N, D) array
       Target points.
 
     diff : (D,) int array, optional
       Derivative order for each spatial dimension.
         
     chunk_size : int, optional  
-      Break `x` into chunks with this size and evaluate the 
-      interpolant for each chunk.  Smaller values result in decreased 
+      Break `x` into chunks with this size and evaluate the
+      interpolant for each chunk.  Smaller values result in decreased
       memory usage but also decreased speed.
 
     Returns
@@ -199,14 +208,23 @@ class RBFInterpolant(object):
       
     '''
     x = np.asarray(x,dtype=float) 
+    assert_shape(x, (None, self._y.shape[1]), 'x')
+    
     xlen = x.shape[0]
     # allocate output array
-    out = np.zeros(xlen,dtype=float)
+    out = np.zeros(xlen, dtype=float)
     count = 0
     while count < xlen:
-      start,stop = count,count+chunk_size
-      K = self._basis(x[start:stop],self._y,eps=self._eps,diff=diff)
-      P = rbf.poly.mvmonos(x[start:stop],self._powers,diff=diff)
+      start, stop = count, count + chunk_size
+      K = self._basis(
+        x[start:stop], 
+        self._y, 
+        eps=self._eps, 
+        diff=diff)
+      P = rbf.poly.mvmonos(
+        x[start:stop], 
+        self._powers, 
+        diff=diff)
       out[start:stop] = (K.dot(self._basis_coeff) + 
                          P.dot(self._poly_coeff))
       count += chunk_size
@@ -214,7 +232,7 @@ class RBFInterpolant(object):
     # return zero for points outside of the convex hull if 
     # extrapolation is not allowed
     if not self.extrapolate:
-      out[~_in_hull(x,self._y)] = np.nan
+      out[~_in_hull(x, self._y)] = np.nan
 
     return out
 

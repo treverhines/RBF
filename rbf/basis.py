@@ -244,6 +244,7 @@ class RBF(object):
     '''
     x = np.asarray(x, dtype=float)
     assert_shape(x, (None, None), 'x')
+
     c = np.asarray(c, dtype=float)
     assert_shape(c, (None, x.shape[1]), 'c')
 
@@ -253,8 +254,7 @@ class RBF(object):
 
     else:  
       eps = np.asarray(eps, dtype=float)
-
-    assert_shape(eps, (c.shape[0],), 'eps')
+      assert_shape(eps, (c.shape[0],), 'eps')
 
     # if `diff` is not given then take no derivatives
     if diff is None:
@@ -263,8 +263,7 @@ class RBF(object):
     else:
       # make sure diff is immutable
       diff = tuple(diff)
-    
-    assert_shape(diff, (x.shape[1],), 'diff')
+      assert_shape(diff, (x.shape[1],), 'diff')
 
     # add numerical function to cache if not already
     if diff not in self._cache:
@@ -434,6 +433,7 @@ class SparseRBF(RBF):
     '''
     x = np.asarray(x, dtype=float)
     assert_shape(x, (None, None), 'x')
+
     c = np.asarray(c, dtype=float)
     assert_shape(c, (None, x.shape[1]), 'c')
 
@@ -450,8 +450,7 @@ class SparseRBF(RBF):
     else:
       # make sure diff is immutable
       diff = tuple(diff)
-    
-    assert_shape(diff, (x.shape[1],), 'diff')
+      assert_shape(diff, (x.shape[1],), 'diff')
 
     # add numerical function to cache if not already
     if diff not in self._cache:
