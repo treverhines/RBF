@@ -63,24 +63,25 @@ class Test(unittest.TestCase):
     count = rbf.utils.get_arg_count(func4)
     self.assertTrue(count == -1)
 
-  def test_memoize(self):
+  def test_memoize_array_input(self):
     def func(a):
       return a
     
-    memfunc = rbf.utils.Memoize(func)  
+    memfunc = rbf.utils.MemoizeArrayInput(func)  
     # call the function and make sure an entry is added to the cache
-    memfunc(np.array([1.0]))
+    arr = np.array([1.0])
+    memfunc(np.array(arr))
     self.assertTrue(len(memfunc.cache) == 1)
 
-    # call the 200 times, and make sure the cache only has 100 items
+    # call the 200 times, and make sure the cache only has 128 items
     # (the cache limit)
     for i in range(200):
       memfunc(np.array([i]))
     
-    self.assertTrue(len(memfunc.cache) == 100)
+    self.assertTrue(len(memfunc.cache) == 128)
 
     # clear the cache and make sure the cache size goes back to zero
-    rbf.utils.clear_caches()
+    rbf.utils.clear_memoize_array_input_caches()
     self.assertTrue(len(memfunc.cache) == 0)
       
 
