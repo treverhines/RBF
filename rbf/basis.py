@@ -39,18 +39,34 @@ Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)  :math:`(1 
 ''' 
 from __future__ import division 
 import logging
+import weakref
 
 import sympy 
 import numpy as np 
 from scipy.sparse import csc_matrix
 from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
+from sympy import lambdify
 
 from rbf.poly import powers
 from rbf.utils import assert_shape
 logger = logging.getLogger(__name__)
 
 
+# the method used to convert sympy expressions to numerical functions
+_NUMERICAL_CONVERTER = 'ufuncify'
+
+
+def set_numerical_converter(value):
+    global _NUMERICAL_CONVERTER
+    if value not in {'lambdify', 'ufuncify'}:
+        raise ValueError(
+            '`value` must be either "lambdify" or "ufuncify"')
+            
+    _NUMERICAL_CONVERTER = value
+    clear_rbf_caches()
+
+    
 def get_r():
   ''' 
   returns the symbolic variable for :math:`r` which is used to 
@@ -149,6 +165,8 @@ class RBF(object):
   It is safe to change the attributes `tol` and `limits`. Changes will
   cause the cache of numerical functions to be cleared.
   '''
+  _INSTANCES = []
+  
   @property
   def expr(self):
     # `expr` is read-only. 
@@ -213,6 +231,8 @@ class RBF(object):
     
     ## create the cache for numerical functions    
     self._cache = {}
+
+    RBF._INSTANCES += [weakref.ref(self)]
 
   def __call__(self, x, c, eps=1.0, diff=None):
     ''' 
@@ -331,8 +351,14 @@ class RBF(object):
       # create a piecewise symbolic function which is `lim` when
       # `r_sym < tol` and `expr` otherwise
       expr = sympy.Piecewise((lim, r_sym < self.tol), (expr, True)) 
-      
-    func = ufuncify(x_sym + c_sym + (_EPS,), expr, backend='numpy')
+
+    if _NUMERICAL_CONVERTER == 'ufuncify':      
+      func = ufuncify(x_sym + c_sym + (_EPS,), expr, backend='numpy')
+    elif _NUMERICAL_CONVERTER == 'lambdify':
+      func = lambdify(x_sym + c_sym + (_EPS,), expr, modules=['numpy'])
+    else:
+      raise ValueError()          
+        
     self._cache[diff] = func
     logger.debug('The numerical function has been created and cached')
     
@@ -389,7 +415,6 @@ class SparseRBF(RBF):
   @property
   def supp(self):
     return self._supp
-    
   
   def __init__(self, expr, supp, **kwargs):
     RBF.__init__(self, expr, **kwargs)
@@ -497,6 +522,15 @@ class SparseRBF(RBF):
     return out
 
   
+def clear_rbf_caches():
+    '''
+    Clear the caches of numerical functions for all the RBF instances
+    '''
+    for inst in RBF._INSTANCES:
+        if inst() is not None:
+            inst().clear_cache()
+
+
 ## Instantiate some common RBFs
 #####################################################################
 _phs8_limits = {}

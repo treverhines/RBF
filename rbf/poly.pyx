@@ -4,7 +4,7 @@ are commonly added to RBF interpolants
 '''
 from __future__ import division
 from itertools import combinations_with_replacement as cr
-from functools import wraps
+from functools import lru_cache
 
 import numpy as np
 from scipy.special import binom
@@ -14,39 +14,17 @@ from rbf.utils import assert_shape
 cimport numpy as np
 from cython cimport boundscheck, wraparound
 
-def memoize(f):
-  ''' 
-  Decorator that stores the output of functions with hashable 
-  arguments and returns that output when the function is called again 
-  with the same arguments.
 
-  Note
-  ----
-  Cached output is not copied. If the function output is mutable
-  then any modifications to the output will result in modifications
-  to the cached output
-
-  '''
-  cache = {}
-  @wraps(f)
-  def fout(*args):
-    if args not in cache:
-      cache[args] = f(*args)
-    return cache[args]
-
-  return fout  
-
-
-def mvmonos(x,powers,diff=None):
+def mvmonos(x, powers, diff=None):
   ''' 
   Multivariate monomial basis functions
 
   Parameters
   ----------
-  x : (N,D) float array 
+  x : (N, D) float array 
     positions where the monomials will be evaluated
 
-  powers : (M,D) int array 
+  powers : (M, D) int array 
     Defines each monomial basis function using multi-index notation.  
     Each row contains the exponents for the spatial variables in a 
     monomial.
@@ -56,22 +34,22 @@ def mvmonos(x,powers,diff=None):
 
   Returns
   -------
-  out : (N,M) array
+  out : (N, M) array
     Alternant matrix where x is evaluated for each monomial 
  
   Example
   -------
   
-  >>> pos = np.array([[1.0],[2.0],[3.0]])
-  >>> pows = np.array([[0],[1],[2]])
+  >>> pos = np.array([[1.0], [2.0], [3.0]])
+  >>> pows = np.array([[0], [1], [2]])
   >>> mvmonos(pos,pows)
   array([[ 1.,  1.,  1.],
          [ 1.,  2.,  4.],
          [ 1.,  3.,  9.]])
            
-  >>> pos = np.array([[1.0,2.0],[2.0,3.0],[3.0,4.0]])
-  >>> pows = np.array([[0,0],[1,0],[0,1]])
-  >>> mvmonos(pos,pows)
+  >>> pos = np.array([[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]])
+  >>> pows = np.array([[0, 0], [1, 0], [0, 1]])
+  >>> mvmonos(pos, pows)
   array([[ 1.,  1.,  2.],
          [ 1.,  2.,  3.],
          [ 1.,  3.,  4.]])
@@ -95,8 +73,8 @@ def mvmonos(x,powers,diff=None):
 
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray _mvmonos(double[:,:] x, 
-                          long[:,:] powers, 
+cpdef np.ndarray _mvmonos(double[:, :] x, 
+                          long[:, :] powers, 
                           long[:] diff):
   ''' 
   cython evaluation of mvmonos
@@ -138,7 +116,7 @@ cpdef np.ndarray _mvmonos(double[:,:] x,
   return np.asarray(out)
   
 
-@memoize
+@lru_cache(maxsize=128, typed=True)
 def powers(order, dim):
   ''' 
   Returns an array describing the powers in all the monomial basis
@@ -185,7 +163,7 @@ def powers(order, dim):
   return out
 
   
-@memoize
+@lru_cache(maxsize=128, typed=True)
 def count(order, dim):
   ''' 
   Returns the number of monomial basis functions in a polynomial with 

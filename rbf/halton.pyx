@@ -5,7 +5,7 @@ sequences
 from __future__ import division
 import numpy as np
 cimport numpy as np
-from cython cimport boundscheck,wraparound,cdivision
+from cython cimport boundscheck, wraparound, cdivision
 
 @cdivision(True)
 @boundscheck(False)
@@ -16,8 +16,8 @@ cpdef np.ndarray primes(long N):
   cdef:
     bint flag # lowered when a test number is not prime
     long test = 2 # test number
-    long i,j  
-    long[:] out = np.empty(N,dtype=np.int)
+    long i, j  
+    long[:] out = np.empty(N, dtype=np.int)
 
   for i in range(N):
     while True:
@@ -88,18 +88,18 @@ cpdef np.ndarray halton(long N,
       
   Returns
   -------
-  out : (N,D) array
+  out : (N, D) array
 
   '''
   cdef:
-    long i,j
-    double[:,:] seq = np.empty((N,D),dtype=np.float64)
+    long i, j
+    double[:, :] seq = np.empty((N, D), dtype=np.float64)
     long[:] p = PRIMES[prime_index:prime_index+D]
 
   with nogil:
     for i in range(N):
       for j in range(D):
-        seq[i,j] = halton_n(i,p[j],start,skip)
+        seq[i, j] = halton_n(i, p[j], start, skip)
 
   return np.asarray(seq)
 
@@ -126,13 +126,13 @@ class Halton(object):
     starting prime number)
         
   '''
-  def __init__(self,D=1,start=0,skip=1,prime_index=0):
+  def __init__(self, D=1, start=0, skip=1, prime_index=0):
     self.count = start
     self.skip = skip
     self.dim = D
     self.prime_index = prime_index
 
-  def __call__(self,N):
+  def __call__(self, N):
     ''' 
     Parameters         
     ----------               
@@ -141,10 +141,10 @@ class Halton(object):
                         
     Returns       
     -------        
-    out : (N,D) array
+    out : (N, D) array
 
     '''
-    out = halton(N,self.dim,self.count,self.skip,self.prime_index)
+    out = halton(N, self.dim, self.count, self.skip, self.prime_index)
     self.count += N*self.skip
     return out
   

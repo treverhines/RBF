@@ -65,67 +65,62 @@ def get_arg_count(func):
     return out
 
 
-class Memoize(object):
-  ''' 
-  Memoizing decorator specifically for functions that take only numpy
-  arrays as input. The output for calls to decorated functions will be
-  cached and reused if the function is called again with the same
-  arguments.
-
-  Parameters
-  ----------
-  fin : function
-    Function that takes arrays as input
-  
-  Returns
-  -------
-  fout : function
-    Memoized function
-  
-  Notes
-  -----
-  1. Caches can be cleared with the module-level function
-  `clear_caches`.
-      
-  '''
-  # variable controlling the maximum cache size for all memoized
-  # functions
-  MAX_CACHE_SIZE = 100
-  # collection of weak references to all instances
-  INSTANCES = []
-
-  def __init__(self,fin):
-    self.fin = fin
-    self.cache = OrderedDict()
-    Memoize.INSTANCES += [weakref.ref(self)]
-
-  def __call__(self,*args):
-    ''' 
-    Calls the decorated function with `args` if the output is not 
-    already stored in the cache. Otherwise, the cached value is 
-    returned.
+class MemoizeArrayInput:
     '''
-    key = tuple(a.tobytes() for a in args)
-    if key not in self.cache:
-      # make sure there is room for the new entry
-      while len(self.cache) >= Memoize.MAX_CACHE_SIZE:
-        self.cache.popitem(0)
+    A memoizing decorator for functions that take only numpy arrays as
+    input. The max cache size is hard-coded at 128. When the limit is
+    reached, the least recently used (LRU) item is dropped.
+    
+    Parameters
+    ----------
+    fin : function
+        Function that takes arrays as input
+    
+    '''
+    # variable controlling the maximum cache size for all memoized
+    # functions
+    _MAXSIZE = 128
+    # collection of weak references to all instances
+    _INSTANCES = []
 
-      self.cache[key] = self.fin(*args)
+    def __init__(self, fin):
+        self.fin = fin
+        # the cache is ordered from least to most recently used
+        self.cache = OrderedDict()
+        MemoizeArrayInput._INSTANCES += [weakref.ref(self)]    
 
-    return self.cache[key]
+    def __call__(self, *args):
+        # create a key that is unique for the input arrays
+        key = tuple((a.tobytes(), a.shape, a.dtype) for a in args)
+        try:
+            value = self.cache[key]
+            # move this key to the end signifying that is was most
+            # recently used
+            self.cache.move_to_end(key)
 
-  def __repr__(self):
-    return self.fin.__repr__()
+        except KeyError:
+            if len(self.cache) == MemoizeArrayInput._MAXSIZE:
+                # remove the first item which is the least recently
+                # used item
+                self.cache.popitem(0)
+            
+            value = self.fin(*args)
+            # add the function output to the end of the cache
+            self.cache[key] = value
+
+        return value
+             
+    def __repr__(self):
+        return self.fin.__repr__()
+
+    def clear_cache(self):
+        self.cache = OrderedDict()
 
 
-def clear_caches():
-  ''' 
-  Dereferences the caches for all memoized functions. 
-  '''
-  for i in Memoize.INSTANCES:
-    if i() is not None:
-      # `i` will be done if it has no references. If references still 
-      # exists, then give it a new empty cache.
-      i().cache = OrderedDict()
-
+def clear_memoize_array_input_caches():
+    '''
+    Clear the caches for all instances of MemoizeArrayInput
+    ''' 
+    for inst in MemoizeArrayInput._INSTANCES:
+        if inst() is not None:
+            inst().clear_cache()

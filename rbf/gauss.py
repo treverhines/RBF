@@ -377,7 +377,7 @@ import scipy.sparse as sp
 import rbf.poly
 import rbf.basis
 import rbf.linalg
-from rbf.utils import assert_shape, get_arg_count, Memoize
+from rbf.utils import assert_shape, get_arg_count, MemoizeArrayInput
 from rbf.linalg import (as_array, as_sparse_or_array, 
                         is_positive_definite, PosDefSolver, 
                         PartitionedPosDefSolver)
@@ -649,7 +649,7 @@ def _condition(gp, y, d, sigma, p, obs_diff):
   '''   
   Returns a conditioned `GaussianProcess`.
   '''
-  @Memoize
+  @MemoizeArrayInput
   def precompute():
     # do as many calculations as possible without yet knowning where
     # the interpolation points will be. This function is memoized so
@@ -1720,9 +1720,9 @@ class GaussianProcess(object):
     redundant computations, but it may also increase memory
     consumption.
     '''
-    self._mean = Memoize(self._mean)
-    self._covariance = Memoize(self._covariance)
-    self._basis = Memoize(self._basis)
+    self._mean = MemoizeArrayInput(self._mean)
+    self._covariance = MemoizeArrayInput(self._covariance)
+    self._basis = MemoizeArrayInput(self._basis)
 
 
 def gpiso(phi, params, dim=None):
