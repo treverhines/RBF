@@ -53,18 +53,26 @@ from rbf.utils import assert_shape
 logger = logging.getLogger(__name__)
 
 
-# the method used to convert sympy expressions to numerical functions
-_NUMERICAL_CONVERTER = 'ufuncify'
+# the method used to convert sympy expressions to numeric functions
+_SYMBOLIC_TO_NUMERIC_METHOD = 'ufuncify'
 
 
-def set_numerical_converter(value):
-    global _NUMERICAL_CONVERTER
-    if value not in {'lambdify', 'ufuncify'}:
-        raise ValueError(
-            '`value` must be either "lambdify" or "ufuncify"')
+def set_symbolic_to_numeric_method(method): 
+  ''' 
+  Sets the method that all RBF instances will use for converting sympy
+  expressions to numeric functions. This can be either "ufuncify" or
+  "lambdify". "ufuncify" will write and compile C code for a numpy
+  universal function, and "lambdify" will evaluate the sympy
+  expression using python-level numpy functions. Calling this function
+  will cause all caches of numeric functions to be cleared.
+  '''
+  global _SYMBOLIC_TO_NUMERIC_METHOD
+  if method not in {'lambdify', 'ufuncify'}:
+    raise ValueError(
+      '`method` must be either "lambdify" or "ufuncify"')
             
-    _NUMERICAL_CONVERTER = value
-    clear_rbf_caches()
+  _SYMBOLIC_TO_NUMERIC_METHOD = method
+  clear_rbf_caches()
 
     
 def get_r():
@@ -352,19 +360,19 @@ class RBF(object):
       # `r_sym < tol` and `expr` otherwise
       expr = sympy.Piecewise((lim, r_sym < self.tol), (expr, True)) 
 
-    if _NUMERICAL_CONVERTER == 'ufuncify':      
+    if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':      
       func = ufuncify(x_sym + c_sym + (_EPS,), expr, backend='numpy')
-    elif _NUMERICAL_CONVERTER == 'lambdify':
+    elif _SYMBOLIC_TO_NUMERIC_METHOD == 'lambdify':
       func = lambdify(x_sym + c_sym + (_EPS,), expr, modules=['numpy'])
     else:
       raise ValueError()          
         
     self._cache[diff] = func
-    logger.debug('The numerical function has been created and cached')
+    logger.debug('The numeric function has been created and cached')
     
   def clear_cache(self):
     ''' 
-    Clears the cache of numerical functions. Makes a cache dictionary
+    Clears the cache of numeric functions. Makes a cache dictionary
     if it does not already exist
     '''
     self._cache = {}
