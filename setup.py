@@ -18,7 +18,7 @@ if __name__ == '__main__':
                     sources=['rbf/poly.pyx'],
                     include_dirs=[np.get_include()])]
   setup(name='RBF',
-        version='2018.10.30',
+        version='2018.10.31',
         description='Package containing the tools necessary for radial basis function (RBF) applications',
         author='Trever Hines',
         author_email='treverhines@gmail.com',
