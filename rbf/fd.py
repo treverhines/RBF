@@ -2,7 +2,6 @@
 This module provides functions for generating RBF-FD weights
 '''
 from __future__ import division
-from functools import lru_cache
 import logging
 
 import numpy as np
@@ -12,7 +11,7 @@ import rbf.basis
 import rbf.poly
 import rbf.stencil
 import rbf.linalg
-from rbf.utils import assert_shape
+from rbf.utils import assert_shape, Memoize
 from rbf.linalg import PartitionedSolver
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ def _default_poly_order(diffs):
   return P
 
 
-@lru_cache(maxsize=128, typed=True)
+@Memoize
 def _max_poly_order(size, dim):
   ''' 
   Returns the maximum polynomial order allowed for the given stencil 

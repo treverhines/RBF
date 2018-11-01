@@ -4,12 +4,11 @@ are commonly added to RBF interpolants
 '''
 from __future__ import division
 from itertools import combinations_with_replacement as cr
-from functools import lru_cache
 
 import numpy as np
 from scipy.special import binom
 
-from rbf.utils import assert_shape
+from rbf.utils import assert_shape, Memoize
 
 cimport numpy as np
 from cython cimport boundscheck, wraparound
@@ -116,7 +115,7 @@ cpdef np.ndarray _mvmonos(double[:, :] x,
   return np.asarray(out)
   
 
-@lru_cache(maxsize=128, typed=True)
+@Memoize
 def powers(order, dim):
   ''' 
   Returns an array describing the powers in all the monomial basis
@@ -163,7 +162,7 @@ def powers(order, dim):
   return out
 
   
-@lru_cache(maxsize=128, typed=True)
+@Memoize
 def count(order, dim):
   ''' 
   Returns the number of monomial basis functions in a polynomial with 

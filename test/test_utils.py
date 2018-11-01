@@ -81,7 +81,7 @@ class Test(unittest.TestCase):
     self.assertTrue(len(memfunc.cache) == 128)
 
     # clear the cache and make sure the cache size goes back to zero
-    rbf.utils.clear_memoize_array_input_caches()
+    rbf.utils.clear_memoize_caches()
     self.assertTrue(len(memfunc.cache) == 0)
       
 
