@@ -95,7 +95,15 @@ class Memoize(object):
       value = self.cache[key]
       # move the item to the end signifying that it was most recently
       # used
-      self.cache.move_to_end(key)
+      try:
+        # move_to_end is an attribute of OrderedDict in python 3. try
+        # calling it and if the attribute does not exist then fall
+        # back to the slow method
+        self.cache.move_to_end(key)
+
+      except AttributeError:
+        self.cache[key] = self.cache.pop(key)  
+        
                 
     except KeyError:
       if len(self.cache) == Memoize._MAXSIZE:
