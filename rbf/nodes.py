@@ -460,6 +460,7 @@ def min_energy_nodes(N, vert, smp,
                      itr=100,
                      m=None,
                      delta=0.05,
+                     snap_delta=0.5,
                      boundary_groups=None,
                      boundary_groups_with_ghosts=None,
                      include_vertices=False,
@@ -519,6 +520,11 @@ def min_energy_nodes(N, vert, smp,
     Scaling factor for the node step size in each iteration. The
     step size is equal to `delta` times the distance to the nearest
     neighbor.
+
+  snap_delta : float, optional
+    Controls the maximum snapping distance. The maximum snapping distance for
+    each node is *snap_delta* times the distance to the nearest neighbor. This
+    defaults to 0.5.
 
   boundary_groups: dict, optional 
     Dictionary defining the boundary groups. The keys are the names of
@@ -654,7 +660,7 @@ def min_energy_nodes(N, vert, smp,
       nodes, vert, smp, rho=rho, pinned_nodes=pinned_nodes, m=m, 
       delta=delta, bound_force=bound_force)
 
-  nodes, smpid = _snap_to_boundary(nodes, vert, smp, delta=0.5)
+  nodes, smpid = _snap_to_boundary(nodes, vert, smp, delta=snap_delta)
   normals = _make_normal_vectors(smpid, vert, smp)
   groups = _make_group_indices(smpid, boundary_groups)
   
