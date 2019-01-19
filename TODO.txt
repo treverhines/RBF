@@ -1,13 +1,2 @@
 * Change "basis" key word arguments to "phi". This is more consistent
   with the RBF literature
-
-* Create a module that is specifically intended for solving partioned
-  linear systems of the form
-
-    | A G^T | | a |   | x |
-    | G 0   | | b | = | y |
-
-  This equation is ubiquitous in RBF applications and there should be
-  a designated module for solving it efficiently. It should also be
-  able to handle both sparse and dense matrices for A.
-    

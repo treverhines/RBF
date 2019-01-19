@@ -175,7 +175,8 @@ def _disperse(nodes,
   # compute the force proportionality constant between each node
   # based on their charges
   c = 1.0/(rho(all_nodes)[i, None]*rho(nodes)[:, None, None])
-  # calculate forces on each node resulting from the `m` nearest nodes
+  # calculate forces on each node resulting from the `m` nearest
+  # nodes.
   forces = c*(nodes[:, None, :] - all_nodes[i, :])/d[:, :, None]**3
   # sum up all the forces for each node
   direction = np.sum(forces, axis=1)
@@ -504,7 +505,8 @@ def min_energy_nodes(N, vert, smp,
 
   pinned_nodes : (F, D) array, optional
     Nodes which do not move and only provide a repulsion force. These
-    nodes are not included in nodes returned by this function.
+    nodes are included in the set of nodes returned by this function
+    and they are in the group named "pinned".
 
   itr : int, optional
     Number of repulsion iterations. If this number is small then the
@@ -641,23 +643,28 @@ def min_energy_nodes(N, vert, smp,
     
   if pinned_nodes is None:
     pinned_nodes = np.zeros((0, vert.shape[1]), dtype=float)
-
+  else:
+    pinned_nodes = np.array(pinned_nodes, dtype=float)            
+    
   assert_shape(pinned_nodes, (None, vert.shape[1]), 'pinned_nodes')
   
   logger.debug('finding node positions with rejection sampling')
   nodes = _rejection_sampling_nodes(N, vert, smp, rho=rho)
-
+    
   # `pinned_nodes` consist of specific nodes that we want included in
   # the output nodes. If `include_vertices` is True then add the
-  # vertices to the pinned nodes
+  # vertices to the pinned nodes, labeling the combination as
+  # `pinned_nodes_`
   if include_vertices:  
-      pinned_nodes = np.vstack((pinned_nodes, vert))
-    
+    pinned_nodes_ = np.vstack((pinned_nodes, vert))
+  else:
+    pinned_nodes_ = pinned_nodes
+      
   # use a minimum energy algorithm to spread out the nodes
   for i in range(itr):
     logger.debug('starting node repulsion iteration %s of %s' % (i+1, itr))
     nodes = _disperse_within_boundary(
-      nodes, vert, smp, rho=rho, pinned_nodes=pinned_nodes, m=m, 
+      nodes, vert, smp, rho=rho, pinned_nodes=pinned_nodes_, m=m, 
       delta=delta, bound_force=bound_force)
 
   nodes, smpid = _snap_to_boundary(nodes, vert, smp, delta=snap_delta)
@@ -668,6 +675,16 @@ def min_energy_nodes(N, vert, smp,
     nodes, groups, normals = _append_vertices(
       nodes, groups, normals, vert, smp, boundary_groups)
 
+  if pinned_nodes.size != 0:
+    # append the pinned nodes to the output    
+    groups['pinned'] = np.arange(
+        nodes.shape[0],
+        nodes.shape[0] + pinned_nodes.shape[0])
+    normals = np.vstack((
+        normals, 
+        np.full_like(pinned_nodes, np.nan)))        
+    nodes = np.vstack((nodes, pinned_nodes))
+            
   if boundary_groups_with_ghosts is not None:  
     nodes, groups, normals = _append_ghost_nodes(
       nodes, groups, normals, boundary_groups_with_ghosts)
