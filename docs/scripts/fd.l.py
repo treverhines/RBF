@@ -89,7 +89,7 @@ groups = {'bottom': [0],
           'top': [2, 3, 4, 5],
           'sides': [1, 6]}
 
-nominal_node_count = 10000
+nominal_node_count = 1000
 stencil_size = 30
 poly_order = 2
 # lame parameters

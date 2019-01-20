@@ -18,7 +18,7 @@ boundary_groups = {'inside_corner': [0, 1],
 # define which boundary groups get ghost nodes
 boundary_groups_with_ghosts = ['outside_corner']
 # total number of nodes 
-N = 1000 
+N = 500
 # define a node density function. It takes an (N, D) array of positions
 # and returns an (N,) array of normalized densities between 0 and 1
 def rho(x):

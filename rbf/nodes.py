@@ -155,9 +155,16 @@ def _disperse(nodes,
 
   pinned_nodes = np.asarray(pinned_nodes, dtype=float)
   if m is None:
-    # number of neighbors defaults to 3 raised to the number of
-    # spatial dimensions
-    m = 3**nodes.shape[1]
+    # the default number of neighboring nodes to use when computing
+    # the repulsion force is 7 for 2D and 13 for 3D
+    if nodes.shape[1] == 1:
+      m = 3
+
+    elif nodes.shape[1] == 2:
+      m = 7
+
+    elif nodes.shape[1] == 3:
+      m = 13
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
@@ -425,7 +432,14 @@ def _neighbor_argsort(nodes, m=None, vert=None, smp=None):
 
   '''
   if m is None:
-    m = 3**nodes.shape[1]
+    # this should be roughly equal to the stencil size for the RBF-FD
+    # problem
+    if nodes.shape[1] == 1:
+        m = 5
+    elif nodes.shape[1] == 2:
+        m = 30
+    elif nodes.shape[1] == 3:
+        m = 50
 
   m = min(m, nodes.shape[0])
   # find the indices of the nearest n nodes for each node
@@ -453,6 +467,32 @@ def _sort_nodes(nodes, groups, normals):
     out_groups[key] = reverse_sort_idx[val]
 
   return out_nodes, out_groups, out_normals
+
+
+def _test_node_spacing(nodes, rho):
+  '''
+  Test that no nodes are unusually close to eachother (which may
+  have occurred when snapping nodes to the boundary or placing ghost
+  nodes.
+  '''
+  if rho is None:
+    rho = _default_rho
+
+  _, dist = _neighbors(nodes, 2)
+  # distance to nearest neighbor
+  dist = dist[:, 1]
+  density = 1.0/dist**nodes.shape[1]
+  normalized_density = np.log10(density / rho(nodes))
+  percs = np.percentile(normalized_density, [10, 50, 90])
+  med = percs[1]
+  idr = percs[2] - percs[0]
+  is_too_close = normalized_density < (med - 2*idr)
+  if np.any(is_too_close):
+    indices, = is_too_close.nonzero()
+    for idx in indices:
+      logger.warning(
+        'Node %s (%s) is unusually close to a neighboring '
+        'node.' % (idx, nodes[idx]))
 
 
 def min_energy_nodes(N, vert, smp,
@@ -678,11 +718,11 @@ def min_energy_nodes(N, vert, smp,
   if pinned_nodes.size != 0:
     # append the pinned nodes to the output    
     groups['pinned'] = np.arange(
-        nodes.shape[0],
-        nodes.shape[0] + pinned_nodes.shape[0])
+      nodes.shape[0],
+      nodes.shape[0] + pinned_nodes.shape[0])
     normals = np.vstack((
-        normals, 
-        np.full_like(pinned_nodes, np.nan)))        
+      normals, 
+      np.full_like(pinned_nodes, np.nan)))        
     nodes = np.vstack((nodes, pinned_nodes))
             
   if boundary_groups_with_ghosts is not None:  
@@ -693,6 +733,9 @@ def min_energy_nodes(N, vert, smp,
   # in memory. Update `indices` so that it is still pointing to the
   # same nodes
   nodes, groups, normals = _sort_nodes(nodes, groups, normals)
+
+  # verify that the nodes are not too close to eachother
+  _test_node_spacing(nodes, rho)
 
   logger.debug('finished generating %s nodes' % nodes.shape[0])
   return nodes, groups, normals
