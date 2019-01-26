@@ -143,7 +143,7 @@ def sphere(r=5):
   return vert,smp
 
 
-def topography(zfunc,xlim,ylim,depth,n=10):
+def topography(zfunc, xlim, ylim, depth, n=10):
   ''' 
   Returns a collection of simplices that form a box-like domain. The 
   bottom and sides of the box are flat and to top of the box is shaped 
@@ -182,34 +182,57 @@ def topography(zfunc,xlim,ylim,depth,n=10):
     for the surface.
 
   '''
-  base_vert = np.array([[0.0,0.0,-1.0],[0.0,0.0,0.0],[0.0,1.0,-1.0],
-                        [0.0,1.0,0.0],[1.0,0.0,-1.0],[1.0,0.0,0.0],
-                        [1.0,1.0,-1.0],[1.0,1.0,0.0]])
+  base_vert = np.array([[0.0, 0.0, -1.0],  
+                        [0.0, 0.0,  0.0],  
+                        [0.0, 1.0, -1.0],  
+                        [0.0, 1.0,  0.0],  
+                        [1.0, 0.0, -1.0],  
+                        [1.0, 0.0,  0.0],  
+                        [1.0, 1.0, -1.0],  
+                        [1.0, 1.0,  0.0]]) 
   # scale vertices to user specs
-  base_vert[:,0] *= (xlim[1] - xlim[0])
-  base_vert[:,0] += xlim[0]
-  base_vert[:,1] *= (ylim[1] - ylim[0])
-  base_vert[:,1] += ylim[0]
-  base_vert[:,2] *= depth
-  base_smp = np.array([[0,2,6],[0,4,6],
-                       [0,1,3],[0,2,3],[0,1,4],[1,5,4],
-                       [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
+  base_vert[:, 0] *= (xlim[1] - xlim[0])
+  base_vert[:, 0] += xlim[0]
+  base_vert[:, 1] *= (ylim[1] - ylim[0])
+  base_vert[:, 1] += ylim[0]
+  base_vert[:, 2] *= depth
+  base_smp = np.array([[0, 2, 6],
+                       [0, 4, 6],
+                       [0, 1, 3],
+                       [0, 2, 3],
+                       [0, 1, 4],
+                       [1, 5, 4],
+                       [4, 5, 7],
+                       [4, 6, 7],
+                       [2, 3, 7],
+                       [2, 6, 7]])
   # make grid of top vertices
   x = np.linspace(xlim[0],xlim[1],n)
   y = np.linspace(ylim[0],ylim[1],n)
-  xg,yg = np.meshgrid(x,y)
-  xf,yf,zf = xg.flatten(),yg.flatten(),np.zeros(n**2)
+  xg, yg = np.meshgrid(x,y)
+  xf, yf, zf = xg.flatten(), yg.flatten(), np.zeros(n**2)
   # find the interior top vertices and change their z value according 
   # to zfunc
   interior = ((xf != xlim[0]) & (xf != xlim[1]) &
               (yf != ylim[0]) & (yf != ylim[1]))
-  interior_xy = np.array([xf[interior],yf[interior]]).T
+  interior_xy = np.array([xf[interior], yf[interior]]).T
   zf[interior] = zfunc(interior_xy)
   # make the top simplices
-  top_vert = np.array([xf,yf,zf]).T
-  top_smp = Delaunay(top_vert[:,:2]).simplices
+  top_vert = np.array([xf, yf, zf]).T
+  top_smp = Delaunay(top_vert[:, :2]).simplices
   # combine the base with the top
-  vert = np.vstack((base_vert,top_vert))
-  smp = np.vstack((base_smp,8 + top_smp))
-  return vert,smp
+  vert = np.vstack((base_vert, top_vert))
+  smp = np.vstack((base_smp, 8 + top_smp))
+
+  boundary_groups = {
+    'x-' : [2, 3],
+    'x+' : [6, 7],
+    'y-' : [4, 5],
+    'y+' : [8, 9],
+    'surface' : list(range(10, smp.shape[0])),
+    'subsurface' : list(range(0, 10)),
+    'bottom' : [0, 1],
+    'sides' : [2, 3, 4, 5, 6, 7, 8, 9]}
+            
+  return vert, smp, boundary_groups
 

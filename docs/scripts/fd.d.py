@@ -100,11 +100,13 @@ ilu_drop_tol = 0.005
 
 ## GENERATE THE DOMAIN AND NODES
 # generate the domain according to `topo_func` 
-vert, smp = topography(topo_func, [-2.0, 2.0], [-2.0, 2.0], 1.0, n=30)
+vert, smp, boundary_groups = topography(topo_func, [-2.0, 2.0], [-2.0, 2.0], 1.0, n=30)
 
 # generate the nodes
-boundary_groups = {'free': range(10, smp.shape[0]),
-                   'roller': range(0, 10)}
+#boundary_groups = {'free': range(10, smp.shape[0]),
+#                   'roller': range(0, 10)}
+boundary_groups = {'free': boundary_groups['surface'],
+                   'roller': boundary_groups['subsurface']}
 nodes, idx, normals = min_energy_nodes(
   N, vert, smp,
   boundary_groups=boundary_groups,

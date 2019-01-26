@@ -157,10 +157,7 @@ def _disperse(nodes,
   if m is None:
     # the default number of neighboring nodes to use when computing
     # the repulsion force is 7 for 2D and 13 for 3D
-    if nodes.shape[1] == 1:
-      m = 3
-
-    elif nodes.shape[1] == 2:
+    if nodes.shape[1] == 2:
       m = 7
 
     elif nodes.shape[1] == 3:
@@ -397,9 +394,9 @@ def _append_ghost_nodes(nodes,
   for k in boundary_groups_with_ghosts:
     ghost_group_k = []
     for n in groups['boundary:%s' % k]:
-        # find the index of the ghost node corresponding to node `n`
-        g = nodes.shape[0] + idx.index(n)
-        ghost_group_k.append(g)
+      # find the index of the ghost node corresponding to node `n`
+      g = nodes.shape[0] + idx.index(n)
+      ghost_group_k.append(g)
     
     out_groups['ghosts:%s' % k] = np.array(ghost_group_k, dtype=int)    
 
@@ -434,12 +431,10 @@ def _neighbor_argsort(nodes, m=None, vert=None, smp=None):
   if m is None:
     # this should be roughly equal to the stencil size for the RBF-FD
     # problem
-    if nodes.shape[1] == 1:
-        m = 5
-    elif nodes.shape[1] == 2:
-        m = 30
+    if nodes.shape[1] == 2:
+      m = 30
     elif nodes.shape[1] == 3:
-        m = 50
+      m = 50
 
   m = min(m, nodes.shape[0])
   # find the indices of the nearest n nodes for each node
@@ -478,9 +473,8 @@ def _test_node_spacing(nodes, rho):
   if rho is None:
     rho = _default_rho
 
-  _, dist = _neighbors(nodes, 2)
   # distance to nearest neighbor
-  dist = dist[:, 1]
+  dist = _neighbors(nodes, 2)[1][:, 1]
   density = 1.0/dist**nodes.shape[1]
   normalized_density = np.log10(density / rho(nodes))
   percs = np.percentile(normalized_density, [10, 50, 90])
@@ -554,9 +548,9 @@ def min_energy_nodes(N, vert, smp,
 
   m : int, optional
     Number of neighboring nodes to use when calculating the repulsion
-    force. When `m` is small, the equilibrium state tends to be a
-    uniform node distribution (regardless of `rho`), when `m` is
-    large, nodes tend to get pushed up against the boundaries.
+    force. This defaults to 7 for 2D nodes and 13 for 3D nodes.
+    Deviating from these default values may yield a node distribution
+    that is not consistent with the node density function `rho`. 
 
   delta : float, optional
     Scaling factor for the node step size in each iteration. The
@@ -564,9 +558,9 @@ def min_energy_nodes(N, vert, smp,
     neighbor.
 
   snap_delta : float, optional
-    Controls the maximum snapping distance. The maximum snapping distance for
-    each node is *snap_delta* times the distance to the nearest neighbor. This
-    defaults to 0.5.
+    Controls the maximum snapping distance. The maximum snapping
+    distance for each node is `snap_delta` times the distance to the
+    nearest neighbor. This defaults to 0.5.
 
   boundary_groups: dict, optional 
     Dictionary defining the boundary groups. The keys are the names of
@@ -679,7 +673,7 @@ def min_energy_nodes(N, vert, smp,
   if boundary_groups is None:
     boundary_groups = {'all': range(smp.shape[0])}
     for i in range(smp.shape[0]):
-        boundary_groups[str(i)] = [i]
+      boundary_groups[str(i)] = [i]
     
   if pinned_nodes is None:
     pinned_nodes = np.zeros((0, vert.shape[1]), dtype=float)
