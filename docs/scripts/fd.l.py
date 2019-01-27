@@ -1,6 +1,6 @@
 ''' 
 This script demonstrates using the RBF-FD method to calculate
-two-dimensional stress
+two-dimensional stress with tectonic stress boundary conditions
 '''
 import numpy as np
 import logging

@@ -1,8 +1,5 @@
 ''' 
-In this script we solve the 2-d wave equation over an L-shaped domain 
-with a RBF-FD scheme. The domain has fixed boundary conditions. See 
-fd.f.py for an example with free boundary conditions. Time integration 
-is done with the fourth-order Runge-Kutta method.
+WORK IN PROGRESS
 '''
 import numpy as np
 import rbf
