@@ -26,31 +26,52 @@ hyperparameter optimization routine.
 
 Gaussian Processes
 ==================
-A proper Gaussian process, :math:`u_o(x)`, is a stochastic function
-that is normally distributed in the space of all functions. A Gaussian
-process can be defined in terms of its mean, :math:`\\bar{u}(x)`, and
-its covariance, :math:`C_u(x,x')`, as
+
+To understand what a Gaussian process is, let's first consider a
+random vector :math:`\mathbf{u}` which has a multivariate normal
+distribution with mean :math:`\\bar{\mathbf{u}}` and covariance matrix
+:math:`\mathbf{C}`. That is to say, each element :math:`u_i` of
+:math:`\mathbf{u}` is a normally distributed random variable
+with mean :math:`\\bar{u}_i` and covariance :math:`C_{ij}` with
+element :math:`u_j`. Each element also has context (e.g., time or
+position) denoted as :math:`x_i`. A Gaussian process is the continuous
+analogue to the multivariate normal vector, where the context for a
+Gaussian process is a continuous variable :math:`x`, rather than the
+discrete variable :math:`x_i`. A Gaussian process :math:`u_o` is
+defined in terms of a mean *function* :math:`\\bar{u}`, and a
+covariance *function* :math:`C_u`. We write this definition of
+:math:`u_o` more concisely as
 
 .. math::
-  u_o \\sim \\mathcal{N}\\left(\\bar{u},C_u\\right).
+  u_o \\sim \\mathcal{GP}\\left(\\bar{u},C_u\\right).
 
-In this module, we adopt a more general definition which allows for
-partially improper Gaussian processes (i.e. a Gaussian process which
-has infinite variance along some directions).  We then consider a
-Gaussian process, :math:`u(x)`, to be the combination of a proper
-Gaussian process and a set of basis functions, :math:`\mathbf{p}_u(x)
-= \{p_i(x)\}_{i=1}^m`, whose coefficients, :math:`\{c_i\}_{i=1}^m`,
-have infinite variance. We express :math:`u(x)` as
+Analogous to each element of the random vector :math:`\mathbf{u}`, the
+Gaussian process at :math:`x`, denoted as :math:`u_o(x)`, is a
+normally distributed random variable with mean :math:`\\bar{u}(x)` and
+covariance :math:`C_u(x, x')` with :math:`u_o(x')`.
+
+In this module, we adopt a more general definition of a Gaussian by
+incorporating what we refer to as "improper basis function". These
+improper basis functions are added to Gaussian processes to account for
+arbitrary shifts or trends in the data that we are trying to model. To
+be more precise, we consider a Gaussian process :math:`u(x)` to be the
+combination of :math:`u_o(x)`, a *proper* Gaussian process, and a set
+of :math:`m` improper basis functions, :math:`\mathbf{p}_u(x) =
+\{p_i(x)\}_{i=1}^m`, whose coefficients, :math:`\{c_i\}_{i=1}^m`, have
+infinite variance. We then express :math:`u(x)` as
 
 .. math::
   u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
 
-Throughout this module, we refer to :math:`\mathbf{p}_u(x)` as the
-improper basis functions. We consider five operations on Gaussian
-processes: addition, subtraction, scaling, differentiation, and
-conditioning. Each operation produces another Gaussian process which
-possesses the same five operations. These operations are described
-below.
+Throughout this module we will define a Gaussian process `u(x)` in
+terms of its mean function :math:`\\bar{u}(x)`, its covariance
+function :math:`C_u(x, x')`, as well as its improper basis functions
+:math:`\mathbf{p}_u(x)`.
+
+We consider five operations on Gaussian processes: addition,
+subtraction, scaling, differentiation, and conditioning. Each
+operation produces another Gaussian process which possesses the same
+five operations. These operations are described below.
 
 
 Operations on Gaussian Processes
