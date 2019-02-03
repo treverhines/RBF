@@ -123,8 +123,7 @@ class Test(unittest.TestCase):
         center_val = phi(c, c, diff=k, eps=eps)[0,0]
         center_plus_dx_val = phi(c, c+dx, diff=k, eps=eps)[0,0]
         diff = np.abs(center_val - center_plus_dx_val)
-        scale = max(np.abs(center_val), 1.0)
-        self.assertTrue((diff / scale) < 1.0e-2)
+        self.assertTrue(diff < 1.0e-4)
 
   def test_matern_limits(self):
     # make sure the provided limits for the centers of the matern
@@ -141,7 +140,6 @@ class Test(unittest.TestCase):
         center_val = phi(c, c, diff=k, eps=eps)[0,0]
         center_plus_dx_val = phi(c, c+dx, diff=k, eps=eps)[0,0]
         diff = np.abs(center_val - center_plus_dx_val)
-        scale = max(np.abs(center_val), 1.0)
-        self.assertTrue((diff / scale) < 1.0e-2)
+        self.assertTrue(diff < 1.0e-4)
 
 #unittest.main()

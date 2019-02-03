@@ -268,14 +268,14 @@ class RBF(object):
     Notes
     -----
     * The default method for converting the symbolic RBF to a numeric
-    function limits the number of spatial dimensions `D` to 15. There
-    is no such limitation when the conversion method is set to
-    "lambdify". Set the conversion method using the function
-    `set_symbolic_to_numeric_method`.
+      function limits the number of spatial dimensions `D` to 15.
+      There is no such limitation when the conversion method is set to
+      "lambdify". Set the conversion method using the function
+      `set_symbolic_to_numeric_method`.
 
     * The derivative order can be arbitrarily high, but some RBFs,
-    such as Wendland and Matern, become numerically unstable when the
-    derivative order exceeds 2.
+      such as Wendland and Matern, become numerically unstable when
+      the derivative order exceeds 2.
 
     '''
     x = np.asarray(x, dtype=float)
