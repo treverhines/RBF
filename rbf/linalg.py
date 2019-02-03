@@ -217,7 +217,7 @@ class _SparseSolver(object):
     LOGGER.debug('computing the LU decomposition of a %s by %s '
                  'sparse matrix with %s nonzeros ' % 
                  (A.shape + (A.nnz,)))
-    self.factor = spla.spilu(A)
+    self.factor = spla.splu(A)
 
   def solve(self, b):
     ''' 
@@ -601,3 +601,66 @@ class PartitionedPosDefSolver(object):
     x = Ca  + Db    
     y = Dta + Eb
     return x, y
+
+
+class IterativeSolver(object):
+  '''
+  Solves the system of equations `Ax = b` for `x` iteratively with
+  GMRES and an incomplete LU decomposition.
+
+  Parameters
+  ----------
+  A : (n, n) CSC sparse matrix
+
+  drop_tol : float (optional)
+    this controls the sparsity of the ILU decomposition used for the
+    preconditioner. It should be between 0 and 1. smaller values make
+    the decomposition denser but better approximates the LU
+    decomposition. If the value is too large then you may get a
+    "Factor is exactly singular" error.
+
+  Returns
+  -------
+  (n,) array
+
+  '''
+  def __init__(self, A, drop_tol=0.005):
+    # the spilu and gmres functions are most efficient with csc sparse
+    A = sp.csc_matrix(A)
+    # normalize `A` and `x` by the L2 norm of the rows of `A`
+    N = sp.diags(1.0/spla.norm(A, axis=1))
+    A_norm = N.dot(A).tocsc()
+    LOGGER.debug('computing the ILU decomposition of a %s by %s '
+                 'sparse matrix with %s nonzeros ' % 
+                 (A_norm.shape + (A_norm.nnz,)))
+    ilu = spla.spilu(A_norm, drop_rule='basic', drop_tol=drop_tol)
+    LOGGER.debug('done')
+    M = spla.LinearOperator(A_norm.shape, ilu.solve)
+    self.A_norm = A_norm
+    self.N = N
+    self.M = M
+
+  def solve(self, b):
+    '''
+    Parameters
+    ----------
+    b : (n,) array
+
+    Returns
+    -------
+    (n,) array
+    '''
+    # solve the system using GMRES and define the callback function to
+    # print info for each iteration
+    def callback(res, _itr=[0]):
+      l2 = np.linalg.norm(res)
+      LOGGER.debug('gmres error on iteration %s: %s' % (_itr[0], l2))
+      _itr[0] += 1
+
+    LOGGER.debug('solving the system with GMRES')
+    x, info = spla.gmres(self.A_norm, 
+                         self.N.dot(b), 
+                         M=self.M, 
+                         callback=callback)
+    LOGGER.debug('finished GMRES with info %s' % info)
+    return x
