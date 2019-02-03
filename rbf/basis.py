@@ -168,10 +168,6 @@ class RBF(object):
          [ 1.        ],
          [ 0.84147098]])
   
-  Notes
-  -----
-  It is safe to change the attributes `tol` and `limits`. Changes will
-  cause the cache of numerical functions to be cleared.
   '''
   _INSTANCES = []
   
@@ -268,6 +264,18 @@ class RBF(object):
     -------
     (N, M) float array
       The RBFs with centers `c` evaluated at `x`
+
+    Notes
+    -----
+    * The default method for converting the symbolic RBF to a numeric
+    function limits the number of spatial dimensions `D` to 15. There
+    is no such limitation when the conversion method is set to
+    "lambdify". Set the conversion method using the function
+    `set_symbolic_to_numeric_method`.
+
+    * The derivative order can be arbitrarily high, but some RBFs,
+    such as Wendland and Matern, become numerically unstable when the
+    derivative order exceeds 2.
 
     '''
     x = np.asarray(x, dtype=float)
@@ -650,7 +658,7 @@ _mat52_limits = {(0,): 1.0,
 
 mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS), tol=1e-8*_EPS, limits=_mat32_limits)
 
-mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-4*_EPS, limits=_mat52_limits)
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-8*_EPS, limits=_mat52_limits)
 
 # Wendland 
 _wen10_limits = {(0,): 1.0}
@@ -717,7 +725,7 @@ wen30 = RBF(sympy.Piecewise(((1 - _R/_EPS)**2                                   
 
 wen31 = RBF(sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen31_limits) 
 
-wen32 = RBF(sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)), tol=1e-4*_EPS, limits=_wen32_limits) 
+wen32 = RBF(sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen32_limits) 
 
 # sparse Wendland 
 spwen10 = SparseRBF(         (1 - _R/_EPS)                                         , _EPS, tol=1e-8*_EPS, limits=_wen10_limits)
@@ -730,4 +738,4 @@ spwen30 = SparseRBF(         (1 - _R/_EPS)**2                                   
 
 spwen31 = SparseRBF(         (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS, limits=_wen31_limits)
 
-spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-4*_EPS, limits=_wen32_limits)
+spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-8*_EPS, limits=_wen32_limits)
