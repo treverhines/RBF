@@ -542,51 +542,51 @@ def clear_rbf_caches():
 ## Instantiate some common RBFs
 #####################################################################
 _phs8_limits = {}
-_phs8_limits.update((tuple(i), 0) for i in powers(7, 1))
-_phs8_limits.update((tuple(i), 0) for i in powers(7, 2))
-_phs8_limits.update((tuple(i), 0) for i in powers(7, 3))
+_phs8_limits.update((tuple(i), 0.0) for i in powers(7, 1))
+_phs8_limits.update((tuple(i), 0.0) for i in powers(7, 2))
+_phs8_limits.update((tuple(i), 0.0) for i in powers(7, 3))
 phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits)
 
 _phs7_limits = {}
-_phs7_limits.update((tuple(i), 0) for i in powers(6, 1))
-_phs7_limits.update((tuple(i), 0) for i in powers(6, 2))
-_phs7_limits.update((tuple(i), 0) for i in powers(6, 3))
+_phs7_limits.update((tuple(i), 0.0) for i in powers(6, 1))
+_phs7_limits.update((tuple(i), 0.0) for i in powers(6, 2))
+_phs7_limits.update((tuple(i), 0.0) for i in powers(6, 3))
 phs7 = RBF((_EPS*_R)**7, tol=1e-10, limits=_phs7_limits)
 
 _phs6_limits = {}
-_phs6_limits.update((tuple(i), 0) for i in powers(5, 1))
-_phs6_limits.update((tuple(i), 0) for i in powers(5, 2))
-_phs6_limits.update((tuple(i), 0) for i in powers(5, 3))
+_phs6_limits.update((tuple(i), 0.0) for i in powers(5, 1))
+_phs6_limits.update((tuple(i), 0.0) for i in powers(5, 2))
+_phs6_limits.update((tuple(i), 0.0) for i in powers(5, 3))
 phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R), tol=1e-10, limits=_phs6_limits)
 
 _phs5_limits = {}
-_phs5_limits.update((tuple(i), 0) for i in powers(4, 1))
-_phs5_limits.update((tuple(i), 0) for i in powers(4, 2))
-_phs5_limits.update((tuple(i), 0) for i in powers(4, 3))
+_phs5_limits.update((tuple(i), 0.0) for i in powers(4, 1))
+_phs5_limits.update((tuple(i), 0.0) for i in powers(4, 2))
+_phs5_limits.update((tuple(i), 0.0) for i in powers(4, 3))
 phs5 = RBF((_EPS*_R)**5, tol=1e-10, limits=_phs5_limits)
 
 _phs4_limits = {}
-_phs4_limits.update((tuple(i), 0) for i in powers(3, 1))
-_phs4_limits.update((tuple(i), 0) for i in powers(3, 2))
-_phs4_limits.update((tuple(i), 0) for i in powers(3, 3))
+_phs4_limits.update((tuple(i), 0.0) for i in powers(3, 1))
+_phs4_limits.update((tuple(i), 0.0) for i in powers(3, 2))
+_phs4_limits.update((tuple(i), 0.0) for i in powers(3, 3))
 phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits)
 
 _phs3_limits = {}
-_phs3_limits.update((tuple(i), 0) for i in powers(2, 1))
-_phs3_limits.update((tuple(i), 0) for i in powers(2, 2))
-_phs3_limits.update((tuple(i), 0) for i in powers(2, 3))
+_phs3_limits.update((tuple(i), 0.0) for i in powers(2, 1))
+_phs3_limits.update((tuple(i), 0.0) for i in powers(2, 2))
+_phs3_limits.update((tuple(i), 0.0) for i in powers(2, 3))
 phs3 = RBF((_EPS*_R)**3, tol=1e-10, limits=_phs3_limits)
 
 _phs2_limits = {}
-_phs2_limits.update((tuple(i), 0) for i in powers(1, 1))
-_phs2_limits.update((tuple(i), 0) for i in powers(1, 2))
-_phs2_limits.update((tuple(i), 0) for i in powers(1, 3))
+_phs2_limits.update((tuple(i), 0.0) for i in powers(1, 1))
+_phs2_limits.update((tuple(i), 0.0) for i in powers(1, 2))
+_phs2_limits.update((tuple(i), 0.0) for i in powers(1, 3))
 phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R), tol=1e-10, limits=_phs2_limits)
 
 _phs1_limits = {}
-_phs1_limits.update((tuple(i), 0) for i in powers(0, 1))
-_phs1_limits.update((tuple(i), 0) for i in powers(0, 2))
-_phs1_limits.update((tuple(i), 0) for i in powers(0, 3))
+_phs1_limits.update((tuple(i), 0.0) for i in powers(0, 1))
+_phs1_limits.update((tuple(i), 0.0) for i in powers(0, 2))
+_phs1_limits.update((tuple(i), 0.0) for i in powers(0, 3))
 phs1 = RBF(_EPS*_R, tol=1e-10, limits=_phs1_limits)
 
 # inverse multiquadratic
@@ -608,32 +608,126 @@ exp = RBF(sympy.exp(-_R/_EPS))
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 
 # Matern
-mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS), tol=1e-8*_EPS)
+_mat32_limits = {(0,): 1.0, 
+                 (0, 0): 1.0, 
+                 (0, 0, 0): 1.0, 
+                 (1,): 0.0, 
+                 (1, 0): 0.0, 
+                 (0, 1): 0.0, 
+                 (1, 0, 0): 0.0, 
+                 (0, 1, 0): 0.0, 
+                 (0, 0, 1): 0.0, 
+                 (2,): -3.0/_EPS**2,
+                 (2, 0): -3.0/_EPS**2, 
+                 (0, 2): -3.0/_EPS**2, 
+                 (2, 0, 0): -3.0/_EPS**2, 
+                 (0, 2, 0): -3.0/_EPS**2, 
+                 (0, 0, 2): -3.0/_EPS**2, 
+                 (1, 1): 0.0, 
+                 (0, 1, 1): 0.0, 
+                 (1, 0, 1): 0.0, 
+                 (0, 1, 1): 0.0}
 
-mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-6*_EPS)
+_mat52_limits = {(0,): 1.0, 
+                 (0, 0): 1.0, 
+                 (0, 0, 0): 1.0, 
+                 (1,): 0.0, 
+                 (1, 0): 0.0, 
+                 (0, 1): 0.0, 
+                 (1, 0, 0): 0.0, 
+                 (0, 1, 0): 0.0, 
+                 (0, 0, 1): 0.0, 
+                 (2,): -5.0/(3.0*_EPS**2), 
+                 (2, 0): -5.0/(3.0*_EPS**2), 
+                 (0, 2): -5.0/(3.0*_EPS**2), 
+                 (2, 0, 0): -5.0/(3.0*_EPS**2), 
+                 (0, 2, 0): -5.0/(3.0*_EPS**2), 
+                 (0, 0, 2): -5.0/(3.0*_EPS**2), 
+                 (1, 1): 0.0,
+                 (1, 1, 0): 0.0,
+                 (1, 0, 1): 0.0,
+                 (0, 1, 1): 0.0}
+
+mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS)                       * sympy.exp(-sympy.sqrt(3)*_R/_EPS), tol=1e-8*_EPS, limits=_mat32_limits)
+
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-4*_EPS, limits=_mat52_limits)
 
 # Wendland 
-wen10 = RBF(sympy.Piecewise(((1 - _R/_EPS)                                         , _R < _EPS), (0.0, True)), tol=1e-8*_EPS)
+_wen10_limits = {(0,): 1.0}
 
-wen11 = RBF(sympy.Piecewise(((1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS) 
+_wen11_limits = {(0,): 1.0,
+                 (1,): 0.0,
+                 (2,): -12.0/_EPS**2}
 
-wen12 = RBF(sympy.Piecewise(((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _R < _EPS), (0.0, True)), tol=1e-3*_EPS) 
+_wen12_limits = {(0,): 1.0,
+                 (1,): 0.0,
+                 (2,): -14.0/_EPS**2}
 
-wen30 = RBF(sympy.Piecewise(((1 - _R/_EPS)**2                                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS)  
+_wen30_limits = {(0,): 1.0,
+                 (0, 0): 1.0,
+                 (0, 0, 0): 1.0}
 
-wen31 = RBF(sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS) 
-    
-wen32 = RBF(sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)), tol=1e-3*_EPS) 
+_wen31_limits = {(0,): 1.0,
+                 (0, 0): 1.0,
+                 (0, 0, 0): 1.0,
+                 (1,): 0.0,
+                 (1, 0): 0.0,
+                 (0, 1): 0.0,
+                 (1, 0, 0): 0.0,
+                 (0, 1, 0): 0.0,
+                 (0, 0, 1): 0.0,
+                 (2,): -20.0/_EPS**2,
+                 (2, 0): -20.0/_EPS**2,
+                 (0, 2): -20.0/_EPS**2,
+                 (2, 0, 0): -20.0/_EPS**2,
+                 (0, 2, 0): -20.0/_EPS**2,
+                 (0, 0, 2): -20.0/_EPS**2,
+                 (1, 1): 0.0,
+                 (1, 1, 0): 0.0,
+                 (1, 0, 1): 0.0,
+                 (0, 1, 1): 0.0}
+
+_wen32_limits = {(0,): 1.0,
+                 (0, 0): 1.0,
+                 (0, 0, 0): 1.0,
+                 (1,): 0,
+                 (1, 0): 0.0,
+                 (0, 1): 0.0,
+                 (1, 0, 0): 0.0,
+                 (0, 1, 0): 0.0,
+                 (0, 0, 1): 0.0,
+                 (2,): -56.0/(3.0*_EPS**2),
+                 (2, 0): -56.0/(3.0*_EPS**2),
+                 (0, 2): -56.0/(3.0*_EPS**2),
+                 (2, 0, 0): -56.0/(3.0*_EPS**2),
+                 (0, 2, 0): -56.0/(3.0*_EPS**2),
+                 (0, 0, 2): -56.0/(3.0*_EPS**2),
+                 (1, 1): 0.0,
+                 (1, 1, 0): 0.0,
+                 (1, 0, 1): 0.0,
+                 (0, 1, 1): 0.0}
+
+wen10 = RBF(sympy.Piecewise(((1 - _R/_EPS)                                         , _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen10_limits)
+
+wen11 = RBF(sympy.Piecewise(((1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen11_limits) 
+
+wen12 = RBF(sympy.Piecewise(((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen12_limits) 
+
+wen30 = RBF(sympy.Piecewise(((1 - _R/_EPS)**2                                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen30_limits)  
+
+wen31 = RBF(sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _R < _EPS), (0.0, True)), tol=1e-8*_EPS, limits=_wen31_limits) 
+
+wen32 = RBF(sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)), tol=1e-4*_EPS, limits=_wen32_limits) 
 
 # sparse Wendland 
-spwen10 = SparseRBF(         (1 - _R/_EPS)                                         , _EPS, tol=1e-8*_EPS)
+spwen10 = SparseRBF(         (1 - _R/_EPS)                                         , _EPS, tol=1e-8*_EPS, limits=_wen10_limits)
 
-spwen11 = SparseRBF(         (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS)
+spwen11 = SparseRBF(         (1 - _R/_EPS)**3*(3*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS, limits=_wen11_limits)
 
-spwen12 = SparseRBF(         (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _EPS, tol=1e-3*_EPS)
+spwen12 = SparseRBF(         (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1)    , _EPS, tol=1e-8*_EPS, limits=_wen12_limits)
 
-spwen30 = SparseRBF(         (1 - _R/_EPS)**2                                      , _EPS, tol=1e-8*_EPS)
+spwen30 = SparseRBF(         (1 - _R/_EPS)**2                                      , _EPS, tol=1e-8*_EPS, limits=_wen30_limits)
 
-spwen31 = SparseRBF(         (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS)
+spwen31 = SparseRBF(         (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS, limits=_wen31_limits)
 
-spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-3*_EPS)
+spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-4*_EPS, limits=_wen32_limits)

@@ -101,5 +101,47 @@ class Test(unittest.TestCase):
     check = np.all(np.isclose(out1,out2))
     self.assertTrue(check)
 
+  def test_wendland_limits(self):
+    # make sure the provided limits for the centers of the wendland
+    # functions are correct
+    phis = [rbf.basis.wen10,
+            rbf.basis.wen11,
+            rbf.basis.wen12,
+            rbf.basis.wen30,
+            rbf.basis.wen31,
+            rbf.basis.wen32,
+            rbf.basis.spwen30,
+            rbf.basis.spwen31,
+            rbf.basis.spwen32]
+    eps = 2.0
+    for phi in phis:
+      tol = phi.tol
+      dx = 1.1*float(tol.subs({rbf.basis.get_eps():eps}))
+      for k in phi.limits.keys():
+        dim = len(k)
+        c = np.zeros((1, dim))
+        center_val = phi(c, c, diff=k, eps=eps)[0,0]
+        center_plus_dx_val = phi(c, c+dx, diff=k, eps=eps)[0,0]
+        diff = np.abs(center_val - center_plus_dx_val)
+        scale = max(np.abs(center_val), 1.0)
+        self.assertTrue((diff / scale) < 1.0e-2)
+
+  def test_matern_limits(self):
+    # make sure the provided limits for the centers of the matern
+    # functions are correct
+    phis = [rbf.basis.mat32,
+            rbf.basis.mat52]
+    eps = 2.0
+    for phi in phis:
+      tol = phi.tol
+      dx = 1.1*float(tol.subs({rbf.basis.get_eps():eps}))
+      for k in phi.limits.keys():
+        dim = len(k)
+        c = np.zeros((1, dim))
+        center_val = phi(c, c, diff=k, eps=eps)[0,0]
+        center_plus_dx_val = phi(c, c+dx, diff=k, eps=eps)[0,0]
+        diff = np.abs(center_val - center_plus_dx_val)
+        scale = max(np.abs(center_val), 1.0)
+        self.assertTrue((diff / scale) < 1.0e-2)
 
 #unittest.main()
