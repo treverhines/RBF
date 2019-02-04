@@ -619,10 +619,6 @@ class IterativeSolver(object):
     decomposition. If the value is too large then you may get a
     "Factor is exactly singular" error.
 
-  Returns
-  -------
-  (n,) array
-
   '''
   def __init__(self, A, drop_tol=0.005):
     # the spilu and gmres functions are most efficient with csc sparse
