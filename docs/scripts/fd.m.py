@@ -118,7 +118,7 @@ def topo_func(x):
 
 # horizontal tectonic stress components. The vertical component is
 # assumed to be zero. The units are kg / m s**2 
-tectonic_xx = 100.0e6
+tectonic_xx = 0.0
 tectonic_yy = 0.0
 tectonic_xy = 0.0
 

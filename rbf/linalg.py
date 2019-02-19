@@ -636,7 +636,7 @@ class IterativeSolver(object):
     self.N = N
     self.M = M
 
-  def solve(self, b):
+  def solve(self, b, tol=1.0e-5):
     '''
     Parameters
     ----------
@@ -656,6 +656,7 @@ class IterativeSolver(object):
     LOGGER.debug('solving the system with GMRES')
     x, info = spla.gmres(self.A_norm, 
                          self.N.dot(b), 
+                         tol=tol,
                          M=self.M, 
                          callback=callback)
     LOGGER.debug('finished GMRES with info %s' % info)
