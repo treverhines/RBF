@@ -4,3 +4,4 @@ dist
 *~
 *.c
 *.pyc
+rbf/*.html
