@@ -6,6 +6,24 @@ np.random.seed(1)
 
 
 class Test(unittest.TestCase):
+  def test_sparse_solver(self):
+    n = 100
+    A = sp.rand(n, n, density=0.2)
+    A = A.tocsc()
+    
+    b = np.random.random((n,))
+    x1 = np.linalg.solve(A.A, b)
+    x2 = rbf.linalg._SparseSolver(A).solve(b)
+    self.assertTrue(np.allclose(x1, x2))
+
+  def test_dense_solver(self):
+    n = 100
+    A = np.random.random((n, n))
+    b = np.random.random((n,))
+    x1 = np.linalg.solve(A, b)
+    x2 = rbf.linalg._DenseSolver(A).solve(b)
+    self.assertTrue(np.allclose(x1, x2))
+      
   def test_sparse_pos_def_solve(self):
     if not rbf.linalg.HAS_CHOLMOD:
       # dont bother with this test if cholmod doesnt exist
@@ -163,5 +181,3 @@ class Test(unittest.TestCase):
                 np.hstack((B.T,np.zeros((2,2)))))))
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))
-    
-                  

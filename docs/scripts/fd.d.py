@@ -5,20 +5,18 @@ uniform body force such as gravity. The domain has roller boundary
 condition on the bottom and sides. The top of domain has a free
 surface boundary condition. The top of the domain is intended to
 simulate topography.
-
-The linear system is solved with the iterative solver GMRES and
-preconditioned with an incomplete LU (ILU) decomposition. 
 '''
 import numpy as np
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
 from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
 
 from rbf.nodes import min_energy_nodes
-from rbf.fd import weight_matrix, add_rows
+from rbf.fd import weight_matrix
+from rbf.sputils import add_rows
+from rbf.linalg import GMRESSolver
 from rbf.domain import topography
-from rbf.fdbuild import (elastic3d_body_force,
+from rbf.elastic import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement)
 import logging
@@ -80,7 +78,7 @@ def density_func(x):
 N = 20000
 
 # size of RBF-FD stencils.   
-n = 50
+n = 100
 
 # Lame parameters
 lamb = 1.0
@@ -100,19 +98,18 @@ ilu_drop_tol = 0.005
 
 ## GENERATE THE DOMAIN AND NODES
 # generate the domain according to `topo_func` 
-vert, smp, boundary_groups = topography(topo_func, [-2.0, 2.0], [-2.0, 2.0], 1.0, n=30)
+vert, smp, boundary_groups = topography(
+    topo_func, [-2.0, 2.0], [-2.0, 2.0], 1.0)
 
 # generate the nodes
-#boundary_groups = {'free': range(10, smp.shape[0]),
-#                   'roller': range(0, 10)}
-boundary_groups = {'free': boundary_groups['surface'],
-                   'roller': boundary_groups['subsurface']}
+boundary_groups = {'free': boundary_groups['top'],
+                   'roller': np.hstack((boundary_groups['sides'], 
+                                        boundary_groups['bottom']))}
 nodes, idx, normals = min_energy_nodes(
   N, vert, smp,
   boundary_groups=boundary_groups,
   boundary_groups_with_ghosts=['free', 'roller'],
-  rho=density_func,
-  itr=50)
+  rho=density_func)
 # update `N` to now include the ghost nodes
 N = nodes.shape[0]
 
@@ -180,7 +177,7 @@ G_zz = add_rows(G_zz, out['zz'], idx['boundary:free'])
 # free parallel to the surface
 
 # fixed normal to the surface
-out = elastic3d_displacement(nodes[idx['boundary:roller']], nodes, lamb=lamb, mu=mu, n=1)
+out = elastic3d_displacement(nodes[idx['boundary:roller']], nodes, n=1)
 normals_x = sp.diags(normals[idx['boundary:roller']][:, 0])
 normals_y = sp.diags(normals[idx['boundary:roller']][:, 1])
 normals_z = sp.diags(normals[idx['boundary:roller']][:, 2])
@@ -206,8 +203,8 @@ G_zx = add_rows(G_zx, parallels_x.dot(out['xx']) + parallels_y.dot(out['yx']) + 
 G_zy = add_rows(G_zy, parallels_x.dot(out['xy']) + parallels_y.dot(out['yy']) + parallels_z.dot(out['zy']), idx['boundary:roller'])
 G_zz = add_rows(G_zz, parallels_x.dot(out['xz']) + parallels_y.dot(out['yz']) + parallels_z.dot(out['zz']), idx['boundary:roller'])
 
-# stack the components together. take care to delete matrices when
-# we do not need them anymore
+# stack the components together. take care to delete matrices when we
+# do not need them anymore
 del (out, normals_x, normals_y, normals_z, 
      parallels_1, parallels_2, 
      parallels_x, parallels_y, parallels_z) 
@@ -248,34 +245,8 @@ d_z[idx['boundary:roller']] = 0.0
 
 d = np.hstack((d_x, d_y, d_z))
 
-## SOLVE THE SYSTEM
-# normalize everything by the norm of the columns of `G`
-norm = spla.norm(G,axis=1)
-D = sp.diags(1.0/norm) 
-
-d = D.dot(d)
-G = D.dot(G).tocsc()
-
-# create the preconditioner with an incomplete LU decomposition of `G`
-print('computing ILU decomposition...')
-ilu = spla.spilu(G, drop_rule='basic', drop_tol=ilu_drop_tol)
-print('done')
-M = spla.LinearOperator(G.shape, ilu.solve)
-
-# solve the system using GMRES and define the callback function to
-# print info for each iteration
-def callback(res, _itr=[0]):
-  l2 = np.linalg.norm(res)
-  print('gmres error on iteration %s: %s' % (_itr[0], l2))
-  _itr[0] += 1
-
-print('solving with GMRES')
-u, info = spla.gmres(G, d, M=M, callback=callback)
-print('finished gmres with info %s' % info)
-
-## POST-PROCESS THE SOLUTION
-del G, d, M, ilu
-
+### SOLVE THE SYSTEM
+u = GMRESSolver(G, normalize_inplace=True).solve(d)
 u = np.reshape(u, (3, -1))
 u_x, u_y, u_z = u
 

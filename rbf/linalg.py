@@ -10,6 +10,8 @@ import scipy.sparse.linalg as spla
 from scipy.linalg.lapack import (dpotrf, dpotrs, dtrtrs, dgetrf,
                                  dgetrs)
 
+from rbf.sputils import row_norms, divide_rows
+
 LOGGER = logging.getLogger(__name__)
 
 try:
@@ -603,7 +605,7 @@ class PartitionedPosDefSolver(object):
     return x, y
 
 
-class IterativeSolver(object):
+class GMRESSolver(object):
   '''
   Solves the system of equations `Ax = b` for `x` iteratively with
   GMRES and an incomplete LU decomposition.
@@ -619,24 +621,31 @@ class IterativeSolver(object):
     decomposition. If the value is too large then you may get a
     "Factor is exactly singular" error.
 
+  normalize_inplace : bool
+    If True and `A` is a csc matrix, then `A` is normalized in place.
+        
   '''
-  def __init__(self, A, drop_tol=0.005):
-    # the spilu and gmres functions are most efficient with csc sparse
+  def __init__(self, A, drop_tol=0.005, normalize_inplace=False):
+    # the spilu and gmres functions are most efficient with csc
+    # sparse. If the matrix is already csc then this will do nothing
     A = sp.csc_matrix(A)
-    # normalize `A` and `x` by the L2 norm of the rows of `A`
-    N = sp.diags(1.0/spla.norm(A, axis=1))
-    A_norm = N.dot(A).tocsc()
+    n = row_norms(A)
+    if normalize_inplace:
+        divide_rows(A, n, inplace=True)
+    else:
+        A = divide_rows(A, n, inplace=False).tocsc()
+    
     LOGGER.debug('computing the ILU decomposition of a %s by %s '
                  'sparse matrix with %s nonzeros ' % 
-                 (A_norm.shape + (A_norm.nnz,)))
-    ilu = spla.spilu(A_norm, drop_rule='basic', drop_tol=drop_tol)
+                 (A.shape + (A.nnz,)))
+    ilu = spla.spilu(A, drop_rule='basic', drop_tol=drop_tol)
     LOGGER.debug('done')
-    M = spla.LinearOperator(A_norm.shape, ilu.solve)
-    self.A_norm = A_norm
-    self.N = N
+    M = spla.LinearOperator(A.shape, ilu.solve)
+    self.A = A
     self.M = M
+    self.n = n
 
-  def solve(self, b, tol=1.0e-5):
+  def solve(self, b, tol=1.0e-10):
     '''
     Parameters
     ----------
@@ -650,12 +659,12 @@ class IterativeSolver(object):
     # print info for each iteration
     def callback(res, _itr=[0]):
       l2 = np.linalg.norm(res)
-      LOGGER.debug('gmres error on iteration %s: %s' % (_itr[0], l2))
+      LOGGER.debug('GMRES error on iteration %s: %s' % (_itr[0], l2))
       _itr[0] += 1
 
     LOGGER.debug('solving the system with GMRES')
-    x, info = spla.gmres(self.A_norm, 
-                         self.N.dot(b), 
+    x, info = spla.gmres(self.A, 
+                         b/self.n, 
                          tol=tol,
                          M=self.M, 
                          callback=callback)

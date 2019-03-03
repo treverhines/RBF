@@ -2,10 +2,14 @@
 This module contains functions that generate simplices defining 
 commonly used domains.
 '''
+import logging
+
 import numpy as np
 from scipy.spatial import Delaunay
 from scipy.interpolate import LinearNDInterpolator
+from rbf.geometry import oriented_simplices
 
+LOG = logging.getLogger(__name__)
 
 def save_as_polygon_file(filename, vert, smp):
     '''
@@ -147,50 +151,89 @@ def sphere(r=5):
   return vert,smp
 
 
-def _topography_refine(x, y,
-                       topo_func,
-                       maxitr=1000,
-                       tol=0.005):
+def _topography_surface(xbounds, 
+                        ybounds,
+                        topo_func,
+                        maxitr=10000,
+                        tol=0.01,
+                        fine_grid=1000,
+                        coarse_grid=10):
   '''
-  Adds vertices inside the two-dimensional complex hull defined by
-  `x` and `y` so that the facets from a Delaunay triangulation can
-  better approximate the topography function.
+  Creates the surface vertices for the topography function
   '''
-  xy = np.array([x, y]).T
-  xtest = np.linspace(x.min(), x.max(), 1000)
-  ytest = np.linspace(y.min(), y.max(), 1000)
-  xtest, ytest = np.meshgrid(xtest, ytest)
-  xtest, ytest = xtest.flatten(), ytest.flatten()
-  xytest = np.array([xtest, ytest]).T
-  # throw away points that are not in the convex hull
-  xytest = xytest[Delaunay(xy).find_simplex(xytest) != -1]
-  # evaluate the true topography function, which we want to
-  # approximate with triangular facets.
-  ftrue = topo_func(xytest)
-  xyout = np.array(xy, copy=True)
-  fout = np.array(topo_func(xyout))
-  for _ in range(maxitr):
-    I = LinearNDInterpolator(xyout, fout)
-    ftest = I(xytest)
+  # create a coarse and fine grid. The output vertices will contain
+  # the coarse grid plus whichever vertices are needed from the fine
+  # grid
+  xfine = np.linspace(*xbounds, fine_grid + 1)
+  yfine = np.linspace(*ybounds, fine_grid + 1)
+  xfine, yfine = np.meshgrid(xfine, yfine)
+  xfine, yfine = xfine.flatten(), yfine.flatten()
+  xyfine = np.array([xfine, yfine]).T
+
+  xcoarse = np.linspace(*xbounds, coarse_grid + 1)
+  ycoarse = np.linspace(*ybounds, coarse_grid + 1)
+  xcoarse, ycoarse = np.meshgrid(xcoarse, ycoarse)
+  xcoarse, ycoarse = xcoarse.flatten(), ycoarse.flatten()
+  xycoarse = np.array([xcoarse, ycoarse]).T
+
+  zfine = topo_func(xyfine)
+  zcoarse = topo_func(xycoarse)
+
+  # make sure the topography function is zero at the edges. This
+  # ensures that the domain will be closed
+  idx = ((xyfine[:, 0] == xbounds[0]) | 
+         (xyfine[:, 0] == xbounds[1]) |
+         (xyfine[:, 1] == ybounds[0]) | 
+         (xyfine[:, 1] == ybounds[1]))
+  zfine[idx] = 0.0    
+
+  idx = ((xycoarse[:, 0] == xbounds[0]) | 
+         (xycoarse[:, 0] == xbounds[1]) |
+         (xycoarse[:, 1] == ybounds[0]) | 
+         (xycoarse[:, 1] == ybounds[1]))
+  zcoarse[idx] = 0.0    
+  
+  xyout = np.copy(xycoarse)
+  zout = np.copy(zcoarse)
+  LOG.info('Generating the surface facets ...')
+  for itr in range(maxitr):
     # find where the linear interpolant (created with a delaunay
-    # triangulation) has the greatest misfit with the true
-    # topography function and then add a vertex at that point
-    err = np.abs(ftest - ftrue)
-    if err.max() <= tol*ftrue.ptp():
+    # triangulation) has the greatest misfit with the true topography
+    # function and then add a vertex at that point
+    I = LinearNDInterpolator(xyout, zout)
+    zitp = I(xyfine)
+    err = np.abs(zitp - zfine)
+    if err.max() <= tol*zfine.ptp():
+      LOG.info(
+        'Finished generating the surface facets. The maximum '
+        'interpolation error is %s' % err.max())
       break
 
     idx = np.argmax(err)
-    xyout = np.vstack((xyout, xytest[[idx]]))
-    fout = np.hstack((fout, ftrue[[idx]]))
-
-  return xyout[:, 0], xyout[:, 1]
+    zout = np.hstack((zout, zfine[idx]))
+    xyout = np.vstack((xyout, xyfine[idx]))
+    
+  if itr == (maxitr - 1):
+      LOG.warning(
+        'The maximum number of iterations was reached while '
+        'generating the surface facets. The maximum interpolation '
+        'error is %s'
+        % err.max())
+  
+  vert = np.hstack((xyout, zout[:, None]))
+  smp = Delaunay(xyout).simplices     
+  return vert, smp
 
 
 def topography(topo_func,
-               radius,
+               xbounds,
+               ybounds,
                depth,
-               tol=0.005,
-               maxitr=1000):
+               tol=0.01,
+               maxitr=10000,
+               fine_grid=1000,
+               coarse_grid=10):
+
   '''
   Creates a three-dimensional cylindrical domain where the elevation
   of the top of the cylinder is determined by `topo_func`.
@@ -199,16 +242,13 @@ def topography(topo_func,
   ----------
   topo_func : function
     This takes an (n, 2) array of (x, y) coordinates and returns the
-    elevation at that point. The elevation can be positive or
-    negative but it should not go lower than -`depth` because that
-    will cause the domain to intersect itself. The length-scale of
-    topographic features should be greater than `radius/1000`,
-    otherwise they may not be well approximated by the output
-    domain.
+    elevation at that point. The elevation can be positive or negative
+    but it should taper to zero at the edges of the domain and it
+    should not go lower than -`depth`.
 
-  radius : float
-    Radius of the cylinder
-
+  xbounds, ybounds : 2-tuple
+    Domain x and y bounds
+      
   depth : float
     Depth of the cylinder        
 
@@ -233,44 +273,38 @@ def topography(topo_func,
     domain
 
   '''
-  # the cylinder is approximated as a 60 sided polygon
-  theta = np.linspace(0, 2*np.pi, 101)[:-1]
-  nt = len(theta)
-  # build the bottom vertices
-  x1 = radius*np.cos(theta)
-  y1 = radius*np.sin(theta)
-  # add a point at the bottom center so that we have nicer shaped
-  # facets
-  x1 = np.hstack((x1, [0.0]))
-  y1 = np.hstack((y1, [0.0]))
-  z1 = -np.ones_like(x1)*depth
-  n1 = len(x1)
-  vert1 = np.array([x1, y1, z1]).T
-  smp1 = Delaunay(np.array([x1, y1]).T).simplices
+  vert = np.array([[xbounds[0], ybounds[0], -depth],
+                   [xbounds[0], ybounds[0],    0.0],
+                   [xbounds[0], ybounds[1], -depth],
+                   [xbounds[0], ybounds[1],    0.0],
+                   [xbounds[1], ybounds[0], -depth],
+                   [xbounds[1], ybounds[0],    0.0],
+                   [xbounds[1], ybounds[1], -depth],
+                   [xbounds[1], ybounds[1],    0.0]])
+  smp = np.array([[0, 2, 6],
+                  [0, 4, 6],
+                  [0, 1, 3],
+                  [0, 2, 3],
+                  [0, 1, 4],
+                  [1, 5, 4],
+                  [4, 5, 7],
+                  [4, 6, 7],
+                  [2, 3, 7],
+                  [2, 6, 7]])
   # build the top vertices
-  x2 = radius*np.cos(theta)
-  y2 = radius*np.sin(theta)
-  x2, y2 = _topography_refine(x2, y2, topo_func, tol=tol, maxitr=maxitr)
-  z2 = topo_func(np.array([x2, y2]).T)
-  vert2 = np.array([x2, y2, z2]).T
-  smp2 = Delaunay(np.array([x2, y2]).T).simplices + n1
-  # create the facets for the side of the domain
-  smp_side = []
-  for i in range(nt - 1):
-    smp_side += [[i,    i+1,   n1+i],
-                 [i+1, n1+i, n1+i+1]]
-
-  smp_side += [[nt-1,       0, n1+nt-1],
-               [   0, n1+nt-1,      n1]]
-  # combine all the simplices together
-  smp = np.vstack((smp1, smp2, smp_side))
-  # join the vertices
-  vert = np.vstack((vert1, vert2))
-  # create a dictionary identifying which simplex belongs to which
-  # group
+  vert_surf, smp_surf = _topography_surface(xbounds, 
+                                            ybounds, 
+                                            topo_func, 
+                                            tol=tol, 
+                                            maxitr=maxitr,
+                                            fine_grid=fine_grid,
+                                            coarse_grid=coarse_grid)
+  vert = np.vstack((vert, vert_surf))
+  smp = np.vstack((smp, smp_surf + 8))    
+  smp = oriented_simplices(vert, smp)
   boundary_groups = {
-    'bottom': np.arange(len(smp1)),
-    'top': np.arange(len(smp2)) + len(smp1),
-    'sides': np.arange(len(smp_side)) + len(smp1) + len(smp2)}
+    'bottom': np.array([0, 1]),
+    'sides': np.array([2, 3, 4, 5, 6, 7, 8, 9]),
+    'top': 10 + np.arange(smp_surf.shape[0])}
 
   return vert, smp, boundary_groups

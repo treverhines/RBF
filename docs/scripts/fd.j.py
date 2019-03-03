@@ -4,7 +4,8 @@ with a mix of free and fixed boundary conditions. We use the RBF-FD
 method and demonstrate the use of ghost nodes along the free boundary.
 '''
 import numpy as np
-from rbf.fd import weight_matrix, add_rows
+from rbf.fd import weight_matrix
+from rbf.sputils import add_rows
 from rbf.basis import phs3
 from rbf.geometry import contains
 from rbf.nodes import min_energy_nodes

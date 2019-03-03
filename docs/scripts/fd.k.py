@@ -3,7 +3,8 @@ WORK IN PROGRESS
 '''
 import numpy as np
 import rbf
-from rbf.fd import weight_matrix, add_rows
+from rbf.fd import weight_matrix
+from rbf.sputils import add_rows
 from rbf.fdbuild import (elastic2d_body_force,
                          elastic2d_surface_force,
                          elastic2d_displacement)

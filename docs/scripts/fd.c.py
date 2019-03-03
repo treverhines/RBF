@@ -1,10 +1,10 @@
 ''' 
-This script demonstrates using the RBF-FD method to calculate static 
-deformation of a three-dimensional elastic material subject to a 
-uniform body force such as gravity. The elastic material has a fixed 
-boundary condition on one side and the remaining sides have a free 
-surface boundary condition.  This script also demonstrates using ghost 
-nodes which, for all intents and purposes, are necessary when dealing 
+This script demonstrates using the RBF-FD method to calculate static
+deformation of a three-dimensional elastic material subject to a
+uniform body force such as gravity. The elastic material has a fixed
+boundary condition on one side and the remaining sides have a free
+surface boundary condition.  This script also demonstrates using ghost
+nodes which, for all intents and purposes, are necessary when dealing
 with Neumann boundary conditions.
 '''
 import numpy as np
@@ -13,8 +13,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 from rbf.nodes import min_energy_nodes
-from rbf.fd import weight_matrix, add_rows
-from rbf.fdbuild import (elastic3d_body_force,
+from rbf.fd import weight_matrix
+from rbf.sputils import add_rows
+from rbf.linalg import GMRESSolver
+from rbf.elastic import (elastic3d_body_force,
                          elastic3d_surface_force,
                          elastic3d_displacement) 
 import logging
@@ -24,12 +26,26 @@ logging.basicConfig(level=logging.DEBUG)
 #####################################################################
 # define the vertices of the problem domain. Note that the first two
 # simplices will be fixed, and the others will be free
-vert = np.array([[0.0,0.0,0.0],[0.0,0.0,1.0],[0.0,1.0,0.0],
-                 [0.0,1.0,1.0],[2.0,0.0,0.0],[2.0,0.0,1.0],
-                 [2.0,1.0,0.0],[2.0,1.0,1.0]])
-smp = np.array([[0,1,3],[0,2,3],[0,1,4],[1,5,4],
-                [0,2,6],[0,4,6],[1,7,5],[1,3,7],
-                [4,5,7],[4,6,7],[2,3,7],[2,6,7]])
+vert = np.array([[0.0, 0.0, 0.0],
+                 [0.0, 0.0, 1.0],
+                 [0.0, 1.0, 0.0],
+                 [0.0, 1.0, 1.0],
+                 [2.0, 0.0, 0.0],
+                 [2.0, 0.0, 1.0],
+                 [2.0, 1.0, 0.0],
+                 [2.0, 1.0, 1.0]])
+smp = np.array([[0, 1, 3],
+                [0, 2, 3],
+                [0, 1, 4],
+                [1, 5, 4],
+                [0, 2, 6],
+                [0, 4, 6],
+                [1, 7, 5],
+                [1, 3, 7],
+                [4, 5, 7],
+                [4, 6, 7],
+                [2, 3, 7],
+                [2, 6, 7]])
 # number of nodes 
 N = 500
 # size of RBF-FD stencils
@@ -46,14 +62,13 @@ body_force = 1.0
 boundary_groups = {'fix':[0,1],
                    'free':range(2,12)}
 nodes, idx, normals = min_energy_nodes(
-                        N,vert,smp,
-                        boundary_groups=boundary_groups,
-                        boundary_groups_with_ghosts=['free'],
-                        include_vertices=True)
+    N,vert,smp,
+    boundary_groups=boundary_groups,
+    boundary_groups_with_ghosts=['free'])
 N = nodes.shape[0]
 
 # The "left hand side" matrices are built with the convenience
-# functions from *rbf.fdbuild*. Read the documentation for these
+# functions from *rbf.elastic*. Read the documentation for these
 # functions to better understand this step.
 G_xx = sp.csr_matrix((N, N))
 G_xy = sp.csr_matrix((N, N))
@@ -91,7 +106,6 @@ G_zx = add_rows(G_zx, out['zx'], idx['ghosts:free'])
 G_zy = add_rows(G_zy, out['zy'], idx['ghosts:free'])
 G_zz = add_rows(G_zz, out['zz'], idx['ghosts:free'])
 
-
 out = elastic3d_surface_force(nodes[idx['boundary:free']], 
                               normals[idx['boundary:free']], 
                               nodes, lamb=lamb, mu=mu, n=n)
@@ -105,8 +119,7 @@ G_zx = add_rows(G_zx, out['zx'], idx['boundary:free'])
 G_zy = add_rows(G_zy, out['zy'], idx['boundary:free'])
 G_zz = add_rows(G_zz, out['zz'], idx['boundary:free'])
 
-out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes, 
-                             lamb=lamb, mu=mu, n=1)
+out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes, n=1)
 G_xx = add_rows(G_xx, out['xx'], idx['boundary:fix'])
 G_yy = add_rows(G_yy, out['yy'], idx['boundary:fix'])
 G_zz = add_rows(G_zz, out['zz'], idx['boundary:fix'])
@@ -140,7 +153,7 @@ d_z[idx['boundary:fix']] = 0.0
 d = np.hstack((d_x, d_y, d_z))
 
 # solve it
-u = spla.spsolve(G,d,permc_spec='MMD_ATA')
+u = GMRESSolver(G).solve(d)
 u = np.reshape(u,(3,-1))
 u_x,u_y,u_z = u
 

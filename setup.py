@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 if __name__ == '__main__':
-  from setuptools import setup
-  from setuptools.extension import Extension
+  from distutils.core import setup
+  from distutils.extension import Extension
   from Cython.Build import cythonize
   import numpy as np
   ext = []
@@ -16,6 +16,9 @@ if __name__ == '__main__':
                     include_dirs=[np.get_include()])]
   ext += [Extension(name='rbf.poly',
                     sources=['rbf/poly.pyx'],
+                    include_dirs=[np.get_include()])]
+  ext += [Extension(name='rbf.sputils',
+                    sources=['rbf/sputils.pyx'],
                     include_dirs=[np.get_include()])]
   setup(name='RBF',
         version='2019.01.27',

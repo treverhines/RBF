@@ -12,8 +12,9 @@ import scipy.sparse as sp
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from rbf.nodes import min_energy_nodes
-from rbf.fd import weight_matrix, add_rows
-import scipy.sparse.linalg as spla
+from rbf.fd import weight_matrix
+from rbf.sputils import add_rows
+from rbf.linalg import GMRESSolver
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -137,9 +138,8 @@ G_yy = add_rows(G_yy, dD_free_yy, groups['boundary:free'])
 G_x = sp.hstack((G_xx, G_xy))
 G_y = sp.hstack((G_yx, G_yy))
 G = sp.vstack((G_x, G_y))
-G = G.tocsr()
 
-# for the right-hand-side vector
+# form the right-hand-side vector
 d_x = np.zeros((N,))
 d_y = np.zeros((N,))
 
@@ -156,7 +156,7 @@ d_y[groups['boundary:fixed']] = 0.0
 d = np.hstack((d_x, d_y))
 
 # solve the system!
-u = sp.linalg.spsolve(G, d)
+u = GMRESSolver(G).solve(d)
 
 # reshape the solution
 u = np.reshape(u, (2, -1))

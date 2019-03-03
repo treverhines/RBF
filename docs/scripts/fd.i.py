@@ -7,7 +7,8 @@ scalable and does not require the user to specify a shape parameter
 weights).
 '''
 import numpy as np
-from rbf.fd import weight_matrix, add_rows
+from rbf.fd import weight_matrix
+from rbf.sputils import add_rows
 from rbf.basis import phs3
 from rbf.geometry import contains
 from rbf.nodes import min_energy_nodes
@@ -48,8 +49,8 @@ A_boundary = weight_matrix(nodes[groups['boundary:all']], nodes,
                            diffs=[0, 0]) 
 # Add the components to the corresponding rows of `A`
 A = csc_matrix((N, N))
-A = add_rows(A,A_interior,groups['interior'])
-A = add_rows(A,A_boundary,groups['boundary:all'])
+A = add_rows(A, A_interior, groups['interior'])
+A = add_rows(A, A_boundary, groups['boundary:all'])
                            
 # create "right hand side" vector
 d = np.zeros((N,))
