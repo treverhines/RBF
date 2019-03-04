@@ -2,7 +2,7 @@
 This module contains functions for building two and three-dimensional
 weight matrices for linear elasticity problems.
 '''
-from rbf.fd import weight_matrix
+from rbf.pde.fd import weight_matrix
 
 def elastic2d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
   ''' 

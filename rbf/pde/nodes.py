@@ -3,19 +3,22 @@ provides a function for generating a locally quasi-uniform
 distribution of nodes over an arbitrary domain
 '''
 from __future__ import division
-import numpy as np
-import rbf.halton
 import logging
+
+import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
-from rbf.stencil import stencil_network
+
 from rbf.utils import assert_shape
-from rbf.geometry import (intersection_count,
-                          intersection_index,
-                          intersection_point,
-                          intersection_normal,
-                          simplex_outward_normals,
-                          contains)
+from rbf.pde.halton import Halton
+from rbf.pde.stencil import stencil_network
+from rbf.pde.geometry import (intersection_count,
+                              intersection_index,
+                              intersection_point,
+                              intersection_normal,
+                              simplex_outward_normals,
+                              contains)
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,7 +63,7 @@ def _rejection_sampling_nodes(N,
   ub = np.max(vert, axis=0)
   ndim = vert.shape[1]
   # form Halton sequence generator
-  H = rbf.halton.Halton(ndim+1)
+  H = Halton(ndim+1)
   # initiate array of nodes
   nodes = np.zeros((0, ndim), dtype=float)
   # node counter

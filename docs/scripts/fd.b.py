@@ -7,15 +7,18 @@ boundary condition.  This script also demonstrates using ghost nodes
 which, for all intents and purposes, are necessary when dealing with 
 Neumann boundary conditions.
 '''
+import logging
+
 import numpy as np
 import scipy.sparse as sp
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from rbf.nodes import min_energy_nodes
-from rbf.fd import weight_matrix
+
 from rbf.sputils import add_rows
 from rbf.linalg import GMRESSolver
-import logging
+from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.fd import weight_matrix
+
 logging.basicConfig(level=logging.DEBUG)
 
 ## User defined parameters

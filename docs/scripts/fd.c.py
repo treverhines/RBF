@@ -7,19 +7,22 @@ surface boundary condition.  This script also demonstrates using ghost
 nodes which, for all intents and purposes, are necessary when dealing
 with Neumann boundary conditions.
 '''
+import logging
+
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from rbf.nodes import min_energy_nodes
-from rbf.fd import weight_matrix
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 from rbf.sputils import add_rows
 from rbf.linalg import GMRESSolver
-from rbf.elastic import (elastic3d_body_force,
-                         elastic3d_surface_force,
-                         elastic3d_displacement) 
-import logging
+from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.fd import weight_matrix
+from rbf.pde.elastic import (elastic3d_body_force,
+                             elastic3d_surface_force,
+                             elastic3d_displacement) 
+
 logging.basicConfig(level=logging.DEBUG)
 
 ## User defined parameters

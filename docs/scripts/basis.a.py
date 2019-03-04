@@ -4,8 +4,8 @@ with fixed boundary conditions. We use the multiquadratic RBF (`mq`)
 '''
 import numpy as np
 from rbf.basis import mq
-from rbf.geometry import contains
-from rbf.nodes import min_energy_nodes
+from rbf.pde.geometry import contains
+from rbf.pde.nodes import min_energy_nodes
 import matplotlib.pyplot as plt
 
 # Define the problem domain with line segments.

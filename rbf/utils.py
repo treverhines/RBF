@@ -81,7 +81,7 @@ class Memoize(object):
     self.fin = fin
     # the cache will be ordered from least to most recently used
     self.cache = OrderedDict()
-    Memoize._INSTANCES += [weakref.ref(self)]    
+    Memoize._INSTANCES += [weakref.ref(self)]
     
   @staticmethod    
   def _as_key(args):

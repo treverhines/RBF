@@ -1,5 +1,5 @@
 import numpy as np
-import rbf.stencil
+import rbf.pde.stencil
 import unittest
 
 class Test(unittest.TestCase):
@@ -10,7 +10,7 @@ class Test(unittest.TestCase):
                           
     query = np.array([[2.1]])
     n = np.array([[1,2]])
-    nest = rbf.stencil.stencil_network(query,pop,2)
+    nest = rbf.pde.stencil.stencil_network(query,pop,2)
     self.assertTrue(np.all(n==nest))
 
   def test_nearest_1d_2(self):
@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
     query = np.array([[2.1]])
 
     n = np.array([[1,0]])
-    nest = rbf.stencil.stencil_network(query,pop,2,vert,smp)
+    nest = rbf.pde.stencil.stencil_network(query,pop,2,vert,smp)
     self.assertTrue(np.all(n==nest))
 
   def test_nearest_2d_1(self):
@@ -35,7 +35,7 @@ class Test(unittest.TestCase):
     query = np.array([[0.4,0.6]])
 
     n = np.array([[0,1]])
-    nest = rbf.stencil.stencil_network(query,pop,2)
+    nest = rbf.pde.stencil.stencil_network(query,pop,2)
     self.assertTrue(np.all(n==nest))
 
   def test_nearest_2d_2(self):
@@ -50,7 +50,7 @@ class Test(unittest.TestCase):
     query = np.array([[0.4,0.6]])
 
     n = np.array([[0,2]])
-    nest = rbf.stencil.stencil_network(query,pop,2,vert,smp)
+    nest = rbf.pde.stencil.stencil_network(query,pop,2,vert,smp)
     self.assertTrue(np.all(n==nest))
 
 

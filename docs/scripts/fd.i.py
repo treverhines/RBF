@@ -7,15 +7,16 @@ scalable and does not require the user to specify a shape parameter
 weights).
 '''
 import numpy as np
-from rbf.fd import weight_matrix
-from rbf.sputils import add_rows
-from rbf.basis import phs3
-from rbf.geometry import contains
-from rbf.nodes import min_energy_nodes
-import matplotlib.pyplot as plt
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve
 from scipy.interpolate import LinearNDInterpolator
+import matplotlib.pyplot as plt
+
+from rbf.basis import phs3
+from rbf.sputils import add_rows
+from rbf.pde.fd import weight_matrix
+from rbf.pde.geometry import contains
+from rbf.pde.nodes import min_energy_nodes
 
 # Define the problem domain with line segments.
 vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],

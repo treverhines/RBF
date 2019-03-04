@@ -9,10 +9,10 @@ import scipy.sparse as sp
 
 import rbf.basis
 import rbf.poly
-import rbf.stencil
 import rbf.linalg
 from rbf.utils import assert_shape, Memoize
 from rbf.linalg import PartitionedSolver
+from rbf.pde.stencil import stencil_network
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +320,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
       n = _default_stencil_size(diffs)
       n = min(n, p.shape[0])
 
-    stencils = rbf.stencil.stencil_network(x, p, n)
+    stencils = stencil_network(x, p, n)
   else:    
     stencils = np.asarray(stencils, dtype=int)
     assert_shape(stencils, (x.shape[0], None), 'stencils')

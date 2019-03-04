@@ -6,7 +6,7 @@ using the spectral RBF method or the RBF-FD method.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.nodes import min_energy_nodes
+from rbf.pde.nodes import min_energy_nodes
 
 # Define the problem domain with line segments.
 vert = np.array([[2.0, 1.0], [1.0, 1.0], [1.0, 2.0], 

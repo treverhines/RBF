@@ -7,7 +7,8 @@ import logging
 import numpy as np
 from scipy.spatial import Delaunay
 from scipy.interpolate import LinearNDInterpolator
-from rbf.geometry import oriented_simplices
+
+from rbf.pde.geometry import oriented_simplices
 
 LOG = logging.getLogger(__name__)
 

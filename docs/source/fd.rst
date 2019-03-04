@@ -1,6 +1,6 @@
-FD (Radial Basis Function Finite Differences)
+fd (Radial Basis Function Finite Differences)
 =============================================
-.. automodule:: rbf.fd
+.. automodule:: rbf.pde.fd
   :members: weights, weight_matrix, add_rows
 
 Examples

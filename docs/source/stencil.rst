@@ -1,6 +1,6 @@
-Stencil
+stencil
 =======
-.. automodule:: rbf.stencil
+.. automodule:: rbf.pde.stencil
   :members:
 
 Examples

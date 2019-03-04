@@ -52,10 +52,8 @@ and Applications. John Wiley & Sons, 2000.
 '''
 import numpy as np
 import scipy.sparse
-import scipy.optimize
 import scipy.spatial
 import rbf.basis
-import rbf.geometry
 import rbf.poly 
 from rbf.utils import assert_shape
 from rbf.linalg import PartitionedSolver

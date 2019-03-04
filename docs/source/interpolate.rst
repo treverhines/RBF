@@ -1,4 +1,4 @@
-Interpolate
+interpolate
 ===========
 .. automodule:: rbf.interpolate
   :members:

@@ -50,6 +50,7 @@ from sympy import lambdify
 
 from rbf.poly import powers
 from rbf.utils import assert_shape
+
 logger = logging.getLogger(__name__)
 
 

@@ -1,6 +1,6 @@
-Nodes
+nodes
 =====
-.. automodule:: rbf.nodes
+.. automodule:: rbf.pde.nodes
   :members:
 
 Examples

@@ -1,4 +1,4 @@
-Basis 
+basis 
 =====
 .. automodule:: rbf.basis
   :members:

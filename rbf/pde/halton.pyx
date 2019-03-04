@@ -4,6 +4,7 @@ sequences
 '''
 from __future__ import division
 import numpy as np
+
 cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
 

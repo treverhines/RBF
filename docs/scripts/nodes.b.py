@@ -5,7 +5,7 @@ the specified density.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.nodes import min_energy_nodes
+from rbf.pde.nodes import min_energy_nodes
 import rbf
 import logging
 logging.basicConfig(level=logging.DEBUG)

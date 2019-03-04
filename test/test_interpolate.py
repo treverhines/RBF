@@ -1,6 +1,6 @@
 import numpy as np
 import rbf.interpolate
-import rbf.halton
+import rbf.pde.halton
 import unittest
 
 
@@ -20,7 +20,7 @@ class Test(unittest.TestCase):
   def test_interp(self):
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)
@@ -35,7 +35,7 @@ class Test(unittest.TestCase):
     # the chunk size
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)
@@ -55,7 +55,7 @@ class Test(unittest.TestCase):
   def test_interp_diffx(self):
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)
@@ -68,7 +68,7 @@ class Test(unittest.TestCase):
   def test_interp_diffy(self):
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)
@@ -83,7 +83,7 @@ class Test(unittest.TestCase):
     # reproduce a polynomial
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     # I am adding a zeroth order polynomial and so I should be able to 
@@ -100,7 +100,7 @@ class Test(unittest.TestCase):
     # reproduce a polynomial
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     # I am adding a first order polynomial and so I should be able to 
@@ -116,7 +116,7 @@ class Test(unittest.TestCase):
     # smooth noisy data
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)
@@ -132,7 +132,7 @@ class Test(unittest.TestCase):
   def test_extrapolate(self):
     # make sure that the extrapolate key word is working    
     N = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     val = test_func2d(obs)
     itp = np.array([[0.5,0.5],
@@ -151,7 +151,7 @@ class Test(unittest.TestCase):
     # affected.
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)
@@ -168,7 +168,7 @@ class Test(unittest.TestCase):
     # make sure the RBFInterpolant works with sparse RBFs
     N = 1000
     P = 1000
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     obs = H(N)
     itp = H(P)
     val = test_func2d(obs)

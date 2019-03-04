@@ -1,4 +1,4 @@
-Geometry
+geometry
 ========
-.. automodule:: rbf.geometry
+.. automodule:: rbf.pde.geometry
   :members:

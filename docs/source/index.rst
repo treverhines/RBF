@@ -38,15 +38,14 @@ Table of Contents
   basis
   interpolate
   gauss
-  fd
-  nodes
-  stencil
-  geometry
-  halton
+  pde
+  linalg
+  poly
+  utils
+  sputils
 
 Quick Demo
 ==========
-
 Smoothing Scattered Data
 ------------------------
 .. literalinclude:: ../scripts/interpolate.a.py

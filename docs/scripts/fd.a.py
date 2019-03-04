@@ -5,12 +5,13 @@ fd.f.py for an example with free boundary conditions. Time integration
 is done with the fourth-order Runge-Kutta method.
 '''
 import numpy as np
-from rbf.fd import weight_matrix
-from rbf.nodes import min_energy_nodes
-from rbf.geometry import contains
-import matplotlib.pyplot as plt
 from scipy.integrate import ode
 from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+
+from rbf.pde.fd import weight_matrix
+from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.geometry import contains
 
 # define the problem domain
 vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],

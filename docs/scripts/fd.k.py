@@ -2,18 +2,19 @@
 WORK IN PROGRESS
 '''
 import numpy as np
-import rbf
-from rbf.fd import weight_matrix
-from rbf.sputils import add_rows
-from rbf.fdbuild import (elastic2d_body_force,
-                         elastic2d_surface_force,
-                         elastic2d_displacement)
-from rbf.nodes import min_energy_nodes
-from rbf.geometry import contains
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 from scipy.integrate import ode
 from scipy.interpolate import griddata
+
+import rbf
+from rbf.pde.fd import weight_matrix
+from rbf.sputils import add_rows
+from rbf.pde.elastic import (elastic2d_body_force,
+                             elastic2d_surface_force,
+                             elastic2d_displacement)
+from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.geometry import contains
 
 # define the problem domain
 vert = np.array([[0.0, 0.0],

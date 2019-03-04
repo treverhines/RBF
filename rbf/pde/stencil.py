@@ -5,8 +5,8 @@ Difference (RBF-FD) method
 from __future__ import division
 import numpy as np
 from scipy.spatial import cKDTree
-from rbf.geometry import intersection_count
 from rbf.utils import assert_shape
+from rbf.pde.geometry import intersection_count
 import networkx
 
 class StencilError(Exception):

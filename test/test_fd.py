@@ -1,7 +1,7 @@
 import numpy as np
-import rbf.fd
 import rbf.basis
-import rbf.halton
+import rbf.pde.fd
+import rbf.pde.halton
 import unittest
 
 def test_func2d(x):
@@ -29,31 +29,31 @@ class Test(unittest.TestCase):
                       [0.0,1.0]])
 
     u = np.array([0.0,2.0,3.0])
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs2)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs3)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs4)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs7)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),2.0))
 
@@ -67,35 +67,35 @@ class Test(unittest.TestCase):
                       [0.0,1.0]])
 
     u = np.array([0.0,2.0,3.0])
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs2)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs3)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs4)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs7)
     self.assertTrue(np.isclose(u.dot(w),3.0))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),3.0))
   
@@ -103,38 +103,38 @@ class Test(unittest.TestCase):
     # estimate derivative in f(x,y) = sin(2*pi*x)*cos(2*pi*y). The 
     # accuracy should improve with increasing polynomial order  
     x = np.array([0.5,0.5])
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     nodes = H(500)
     
     u = test_func2d(nodes)
     diff_true = test_func2d_diffx(x)
 
     # estimate derivates at x 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs2)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs3)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs4)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
     
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs7)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(1,0),
+    w = rbf.pde.fd.weights(x,nodes,(1,0),
                        basis=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
@@ -143,38 +143,38 @@ class Test(unittest.TestCase):
     # accuracy should improve with increasing polynomial order test 
     # test d/dy
     x = np.array([0.7,0.6])
-    H = rbf.halton.Halton(2)
+    H = rbf.pde.halton.Halton(2)
     nodes = H(500)
     
     u = test_func2d(nodes)
     diff_true = test_func2d_diffy(x)
 
     # estimate derivates at x 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs2)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs3)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs4)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs5)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs6)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
     
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs7)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
 
-    w = rbf.fd.weights(x,nodes,(0,1),
+    w = rbf.pde.fd.weights(x,nodes,(0,1),
                        basis=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
     

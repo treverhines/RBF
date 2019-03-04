@@ -1,10 +1,7 @@
-import rbf.basis
-import rbf.poly
-import rbf.interpolate
-import rbf.gauss
-import rbf.geometry
-import rbf.linalg
-import rbf.fd
-import rbf.halton
-import rbf.nodes
-import rbf.stencil
+from rbf import (basis, 
+                 gauss, 
+                 interpolate, 
+                 linalg, 
+                 poly, 
+                 sputils, 
+                 utils)

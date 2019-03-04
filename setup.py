@@ -5,20 +5,20 @@ if __name__ == '__main__':
   from Cython.Build import cythonize
   import numpy as np
   ext = []
-  ext += [Extension(name='rbf.halton',
-                    sources=['rbf/halton.pyx'],
-                    include_dirs=[np.get_include()])]
-  ext += [Extension(name='rbf.misc.bspline',
-                    sources=['rbf/misc/bspline.pyx'],
-                    include_dirs=[np.get_include()])]
-  ext += [Extension(name='rbf.geometry',
-                    sources=['rbf/geometry.pyx'],
-                    include_dirs=[np.get_include()])]
   ext += [Extension(name='rbf.poly',
                     sources=['rbf/poly.pyx'],
                     include_dirs=[np.get_include()])]
   ext += [Extension(name='rbf.sputils',
                     sources=['rbf/sputils.pyx'],
+                    include_dirs=[np.get_include()])]
+  ext += [Extension(name='rbf.pde.halton',
+                    sources=['rbf/pde/halton.pyx'],
+                    include_dirs=[np.get_include()])]
+  ext += [Extension(name='rbf.pde.geometry',
+                    sources=['rbf/pde/geometry.pyx'],
+                    include_dirs=[np.get_include()])]
+  ext += [Extension(name='rbf.misc.bspline',
+                    sources=['rbf/misc/bspline.pyx'],
                     include_dirs=[np.get_include()])]
   setup(name='RBF',
         version='2019.01.27',
@@ -26,7 +26,7 @@ if __name__ == '__main__':
         author='Trever Hines',
         author_email='treverhines@gmail.com',
         url='www.github.com/treverhines/RBF',
-        packages=['rbf', 'rbf.misc'],
+        packages=['rbf', 'rbf.misc', 'rbf.pde'],
         ext_modules=cythonize(ext),
         license='MIT')
 

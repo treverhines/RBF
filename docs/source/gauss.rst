@@ -1,4 +1,4 @@
-Gauss (Gaussian Process)
+gauss (Gaussian Process)
 ========================
 .. automodule:: rbf.gauss
   :members:

@@ -3,7 +3,7 @@ this script demonstrates how to use *rbf.stencil.stencil_network*. We
 enforce that no stencil crosses a user defined boundary
 '''
 import numpy as np
-from rbf.stencil import stencil_network
+from rbf.pde.stencil import stencil_network
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from scipy.spatial import ConvexHull

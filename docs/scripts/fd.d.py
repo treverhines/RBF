@@ -6,20 +6,22 @@ condition on the bottom and sides. The top of domain has a free
 surface boundary condition. The top of the domain is intended to
 simulate topography.
 '''
+import logging
+
 import numpy as np
 import scipy.sparse as sp
 from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
 
-from rbf.nodes import min_energy_nodes
-from rbf.fd import weight_matrix
 from rbf.sputils import add_rows
 from rbf.linalg import GMRESSolver
-from rbf.domain import topography
-from rbf.elastic import (elastic3d_body_force,
-                         elastic3d_surface_force,
-                         elastic3d_displacement)
-import logging
+from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.fd import weight_matrix
+from rbf.pde.domain import topography
+from rbf.pde.elastic import (elastic3d_body_force,
+                             elastic3d_surface_force,
+                             elastic3d_displacement)
+
 logging.basicConfig(level=logging.DEBUG)                         
 
 
