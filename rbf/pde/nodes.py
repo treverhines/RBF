@@ -12,11 +12,11 @@ from scipy.sparse.csgraph import reverse_cuthill_mckee
 from rbf.utils import assert_shape
 from rbf.pde.halton import Halton
 from rbf.pde.stencil import stencil_network
-from rbf.pde.geometry import (intersection_count,
-                              intersection_index,
-                              intersection_point,
-                              intersection_normal,
+from rbf.pde.geometry import (intersection,
+                              intersection_count,
                               simplex_outward_normals,
+                              simplex_normals,
+                              oriented_simplices,
                               contains)
 
 logger = logging.getLogger(__name__)
@@ -224,14 +224,15 @@ def _disperse_within_boundary(nodes,
                   delta=delta, vert=bound_vert, smp=bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = intersection_count(nodes, out, vert, smp) > 0
-  # point where nodes intersected the boundary
-  inter = intersection_point(nodes[crossed], out[crossed], vert, smp)
+  # point where nodes intersected the boundary and the simplex they
+  # intersected at
+  intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], vert, smp)
   # normal vector to intersection point
-  norms = intersection_normal(nodes[crossed], out[crossed], vert, smp)
+  intr_norms = simplex_normals(vert, smp[intr_idx])
   # distance that the node wanted to travel beyond the boundary
-  res = out[crossed] - inter
+  res = out[crossed] - intr_pnt
   # bouce node off the boundary
-  out[crossed] -= 2*norms*np.sum(res*norms, 1)[:, None]
+  out[crossed] -= 2*intr_norms*np.sum(res*intr_norms, 1)[:, None]
   # check to see if the bounced nodes still intersect the boundary. If
   # not then set the bounced nodes back to their original position
   crossed = intersection_count(nodes, out, vert, smp) > 0
@@ -272,18 +273,15 @@ def _snap_to_boundary(nodes, vert, smp, delta=1.0):
       # find which segments intersect the boundary
       idx, = (intersection_count(nodes, pert_nodes, vert, smp) > 0).nonzero()
       # find the intersection points
-      pnt = intersection_point(nodes[idx], pert_nodes[idx], vert, smp)
+      pnt, smpid = intersection(nodes[idx], pert_nodes[idx], vert, smp)
       # find the distance between `nodes` and the intersection point
       dist = np.linalg.norm(nodes[idx] - pnt, axis=1)
       # only snap nodes which have an intersection point that is
       # closer than any of their previously found intersection points
       snap = dist < min_dist[idx]
-      snap_idx = idx[snap]
-      out_smpid[snap_idx] = intersection_index(nodes[snap_idx],
-                                               pert_nodes[snap_idx],
-                                               vert, smp)
-      out_nodes[snap_idx] = pnt[snap]
-      min_dist[snap_idx] = dist[snap]
+      out_smpid[idx[snap]] = smpid[snap]
+      out_nodes[idx[snap]] = pnt[snap]
+      min_dist[idx[snap]] = dist[snap]
 
   return out_nodes, out_smpid
 
@@ -672,6 +670,9 @@ def min_energy_nodes(N, vert, smp,
   
   smp = np.asarray(smp, dtype=int)
   assert_shape(smp, (None, vert.shape[1]), 'smp')
+  
+  # make sure the simplex normal vectors point outward    
+  smp = oriented_simplices(vert, smp)
   
   if boundary_groups is None:
     boundary_groups = {'all': range(smp.shape[0])}

@@ -86,25 +86,17 @@ these packages are too slow for RBF purposes.
 '''
 # python imports
 from __future__ import division
-import numpy as np
 from itertools import combinations
+
+import numpy as np
 from scipy.special import factorial
+
+from rbf.utils import assert_shape
+
 # cython imports
 cimport numpy as np
-from cython cimport boundscheck,wraparound,cdivision
-from libc.stdlib cimport malloc,free
-from libc.stdlib cimport rand
-
-
-# NOTE: fabs is not the same as abs in C!!! 
-cdef extern from "math.h":
-  cdef float fabs(float x) nogil
-
-cdef extern from "math.h":
-  cdef float sqrt(float x) nogil
-
-cdef extern from "limits.h":
-    int RAND_MAX
+from cython cimport boundscheck, wraparound, cdivision
+from libc.math cimport fabs, fmin, sqrt, INFINITY
 
 ## geometric data types
 #####################################################################
@@ -143,30 +135,6 @@ cdef struct triangle3d:
   vector3d b
   vector3d c
 
-cdef segment2d* allocate_segment2d_array(long n):
-  ''' 
-  This is used in `contains_2d` and `intersection_count_2d`
-  '''
-  cdef:
-    segment2d* out = <segment2d*>malloc(n*sizeof(segment2d))
-
-  if not out:
-    raise MemoryError()
-
-  return out  
-
-cdef segment3d* allocate_segment3d_array(long n):
-  ''' 
-  This is used in `contains_3d` and `intersection_count_3d`
-  '''
-  cdef:
-    segment3d* out = <segment3d*>malloc(n*sizeof(segment3d))
-    
-  if not out:
-    raise MemoryError()
-
-  return out  
-
 ## point in simplex functions
 #####################################################################
 @cdivision(True)
@@ -179,12 +147,12 @@ cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:
   positive
   '''
   cdef: 
-    double l1,l2
+    double l1, l2
   
   # find barycentric coordinates  
-  l1 = (seg.a.x - vec.x)/(seg.a.x-seg.b.x)
-  l2 = (vec.x - seg.b.x)/(seg.a.x-seg.b.x)
-  if (l1>=0.0) & (l2>=0.0):
+  l1 = (seg.a.x - vec.x)/(seg.a.x - seg.b.x)
+  l2 = (vec.x - seg.b.x)/(seg.a.x - seg.b.x)
+  if (l1 >= 0.0) & (l2 >= 0.0):
     return True
   else: 
     return False
@@ -198,21 +166,22 @@ cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:
   three of the barycentric coordinates are positive
   '''
   cdef: 
-    double det,l1,l2,l3
+    double det, l1, l2, l3
 
   # find barycentric coordinates  
-  det =  (tri.b.y - tri.c.y)*(tri.a.x-tri.c.x) + (tri.c.x-tri.b.x)*(tri.a.y-tri.c.y)
-  l1 =  ((tri.b.y - tri.c.y)*(vec.x-tri.c.x) + (tri.c.x-tri.b.x)*(vec.y-tri.c.y))/det
-  l2 =  ((tri.c.y - tri.a.y)*(vec.x-tri.c.x) + (tri.a.x-tri.c.x)*(vec.y-tri.c.y))/det
+  det = ((tri.b.y - tri.c.y)*(tri.a.x - tri.c.x) + 
+         (tri.c.x - tri.b.x)*(tri.a.y - tri.c.y))
+  l1 = ((tri.b.y - tri.c.y)*(vec.x - tri.c.x) + 
+        (tri.c.x - tri.b.x)*(vec.y - tri.c.y))/det
+  l2 = ((tri.c.y - tri.a.y)*(vec.x - tri.c.x) + 
+        (tri.a.x - tri.c.x)*(vec.y - tri.c.y))/det
   l3 = 1 - l1 - l2
-  if (l1>=0.0) & (l2>=0.0) & (l3>=0.0):
+  if (l1 >= 0.0) & (l2 >= 0.0) & (l3 >= 0.0):
     return True
   else:
     return False
 
 
-## simplex normals functions
-#####################################################################
 cdef vector2d segment_normal_2d(segment2d seg) nogil:
   ''' 
   Returns the vector normal to a 2d line segment
@@ -220,8 +189,8 @@ cdef vector2d segment_normal_2d(segment2d seg) nogil:
   cdef:
     vector2d out
 
-  out.x = seg.b.y-seg.a.y
-  out.y = -(seg.b.x-seg.a.x)
+  out.x = seg.b.y - seg.a.y
+  out.y = -(seg.b.x - seg.a.x)
   return out
   
 
@@ -232,77 +201,15 @@ cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
   cdef:
     vector3d out
 
-  out.x =  ((tri.b.y-tri.a.y)*(tri.c.z-tri.a.z) - 
-            (tri.b.z-tri.a.z)*(tri.c.y-tri.a.y))
-  out.y = -((tri.b.x-tri.a.x)*(tri.c.z-tri.a.z) - 
-            (tri.b.z-tri.a.z)*(tri.c.x-tri.a.x)) 
-  out.z =  ((tri.b.x-tri.a.x)*(tri.c.y-tri.a.y) - 
-            (tri.b.y-tri.a.y)*(tri.c.x-tri.a.x))
+  out.x = ((tri.b.y - tri.a.y)*(tri.c.z - tri.a.z) - 
+           (tri.b.z - tri.a.z)*(tri.c.y - tri.a.y))
+  out.y = -((tri.b.x - tri.a.x)*(tri.c.z - tri.a.z) - 
+            (tri.b.z - tri.a.z)*(tri.c.x - tri.a.x)) 
+  out.z = ((tri.b.x - tri.a.x)*(tri.c.y - tri.a.y) - 
+           (tri.b.y - tri.a.y)*(tri.c.x - tri.a.x))
   return out
 
 
-## find point outside simplicial complex
-#####################################################################
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef vector2d find_outside_2d(double[:,:] v) nogil:
-  ''' 
-  Finds a arbitrary point that is outside of a polygon defined by
-  the given vertices
-  '''
-  cdef:
-    unsigned int i
-    vector2d out
-    
-  out.x = v[0,0]
-  out.y = v[0,1]
-  for i in range(1,v.shape[0]):
-    if v[i,0] < out.x:
-      out.x = v[i,0] 
-
-    if v[i,1] < out.y:
-      out.y = v[i,1] 
-
-  out.x -= 1.23456789# + rand()*1.0/RAND_MAX
-  out.y -= 2.34567891# + rand()*1.0/RAND_MAX
-
-  return out
-
-
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef vector3d find_outside_3d(double[:,:] v) nogil:
-  ''' 
-  Finds a arbitrary point that is outside of a polyhedron defined by
-  the given vertices
-  '''
-  cdef:
-    unsigned int i
-    vector3d out
-    
-  out.x = v[0,0]
-  out.y = v[0,1]
-  out.z = v[0,2]
-  for i in range(1,v.shape[0]):
-    if v[i,0] < out.x:
-      out.x = v[i,0] 
-
-    if v[i,1] < out.y:
-      out.y = v[i,1] 
-
-    if v[i,2] < out.z:
-      out.z = v[i,2] 
-
-  out.x -= 1.23456789# + rand()*1.0/RAND_MAX
-  out.y -= 2.34567891# + rand()*1.0/RAND_MAX
-  out.z -= 3.45678912# + rand()*1.0/RAND_MAX
-  return out
-
-
-## 2D point in polygon functions
-#####################################################################
 @cdivision(True)
 cdef bint is_intersecting_2d(segment2d seg1,
                              segment2d seg2) nogil:
@@ -312,20 +219,19 @@ cdef bint is_intersecting_2d(segment2d seg1,
   two segments touch
   '''
   cdef:
-    double proj1,proj2
-    vector2d pnt
-    vector2d n
+    double proj1, proj2
+    vector2d pnt, norm
     vector1d pnt_proj
     segment1d seg_proj
 
   # find the normal vector components for segment 2
-  n = segment_normal_2d(seg2)
+  norm = segment_normal_2d(seg2)
 
   # project both points in segment 1 onto the normal vector
-  proj1 = ((seg1.a.x-seg2.a.x)*n.x +
-           (seg1.a.y-seg2.a.y)*n.y)
-  proj2 = ((seg1.b.x-seg2.a.x)*n.x +
-           (seg1.b.y-seg2.a.y)*n.y)
+  proj1 = ((seg1.a.x - seg2.a.x)*norm.x +
+           (seg1.a.y - seg2.a.y)*norm.y)
+  proj2 = ((seg1.b.x - seg2.a.x)*norm.x +
+           (seg1.b.y - seg2.a.y)*norm.y)
 
   if proj1*proj2 > 0:
     return False
@@ -336,361 +242,62 @@ cdef bint is_intersecting_2d(segment2d seg1,
 
   # find the point where segment 1 intersects the line overlapping 
   # segment 2 
-  pnt.x = seg1.a.x + (proj1/(proj1-proj2))*(
-          (seg1.b.x-seg1.a.x))
-  pnt.y = seg1.a.y + (proj1/(proj1-proj2))*(
-          (seg1.b.y-seg1.a.y))
+  pnt.x = seg1.a.x + (proj1/(proj1 - proj2))*(seg1.b.x - seg1.a.x)
+  pnt.y = seg1.a.y + (proj1/(proj1 - proj2))*(seg1.b.y - seg1.a.y)
 
   # if the normal x component is larger then compare y values
-  if fabs(n.x) >= fabs(n.y):
+  if fabs(norm.x) >= fabs(norm.y):
     pnt_proj.x = pnt.y    
     seg_proj.a.x = seg2.a.y
     seg_proj.b.x = seg2.b.y
-    return point_in_segment(pnt_proj,seg_proj)
+    return point_in_segment(pnt_proj, seg_proj)
 
   else:
     pnt_proj.x = pnt.x
     seg_proj.a.x = seg2.a.x
     seg_proj.b.x = seg2.b.x
-    return point_in_segment(pnt_proj,seg_proj)
+    return point_in_segment(pnt_proj, seg_proj)
 
 
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_count_2d(double[:,:] start_pnts,
-                                      double[:,:] end_pnts,
-                                      double[:,:] vertices,
-                                      long[:,:] simplices):
-  ''' 
-  Returns an array containing the number of simplices intersected 
-  between start_pnts and end_pnts. This is parallelizable.
-  '''
-  cdef:
-    int i
-    int N = start_pnts.shape[0]
-    long[:] out = np.empty((N,),dtype=int,order='c')
-    segment2d seg 
-    
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    out[i] = _intersection_count_2d(seg,vertices,simplices)
-
-  return np.asarray(out,dtype=int)
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef int _intersection_count_2d(segment2d seg1,
-                                double[:,:] vertices,
-                                long[:,:] simplices) nogil:
-  cdef:
-    unsigned int i
-    unsigned int count = 0
-    segment2d seg2
-
-  for i in range(simplices.shape[0]):
-    seg2.a.x = vertices[simplices[i,0],0]
-    seg2.a.y = vertices[simplices[i,0],1]
-    seg2.b.x = vertices[simplices[i,1],0]
-    seg2.b.y = vertices[simplices[i,1],1]
-    if is_intersecting_2d(seg1,seg2):
-      count += 1
-
-  return count
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_index_2d(double[:,:] start_pnts,
-                                      double[:,:] end_pnts,
-                                      double[:,:] vertices,
-                                      long[:,:] simplices):
-  ''' 
-  Returns an array identifying which simplex is intersected by
-  start_pnts and end_pnts. 
-
-  Notes
-  -----
-  if there is no intersection then a ValueError is returned. Since an 
-  error could potentially be returned, this is not parallelizable.
-
-  '''
-  cdef:
-    int i
-    int N = start_pnts.shape[0]
-    long[:] out = np.empty((N,),dtype=int,order='c')
-    segment2d seg 
-    
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    out[i] = _intersection_index_2d(seg,vertices,simplices)
-
-  return np.asarray(out)
-
-
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef int _intersection_index_2d(segment2d seg1,
-                                double[:,:] vertices,
-                                long[:,:] simplices) except *:
-  cdef:
-    int i
-    int out = -1
-    double proj1,proj2,t
-    double closest = 999.9
-    segment2d seg2
-    vector2d n
-  
-  for i in range(simplices.shape[0]):
-    seg2.a.x = vertices[simplices[i,0],0]
-    seg2.a.y = vertices[simplices[i,0],1]
-    seg2.b.x = vertices[simplices[i,1],0]
-    seg2.b.y = vertices[simplices[i,1],1]
-    if is_intersecting_2d(seg1,seg2):
-      # the intersecting segment should be the first segment 
-      # intersected when going from seg1.a to seg1.b
-      n = segment_normal_2d(seg2) 
-      proj1 = ((seg1.a.x-seg2.a.x)*n.x +
-               (seg1.a.y-seg2.a.y)*n.y)
-      proj2 = ((seg1.b.x-seg2.a.x)*n.x +
-               (seg1.b.y-seg2.a.y)*n.y)
-      # t is a scalar between 0 and 1. If t=0 then the intersection is 
-      # at seg1.a and if t=1 then the intersection is at seg1.b
-      t = proj1/(proj1-proj2)
-      if t < closest:
-        closest = t
-        out = i
-
-  if out == -1:
-    # out is -1 iff no intersection was found
-    raise ValueError('No intersection found for segment [[%s,%s],[%s,%s]]' % 
-                     (seg1.a.x,seg1.a.y,seg1.b.x,seg1.b.y))
-
-  return out
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_point_2d(double[:,:] start_pnts,
-                                      double[:,:] end_pnts,
-                                      double[:,:] vertices,
-                                      long[:,:] simplices):         
-  ''' 
-  Returns an array of intersection points between the line segments, 
-  defined in terms of start_pnts and end_pnts, and the simplices.
-
-  Notes
-  -----
-  if there is no intersection then a ValueError is returned.
-  '''
-  cdef:
-    int i
-    int N = start_pnts.shape[0]
-    double[:,:] out = np.empty((N,2),dtype=float,order='c')
-    segment2d seg
-    vector2d vec
-
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    vec = _intersection_point_2d(seg,vertices,simplices)
-    out[i,0] = vec.x
-    out[i,1] = vec.y
-
-  return np.asarray(out)
-
-
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef vector2d _intersection_point_2d(segment2d seg1,
-                                     double[:,:] vertices,
-                                     long[:,:] simplices) except *:
-  cdef:
-    int idx
-    double proj1,proj2
-    segment2d seg2
-    vector2d out,n
-    
-
-  idx = _intersection_index_2d(seg1,vertices,simplices)
-  seg2.a.x = vertices[simplices[idx,0],0]
-  seg2.a.y = vertices[simplices[idx,0],1]
-  seg2.b.x = vertices[simplices[idx,1],0]
-  seg2.b.y = vertices[simplices[idx,1],1]
-
-  n = segment_normal_2d(seg2) 
-
-  proj1 = ((seg1.a.x-seg2.a.x)*n.x +
-           (seg1.a.y-seg2.a.y)*n.y)
-  proj2 = ((seg1.b.x-seg2.a.x)*n.x +
-           (seg1.b.y-seg2.a.y)*n.y)
-
-  out.x = seg1.a.x + (proj1/(proj1-proj2))*(seg1.b.x-seg1.a.x)
-  out.y = seg1.a.y + (proj1/(proj1-proj2))*(seg1.b.y-seg1.a.y)
-
-  return out
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_normal_2d(double[:,:] start_pnts,
-                                       double[:,:] end_pnts,
-                                       double[:,:] vertices,
-                                       long[:,:] simplices):         
-  ''' 
-  Returns an array of normal vectors to the simplices intersected by
-  the line segments 
-
-  Notes
-  -----
-  if there is not intersection then a ValueError is returned
-
-  '''
-  cdef:
-    int i
-    int N = start_pnts.shape[0]
-    double[:,:] out = np.empty((N,2),dtype=float,order='c')
-    segment2d seg
-    vector2d vec
-
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    vec = _intersection_normal_2d(seg,vertices,simplices)
-    out[i,0] = vec.x
-    out[i,1] = vec.y
-    
-  return np.asarray(out)  
-
-
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef vector2d _intersection_normal_2d(segment2d seg1,
-                                      double[:,:] vertices,
-                                      long[:,:] simplices) except *:      
-  cdef:
-    double proj,mag
-    int idx
-    segment2d seg2
-    vector2d n
-
-  idx = _intersection_index_2d(seg1,vertices,simplices)
-  seg2.a.x = vertices[simplices[idx,0],0]
-  seg2.a.y = vertices[simplices[idx,0],1]
-  seg2.b.x = vertices[simplices[idx,1],0]
-  seg2.b.y = vertices[simplices[idx,1],1]
-
-  n = segment_normal_2d(seg2)
-
-  proj = ((seg1.b.x-seg2.a.x)*n.x +
-          (seg1.b.y-seg2.a.y)*n.y)
-
-  # This ensures that the normal vector points in the direction of seg1
-  if proj < 0:
-    n.x *= -1
-    n.y *= -1
-
-  # normalize the normal vector to 1
-  mag = sqrt(n.x**2 + n.y**2)
-  n.x /= mag
-  n.y /= mag
-
-  return n
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray contains_2d(double[:,:] pnt,
-                            double[:,:] vertices,
-                            long[:,:] simplices):
-  ''' 
-  Returns a boolean array identifying which points are contained in 
-  the closed simplicial complex described by vertices and simplices
-  '''
-  cdef:
-    int count,i
-    int N = pnt.shape[0]
-    long[:] out = np.empty((N,),dtype=int,order='c') 
-    segment2d seg
-    vector2d outside_pnt
-
-  outside_pnt = find_outside_2d(vertices)
-  for i in range(N):
-    seg.a.x = outside_pnt.x
-    seg.a.y = outside_pnt.y
-    seg.b.x = pnt[i,0]
-    seg.b.y = pnt[i,1]
-    count = _intersection_count_2d(seg,vertices,simplices)
-    out[i] = count%2
-    
-  return np.asarray(out,dtype=bool)
-
-
-## 3D point in polygon functions
-#####################################################################
-@boundscheck(False)
-@wraparound(False)
 @cdivision(True)
 cdef bint is_intersecting_3d(segment3d seg,
                              triangle3d tri) nogil:
   ''' 
-  Returns True if the 3D segment intersects the 3D triangle. An 
-  intersection is detected if the segment and triangle are not 
-  coplanar and if any part of the segment touches the triangle at an 
+  Identifies whether a 3D segment intersects a 3D triangle. An
+  intersection is detected if the segment and triangle are not
+  coplanar and if any part of the segment touches the triangle at an
   edge or in the interior.
-
-  Notes
-  -----
-  This function determines where the segment intersects the plane
-  containing the triangle and then projects the intersection point
-  and triangle into a 2D plane where the point is then tested if it
-  is within the triangle.
-
   '''
   cdef:
-    vector3d pnt,n
+    double proj1, proj2
+    vector3d pnt, norm
     vector2d pnt_proj
     triangle2d tri_proj
-    double proj1,proj2
 
   # find triangle normal vector components
-  n = triangle_normal_3d(tri)
+  norm = triangle_normal_3d(tri)
 
-  proj1 = ((seg.a.x-tri.a.x)*n.x + 
-           (seg.a.y-tri.a.y)*n.y +
-           (seg.a.z-tri.a.z)*n.z)
-  proj2 = ((seg.b.x-tri.a.x)*n.x + 
-           (seg.b.y-tri.a.y)*n.y +
-           (seg.b.z-tri.a.z)*n.z)
+  proj1 = ((seg.a.x - tri.a.x)*norm.x + 
+           (seg.a.y - tri.a.y)*norm.y +
+           (seg.a.z - tri.a.z)*norm.z)
+  proj2 = ((seg.b.x - tri.a.x)*norm.x + 
+           (seg.b.y - tri.a.y)*norm.y +
+           (seg.b.z - tri.a.z)*norm.z)
 
   if proj1*proj2 > 0:
     return False
 
-  # coplanar segments will always return false
-  # There is a possibility that the segment touches
-  # one point on the triangle
+  # coplanar segments will always return false There is a possibility
+  # that the segment touches one point on the triangle
   if (proj1 == 0) & (proj2 == 0):
     return False
 
   # intersection point
-  pnt.x = seg.a.x + (proj1/(proj1-proj2))*(seg.b.x-seg.a.x)
-  pnt.y = seg.a.y + (proj1/(proj1-proj2))*(seg.b.y-seg.a.y)
-  pnt.z = seg.a.z + (proj1/(proj1-proj2))*(seg.b.z-seg.a.z)
+  pnt.x = seg.a.x + (proj1/(proj1 - proj2))*(seg.b.x - seg.a.x)
+  pnt.y = seg.a.y + (proj1/(proj1 - proj2))*(seg.b.y - seg.a.y)
+  pnt.z = seg.a.z + (proj1/(proj1 - proj2))*(seg.b.z - seg.a.z)
 
-  if (fabs(n.x) >= fabs(n.y)) & (fabs(n.x) >= fabs(n.z)):
+  if (fabs(norm.x) >= fabs(norm.y)) & (fabs(norm.x) >= fabs(norm.z)):
     pnt_proj.x = pnt.y
     pnt_proj.y = pnt.z
     tri_proj.a.x = tri.a.y
@@ -699,9 +306,9 @@ cdef bint is_intersecting_3d(segment3d seg,
     tri_proj.b.y = tri.b.z
     tri_proj.c.x = tri.c.y
     tri_proj.c.y = tri.c.z
-    return point_in_triangle(pnt_proj,tri_proj)
+    return point_in_triangle(pnt_proj, tri_proj)
 
-  elif (fabs(n.y) >= fabs(n.x)) & (fabs(n.y) >= fabs(n.z)):
+  elif (fabs(norm.y) >= fabs(norm.x)) & (fabs(norm.y) >= fabs(norm.z)):
     pnt_proj.x = pnt.x
     pnt_proj.y = pnt.z
     tri_proj.a.x = tri.a.x
@@ -710,9 +317,9 @@ cdef bint is_intersecting_3d(segment3d seg,
     tri_proj.b.y = tri.b.z
     tri_proj.c.x = tri.c.x
     tri_proj.c.y = tri.c.z
-    return point_in_triangle(pnt_proj,tri_proj)
+    return point_in_triangle(pnt_proj, tri_proj)
 
-  elif (fabs(n.z) >= fabs(n.x)) & (fabs(n.z) >= fabs(n.y)):
+  elif (fabs(norm.z) >= fabs(norm.x)) & (fabs(norm.z) >= fabs(norm.y)):
     pnt_proj.x = pnt.x
     pnt_proj.y = pnt.y
     tri_proj.a.x = tri.a.x
@@ -721,578 +328,310 @@ cdef bint is_intersecting_3d(segment3d seg,
     tri_proj.b.y = tri.b.y
     tri_proj.c.x = tri.c.x
     tri_proj.c.y = tri.c.y
-    return point_in_triangle(pnt_proj,tri_proj)
+    return point_in_triangle(pnt_proj, tri_proj)
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef np.ndarray intersection_count_3d(double[:,:] start_pnts,
-                                      double[:,:] end_pnts,                         
-                                      double[:,:] vertices,
-                                      long[:,:] simplices):
+def intersection_count_2d(double[:, :] start_pnts,
+                          double[:, :] end_pnts,
+                          double[:, :] vertices,
+                          long[:, :] simplices):
+  ''' 
+  Returns an array containing the number of simplices intersected
+  between start_pnts and end_pnts. This is parallelizable.
+  '''
+  cdef:
+    unsigned int i, j
+    unsigned int N = start_pnts.shape[0]
+    unsigned int M = simplices.shape[0]
+    long[:] out = np.zeros((N,), dtype=int, order='c')
+    segment2d seg1, seg2
+    
+  for i in range(N):
+    seg1.a.x = start_pnts[i, 0]
+    seg1.a.y = start_pnts[i, 1]
+    seg1.b.x = end_pnts[i, 0]
+    seg1.b.y = end_pnts[i, 1]
+    for j in range(M):
+      seg2.a.x = vertices[simplices[j, 0], 0]
+      seg2.a.y = vertices[simplices[j, 0], 1]
+      seg2.b.x = vertices[simplices[j, 1], 0]
+      seg2.b.y = vertices[simplices[j, 1], 1]
+      if is_intersecting_2d(seg1, seg2):
+        out[i] += 1
+
+  return np.asarray(out)
+
+
+@boundscheck(False)
+@wraparound(False)
+def intersection_count_3d(double[:, :] start_pnts,
+                          double[:, :] end_pnts,                         
+                          double[:, :] vertices,
+                          long[:, :] simplices):
   ''' 
   Returns an array of the number of intersections between each line
   segment, described by start_pnts and end_pnts, and the simplices
   '''
   cdef:
-    int i
+    int i, j
     int N = start_pnts.shape[0]
-    long[:] out = np.empty((N,),dtype=int,order='c')
+    int M = simplices.shape[0]
+    long[:] out = np.zeros((N,), dtype=int, order='c')
     segment3d seg
+    triangle3d tri
 
   for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.a.z = start_pnts[i,2]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    seg.b.z = end_pnts[i,2]
-    out[i] = _intersection_count_3d(seg,vertices,simplices)
+    seg.a.x = start_pnts[i, 0]
+    seg.a.y = start_pnts[i, 1]
+    seg.a.z = start_pnts[i, 2]
+    seg.b.x = end_pnts[i, 0]
+    seg.b.y = end_pnts[i, 1]
+    seg.b.z = end_pnts[i, 2]
+    for j in range(M):
+      tri.a.x = vertices[simplices[j, 0], 0]
+      tri.a.y = vertices[simplices[j, 0], 1]
+      tri.a.z = vertices[simplices[j, 0], 2]
+      tri.b.x = vertices[simplices[j, 1], 0]
+      tri.b.y = vertices[simplices[j, 1], 1]
+      tri.b.z = vertices[simplices[j, 1], 2]
+      tri.c.x = vertices[simplices[j, 2], 0]
+      tri.c.y = vertices[simplices[j, 2], 1]
+      tri.c.z = vertices[simplices[j, 2], 2]
+      if is_intersecting_3d(seg, tri):
+        out[i] += 1
 
   return np.asarray(out)  
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef int _intersection_count_3d(segment3d seg,
-                                double[:,:] vertices,
-                                long[:,:] simplices) nogil:
-  cdef:
-    unsigned int i
-    unsigned int count = 0
-    triangle3d tri
-
-  for i in range(simplices.shape[0]):
-    tri.a.x = vertices[simplices[i,0],0]
-    tri.a.y = vertices[simplices[i,0],1]
-    tri.a.z = vertices[simplices[i,0],2]
-    tri.b.x = vertices[simplices[i,1],0]
-    tri.b.y = vertices[simplices[i,1],1]
-    tri.b.z = vertices[simplices[i,1],2]
-    tri.c.x = vertices[simplices[i,2],0]
-    tri.c.y = vertices[simplices[i,2],1]
-    tri.c.z = vertices[simplices[i,2],2]
-    if is_intersecting_3d(seg,tri):
-      count += 1
-
-  return count
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_index_3d(double[:,:] start_pnts,
-                                      double[:,:] end_pnts,                         
-                                      double[:,:] vertices,
-                                      long[:,:] simplices):
+@cdivision(True)
+def intersection_2d(double[:, :] start_pnts,
+                    double[:, :] end_pnts,
+                    double[:, :] vertices,
+                    long[:, :] simplices):
   ''' 
-  Returns an array identifying which simplex is intersected by
-  start_pnts and end_pnts. 
+  Returns the intersection point and the simplex being intersected by
+  the segment defined by `start_pnts` and `end_pnts`.
 
   Notes
   -----
-  if there is no intersection then a ValueError is returned.
-
+  if there is no intersection then a ValueError is returned. If there
+  are multiple intersections, then the intersection closest to
+  `start_pnts` will be returned.
   '''
-
   cdef:
-    int i
-    int N = start_pnts.shape[0]
-    long[:] out = np.empty((N,),dtype=int,order='c')
-    segment3d seg
-
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.a.z = start_pnts[i,2]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    seg.b.z = end_pnts[i,2]
-    out[i] = _intersection_index_3d(seg,vertices,simplices)
+    unsigned int i, j
+    unsigned int N = start_pnts.shape[0]
+    unsigned int M = simplices.shape[0]
+    long[:] out_idx = np.empty((N,), dtype=int, order='c')
+    double[:, :] out_pnt = np.empty((N, 2), dtype=float, order='c')
+    double proj1, proj2, t, tmin
+    bint found_intersection
+    segment2d seg1, seg2 
+    vector2d norm
     
-  return np.asarray(out)  
+  for i in range(N):
+    seg1.a.x = start_pnts[i, 0]
+    seg1.a.y = start_pnts[i, 1]
+    seg1.b.x = end_pnts[i, 0]
+    seg1.b.y = end_pnts[i, 1]
+    found_intersection = False
+    tmin = INFINITY
+    for j in range(M):
+      seg2.a.x = vertices[simplices[j, 0], 0]
+      seg2.a.y = vertices[simplices[j, 0], 1]
+      seg2.b.x = vertices[simplices[j, 1], 0]
+      seg2.b.y = vertices[simplices[j, 1], 1]
+      if is_intersecting_2d(seg1, seg2):
+        found_intersection = True
+        # the intersecting segment should be the first segment
+        # intersected when going from seg1.a to seg1.b
+        norm = segment_normal_2d(seg2) 
+        proj1 = ((seg1.a.x - seg2.a.x)*norm.x +
+                 (seg1.a.y - seg2.a.y)*norm.y)
+        proj2 = ((seg1.b.x - seg2.a.x)*norm.x +
+                 (seg1.b.y - seg2.a.y)*norm.y)
+        # t is a scalar between 0 and 1. If t=0 then the intersection
+        # is at seg1.a and if t=1 then the intersection is at seg1.b
+        t = proj1/(proj1 - proj2)
+        if t < tmin:
+          tmin = t
+          out_idx[i] = j
+          out_pnt[i, 0] = seg1.a.x + t*(seg1.b.x - seg1.a.x)
+          out_pnt[i, 1] = seg1.a.y + t*(seg1.b.y - seg1.a.y)
+
+    if not found_intersection:
+      raise ValueError(
+        'No intersection was found for segment [[%s, %s], [%s, %s]]' % 
+        (seg1.a.x, seg1.a.y, seg1.b.x, seg1.b.y))
+
+  return np.asarray(out_pnt), np.asarray(out_idx)  
 
 
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-cdef int _intersection_index_3d(segment3d seg,
-                                double[:,:] vertices,
-                                long[:,:] simplices) except *:         
-  cdef:
-    int i
-    int out = -1
-    int N = simplices.shape[0]
-    triangle3d tri
-    double proj1,proj2,t
-    double closest = 999.9
-    vector3d n
-    
-  for i in range(N):
-    tri.a.x = vertices[simplices[i,0],0]
-    tri.a.y = vertices[simplices[i,0],1]
-    tri.a.z = vertices[simplices[i,0],2]
-    tri.b.x = vertices[simplices[i,1],0]
-    tri.b.y = vertices[simplices[i,1],1]
-    tri.b.z = vertices[simplices[i,1],2]
-    tri.c.x = vertices[simplices[i,2],0]
-    tri.c.y = vertices[simplices[i,2],1]
-    tri.c.z = vertices[simplices[i,2],2]
-    if is_intersecting_3d(seg,tri):
-      n = triangle_normal_3d(tri)
-      proj1 = ((seg.a.x-tri.a.x)*n.x + 
-               (seg.a.y-tri.a.y)*n.y +
-               (seg.a.z-tri.a.z)*n.z)
-      proj2 = ((seg.b.x-tri.a.x)*n.x + 
-               (seg.b.y-tri.a.y)*n.y +
-               (seg.b.z-tri.a.z)*n.z)
-      # t is a scalar between 0 and 1. If t=0 then the intersection is 
-      # at seg1.a and if t=1 then the intersection is at seg1.b
-      t = proj1/(proj1-proj2)
-      if t < closest:
-        closest = t
-        out = i
-
-  if out == -1:
-    # out is -1 iff it has never been changed and no intersection was found
-    raise ValueError('No intersection found for segment [[%s,%s,%s],[%s,%s,%s]]' % 
-                     (seg.a.x,seg.a.y,seg.a.z,seg.b.x,seg.b.y,seg.b.z))
-
-  return out
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_point_3d(double[:,:] start_pnts,
-                                      double[:,:] end_pnts,
-                                      double[:,:] vertices,
-                                      long[:,:] simplices):         
+def intersection_3d(double[:, :] start_pnts,
+                    double[:, :] end_pnts,                         
+                    double[:, :] vertices,
+                    long[:, :] simplices):
   ''' 
-  Returns the intersection points between the line segments,
-  described by start_pnts and end_pnts, and the simplices
+  Returns the intersection point and the simplex being intersected by
+  the segment defined by `start_pnts` and `end_pnts`.
 
   Notes
   -----
-  if there is no intersection then a ValueError is returned.
-
+  if there is no intersection then a ValueError is returned. If there
+  are multiple intersections, then the intersection closest to
+  `start_pnts` will be returned.
   '''
   cdef:
-    int i
+    int i, j
     int N = start_pnts.shape[0]
-    double[:,:] out = np.empty((N,3),dtype=float,order='c')
-    vector3d vec
+    int M = simplices.shape[0]
+    double proj1, proj2, t, tmin
+    bint found_intersection
+    long[:] out_idx = np.empty((N,), dtype=int, order='c')
+    double[:, :] out_pnt = np.empty((N, 3), dtype=float, order='c')
     segment3d seg
-
-  for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.a.z = start_pnts[i,2]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    seg.b.z = end_pnts[i,2]
-    vec = _intersection_point_3d(seg,vertices,simplices)
-    out[i,0] = vec.x
-    out[i,1] = vec.y
-    out[i,2] = vec.z
-
-  return np.asarray(out)
-
-
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef vector3d _intersection_point_3d(segment3d seg,
-                                     double[:,:] vertices,
-                                     long[:,:] simplices) except *:         
-  cdef:
-    double proj1,proj2
-    int idx
-    vector3d n
     triangle3d tri
-    vector3d out 
-
-  idx = _intersection_index_3d(seg,vertices,simplices)
-  tri.a.x = vertices[simplices[idx,0],0]
-  tri.a.y = vertices[simplices[idx,0],1]
-  tri.a.z = vertices[simplices[idx,0],2]
-  tri.b.x = vertices[simplices[idx,1],0]
-  tri.b.y = vertices[simplices[idx,1],1]
-  tri.b.z = vertices[simplices[idx,1],2]
-  tri.c.x = vertices[simplices[idx,2],0]
-  tri.c.y = vertices[simplices[idx,2],1]
-  tri.c.z = vertices[simplices[idx,2],2]
-
-  n = triangle_normal_3d(tri)
-
-  proj1 = ((seg.a.x-tri.a.x)*n.x +
-           (seg.a.y-tri.a.y)*n.y +
-           (seg.a.z-tri.a.z)*n.z)
-  proj2 = ((seg.b.x-tri.a.x)*n.x +
-           (seg.b.y-tri.a.y)*n.y +
-           (seg.b.z-tri.a.z)*n.z)
-
-  out.x = seg.a.x + (proj1/(proj1-proj2))*(seg.b.x-seg.a.x)
-  out.y = seg.a.y + (proj1/(proj1-proj2))*(seg.b.y-seg.a.y)
-  out.z = seg.a.z + (proj1/(proj1-proj2))*(seg.b.z-seg.a.z)
-
-  return out
-
-
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray intersection_normal_3d(double[:,:] start_pnts,
-                                       double[:,:] end_pnts,
-                                       double[:,:] vertices,
-                                       long[:,:] simplices):
-  ''' 
-  Returns the normal vectors to the simplices intersected by 
-  start_pnts and end_pnts
-
-  Notes
-  -----
-  if there is no intersection then a ValueError is returned.
-
-  '''
-
-  cdef:
-    int i
-    int N = start_pnts.shape[0]
-    double[:,:] out = np.empty((N,3),dtype=float,order='c')
-    segment3d seg
-    vector3d vec
+    vector3d norm
 
   for i in range(N):
-    seg.a.x = start_pnts[i,0]
-    seg.a.y = start_pnts[i,1]
-    seg.a.z = start_pnts[i,2]
-    seg.b.x = end_pnts[i,0]
-    seg.b.y = end_pnts[i,1]
-    seg.b.z = end_pnts[i,2]
-    vec = _intersection_normal_3d(seg,vertices,simplices)
-    out[i,0] = vec.x
-    out[i,1] = vec.y
-    out[i,2] = vec.z
+    seg.a.x = start_pnts[i, 0]
+    seg.a.y = start_pnts[i, 1]
+    seg.a.z = start_pnts[i, 2]
+    seg.b.x = end_pnts[i, 0]
+    seg.b.y = end_pnts[i, 1]
+    seg.b.z = end_pnts[i, 2]
+    tmin = INFINITY        
+    found_intersection = False
+    for j in range(M):
+      tri.a.x = vertices[simplices[j, 0], 0]
+      tri.a.y = vertices[simplices[j, 0], 1]
+      tri.a.z = vertices[simplices[j, 0], 2]
+      tri.b.x = vertices[simplices[j, 1], 0]
+      tri.b.y = vertices[simplices[j, 1], 1]
+      tri.b.z = vertices[simplices[j, 1], 2]
+      tri.c.x = vertices[simplices[j, 2], 0]
+      tri.c.y = vertices[simplices[j, 2], 1]
+      tri.c.z = vertices[simplices[j, 2], 2]
+      if is_intersecting_3d(seg, tri):
+        found_intersection = True
+        norm = triangle_normal_3d(tri)
+        proj1 = ((seg.a.x - tri.a.x)*norm.x + 
+                 (seg.a.y - tri.a.y)*norm.y +
+                 (seg.a.z - tri.a.z)*norm.z)
+        proj2 = ((seg.b.x - tri.a.x)*norm.x + 
+                 (seg.b.y - tri.a.y)*norm.y +
+                 (seg.b.z - tri.a.z)*norm.z)
+        # t is a scalar between 0 and 1. If t=0 then the intersection is 
+        # at seg1.a and if t=1 then the intersection is at seg1.b
+        t = proj1/(proj1 - proj2)
+        if t < tmin:
+          tmin = t
+          out_idx[i] = j
+          out_pnt[i, 0] = seg.a.x + t*(seg.b.x - seg.a.x)
+          out_pnt[i, 1] = seg.a.y + t*(seg.b.y - seg.a.y)
+          out_pnt[i, 2] = seg.a.z + t*(seg.b.z - seg.a.z)
 
-  return np.asarray(out)
+    if not found_intersection:
+      raise ValueError(
+        'No intersection was found for segment '
+        '[[%s, %s, %s], [%s, %s, %s]]' % 
+        (seg.a.x, seg.a.y, seg.a.z, seg.b.x, seg.b.y, seg.b.z))
 
-
-@boundscheck(False)
-@wraparound(False)
-@cdivision(True)
-cdef vector3d _intersection_normal_3d(segment3d seg,
-                                      double[:,:] vertices,
-                                      long[:,:] simplices) except *:
-  cdef:
-    double proj,mag
-    int idx
-    triangle3d tri
-    vector3d n
-
-  idx = _intersection_index_3d(seg,vertices,simplices)
-  tri.a.x = vertices[simplices[idx,0],0]
-  tri.a.y = vertices[simplices[idx,0],1]
-  tri.a.z = vertices[simplices[idx,0],2]
-  tri.b.x = vertices[simplices[idx,1],0]
-  tri.b.y = vertices[simplices[idx,1],1]
-  tri.b.z = vertices[simplices[idx,1],2]
-  tri.c.x = vertices[simplices[idx,2],0]
-  tri.c.y = vertices[simplices[idx,2],1]
-  tri.c.z = vertices[simplices[idx,2],2]
-
-  n = triangle_normal_3d(tri)
-
-  proj = ((seg.b.x-tri.a.x)*n.x +
-          (seg.b.y-tri.a.y)*n.y +
-          (seg.b.z-tri.a.z)*n.z)
-
-  # ensures that normal points in the direction of the segment
-  if proj < 0:
-    n.x *= -1
-    n.y *= -1
-    n.z *= -1
-
-  mag = sqrt(n.x**2 + n.y**2 + n.z**2)
-  n.x /= mag
-  n.y /= mag
-  n.z /= mag
-
-  return n
+  return np.asarray(out_pnt), np.asarray(out_idx)  
 
 
-@boundscheck(False)
-@wraparound(False)
-cdef np.ndarray contains_3d(double[:,:] pnt,
-                            double[:,:] vertices,
-                            long[:,:] simplices):
+# end-user functions
+####################################################################
+def intersection(start_points, end_points, vertices, simplices):
   ''' 
-  Returns a boolean array identifying whether the points are contained 
-  within the closed simplicial complex described by vertices and 
-  simplices
-  '''
-  cdef:
-    int count,i
-    int N = pnt.shape[0]
-    long[:] out = np.empty((N,),dtype=int,order='c') 
-    segment3d seg
-    vector3d outside_pnt
-
-  outside_pnt = find_outside_3d(vertices)
-  for i in range(N):
-    seg.a.x = outside_pnt.x
-    seg.a.y = outside_pnt.y
-    seg.a.z = outside_pnt.z
-    seg.b.x = pnt[i,0]
-    seg.b.y = pnt[i,1]
-    seg.b.z = pnt[i,2]
-    count = _intersection_count_3d(seg,vertices,simplices)
-    out[i] = count%2
-    
-  return np.asarray(out,dtype=bool)
-
-## end-user functions
-#####################################################################
-def intersection_point(start_points,end_points,vertices,simplices):
-  ''' 
-  Returns the intersection points between line segments and a 
-  simplicial complex.  The line segments are described by 
-  `start_points` and `end_points`, and the simplicial complex is 
-  described by `vertices` and `simplices`. This function works for 1, 
-  2, and 3 spatial dimensions.
+  Returns the intersection between line segments and a simplicial
+  complex.  The line segments are described by `start_points` and
+  `end_points`, and the simplicial complex is described by `vertices`
+  and `simplices`. This function works for 2 and 3 spatial dimensions.
 
   Parameters
   ----------
-  start_points : (N,D) array
-    Vertices describing one end of the line segments. `N` is the 
+  start_points : (N, D) float array
+    Vertices describing one end of the line segments. `N` is the
     number of line segments and `D` is the number of dimensions
 
-  end_points : (N,D) array 
+  end_points : (N, D) float array 
     Vertices describing the other end of the line segments. 
 
-  vertices : (M,D) array 
+  vertices : (M, D) float array 
     Vertices within the simplicial complex. M is the number of 
     vertices.
 
-  simplices : (P,D) array
+  simplices : (P, D) int array
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
   Returns
   -------
-  out : (N,D) array
-    intersection points    
+  out : (N, D) float array
+    The points where the line segments intersect the simplicial
+    complex
 
-  Notes
-  -----
-  This function fails when a intersection is not found for a line 
-  segment. If there are multiple intersections then the intersection 
-  closest to start_point is used.
-
-  '''
-  start_points = np.asarray(start_points,dtype=float)
-  end_points = np.asarray(end_points,dtype=float)
-  vertices = np.asarray(vertices,dtype=float)
-  simplices = np.asarray(simplices,dtype=int)
-  if not (start_points.shape[1] == end_points.shape[1]):
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[1] == vertices.shape[1]):
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[0] == end_points.shape[0]):
-    raise ValueError('start points and end points must have the same length')
-
-  dim = start_points.shape[1]
-  if dim == 1:
-    crossed_idx = intersection_index(start_points,end_points,vertices,simplices)
-    vert = vertices[simplices[:,0]]
-    out = vert[crossed_idx]
-
-  elif dim == 2:
-    out = intersection_point_2d(start_points,end_points,vertices,simplices)
-
-  elif dim == 3:
-    out = intersection_point_3d(start_points,end_points,vertices,simplices)
-
-  else:
-    raise ValueError(
-      'intersections can only be found for a 1, 2, or 3 dimensional '
-      'simplicial complex')
-      
-  return out
-
-
-def intersection_normal(start_points,end_points,vertices,simplices):
-  ''' 
-  Returns the normal vectors to the simplices intersected by the line 
-  segments. The line segments are described by `start_points` and 
-  `end_points`. This function works for 1, 2, and 3 spatial 
-  dimensions. The normal vector is in the direction that points 
-  towards end_points
-
-  Parameters
-  ----------
-  start_points : (N,D) array
-    Vertices describing one end of the line segments. `N` is the 
-    number of line segments and `D` is the number of dimensions.
-
-  end_points : (N,D) array 
-    Vertices describing the other end of the line segments.
-
-  vertices : (M,D) array 
-    Vertices within the simplicial complex. `M` is the number of 
-    vertices
-
-  simplices : (P,D) array
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  Returns
-  -------
-  out : (N,D) array
-    normal vectors
-
-  Notes
-  -----
-  This function fails when a intersection is not found for a line 
-  segment. If there are multiple intersections then the intersection 
-  closest to start_point is used.
-
-  '''
-  start_points = np.asarray(start_points,dtype=float)
-  end_points = np.asarray(end_points,dtype=float)
-  vertices = np.asarray(vertices,dtype=float)
-  simplices = np.asarray(simplices,dtype=int)
-  if not (start_points.shape[1] == end_points.shape[1]):
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[1] == vertices.shape[1]): 
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[0] == end_points.shape[0]):
-    raise ValueError('start points and end points must have the same length')
-
-  dim = start_points.shape[1]
-  if dim == 1:
-    out = np.ones(start_points.shape,dtype=float)
-    crossed_idx = intersection_index(start_points,end_points,vertices,simplices)
-    vert = vertices[simplices[:,0]]
-    crossed_vert = vert[crossed_idx]
-    out[crossed_vert < start_points] = -1.0
-
-  elif dim == 2:
-    out = intersection_normal_2d(start_points,end_points,vertices,simplices)
-
-  elif dim == 3:
-    out = intersection_normal_3d(start_points,end_points,vertices,simplices)
-
-  else:
-    raise ValueError(
-      'intersections can only be found for a 1, 2, or 3 dimensional '
-      'simplicial complex')
-
-  return out
-
-
-def intersection_index(start_points,end_points,vertices,simplices):
-  ''' 
-  Returns the indices of the simplices intersected by the line 
-  segments. The line segments are described by `start_points` and 
-  `end_points`. This function works for 1, 2, and 3 spatial 
-  dimensions. 
-
-  Parameters
-  ----------
-  start_points : (N,D) array
-    Vertices describing one end of the line segments. `N` is the 
-    number of line segments and `D` is the number of dimensions
-
-  end_points : (N,D) array 
-    Vertices describing the other end of the line segments
-
-  vertices : (M,D) array 
-    Vertices within the simplicial complex. `M` is the number of 
-    vertices
-
-  simplices : (P,D) array
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  Returns
-  -------
   out : (N,) int array
-    simplex indices 
+    The index of the simplex that the line segments intersect
 
   Notes
   -----
   This function fails when a intersection is not found for a line
-  segment. If there are multiple intersections then the intersection 
-  closest to `start_point` is used.
+  segment. If there are multiple intersections then the intersection
+  closest to start_point is used.
 
   '''
-  start_points = np.asarray(start_points,dtype=float)
-  end_points = np.asarray(end_points,dtype=float)
-  vertices = np.asarray(vertices,dtype=float)
-  simplices = np.asarray(simplices,dtype=int)
-  if not (start_points.shape[1] == end_points.shape[1]): 
-    raise ValueError('inconsistent spatial dimesions')
-
-  if not (start_points.shape[1] == vertices.shape[1]): 
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[0] == end_points.shape[0]): 
-    raise ValueError('start points and end points must have the same length')
+  start_points = np.asarray(start_points, dtype=float)
+  end_points = np.asarray(end_points, dtype=float)
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.asarray(simplices, dtype=int)
 
   dim = start_points.shape[1]
-  if dim == 1:
-    out = np.zeros(start_points.shape[0],dtype=int)
-    vert = vertices[simplices[:,0]]
-    proj1 = (start_points-vert.T) 
-    proj2 = (end_points-vert.T) 
-    # identify intersections in a manner that is consistent with the 
-    # 2d and 3d method
-    crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
-    for i in range(start_points.shape[0]):
-      # indices of all simplices crossed for segment i
-      crossed_idx, = np.nonzero(crossed_bool[i])
-      proj1i = proj1[i,crossed_idx]
-      proj2i = proj2[i,crossed_idx]
-      # find the intersection closest to start_point i
-      idx = np.argmin(proj1i/(proj1i-proj2i))
-      out[i] = crossed_idx[idx]
+  assert_shape(end_points, start_points.shape, 'end_points') 
+  assert_shape(vertices, (None, dim), 'vertices')
+  assert_shape(simplices, (None, dim), 'simplices')    
 
-  elif dim == 2:
-    out = intersection_index_2d(start_points,end_points,vertices,simplices)
+  if dim == 2:
+    out = intersection_2d(start_points, end_points, vertices, simplices)
 
   elif dim == 3:
-    out = intersection_index_3d(start_points,end_points,vertices,simplices)
+    out = intersection_3d(start_points, end_points, vertices, simplices)
 
   else:
     raise ValueError(
-      'intersections can only be found for a 1, 2, or 3 dimensional '
-      'simplicial complex')
-
+      'The number of spatial dimensions must be 2 or 3')
+      
   return out
 
 
-def intersection_count(start_points,end_points,vertices,simplices):
+def intersection_count(start_points, end_points, vertices, simplices):
   ''' 
-  Returns the number of simplices crossed by the line segments. The 
-  line segments are described by `start_points` and `end_points`. This 
-  function works for 1, 2, and 3 spatial dimensions.
+  Returns the number of simplices crossed by the line segments. The
+  line segments are described by `start_points` and `end_points`. This
+  function works for 2 and 3 spatial dimensions.
 
   Parameters
   ----------
-  start_points : (N,D) array
-    Vertices describing one end of the line segments. `N` is the 
+  start_points : (N, D) array
+    Vertices describing one end of the line segments. `N` is the
     number of line segments and `D` is the number of dimensions
 
-  end_points : (N,D) array 
+  end_points : (N, D) array 
     Vertices describing the other end of the line segments
 
-  vertices : (M,D) array 
+  vertices : (M, D) array 
     Vertices within the simplicial complex. `M` is the number of 
     vertices
 
-  simplices : (P,D) array
+  simplices : (P, D) array
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
@@ -1301,53 +640,41 @@ def intersection_count(start_points,end_points,vertices,simplices):
   out : (N,) int array
     intersection counts
 
-  Notes
-  -----
-  This function is parallelized. Set the number of threads used with 
-  the environment variable `OMP_NUM_THREADS`.
-
   '''
-  start_points = np.asarray(start_points,dtype=float)
-  end_points = np.asarray(end_points,dtype=float)
-  vertices = np.asarray(vertices,dtype=float)
-  simplices = np.asarray(simplices,dtype=int)
-  if not (start_points.shape[1] == end_points.shape[1]): 
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[1] == vertices.shape[1]): 
-    raise ValueError('inconsistent spatial dimensions')
-
-  if not (start_points.shape[0] == end_points.shape[0]):
-    raise ValueError('start points and end points must have the same length')
-
+  start_points = np.asarray(start_points, dtype=float)
+  end_points = np.asarray(end_points, dtype=float)
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.asarray(simplices, dtype=int)
+  
+  assert_shape(start_points, (None, None), 'start_points')
   dim = start_points.shape[1]
-  if dim == 1:
-    vert = vertices[simplices[:,0]]
-    proj1 = (start_points-vert.T) 
-    proj2 = (end_points-vert.T) 
-    crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
-    out = np.sum(crossed_bool,axis=1)
+  assert_shape(end_points, start_points.shape, 'end_points') 
+  assert_shape(vertices, (None, dim), 'vertices')
+  assert_shape(simplices, (None, dim), 'simplices')    
 
-  elif dim == 2:
-    out = intersection_count_2d(start_points,end_points,vertices,simplices)
-
+  if dim == 2:
+    out = intersection_count_2d(start_points,
+                                end_points, 
+                                vertices, 
+                                simplices)
   elif dim == 3:
-    out = intersection_count_3d(start_points,end_points,vertices,simplices)
-
+    out = intersection_count_3d(start_points, 
+                                end_points, 
+                                vertices, 
+                                simplices)
   else:
     raise ValueError(
-      'intersections can only be found for a 1, 2, or 3 dimensional '
-      'simplicial complex')
+      'The number of spatial dimensions must be 2 or 3')
 
   return out
 
 
-def contains(points,vertices,simplices):
+def contains(points, vertices, simplices):
   ''' 
-  Returns a boolean array identifying whether the points are contained 
-  within a closed simplicial complex. The simplicial complex is 
-  described by `vertices` and `simplices`. This function works for 1, 
-  2, and 3 spatial dimensions.
+  Returns a boolean array identifying whether the points are contained
+  within a closed simplicial complex. The simplicial complex is
+  described by `vertices` and `simplices`. This function works for 2
+  and 3 spatial dimensions.
 
   Parameters
   ----------
@@ -1380,178 +707,48 @@ def contains(points,vertices,simplices):
   This function does not require any particular orientation for the 
   simplices
 
-  This function is parallelized. Set the number of threads used with 
-  the environment variable `OMP_NUM_THREADS`.
-
   '''
-  points = np.asarray(points)
-  vertices = np.asarray(vertices)
-  simplices = np.asarray(simplices)
+  points = np.asarray(points, dtype=float)
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.asarray(simplices, dtype=int)
+
+  assert_shape(points, (None, None), 'points')
   dim = points.shape[1]
-  if not (points.shape[1] == vertices.shape[1]):
-    raise ValueError('inconsistent spatial dimensions')
-
-  if dim == 1:
-    vert = vertices[simplices[:,0]]
-    outside_point = np.min(vert,axis=0) - 1.0
-    end_points = outside_point[:,None].repeat(points.shape[0],axis=0)
-    proj1 = (points-vert.T) 
-    proj2 = (end_points-vert.T) 
-    crossed_bool = (proj1*proj2 <= 0.0) & ~((proj1 == 0.0) & (proj2 == 0.0))
-    crossed_count = np.sum(crossed_bool,axis=1)
-    out = np.array(crossed_count%2,dtype=bool)
-
-  elif dim == 2:
-    out = contains_2d(points,vertices,simplices)
-
+  assert_shape(vertices, (None, dim), 'vertices')
+  assert_shape(simplices, (None, dim), 'simplices')
+  
+  rnd = np.random.uniform(0.5, 2.0, (dim,))    
+  outside_point = vertices.min(axis=0) - rnd*vertices.ptp(axis=0)
+  outside_point = np.repeat([outside_point], points.shape[0], axis=0)
+  if dim == 2:
+    count = intersection_count_2d(points, 
+                                  outside_point, 
+                                  vertices, 
+                                  simplices)
   elif dim == 3:
-    out = contains_3d(points,vertices,simplices)
-
+    count = intersection_count_3d(points, 
+                                  outside_point, 
+                                  vertices, 
+                                  simplices)
   else:
     raise ValueError(
-      'point in polygon tests can only be done for a 1, 2, or 3 '
-      'dimensional simplicial complex')
+      'The number of spatial dimensions must be 2 or 3')
 
+  out = np.array(count % 2, dtype=bool)
   return out
 
 
-def simplex_normals(vert,smp):
+def oriented_simplices(vert, smp):
   ''' 
-  Returns the normal vectors for each simplex. Orientation is 
-  determined by the right hand rule
-
-  Parameters
-  ----------
-  vertices : (M,D) array
-    Vertices within the simplicial complex
-
-  simplices : (P,D) int array 
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  Returns
-  -------
-  out : (P,D) array
-    normals vectors
-      
-  Notes
-  -----
-  This is only defined for two and three dimensional simplices
-
-  '''
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
-
-  # spatial dimensions        
-  dim = vert.shape[1]
-  
-  if (dim != 2) & (dim != 3):
-    raise ValueError('simplicial complex must be 2 or 3 dimensional')
-
-  # I `could` find the normal vectors for each simplex by converting 
-  # the vertices and simplices to segment and triangle C structures 
-  # and then use the `segment_normal_2d` and `triangle_normal_3d` C 
-  # functions. However, I will compute the normals directly from the 
-  # numpy arrays. This is all vectorized so it should not be any 
-  # slower than using the C functions.
-
-  # Create a N by D-1 by D matrix    
-  M = vert[smp[:,1:]] - vert[smp[:,[0]]]
-  Msubs = [np.delete(M,i,-1) for i in range(dim)]
-  out = np.linalg.det(Msubs)
-  out[1::2] *= -1
-  out = np.rollaxis(out,-1)
-  out /= np.linalg.norm(out,axis=-1)[...,None]
-  return out
-
-
-def simplex_outward_normals(vert,smp):
-  ''' 
-  Returns the outward normal vectors for each simplex. The sign of the 
-  returned vectors are only meaningful if the simplices enclose an 
-  area in two-dimensional space or a volume in three-dimensional space
-
-  Parameters
-  ----------
-  vertices : (M,D) array
-    Vertices within the simplicial complex
-
-  simplices : (P,D) int array 
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  Returns
-  -------
-  out : (P,D) array
-    normals vectors
-      
-  Notes
-  -----
-  This is only defined for two and three dimensional simplices
-
-  '''
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
-  
-  # spatial dimensions        
-  dim = vert.shape[1]
-  
-  if (dim != 2) & (dim != 3):
-    raise ValueError('simplicial complex must be 2 or 3 dimensional')
-
-  smp = oriented_simplices(vert,smp)
-  return simplex_normals(vert,smp)
-
-
-def simplex_upward_normals(vert,smp):
-  ''' 
-  Returns the upward pointing normal vectors for each simplex. The up 
-  direction is assumed to be the last coordinate axis.
-
-  Parameters
-  ----------
-  vertices : (M,D) array
-    Vertices within the simplicial complex
-
-  simplices : (P,D) int array 
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  Returns
-  -------
-  out : (P,D) array
-    normals vectors
-      
-  Notes
-  -----
-  This is only defined for two and three dimensional simplices
-
-  '''
-  vert = np.asarray(vert,dtype=float)
-  smp = np.asarray(smp,dtype=int)
-  
-  # spatial dimensions        
-  dim = vert.shape[1]
-  
-  if (dim != 2) & (dim != 3):
-    raise ValueError('simplicial complex must be 2 or 3 dimensional')
-
-  out = simplex_normals(vert,smp)
-  out[out[:,-1]<0] *= -1
-  return out
-
-
-def oriented_simplices(vert,smp):
-  ''' 
-  Returns simplex indices that are ordered such that each simplex 
+  Returns simplex indices that are ordered such that each simplex
   normal vector, as defined by the right hand rule, points outward
                                     
   Parameters
   ----------
-  vertices : (M,D) array
+  vertices : (M, D) array
     Vertices within the simplicial complex
 
-  simplices : (P,D) int array 
+  simplices : (P, D) int array 
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
@@ -1568,43 +765,108 @@ def oriented_simplices(vert,smp):
   This function does not ensure that the simplicial complex is
   closed.  If it is not then bogus results will be returned. 
   '''
-  vert = np.asarray(vert,dtype=float)
-  smp = np.array(smp,dtype=int,copy=True)
-
+  vert = np.asarray(vert, dtype=float)
+  smp = np.array(smp, dtype=int, copy=True)
+  assert_shape(vert, (None, None), 'vert')
   dim = vert.shape[1]
+  assert_shape(smp, (None, dim), 'smp')
 
-  # if 1D then return smp
-  if dim == 1:
-    return np.copy(smp)
-  
   # length scale of the domain
-  scale = np.max(vert)-np.min(vert)
+  scale = vert.ptp(axis=0).max()
   dx = 1e-10*scale
 
   # find the normal for each simplex    
-  norms = simplex_normals(vert,smp)
+  norms = simplex_normals(vert, smp)
 
   # find the centroid for each simplex      
-  points = np.mean(vert[smp],axis=1)
+  points = np.mean(vert[smp], axis=1)
 
   # push points in the direction of the normals  
   points += dx*norms
 
   # find which simplices are oriented such that their normals point  
   # inside                           
-  faces_inside = contains(points,vert,smp)
+  faces_inside = contains(points, vert, smp)
 
   flip_smp = smp[faces_inside]
-  flip_smp[:,[0,1]] = flip_smp[:,[1,0]]
+  flip_smp[:, [0, 1]] = flip_smp[:, [1, 0]]
 
   smp[faces_inside] = flip_smp
   return smp
 
 
-def enclosure(vert,smp,orient=True):
+def simplex_normals(vert, smp):
   ''' 
-  Returns the volume of a polyhedra, area of a polygon, or length of
-  a segment enclosed by the simplicial complex
+  Returns the normal vectors for each simplex. Orientation is 
+  determined by the right hand rule
+
+  Parameters
+  ----------
+  vertices : (M, D) array
+    Vertices within the simplicial complex
+
+  simplices : (P, D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+  out : (P, D) array
+    normals vectors
+      
+  Notes
+  -----
+  This is only defined for two and three dimensional simplices
+
+  '''
+  vert = np.asarray(vert, dtype=float)
+  smp = np.asarray(smp, dtype=int)
+  assert_shape(vert, (None, None), 'vert')
+  dim = vert.shape[1]
+  assert_shape(smp, (None, dim), 'smp')
+  # Create a N by D-1 by D matrix    
+  M = vert[smp[:, 1:]] - vert[smp[:, [0]]]
+  Msubs = [np.delete(M, i, -1) for i in range(dim)]
+  out = np.linalg.det(Msubs)
+  out[1::2] *= -1
+  out = np.rollaxis(out, -1)
+  out /= np.linalg.norm(out, axis=-1)[..., None]
+  return out
+
+
+def simplex_outward_normals(vert, smp):
+  ''' 
+  Returns the outward normal vectors for each simplex. The sign of the 
+  returned vectors are only meaningful if the simplices enclose an 
+  area in two-dimensional space or a volume in three-dimensional space
+
+  Parameters
+  ----------
+  vertices : (M, D) array
+    Vertices within the simplicial complex
+
+  simplices : (P, D) int array 
+    Connectivity of the vertices. Each row contains the vertex indices
+    which form one simplex of the simplicial complex
+
+  Returns
+  -------
+  out : (P, D) array
+    normals vectors
+      
+  Notes
+  -----
+  This is only defined for two and three dimensional simplices
+
+  '''
+  smp = oriented_simplices(vert, smp)
+  return simplex_normals(vert, smp)
+
+
+def simplex_upward_normals(vert, smp):
+  ''' 
+  Returns the upward pointing normal vectors for each simplex. The up
+  direction is assumed to be the last coordinate axis.
 
   Parameters
   ----------
@@ -1612,6 +874,37 @@ def enclosure(vert,smp,orient=True):
     Vertices within the simplicial complex
 
   simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+  out : (P,D) array
+    normals vectors
+
+  '''
+  vert = np.asarray(vert, dtype=float)
+  smp = np.asarray(smp, dtype=int)
+  assert_shape(vert, (None, None), 'vert')
+  dim = vert.shape[1]
+  assert_shape(smp, (None, dim), 'smp')
+
+  out = simplex_normals(vert, smp)
+  out[out[:, -1] < 0] *= -1
+  return out
+
+
+def enclosure(vert, smp, orient=True):
+  ''' 
+  Returns the volume of a polyhedra, area of a polygon, or length of a
+  segment enclosed by the simplicial complex
+
+  Parameters
+  ----------
+  vertices : (M, D) array
+    Vertices within the simplicial complex
+
+  simplices : (P, D) int array 
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
@@ -1632,21 +925,16 @@ def enclosure(vert,smp,orient=True):
   closed and does not intersect itself. If it is not then bogus 
   results will be returned.
   '''
-  vert = np.array(vert,dtype=float,copy=True)
-  smp = np.asarray(smp,dtype=int)
-  dim = smp.shape[1]
+  vert = np.array(vert, dtype=float, copy=True)
+  smp = np.asarray(smp, dtype=int)
+  assert_shape(vert, (None, None), 'vert')
+  dim = vert.shape[1]
+  assert_shape(smp, (None, dim), 'smp')
   if orient:
-    smp = oriented_simplices(vert,smp)
-
-  # If 1D vertices and simplices are given then sort the vertices
-  # and sum the length between alternating pairs of vertices
-  if dim == 1:
-    vert = np.sort(vert[smp].flatten())
-    vert[::2] *= -1
-    return abs(np.sum(vert))
+    smp = oriented_simplices(vert, smp)
 
   # center the vertices for the purpose of numerical stability
-  vert -= np.mean(vert,axis=0)
+  vert -= np.mean(vert, axis=0)
   signed_volumes = (1.0/factorial(dim))*np.linalg.det(vert[smp])
   volume = np.sum(signed_volumes)
   return volume
