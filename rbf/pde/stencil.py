@@ -81,7 +81,8 @@ def connectivity(stencils):
 
 def _closest_argsort(c, x):
   ''' 
-  Returns the indices of nodes in `x` sorted in order of distance to `c`
+  Returns the indices of nodes in `x` sorted in order of distance to
+  `c`
   '''
   dist = np.sum((x - c[None, :])**2, axis=1)
   idx = np.argsort(dist)
@@ -104,8 +105,8 @@ def _has_intersections(c, x, vert, smp):
 
 def _stencil(c, x, n, vert, smp):
   ''' 
-  Forms a stencil about `c` made up of `n` nearby nodes in `x`. The 
-  stencil is constrained so that it does not reach across the boundary 
+  Forms a stencil about `c` made up of `n` nearby nodes in `x`. The
+  stencil is constrained so that it does not reach across the boundary
   defined by `vert` and `smp`.
   '''
   sorted_idx = _closest_argsort(c, x)
@@ -165,40 +166,30 @@ def stencil_network(x, p, n, vert=None, smp=None):
   Returns
   -------
   sn : (N, D) array
-    Indices of points in `p` which form a stencil for each point in 
+    Indices of points in `p` which form a stencil for each point in
     `x`.
     
   '''
   x = np.asarray(x, dtype=float)
-  assert_shape(x, (None, None), 'x')
-  
   p = np.asarray(p, dtype=float)
-  assert_shape(p, (None, x.shape[1]), 'p')
+  assert_shape(x, (None, None), 'x')
+  dim = x.shape[1]
+  assert_shape(p, (None, dim), 'p')
   
-  Nx = x.shape[0]
-  Np = p.shape[0]
-  if n > Np:
+  if n > p.shape[0]:
     raise StencilError(
-      'cannot form a stencil with size %s from %s nodes' % (n, Np))
-    
-  if (vert is None) | (smp is None):
-    vert = np.zeros((0, x.shape[1]), dtype=float)
-    smp = np.zeros((0, x.shape[1]), dtype=int)
-  
-  else:
-    vert = np.asarray(vert, dtype=float)
-    assert_shape(vert, (None, x.shape[1]), 'vert')
-    
-    smp = np.asarray(smp, dtype=int)
-    assert_shape(smp, (None, x.shape[1]), 'smp')
+      'cannot form a stencil with size %s from %s nodes' % 
+      (n, p.shape[0]))
     
   sn = _stencil_network_no_boundary(x, p, n)
-  if smp.shape[0] == 0:
-    return sn
-
-  # ensure that no stencils intersect the boundary
-  for i in range(Nx):
-    if _has_intersections(x[i], p[sn[i]], vert, smp):
-      sn[i, :] = _stencil(x[i], p, n, vert, smp)
+  if (vert is not None) & (smp is not None):
+    # ensure that no stencils intersect the boundary
+    vert = np.asarray(vert, dtype=float)
+    smp = np.asarray(smp, dtype=int)
+    assert_shape(vert, (None, dim), 'vert')
+    assert_shape(smp, (None, dim), 'smp')
+    for i in range(x.shape[0]):
+      if _has_intersections(x[i], p[sn[i]], vert, smp):
+        sn[i, :] = _stencil(x[i], p, n, vert, smp)
 
   return sn

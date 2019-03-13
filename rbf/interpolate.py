@@ -1,6 +1,6 @@
 ''' 
-This module provides a class for RBF interpolation, `RBFInterpolant`. 
-This function has numerous features that are lacking in 
+This module provides a class for RBF interpolation, `RBFInterpolant`.
+This function has numerous features that are lacking in
 `scipy.interpolate.rbf`. They include:
   
 * variable weights on the data (when creating a smoothed interpolant)
@@ -12,42 +12,75 @@ This function has numerous features that are lacking in
 
 RBF Interpolation
 -----------------
-The RBF interpolant :math:`\mathbf{f(x)}` is defined as
+Consider a vector of :math:`n` observations :math:`\mathbf{d}` made at
+locations :math:`\mathbf{y}`. These observations could potentially
+have normally distributed noise described by the covariance matrix
+:math:`\Sigma`. An RBF interpolant :math:`\mathbf{f(x)}` for these
+observations is parameterized as
     
 .. math::
-  \mathbf{f(x)} = \mathbf{K(x,y)a} + \mathbf{P(x)b}
+  \mathbf{f(x)} = \mathbf{K(x,y) a} + \mathbf{P(x) b}
   
 where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at 
-:math:`\mathbf{y}` evaluated at the interpolation points 
+:math:`\mathbf{y}` evaluated at the interpolation points
 :math:`\mathbf{x}`. :math:`\mathbf{P(x)}` is a polynomial matrix
-where each column is a monomial basis function evaluated at the 
-interpolation points. The monomial basis functions span the space of 
-all polynomials with a user specified order. :math:`\mathbf{a}` and 
-:math:`\mathbf{b}` are coefficients that need to be estimated. The 
-coefficients are found by solving the linear system of equations
-  
-.. math::
-  (\mathbf{K(y,y)} + \mathbf{C_d})\mathbf{a}  
-  + \mathbf{P(y)b} = \mathbf{d}
+containing :math:`m` monomial basis function evaluated at the
+interpolation points. The monomial basis functions span the space of
+all polynomials with a user specified order. The coefficients
+:math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to minimize the
+objective function
 
 .. math::
-  \mathbf{P^T(y)a} = \mathbf{0} 
+  \mathcal{L}(\mathbf{a, b}) = 
+  \mathbf{a^T K(y,y) a} + 
+  \mathbf{(f(y; a, b) - d)^T \Sigma^{-1} (f(y; a, b) - d)}.
 
-where :math:`\mathbf{C_d}` is the data covariance matrix, 
-:math:`\mathbf{d}` are the observations at :math:`\mathbf{y}`. If the
-data has no uncertainty, :math:`\mathbf{C_d}=\mathbf{0}`, the
+The second term on the right side of the above expression is a norm
+measuring the misfit between the interpolant and the observations. The
+first term on the right side is a norm that essentially penalizes the
+roughness of the interpolant (technically, it is the norm associated
+with the reproducing kernel Hilbert space for the chosen radial basis
+function). This problem formulation is inspired by the formulation
+used in section 19.2 and 6.3 of [1].
+
+To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need
+:math:`n+m` linear constraints. We can differentiate
+:math:`\mathcal{L}` with respect to :math:`\mathbf{a}` and set it
+equal to zero to get :math:`n` constraints
+
+.. math::
+  (\mathbf{K(y,y)} + \mathbf{\Sigma}) \mathbf{a}  
+  + \mathbf{P(y) b} = \mathbf{d}.
+
+For the remaining :math:`m` constraints, we differentiate
+:math:`\mathcal{L}` with respect to :math:`\mathbf{b}` and
+substitute the above equation in for :math:`\mathbf{d}` to get
+
+.. math::
+  \mathbf{P(y)^T a} = \mathbf{0}.
+
+For most purposes, the above two equations provide the linear
+constrains that are needed to solve for :math:`\mathbf{a}` and
+:math:`\mathbf{b}`. However, there are cases where the system cannot
+be solved due to, for example, too few data points or a polynomial
+order that is too high. There are also some radial basis functions
+which are conditionally positive definite, which means that the norm
+:math:`\mathbf{a^T K(y, y) a}` is only guaranteed to be positive when
+the order of the added polynomial is sufficiently high. The user is
+refered to [1] for details on when the interpolation problem is
+well-posed. For the default settings in `RBFInterpolant`, the
+interpolation problem is well-posed as long as :math:`n \geq D+1`,
+where `D` is the number of spatial dimensions.
+
+If the data has no noise, :math:`\mathbf{\Sigma}=\mathbf{0}`, the
 observations are fit perfectly by the interpolant. Increasing the
 uncertainty degrades the fit while improving the smoothness of the
-interpolant. This formulation closely follows chapter 19.4 of [1] and
-chapter 13.2.1 of [2].
+interpolant.
     
 References
 ----------
 [1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World 
 Scientific Publishing Co, 2007.
-    
-[2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
-and Applications. John Wiley & Sons, 2000.
     
 '''
 import numpy as np
@@ -114,25 +147,23 @@ class RBFInterpolant(object):
 
   Notes
   -----
-  This function does not make any estimates of the uncertainties on 
-  the interpolated values.  See `rbf.gauss` for interpolation with 
+  This function does not make any estimates of the uncertainties on
+  the interpolated values.  See `rbf.gauss` for interpolation with
   uncertainties.
     
-  With certain choices of basis functions and polynomial orders this 
-  interpolant is equivalent to a thin-plate spline.  For example, if the 
-  observation space is one-dimensional then a thin-plate spline can be 
-  obtained with the arguments `basis` = `rbf.basis.phs3` and `order` = 
-  1.  For two-dimensional observation space a thin-plate spline can be 
-  obtained with the arguments `basis` = `rbf.basis.phs2` and `order` = 
-  1. See [2] for additional details on thin-plate splines.
+  With certain choices of basis functions and polynomial orders this
+  interpolant is equivalent to a thin-plate spline.  For example, if
+  the observation space is one-dimensional then a thin-plate spline
+  can be obtained with the arguments `basis` = `rbf.basis.phs3` and
+  `order` = 1.  For two-dimensional observation space a thin-plate
+  spline can be obtained with the arguments `basis` = `rbf.basis.phs2`
+  and `order` = 1. 
 
   References
   ----------
   [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World 
   Scientific Publishing Co, 2007.
     
-  [2] Schimek, M., Smoothing and Regression: Approaches, Computations, 
-  and Applications. John Wiley & Sons, 2000.
   '''
   def __init__(self, y, d,
                sigma=None,

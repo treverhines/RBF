@@ -1,62 +1,56 @@
 ''' 
-Module of cythonized functions for basic computational geometry in 1, 
-2, and 3 dimensions. This modules requires all geometric objects (e.g. 
-volumes, polygons, surfaces, segments, etc.) to be described as 
-simplicial complexes. A simplicial complex is a collection of 
-simplices (e.g. segments, triangles, tetrahedra, etc.).  In this 
-module, simplicial complexes in D-dimenional space are described with 
-an (N,D) array of vertices and and (M,D) array describing the indices 
-of vertices making up each simplex. As an example, the unit square in 
-two dimensions can be described as collection of line segments:
+Module of cythonized functions for basic computational geometry in 2
+and 3 dimensions. This modules requires all geometric objects (e.g.
+volumes, polygons, surfaces, segments, etc.) to be described as
+simplicial complexes. A simplicial complex is a collection of
+simplices (e.g. segments, triangles, tetrahedra, etc.).  In this
+module, simplicial complexes in D-dimenional space are described with
+an (N, D) array of vertices and and (M, D) array describing the
+indices of vertices making up each simplex. As an example, the unit
+square in two dimensions can be described as collection of line
+segments:
 
->>> vertices = [[0.0,0.0],
-                [1.0,0.0],
-                [1.0,1.0],
-                [0.0,1.0]]
->>> simplices = [[0,1],
-                 [1,2],
-                 [2,3],
-                 [3,0]]
+>>> vertices = [[0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [0.0, 1.0]]
+>>> simplices = [[0, 1],
+                 [1, 2],
+                 [2, 3],
+                 [3, 0]]
 
 A three dimensional cube can similarly be described as a collection
 of triangles:
 
->>> vertices = [[0.0,0.0,0.0],
-                [0.0,0.0,1.0],
-                [0.0,1.0,0.0],
-                [0.0,1.0,1.0],
-                [1.0,0.0,0.0],
-                [1.0,0.0,1.0],
-                [1.0,1.0,0.0],
-                [1.0,1.0,1.0]]
->>> simplices = [[0,1,4],
-                 [1,5,4],
-                 [1,7,5],
-                 [1,3,7],
-                 [0,1,3],
-                 [0,2,3],
-                 [0,2,6],
-                 [0,4,6],
-                 [4,5,7],
-                 [4,6,7],
-                 [2,3,7],
-                 [2,6,7]]
+>>> vertices = [[0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 1.0],
+                [1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0]]
+>>> simplices = [[0, 1, 4],
+                 [1, 5, 4],
+                 [1, 7, 5],
+                 [1, 3, 7],
+                 [0, 1, 3],
+                 [0, 2, 3],
+                 [0, 2, 6],
+                 [0, 4, 6],
+                 [4, 5, 7],
+                 [4, 6, 7],
+                 [2, 3, 7],
+                 [2, 6, 7]]
  
-Although the notation is clumsy, a 1D domains can be described as a 
-collection of vertices in a manner that is consistent with the above 
-two examples:
-   
->>> vertices = [[0.0],[1.0]]
->>> simplices = [[0],[1]]
-
-This module is primarily use to find whether and where line segments 
-intersect a simplicial complex and whether points are contained within 
-a closed simplicial complex.  For example, one can determine whether a 
-collection of points, saved as `points`, are contained within a 
-simplicial complex, defined by `vertices` and `simplices` with the 
+This module is primarily use to find whether and where line segments
+intersect a simplicial complex and whether points are contained within
+a closed simplicial complex.  For example, one can determine whether a
+collection of points, saved as `points`, are contained within a
+simplicial complex, defined by `vertices` and `simplices` with the
 command
 
->>> contains(points,vertices,simplices)
+>>> contains(points, vertices, simplices)
 
 which returns a boolean array.
 
@@ -64,25 +58,26 @@ One can find the number of times a collection of line segments,
 defined by `start_points` and `end_points`, intersect a simplicial 
 complex with the command
 
->> intersection_count(start_points,end_points,vertices,simplices)
+>> intersection_count(start_points, end_points, vertices, simplices)
 
 which returns an array of the number of simplexes intersections for
 each segment. If it is known that a collection of line segments
 intersect a simplicial complex then the intersection point can be
 found with the command
 
->> intersection_point(start_points,end_points,vertices,simplices)
+>> intersection(start_points, end_points, vertices, simplices)
  
-This returns an (N,D) array of intersection points where N is the 
-number of line segments.  If a line segment does not intersect the 
-simplicial complex then the above command returns a ValueError. If 
-there are multiple intersections for a single segment then only the 
-first detected intersection will be returned.
+This returns an (N, D) float array of intersection points, and an (N,)
+int array identifying which simplex the intersection occurred at. If a
+line segment does not intersect the simplicial complex then the above
+command returns a ValueError. If there are multiple intersections for
+a single segment then only the first detected intersection will be
+returned.
 
-There are numerous other packages which can perform the same tasks 
-as this module.  For example geos (http://trac.osgeo.org/geos/) and 
-gts (http://gts.sourceforge.net/).  However, the python bindings for 
-these packages are too slow for RBF purposes.
+There are numerous other packages which can perform the same tasks as
+this module.  For example geos (http://trac.osgeo.org/geos/) and gts
+(http://gts.sourceforge.net/).  However, the python bindings for these
+packages are too slow for RBF purposes.
 '''
 # python imports
 from __future__ import division
@@ -98,45 +93,49 @@ cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
 from libc.math cimport fabs, fmin, sqrt, INFINITY
 
-## geometric data types
-#####################################################################
 
 cdef struct vector1d:
   double x
 
+
 cdef struct vector2d:
   double x
   double y
+
 
 cdef struct vector3d:
   double x
   double y
   double z
 
+
 cdef struct segment1d:
   vector1d a
   vector1d b
+
 
 cdef struct segment2d:
   vector2d a
   vector2d b
 
+
 cdef struct segment3d:
   vector3d a
   vector3d b
+
 
 cdef struct triangle2d:
   vector2d a
   vector2d b
   vector2d c
 
+
 cdef struct triangle3d:
   vector3d a
   vector3d b
   vector3d c
 
-## point in simplex functions
-#####################################################################
+
 @cdivision(True)
 cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:  
   ''' 
@@ -156,6 +155,7 @@ cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:
     return True
   else: 
     return False
+
 
 @cdivision(True)
 cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:  
@@ -594,17 +594,22 @@ def intersection(start_points, end_points, vertices, simplices):
   vertices = np.asarray(vertices, dtype=float)
   simplices = np.asarray(simplices, dtype=int)
 
-  dim = start_points.shape[1]
+  assert_shape(start_points, (None, None), 'start_points')
   assert_shape(end_points, start_points.shape, 'end_points') 
+  dim = start_points.shape[1]
   assert_shape(vertices, (None, dim), 'vertices')
   assert_shape(simplices, (None, dim), 'simplices')    
 
   if dim == 2:
-    out = intersection_2d(start_points, end_points, vertices, simplices)
-
+    out = intersection_2d(start_points, 
+                          end_points, 
+                          vertices, 
+                          simplices)
   elif dim == 3:
-    out = intersection_3d(start_points, end_points, vertices, simplices)
-
+    out = intersection_3d(start_points, 
+                          end_points, 
+                          vertices, 
+                          simplices)
   else:
     raise ValueError(
       'The number of spatial dimensions must be 2 or 3')
@@ -647,8 +652,8 @@ def intersection_count(start_points, end_points, vertices, simplices):
   simplices = np.asarray(simplices, dtype=int)
   
   assert_shape(start_points, (None, None), 'start_points')
-  dim = start_points.shape[1]
   assert_shape(end_points, start_points.shape, 'end_points') 
+  dim = start_points.shape[1]
   assert_shape(vertices, (None, dim), 'vertices')
   assert_shape(simplices, (None, dim), 'simplices')    
 
@@ -715,25 +720,15 @@ def contains(points, vertices, simplices):
   assert_shape(points, (None, None), 'points')
   dim = points.shape[1]
   assert_shape(vertices, (None, dim), 'vertices')
-  assert_shape(simplices, (None, dim), 'simplices')
-  
-  rnd = np.random.uniform(0.5, 2.0, (dim,))    
+  assert_shape(simplices, (None, dim), 'simplices')    
+
+  rnd = np.random.uniform(0.5, 2.0, (points.shape[1],))    
   outside_point = vertices.min(axis=0) - rnd*vertices.ptp(axis=0)
   outside_point = np.repeat([outside_point], points.shape[0], axis=0)
-  if dim == 2:
-    count = intersection_count_2d(points, 
-                                  outside_point, 
-                                  vertices, 
-                                  simplices)
-  elif dim == 3:
-    count = intersection_count_3d(points, 
-                                  outside_point, 
-                                  vertices, 
-                                  simplices)
-  else:
-    raise ValueError(
-      'The number of spatial dimensions must be 2 or 3')
-
+  count = intersection_count(points, 
+                             outside_point, 
+                             vertices, 
+                             simplices)
   out = np.array(count % 2, dtype=bool)
   return out
 
@@ -774,23 +769,17 @@ def oriented_simplices(vert, smp):
   # length scale of the domain
   scale = vert.ptp(axis=0).max()
   dx = 1e-10*scale
-
   # find the normal for each simplex    
   norms = simplex_normals(vert, smp)
-
   # find the centroid for each simplex      
   points = np.mean(vert[smp], axis=1)
-
   # push points in the direction of the normals  
   points += dx*norms
-
   # find which simplices are oriented such that their normals point  
   # inside                           
   faces_inside = contains(points, vert, smp)
-
   flip_smp = smp[faces_inside]
   flip_smp[:, [0, 1]] = flip_smp[:, [1, 0]]
-
   smp[faces_inside] = flip_smp
   return smp
 
@@ -824,7 +813,7 @@ def simplex_normals(vert, smp):
   assert_shape(vert, (None, None), 'vert')
   dim = vert.shape[1]
   assert_shape(smp, (None, dim), 'smp')
-  # Create a N by D-1 by D matrix    
+
   M = vert[smp[:, 1:]] - vert[smp[:, [0]]]
   Msubs = [np.delete(M, i, -1) for i in range(dim)]
   out = np.linalg.det(Msubs)
@@ -883,12 +872,6 @@ def simplex_upward_normals(vert, smp):
     normals vectors
 
   '''
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int)
-  assert_shape(vert, (None, None), 'vert')
-  dim = vert.shape[1]
-  assert_shape(smp, (None, dim), 'smp')
-
   out = simplex_normals(vert, smp)
   out[out[:, -1] < 0] *= -1
   return out
@@ -938,5 +921,3 @@ def enclosure(vert, smp, orient=True):
   signed_volumes = (1.0/factorial(dim))*np.linalg.det(vert[smp])
   volume = np.sum(signed_volumes)
   return volume
-
-
