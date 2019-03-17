@@ -1,40 +1,51 @@
 ''' 
-This module contains the `RBF` class, which is used to symbolically 
-define and numerically evaluate a radial basis function. `RBF` 
-instances have been predefined in this module for some of the commonly 
-used radial basis functions. The predefined radial basis functions are 
+This module contains the `RBF` class, which is used to symbolically
+define and numerically evaluate a radial basis function. `RBF`
+instances have been predefined in this module for some of the commonly
+used radial basis functions. The predefined radial basis functions are
 shown in the table below. For each expression in the table,
-:math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter. 
-:math:`x` and :math:`c` are the evaluation points and radial basis 
-function centers, respectively. The names of the predefined `RBF` 
-instances are given in the abbreviation column. 
+:math:`r = ||x - c||_2` and :math:`\epsilon` is a shape parameter.
+:math:`x` and :math:`c` are the evaluation points and radial basis
+function centers, respectively. The names of the predefined `RBF`
+instances are given in the "Abbreviation" column. The "Positive
+Definite" column identifies whether the RBFs are always positive
+definite and, if not, under what conditions they are positive
+definite. RBFs identified as being "Conditional (order i)" are
+conditionally positive definite with order i as defined in Section 7.1
+of [1]. The Wendland class of RBFs are only positive definite for the
+indicated number of spatial dimensions.
 
-=================================  ============  ===================  ======================================
-Name                               Abbreviation  Positive Definite    Expression
-=================================  ============  ===================  ======================================
-Eighth-order polyharmonic spline   phs8          No                   :math:`(\epsilon r)^8\log(\epsilon r)`
-Seventh-order polyharmonic spline  phs7          No                   :math:`(\epsilon r)^7`
-Sixth-order polyharmonic spline    phs6          No                   :math:`(\epsilon r)^6\log(\epsilon r)`
-Fifth-order polyharmonic spline    phs5          No                   :math:`(\epsilon r)^5`
-Fourth-order polyharmonic spline   phs4          No                   :math:`(\epsilon r)^4\log(\epsilon r)`
-Third-order polyharmonic spline    phs3          No                   :math:`(\epsilon r)^3`
-Second-order polyharmonic spline   phs2          No                   :math:`(\epsilon r)^2\log(\epsilon r)`
-First-order polyharmonic spline    phs1          No                   :math:`\epsilon r`
-Multiquadratic                     mq            No                   :math:`(1 + (\epsilon r)^2)^{1/2}`
-Inverse multiquadratic             imq           Yes                  :math:`(1 + (\epsilon r)^2)^{-1/2}`
-Inverse quadratic                  iq            Yes                  :math:`(1 + (\epsilon r)^2)^{-1}`
-Gaussian                           ga            Yes                  :math:`\exp(-(\epsilon r)^2)`
-Exponential                        exp           Yes                  :math:`\exp(-r/\epsilon)`
-Squared Exponential                se            Yes                  :math:`\exp(-r^2/(2\epsilon^2))`
-Matern (v = 3/2)                   mat32         Yes                  :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
-Matern (v = 5/2)                   mat52         Yes                  :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
-Wendland (d=1, k=0)                wen10         Yes (1-D only)       :math:`(1 - r/\epsilon)_+`
-Wendland (d=1, k=1)                wen11         Yes (1-D only)       :math:`(1 - r/\epsilon)_+^3(3r/\epsilon + 1)`
-Wendland (d=1, k=2)                wen12         Yes (1-D only)       :math:`(1 - r/\epsilon)_+^5(8r^2/\epsilon^2 + 5r/\epsilon + 1)`
-Wendland (d=3, k=0)                wen30         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^2`
-Wendland (d=3, k=1)                wen31         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^4(4r/\epsilon + 1)`
-Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)  :math:`(1 - r/\epsilon)_+^6(35r^2/\epsilon^2 + 18r/\epsilon + 3)/3`
-=================================  ============  ===================  ======================================
+=================================  ============  =====================  ======================================
+Name                               Abbreviation  Positive Definite      Expression
+=================================  ============  =====================  ======================================
+Eighth-order polyharmonic spline   phs8          Conditional (order 5)  :math:`(\epsilon r)^8\log(\epsilon r)`
+Seventh-order polyharmonic spline  phs7          Conditional (order 4)  :math:`(\epsilon r)^7`
+Sixth-order polyharmonic spline    phs6          Conditional (order 4)  :math:`(\epsilon r)^6\log(\epsilon r)`
+Fifth-order polyharmonic spline    phs5          Conditional (order 3)  :math:`(\epsilon r)^5`
+Fourth-order polyharmonic spline   phs4          Conditional (order 3)  :math:`(\epsilon r)^4\log(\epsilon r)`
+Third-order polyharmonic spline    phs3          Conditional (order 2)  :math:`(\epsilon r)^3`
+Second-order polyharmonic spline   phs2          Conditional (order 2)  :math:`(\epsilon r)^2\log(\epsilon r)`
+First-order polyharmonic spline    phs1          Conditional (order 1)  :math:`\epsilon r`
+Multiquadratic                     mq            Conditional (order 1)  :math:`(1 + (\epsilon r)^2)^{1/2}`
+Inverse multiquadratic             imq           Yes                    :math:`(1 + (\epsilon r)^2)^{-1/2}`
+Inverse quadratic                  iq            Yes                    :math:`(1 + (\epsilon r)^2)^{-1}`
+Gaussian                           ga            Yes                    :math:`\exp(-(\epsilon r)^2)`
+Exponential                        exp           Yes                    :math:`\exp(-r/\epsilon)`
+Squared Exponential                se            Yes                    :math:`\exp(-r^2/(2\epsilon^2))`
+Matern (v = 3/2)                   mat32         Yes                    :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
+Matern (v = 5/2)                   mat52         Yes                    :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
+Wendland (d=1, k=0)                wen10         Yes (1-D only)         :math:`(1 - r/\epsilon)_+`
+Wendland (d=1, k=1)                wen11         Yes (1-D only)         :math:`(1 - r/\epsilon)_+^3(3r/\epsilon + 1)`
+Wendland (d=1, k=2)                wen12         Yes (1-D only)         :math:`(1 - r/\epsilon)_+^5(8r^2/\epsilon^2 + 5r/\epsilon + 1)`
+Wendland (d=3, k=0)                wen30         Yes (1, 2, and 3-D)    :math:`(1 - r/\epsilon)_+^2`
+Wendland (d=3, k=1)                wen31         Yes (1, 2, and 3-D)    :math:`(1 - r/\epsilon)_+^4(4r/\epsilon + 1)`
+Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)    :math:`(1 - r/\epsilon)_+^6(35r^2/\epsilon^2 + 18r/\epsilon + 3)/3`
+=================================  ============  =====================  ======================================
+
+References
+----------
+[1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World 
+Scientific Publishing Co, 2007.
 
 ''' 
 from __future__ import division 

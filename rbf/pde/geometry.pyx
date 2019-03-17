@@ -91,7 +91,7 @@ from rbf.utils import assert_shape
 # cython imports
 cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
-from libc.math cimport fabs, fmin, sqrt, INFINITY
+from libc.math cimport fabs, fmin, sqrt, asin, atan2, sin, cos, INFINITY
 
 
 cdef struct vector1d:
@@ -135,6 +135,103 @@ cdef struct triangle3d:
   vector3d b
   vector3d c
 
+
+cdef double distance_1d(vector1d vec1, vector1d vec2) nogil:
+  return fabs(vec1.x - vec2.x)
+
+
+cdef double distance_2d(vector2d vec1, vector2d vec2) nogil:
+  return sqrt((vec1.x - vec2.x)**2 + (vec1.y - vec2.y)**2)
+
+
+cdef double distance_3d(vector3d vec1, vector3d vec2) nogil:
+  return sqrt((vec1.x - vec2.x)**2 + 
+              (vec1.y - vec2.y)**2 +
+              (vec1.z - vec2.z)**2)
+
+
+cdef vector1d transform_to_line_space(vector2d pnt, 
+                                      vector2d org, 
+                                      vector2d norm) nogil:
+  '''
+  project `pnt` onto the line with point `org` and normal vector
+  `nrm`. The returned one-dimensional vector is the offset along the
+  line between the projected point and `org`.
+  '''
+  cdef:
+    vector1d out
+    double theta
+    
+  # shift the coordinate system so that `org` is at the center and
+  # then rotate the coordinate system so that `norm` points in the
+  # positive x direction. Finally, take then y component of `pnt` in
+  # the rotated coordinate system.
+  theta = atan2(norm.y, norm.x)
+  out.x = -sin(theta)*(pnt.x - org.x) + cos(theta)*(pnt.y - org.y)
+  return out
+
+
+cdef vector2d transform_from_line_space(vector1d pnt, 
+                                        vector2d org, 
+                                        vector2d norm) nogil:
+  '''
+  Transform a one-dimensional vector, describing the offset along a
+  line from the point `org`, back onto the line in two-dimensions.
+  '''
+  cdef:
+    vector2d out
+    double theta
+
+  # Consider the point to be lying on the y-axis, then rotate and
+  # shift the point so that it is on the line
+  theta = atan2(norm.y, norm.x)
+  out.x = org.x - sin(theta)*pnt.x
+  out.y = org.y + cos(theta)*pnt.x
+  return out    
+
+
+@cdivision(True)
+cdef vector2d transform_to_plane_space(vector3d pnt,
+                                       vector3d org,
+                                       vector3d norm) nogil:
+  '''
+  project `pnt` onto the plane with point `org` and normal vector
+  `nrm`. The returned two-dimensional vector is the offset along the
+  plane between the projected point and `org`.
+  '''
+  cdef:
+    double theta_z, theta_y
+    vector2d out
+
+  theta_z = atan2(norm.y, norm.x)
+  theta_y = asin(norm.z / sqrt(norm.x**2 + norm.y**2 + norm.z**2))
+  out.x = (-sin(theta_z)*(pnt.x - org.x) + 
+            cos(theta_z)*(pnt.y - org.y))
+  out.y = (-sin(theta_y)*cos(theta_z)*(pnt.x - org.x) +
+           -sin(theta_y)*sin(theta_z)*(pnt.y - org.y) +
+            cos(theta_y)*(pnt.z - org.z))
+  return out                                      
+
+
+@cdivision(True)
+cdef vector3d transform_from_plane_space(vector2d pnt,
+                                         vector3d org,
+                                         vector3d norm) nogil:
+  '''
+  Project a two-dimensional vector, describing the offset along a
+  plane from the point `org`, back onto the plane in three-dimensions.
+  '''
+  cdef:
+    double theta_z, theta_y
+    vector3d out
+
+  theta_z = atan2(norm.y, norm.x)
+  theta_y = asin(norm.z / sqrt(norm.x**2 + norm.y**2 + norm.z**2))
+  out.x = org.x - sin(theta_z)*pnt.x - sin(theta_y)*cos(theta_z)*pnt.y
+  out.y = org.y + cos(theta_z)*pnt.x - sin(theta_y)*sin(theta_z)*pnt.y
+  out.z = org.z + cos(theta_y)*pnt.y
+  return out
+  
 
 @cdivision(True)
 cdef bint point_in_segment(vector1d vec, segment1d seg) nogil:  
@@ -182,7 +279,7 @@ cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:
     return False
 
 
-cdef vector2d segment_normal_2d(segment2d seg) nogil:
+cdef vector2d segment_normal(segment2d seg) nogil:
   ''' 
   Returns the vector normal to a 2d line segment
   '''
@@ -194,7 +291,7 @@ cdef vector2d segment_normal_2d(segment2d seg) nogil:
   return out
   
 
-cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
+cdef vector3d triangle_normal(triangle3d tri) nogil:
   ''' 
   Returns the vector normal to a 3d triangle
   '''
@@ -210,22 +307,103 @@ cdef vector3d triangle_normal_3d(triangle3d tri) nogil:
   return out
 
 
+cdef vector2d nearest_point_in_segment(vector2d pnt, 
+                                       segment2d seg) nogil:
+  '''
+  Returns the point on `seg` that is closest to `pnt`
+  '''        
+  cdef:
+    vector2d norm, out
+    vector1d pnt_proj
+    segment1d seg_proj
+    
+  norm = segment_normal(seg)
+  pnt_proj = transform_to_line_space(pnt, seg.a, norm)
+  seg_proj.a = transform_to_line_space(seg.a, seg.a, norm)
+  seg_proj.b = transform_to_line_space(seg.b, seg.a, norm)
+  # if the point projects inside the segment, then use that projected
+  # point
+  if point_in_segment(pnt_proj, seg_proj):
+    out = transform_from_line_space(pnt_proj, seg.a, norm)
+
+  # otherwise use the closest vertex    
+  elif (distance_1d(pnt_proj, seg_proj.a) <
+        distance_1d(pnt_proj, seg_proj.b)):
+    out = seg.a
+
+  else:
+    out = seg.b
+
+  return out
+
+cdef vector3d nearest_point_in_triangle(vector3d pnt, 
+                                        triangle3d tri) nogil:
+  '''
+  Returns the point on `seg` that is closest to `pnt`
+  '''        
+  cdef:
+    double dist_ab, dist_bc, dist_ca
+    vector3d norm, out
+    vector2d pnt_proj, nrst_ab, nrst_bc, nrst_ca
+    triangle2d tri_proj
+    segment2d seg_proj
+    
+    
+  norm = triangle_normal(tri)
+  pnt_proj = transform_to_plane_space(pnt, tri.a, norm)
+  tri_proj.a = transform_to_plane_space(tri.a, tri.a, norm)
+  tri_proj.b = transform_to_plane_space(tri.b, tri.a, norm)
+  tri_proj.c = transform_to_plane_space(tri.c, tri.a, norm)
+  # if the point projects inside the triangle, then use that projected
+  # point
+  if point_in_triangle(pnt_proj, tri_proj):
+    out = transform_from_plane_space(pnt_proj, tri.a, norm)
+
+  # otherwise use closest point on the edges
+  else:
+    seg_proj.a = tri_proj.a
+    seg_proj.b = tri_proj.b
+    nrst_ab = nearest_point_in_segment(pnt_proj, seg_proj)
+    dist_ab = distance_2d(pnt_proj, nrst_ab)
+
+    seg_proj.a = tri_proj.b
+    seg_proj.b = tri_proj.c
+    nrst_bc = nearest_point_in_segment(pnt_proj, seg_proj)
+    dist_bc = distance_2d(pnt_proj, nrst_bc)
+
+    seg_proj.a = tri_proj.c
+    seg_proj.b = tri_proj.a
+    nrst_ca = nearest_point_in_segment(pnt_proj, seg_proj)
+    dist_ca = distance_2d(pnt_proj, nrst_ca)
+
+    if (dist_ab <= dist_bc) & (dist_ab <= dist_ca):
+        out = transform_from_plane_space(nrst_ab, tri.a, norm)
+
+    elif (dist_bc <= dist_ab) & (dist_bc <= dist_ca):
+        out = transform_from_plane_space(nrst_bc, tri.a, norm)
+
+    else:
+        out = transform_from_plane_space(nrst_ca, tri.a, norm)
+
+  return out
+
+
 @cdivision(True)
-cdef bint is_intersecting_2d(segment2d seg1,
-                             segment2d seg2) nogil:
+cdef bint segment_intersects_segment(segment2d seg1,
+                                     segment2d seg2) nogil:
   ''' 
   Identifies whether two 2D segments intersect. An intersection is
   detected if both segments are not colinear and if any part of the
   two segments touch
   '''
   cdef:
-    double proj1, proj2
+    double proj1, proj2, t
     vector2d pnt, norm
     vector1d pnt_proj
     segment1d seg_proj
 
   # find the normal vector components for segment 2
-  norm = segment_normal_2d(seg2)
+  norm = segment_normal(seg2)
 
   # project both points in segment 1 onto the normal vector
   proj1 = ((seg1.a.x - seg2.a.x)*norm.x +
@@ -242,9 +420,14 @@ cdef bint is_intersecting_2d(segment2d seg1,
 
   # find the point where segment 1 intersects the line overlapping 
   # segment 2 
-  pnt.x = seg1.a.x + (proj1/(proj1 - proj2))*(seg1.b.x - seg1.a.x)
-  pnt.y = seg1.a.y + (proj1/(proj1 - proj2))*(seg1.b.y - seg1.a.y)
+  t = proj1/(proj1 - proj2)
+  pnt.x = seg1.a.x + t*(seg1.b.x - seg1.a.x)
+  pnt.y = seg1.a.y + t*(seg1.b.y - seg1.a.y)
 
+  # we need to now project the segment and intersection to 1d. We
+  # could use `transform_to_line_space`, but that involves expensive trig
+  # operations. Instead we just throw out one of the components.
+  
   # if the normal x component is larger then compare y values
   if fabs(norm.x) >= fabs(norm.y):
     pnt_proj.x = pnt.y    
@@ -260,8 +443,8 @@ cdef bint is_intersecting_2d(segment2d seg1,
 
 
 @cdivision(True)
-cdef bint is_intersecting_3d(segment3d seg,
-                             triangle3d tri) nogil:
+cdef bint segment_intersects_triangle(segment3d seg,
+                                      triangle3d tri) nogil:
   ''' 
   Identifies whether a 3D segment intersects a 3D triangle. An
   intersection is detected if the segment and triangle are not
@@ -269,13 +452,13 @@ cdef bint is_intersecting_3d(segment3d seg,
   edge or in the interior.
   '''
   cdef:
-    double proj1, proj2
+    double proj1, proj2, t
     vector3d pnt, norm
     vector2d pnt_proj
     triangle2d tri_proj
 
   # find triangle normal vector components
-  norm = triangle_normal_3d(tri)
+  norm = triangle_normal(tri)
 
   proj1 = ((seg.a.x - tri.a.x)*norm.x + 
            (seg.a.y - tri.a.y)*norm.y +
@@ -293,9 +476,10 @@ cdef bint is_intersecting_3d(segment3d seg,
     return False
 
   # intersection point
-  pnt.x = seg.a.x + (proj1/(proj1 - proj2))*(seg.b.x - seg.a.x)
-  pnt.y = seg.a.y + (proj1/(proj1 - proj2))*(seg.b.y - seg.a.y)
-  pnt.z = seg.a.z + (proj1/(proj1 - proj2))*(seg.b.z - seg.a.z)
+  t = proj1/(proj1 - proj2)
+  pnt.x = seg.a.x + t*(seg.b.x - seg.a.x)
+  pnt.y = seg.a.y + t*(seg.b.y - seg.a.y)
+  pnt.z = seg.a.z + t*(seg.b.z - seg.a.z)
 
   if (fabs(norm.x) >= fabs(norm.y)) & (fabs(norm.x) >= fabs(norm.z)):
     pnt_proj.x = pnt.y
@@ -333,10 +517,95 @@ cdef bint is_intersecting_3d(segment3d seg,
 
 @boundscheck(False)
 @wraparound(False)
-def intersection_count_2d(double[:, :] start_pnts,
-                          double[:, :] end_pnts,
-                          double[:, :] vertices,
-                          long[:, :] simplices):
+def _nearest_point_2d(double[:, :] pnts,
+                      double[:, :] vertices,
+                      long[:, :] simplices):
+  ''' 
+  Finds the point on the simplicial complex that is closest to each
+  point in `pnts`. This returns the closest point and the index of the
+  simplex which the closest point is on.
+  '''
+  cdef:
+    unsigned int i, j
+    unsigned int N = pnts.shape[0]
+    unsigned int M = simplices.shape[0]
+    double[:, :] out_pnt = np.zeros((N, 2), dtype=float, order='c')
+    long[:] out_idx = np.zeros((N,), dtype=int, order='c')
+    double shortest_distance
+    vector2d vec1, vec2 
+    segment2d seg
+    
+  for i in range(N):
+    vec1.x = pnts[i, 0]
+    vec1.y = pnts[i, 1]
+    shortest_distance = INFINITY
+    for j in range(M):
+      seg.a.x = vertices[simplices[j, 0], 0]
+      seg.a.y = vertices[simplices[j, 0], 1]
+      seg.b.x = vertices[simplices[j, 1], 0]
+      seg.b.y = vertices[simplices[j, 1], 1]
+      vec2 = nearest_point_in_segment(vec1, seg)
+      if distance_2d(vec1, vec2) < shortest_distance:
+        out_idx[i] = j
+        out_pnt[i, 0] = vec2.x
+        out_pnt[i, 1] = vec2.y
+        shortest_distance = distance_2d(vec1, vec2)
+
+  return np.asarray(out_pnt), np.asarray(out_idx)
+
+
+@boundscheck(False)
+@wraparound(False)
+def _nearest_point_3d(double[:, :] pnts,
+                      double[:, :] vertices,
+                      long[:, :] simplices):
+  ''' 
+  Finds the point on the simplicial complex that is closest to each
+  point in `pnts`. This returns the closest point and the index of the
+  simplex which the closest point is on.
+  '''
+  cdef:
+    unsigned int i, j
+    unsigned int N = pnts.shape[0]
+    unsigned int M = simplices.shape[0]
+    double[:, :] out_pnt = np.zeros((N, 3), dtype=float, order='c')
+    long[:] out_idx = np.zeros((N,), dtype=int, order='c')
+    double shortest_distance
+    vector3d vec1, vec2 
+    triangle3d tri
+    
+  for i in range(N):
+    vec1.x = pnts[i, 0]
+    vec1.y = pnts[i, 1]
+    vec1.z = pnts[i, 2]
+    shortest_distance = INFINITY
+    for j in range(M):
+      tri.a.x = vertices[simplices[j, 0], 0]
+      tri.a.y = vertices[simplices[j, 0], 1]
+      tri.a.z = vertices[simplices[j, 0], 2]
+      tri.b.x = vertices[simplices[j, 1], 0]
+      tri.b.y = vertices[simplices[j, 1], 1]
+      tri.b.z = vertices[simplices[j, 1], 2]
+      tri.c.x = vertices[simplices[j, 2], 0]
+      tri.c.y = vertices[simplices[j, 2], 1]
+      tri.c.z = vertices[simplices[j, 2], 2]
+      vec2 = nearest_point_in_triangle(vec1, tri)
+      if distance_3d(vec1, vec2) < shortest_distance:
+        out_idx[i] = j
+        out_pnt[i, 0] = vec2.x
+        out_pnt[i, 1] = vec2.y
+        out_pnt[i, 2] = vec2.z
+        shortest_distance = distance_3d(vec1, vec2)
+
+  return np.asarray(out_pnt), np.asarray(out_idx)
+
+
+@boundscheck(False)
+@wraparound(False)
+def _intersection_count_2d(double[:, :] start_pnts,
+                           double[:, :] end_pnts,
+                           double[:, :] vertices,
+                           long[:, :] simplices):
   ''' 
   Returns an array containing the number of simplices intersected
   between start_pnts and end_pnts. This is parallelizable.
@@ -358,7 +627,7 @@ def intersection_count_2d(double[:, :] start_pnts,
       seg2.a.y = vertices[simplices[j, 0], 1]
       seg2.b.x = vertices[simplices[j, 1], 0]
       seg2.b.y = vertices[simplices[j, 1], 1]
-      if is_intersecting_2d(seg1, seg2):
+      if segment_intersects_segment(seg1, seg2):
         out[i] += 1
 
   return np.asarray(out)
@@ -366,10 +635,10 @@ def intersection_count_2d(double[:, :] start_pnts,
 
 @boundscheck(False)
 @wraparound(False)
-def intersection_count_3d(double[:, :] start_pnts,
-                          double[:, :] end_pnts,                         
-                          double[:, :] vertices,
-                          long[:, :] simplices):
+def _intersection_count_3d(double[:, :] start_pnts,
+                           double[:, :] end_pnts,                         
+                           double[:, :] vertices,
+                           long[:, :] simplices):
   ''' 
   Returns an array of the number of intersections between each line
   segment, described by start_pnts and end_pnts, and the simplices
@@ -399,7 +668,7 @@ def intersection_count_3d(double[:, :] start_pnts,
       tri.c.x = vertices[simplices[j, 2], 0]
       tri.c.y = vertices[simplices[j, 2], 1]
       tri.c.z = vertices[simplices[j, 2], 2]
-      if is_intersecting_3d(seg, tri):
+      if segment_intersects_triangle(seg, tri):
         out[i] += 1
 
   return np.asarray(out)  
@@ -408,10 +677,10 @@ def intersection_count_3d(double[:, :] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-def intersection_2d(double[:, :] start_pnts,
-                    double[:, :] end_pnts,
-                    double[:, :] vertices,
-                    long[:, :] simplices):
+def _intersection_2d(double[:, :] start_pnts,
+                     double[:, :] end_pnts,
+                     double[:, :] vertices,
+                     long[:, :] simplices):
   ''' 
   Returns the intersection point and the simplex being intersected by
   the segment defined by `start_pnts` and `end_pnts`.
@@ -445,11 +714,11 @@ def intersection_2d(double[:, :] start_pnts,
       seg2.a.y = vertices[simplices[j, 0], 1]
       seg2.b.x = vertices[simplices[j, 1], 0]
       seg2.b.y = vertices[simplices[j, 1], 1]
-      if is_intersecting_2d(seg1, seg2):
+      if segment_intersects_segment(seg1, seg2):
         found_intersection = True
         # the intersecting segment should be the first segment
         # intersected when going from seg1.a to seg1.b
-        norm = segment_normal_2d(seg2) 
+        norm = segment_normal(seg2) 
         proj1 = ((seg1.a.x - seg2.a.x)*norm.x +
                  (seg1.a.y - seg2.a.y)*norm.y)
         proj2 = ((seg1.b.x - seg2.a.x)*norm.x +
@@ -474,10 +743,10 @@ def intersection_2d(double[:, :] start_pnts,
 @boundscheck(False)
 @wraparound(False)
 @cdivision(True)
-def intersection_3d(double[:, :] start_pnts,
-                    double[:, :] end_pnts,                         
-                    double[:, :] vertices,
-                    long[:, :] simplices):
+def _intersection_3d(double[:, :] start_pnts,
+                     double[:, :] end_pnts,                         
+                     double[:, :] vertices,
+                     long[:, :] simplices):
   ''' 
   Returns the intersection point and the simplex being intersected by
   the segment defined by `start_pnts` and `end_pnts`.
@@ -519,9 +788,9 @@ def intersection_3d(double[:, :] start_pnts,
       tri.c.x = vertices[simplices[j, 2], 0]
       tri.c.y = vertices[simplices[j, 2], 1]
       tri.c.z = vertices[simplices[j, 2], 2]
-      if is_intersecting_3d(seg, tri):
+      if segment_intersects_triangle(seg, tri):
         found_intersection = True
-        norm = triangle_normal_3d(tri)
+        norm = triangle_normal(tri)
         proj1 = ((seg.a.x - tri.a.x)*norm.x + 
                  (seg.a.y - tri.a.y)*norm.y +
                  (seg.a.z - tri.a.z)*norm.z)
@@ -601,15 +870,15 @@ def intersection(start_points, end_points, vertices, simplices):
   assert_shape(simplices, (None, dim), 'simplices')    
 
   if dim == 2:
-    out = intersection_2d(start_points, 
-                          end_points, 
-                          vertices, 
-                          simplices)
+    out = _intersection_2d(start_points, 
+                           end_points, 
+                           vertices, 
+                           simplices)
   elif dim == 3:
-    out = intersection_3d(start_points, 
-                          end_points, 
-                          vertices, 
-                          simplices)
+    out = _intersection_3d(start_points, 
+                           end_points, 
+                           vertices, 
+                           simplices)
   else:
     raise ValueError(
       'The number of spatial dimensions must be 2 or 3')
@@ -658,15 +927,15 @@ def intersection_count(start_points, end_points, vertices, simplices):
   assert_shape(simplices, (None, dim), 'simplices')    
 
   if dim == 2:
-    out = intersection_count_2d(start_points,
-                                end_points, 
-                                vertices, 
-                                simplices)
+    out = _intersection_count_2d(start_points,
+                                 end_points, 
+                                 vertices, 
+                                 simplices)
   elif dim == 3:
-    out = intersection_count_3d(start_points, 
-                                end_points, 
-                                vertices, 
-                                simplices)
+    out = _intersection_count_3d(start_points, 
+                                 end_points, 
+                                 vertices, 
+                                 simplices)
   else:
     raise ValueError(
       'The number of spatial dimensions must be 2 or 3')
@@ -732,6 +1001,53 @@ def contains(points, vertices, simplices):
   out = np.array(count % 2, dtype=bool)
   return out
 
+def nearest_point(points, vertices, simplices):
+  '''
+  Returns the nearest point on the simplicial complex for each point
+  in `points`. This works for 2 and 3 spatial dimensions.
+
+  Parameters
+  ----------
+  points : (N,D) array
+    Test points
+
+  vertices : (M,D) array
+    Vertices of the simplicial complex
+
+  simplices : (P,D) int array 
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
+
+  Returns
+  -------
+  (N, D) float array        
+    The nearest points on the simplicial complex
+
+  (N,) int array
+    The simplex that the nearest point is on
+
+  '''    
+  points = np.asarray(points, dtype=float)
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.asarray(simplices, dtype=int)
+
+  assert_shape(points, (None, None), 'points')
+  dim = points.shape[1]
+  assert_shape(vertices, (None, dim), 'vertices')
+  assert_shape(simplices, (None, dim), 'simplices')    
+
+  if dim == 2:
+    out = _nearest_point_2d(points, vertices, simplices)
+    
+  elif dim == 3:
+    out = _nearest_point_3d(points, vertices, simplices)
+    
+  else:
+    raise ValueError(
+      'The number of spatial dimensions must be 2 or 3')
+
+  return out
+  
 
 def oriented_simplices(vert, smp):
   ''' 

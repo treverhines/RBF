@@ -16,6 +16,7 @@ from rbf.pde.geometry import (intersection,
                               intersection_count,
                               simplex_outward_normals,
                               simplex_normals,
+                              nearest_point,
                               oriented_simplices,
                               contains)
 
@@ -261,28 +262,12 @@ def _snap_to_boundary(nodes, vert, smp, delta=1.0):
   n, dim = nodes.shape
   # find the distance to the nearest node
   dx = _neighbors(nodes, 2)[1][:, 1]
-  # allocate output arrays
+  nrst_pnt, nrst_smpid = nearest_point(nodes, vert, smp)
+  snap = np.linalg.norm(nrst_pnt - nodes, axis=1) < dx*delta
   out_smpid = np.full(n, -1, dtype=int)
   out_nodes = np.array(nodes, copy=True)
-  min_dist = np.full(n, np.inf, dtype=float)
-  for i in range(dim):
-    for sign in [-1.0, 1.0]:
-      # `pert_nodes` is `nodes` shifted slightly along dimension `i`
-      pert_nodes = np.array(nodes, copy=True)
-      pert_nodes[:, i] += delta*sign*dx
-      # find which segments intersect the boundary
-      idx, = (intersection_count(nodes, pert_nodes, vert, smp) > 0).nonzero()
-      # find the intersection points
-      pnt, smpid = intersection(nodes[idx], pert_nodes[idx], vert, smp)
-      # find the distance between `nodes` and the intersection point
-      dist = np.linalg.norm(nodes[idx] - pnt, axis=1)
-      # only snap nodes which have an intersection point that is
-      # closer than any of their previously found intersection points
-      snap = dist < min_dist[idx]
-      out_smpid[idx[snap]] = smpid[snap]
-      out_nodes[idx[snap]] = pnt[snap]
-      min_dist[idx[snap]] = dist[snap]
-
+  out_nodes[snap] = nrst_pnt[snap]
+  out_smpid[snap] = nrst_smpid[snap]
   return out_nodes, out_smpid
 
 

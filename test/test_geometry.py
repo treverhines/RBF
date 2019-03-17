@@ -31,7 +31,24 @@ class Test(unittest.TestCase):
     out = rbf.pde.geometry.intersection_count(start,end,vert,smp)
     self.assertTrue(np.all(soln==out))
 
-  def test_intersection_index_2d(self):
+  def test_intersection_count_3d(self):    
+    vert = np.array([[0.0, 0.0, 0.0],
+                     [1.0, 0.0, 0.0],
+                     [1.0, 1.0, 0.0],
+                     [0.0, 1.0, 0.0]])    
+    smp = np.array([[0, 1, 2],
+                    [0, 2, 3]])
+    start = np.array([[0.5, 0.25, 1.0],
+                      [0.5, 0.5, 1.0],
+                      [0.5, 0.5, 1.0]])
+    end = np.array([[0.5, 0.25, -1.0],
+                    [0.5, 0.5, -1.0],
+                    [0.5, 0.5, 0.5]])
+    soln = np.array([1, 2, 0])                    
+    out = rbf.pde.geometry.intersection_count(start, end, vert, smp)
+    self.assertTrue(np.all(soln==out))
+    
+  def test_intersection_2d(self):
     # unit square
     vert = np.array([[0.0,0.0],
                      [1.0,0.0],
@@ -48,11 +65,32 @@ class Test(unittest.TestCase):
 
     end = np.array([[0.5,1.5],
                     [0.5,0.9]])
+
+    soln_pnt = np.array([[0.5, 1.0],
+                         [0.5, 0.0]])
+    soln_idx = np.array([2,0])
+    out_pnt, out_idx = rbf.pde.geometry.intersection(start, end, vert, smp)
+    self.assertTrue(np.allclose(soln_pnt, out_pnt))
+    self.assertTrue(np.all(soln_idx==out_idx))
     
-    soln = np.array([2,0])
-    _, out = rbf.pde.geometry.intersection(start,end,vert,smp)
-    self.assertTrue(np.all(soln==out))
-    
+  def test_intersection_3d(self):    
+    vert = np.array([[0.0, 0.0, 0.0],
+                     [1.0, 0.0, 0.0],
+                     [1.0, 1.0, 0.0],
+                     [0.0, 1.0, 0.0]])    
+    smp = np.array([[0, 1, 2],
+                    [0, 2, 3]])
+    start = np.array([[0.5, 0.25, 1.0],
+                      [0.5, 0.75, 1.0]])
+    end = np.array([[0.5, 0.25, -1.0],
+                    [0.5, 0.75, -1.0]])
+    soln_pnt = np.array([[0.5, 0.25, 0.0],
+                         [0.5, 0.75, 0.0]])
+    soln_idx = np.array([0, 1])                         
+    out_pnt, out_idx = rbf.pde.geometry.intersection(start, end, vert, smp)
+    self.assertTrue(np.allclose(soln_pnt, out_pnt))
+    self.assertTrue(np.all(soln_idx==out_idx))
+
   def test_contains_2d(self):
     vert = np.array([[0.0,0.0],
                      [1.0,0.0],
@@ -72,6 +110,44 @@ class Test(unittest.TestCase):
     out = rbf.pde.geometry.contains(pnts,vert,smp)
     self.assertTrue(np.all(out == soln))
     
+  def test_nearest_point_2d(self):
+    vert = np.array([[0.0, 0.0],
+                     [1.0, 0.0],
+                     [1.0, 1.0],
+                     [0.0, 1.0]])
+    smp = np.array([[0, 1],
+                    [1, 2],
+                    [2, 3],
+                    [3, 0]])
+
+    pnt = np.array([[1.1, 0.5],
+                    [0.1, 0.5]])
+    soln_pnt = np.array([[1.0, 0.5],
+                        [0.0, 0.5]])
+    soln_idx = np.array([1, 3])
+    out_pnt, out_idx = rbf.pde.geometry.nearest_point(pnt, vert, smp)
+    self.assertTrue(np.allclose(out_pnt, soln_pnt))
+    self.assertTrue(np.all(soln_idx == out_idx))
+
+  def test_nearest_point_3d(self):
+    vert = np.array([[0.0, 0.0, 0.0],
+                     [1.0, 0.0, 0.0],
+                     [1.0, 1.0, 0.0],
+                     [0.0, 1.0, 0.0]])
+    smp = np.array([[0, 1, 2],
+                    [0, 2, 3]])
+
+    pnt = np.array([[1.1, 0.5,  1.0],
+                    [0.1, 0.5, -1.0],
+                    [-0.1, 0.5, 0.0]])
+    soln_pnt = np.array([[1.0, 0.5, 0.0],
+                        [0.1, 0.5, 0.0],
+                        [0.0, 0.5, 0.0]])
+    soln_idx = np.array([0, 1, 1])
+    out_pnt, out_idx = rbf.pde.geometry.nearest_point(pnt, vert, smp)
+    self.assertTrue(np.allclose(out_pnt, soln_pnt))
+    self.assertTrue(np.all(soln_idx == out_idx))
+  
   def test_pi1(self):
     # calculate pi through monte carlo simulations
     P = 100000
