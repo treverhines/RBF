@@ -3,7 +3,7 @@ this script demonstrates how to use *rbf.stencil.stencil_network*. We
 enforce that no stencil crosses a user defined boundary
 '''
 import numpy as np
-from rbf.pde.stencil import stencil_network
+from rbf.pde.knn import k_nearest_neighbors
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from scipy.spatial import ConvexHull
@@ -19,7 +19,7 @@ nodes = np.random.random((100,2))
 
 # find the 10 nearest neighbors for each node which do not cross the 
 # boundary
-sn = stencil_network(nodes,nodes,10,vert=bnd_vert,smp=bnd_smp)
+sn, _ = k_nearest_neighbors(nodes,nodes,10,vert=bnd_vert,smp=bnd_smp)
 
 # plot the first four stencils
 fig,ax = plt.subplots()
@@ -42,5 +42,5 @@ for s in bnd_smp:
   plt.plot(bnd_vert[s,0],bnd_vert[s,1],'k-',lw=2)
 
 plt.tight_layout()
-plt.savefig('../figures/stencil.a.png')
+plt.savefig('../figures/knn.a.png')
 plt.show()

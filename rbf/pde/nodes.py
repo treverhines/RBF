@@ -11,7 +11,7 @@ from scipy.sparse.csgraph import reverse_cuthill_mckee
 
 from rbf.utils import assert_shape
 from rbf.pde.halton import Halton
-from rbf.pde.stencil import stencil_network
+from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.geometry import (intersection,
                               intersection_count,
                               simplex_outward_normals,
@@ -114,30 +114,6 @@ def _rejection_sampling_nodes(N,
   return nodes
 
 
-def _neighbors(x, m, p=None, vert=None, smp=None):
-  '''
-  Returns the indices and distances for the `m` nearest neighbors to
-  each node in `x`. If `p` is specified then this function returns the
-  `m` nearest nodes in `p` to each nodes in `x`. Nearest neighbors
-  cannot extend across the boundary defined by `vert` and `smp`.
-
-  Returns
-  -------
-  (N, m) integer array
-    Indices of nearest points.
-
-  (N, m) float array
-    Distance to the nearest points.
-
-  '''
-  if p is None:
-    p = x
-
-  idx = stencil_network(x, p, m, vert=vert, smp=smp)
-  dist = np.sqrt(np.sum((x[:, None, :] - p[idx])**2, axis=2))
-  return idx, dist
-
-
 def _disperse(nodes,
               rho=None,
               pinned_nodes=None,
@@ -177,7 +153,7 @@ def _disperse(nodes,
   # form collection of all nodes
   all_nodes = np.vstack((nodes, pinned_nodes))
   # find index and distance to nearest nodes
-  i, d = _neighbors(nodes, m, p=all_nodes, vert=vert, smp=smp)
+  i, d = k_nearest_neighbors(nodes, all_nodes, m, vert=vert, smp=smp)
   # dont consider a node to be one of its own nearest neighbors
   i, d = i[:, 1:], d[:, 1:]
   # compute the force proportionality constant between each node
@@ -241,7 +217,7 @@ def _disperse_within_boundary(nodes,
   return out
 
 
-def _snap_to_boundary(nodes, vert, smp, delta=1.0):
+def _snap_to_boundary(nodes, vert, smp, delta=0.5):
   '''
   Snaps nodes to the boundary defined by `vert` and `smp`. This is
   done by slightly shifting each node along the basis directions and
@@ -261,7 +237,7 @@ def _snap_to_boundary(nodes, vert, smp, delta=1.0):
   '''
   n, dim = nodes.shape
   # find the distance to the nearest node
-  dx = _neighbors(nodes, 2)[1][:, 1]
+  dx = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
   nrst_pnt, nrst_smpid = nearest_point(nodes, vert, smp)
   snap = np.linalg.norm(nrst_pnt - nodes, axis=1) < dx*delta
   out_smpid = np.full(n, -1, dtype=int)
@@ -366,7 +342,7 @@ def _append_ghost_nodes(nodes,
   
   idx = list(idx)      
   # get the distance to the nearest neighbor for these nodes
-  dx = _neighbors(nodes[idx], 2, p=nodes)[1][:, 1]
+  dx = k_nearest_neighbors(nodes[idx], nodes, 2)[1][:, 1]
   # create ghost nodes for this group
   ghosts = nodes[idx] + dx[:, None]*normals[idx]
   # append the ghosts to the nodes
@@ -390,7 +366,7 @@ def _append_ghost_nodes(nodes,
   return out_nodes, out_groups, out_normals
 
 
-def _neighbor_argsort(nodes, m=None, vert=None, smp=None):
+def _neighbor_argsort(nodes, m=None):
   '''
   Returns a permutation array that sorts `nodes` so that each node and
   its `m` nearest neighbors are close together in memory. This is done
@@ -417,14 +393,11 @@ def _neighbor_argsort(nodes, m=None, vert=None, smp=None):
   if m is None:
     # this should be roughly equal to the stencil size for the RBF-FD
     # problem
-    if nodes.shape[1] == 2:
-      m = 30
-    elif nodes.shape[1] == 3:
-      m = 50
+    m = 5**nodes.shape[1]
 
   m = min(m, nodes.shape[0])
-  # find the indices of the nearest n nodes for each node
-  idx, dist = _neighbors(nodes, m, vert=vert, smp=smp)
+  # find the indices of the nearest m nodes for each node
+  idx = k_nearest_neighbors(nodes, nodes, m)[0]
   # efficiently form adjacency matrix
   col = idx.ravel()
   row = np.repeat(np.arange(nodes.shape[0]), m)
@@ -460,7 +433,15 @@ def _test_node_spacing(nodes, rho):
     rho = _default_rho
 
   # distance to nearest neighbor
-  dist = _neighbors(nodes, 2)[1][:, 1]
+  dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
+  if np.any(dist == 0.0):
+    is_zero = (dist == 0.0)
+    indices, = is_zero.nonzero()
+    for idx in indices:
+      logger.warning(
+        'Node %s (%s) is in the same location as another node.' 
+        % (idx, nodes[idx]))
+    
   density = 1.0/dist**nodes.shape[1]
   normalized_density = np.log10(density / rho(nodes))
   percs = np.percentile(normalized_density, [10, 50, 90])

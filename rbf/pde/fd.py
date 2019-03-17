@@ -12,7 +12,7 @@ import rbf.poly
 import rbf.linalg
 from rbf.utils import assert_shape, Memoize
 from rbf.linalg import PartitionedSolver
-from rbf.pde.stencil import stencil_network
+from rbf.pde.knn import k_nearest_neighbors
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +31,12 @@ def _reshape_diffs(diffs):
 
 def _default_stencil_size(diffs):
   ''' 
-  returns an estimate of the number of nodes needed to do a decent job at 
-  approximating the given derivative
+  returns a heuristic estimate of the number of nodes needed to do a
+  decent job at approximating the given derivative
   '''
-  P = max(sum(d) for d in diffs)
+  order = max(sum(d) for d in diffs)
   dim = len(diffs[0])
-  N = rbf.poly.count(P+1, dim) - 1
-  return N
+  return (order*2 + 1)**dim
 
 
 def _default_poly_order(diffs):
@@ -68,10 +67,10 @@ def weights(x, s, diffs, coeffs=None,
             basis=rbf.basis.phs3, order=None,
             eps=1.0):
   ''' 
-  Returns the weights which map a functions values at `s` to an 
-  approximation of that functions derivative at `x`. The weights are 
-  computed using the RBF-FD method described in [1]. In this function 
-  `x` is a single point in D-dimensional space. Use `weight_matrix` to 
+  Returns the weights which map a functions values at `s` to an
+  approximation of that functions derivative at `x`. The weights are
+  computed using the RBF-FD method described in [1]. In this function
+  `x` is a single point in D-dimensional space. Use `weight_matrix` to
   compute the weights for multiple point.
 
   Parameters
@@ -234,7 +233,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
     derivative with respect to the first spatial dimension in
     two-dimensional space.  diffs can also be a (K, D) array, where
     each (D,) sub-array is a term in a differential operator. For
-    example the two-dimensional Laplacian can be represented as
+    example the two-dimensional Laplacian can be represented as 
     `[[2, 0], [0, 2]]`.
 
   coeffs : (K,) float array or (K, N) float, optional 
@@ -260,7 +259,9 @@ def weight_matrix(x, p, diffs, coeffs=None,
     splines are not scale invariant.
 
   n : int, optional
-    Stencil size.
+    Stencil size. If this is not provided, then the stencil size will
+    be determined by the differentiation order and the number of
+    spatial dimensions.
     
   stencils : (N, n) int array, optional
     The stencils for each node in `x`. This consists of indices of
@@ -268,7 +269,6 @@ def weight_matrix(x, p, diffs, coeffs=None,
     value for `n` will be ignored. If this is not given then the
     stencils will be created based on nearest neighbors.
     
-
   Returns
   -------
   (N, M) csc sparse matrix          
@@ -279,7 +279,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
   space
 
   >>> x = np.arange(4.0)[:, None]
-  >>> W = weight_matrix(x, x, (2,))
+  >>> W = weight_matrix(x, x, (2,), n=3)
   >>> W.toarray()
   array([[ 1., -2.,  1.,  0.],
          [ 1., -2.,  1.,  0.],
@@ -302,7 +302,6 @@ def weight_matrix(x, p, diffs, coeffs=None,
     eps = np.asarray(eps, dtype=float)  
     assert_shape(eps, (p.shape[0],), 'eps')
     
-  
   # make `coeffs` a (K, N) array
   if coeffs is None:
     coeffs = np.ones((diffs.shape[0], x.shape[0]), dtype=float)
@@ -320,7 +319,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
       n = _default_stencil_size(diffs)
       n = min(n, p.shape[0])
 
-    stencils = stencil_network(x, p, n)
+    stencils, _ = k_nearest_neighbors(x, p, n)
   else:    
     stencils = np.asarray(stencils, dtype=int)
     assert_shape(stencils, (x.shape[0], None), 'stencils')

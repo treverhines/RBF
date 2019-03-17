@@ -51,8 +51,6 @@ smp = np.array([[0, 1, 3],
                 [2, 6, 7]])
 # number of nodes 
 N = 500
-# size of RBF-FD stencils
-n = 30
 # lame parameters
 lamb = 1.0
 mu = 1.0
@@ -86,7 +84,7 @@ G_zy = sp.csr_matrix((N, N))
 G_zz = sp.csr_matrix((N, N))
 
 out = elastic3d_body_force(nodes[idx['interior']], nodes, 
-                           lamb=lamb, mu=mu, n=n)
+                           lamb=lamb, mu=mu)
 G_xx = add_rows(G_xx, out['xx'], idx['interior'])
 G_xy = add_rows(G_xy, out['xy'], idx['interior'])
 G_xz = add_rows(G_xz, out['xz'], idx['interior'])
@@ -98,7 +96,7 @@ G_zy = add_rows(G_zy, out['zy'], idx['interior'])
 G_zz = add_rows(G_zz, out['zz'], idx['interior'])
 
 out = elastic3d_body_force(nodes[idx['boundary:free']], nodes, 
-                           lamb=lamb, mu=mu, n=n)
+                           lamb=lamb, mu=mu)
 G_xx = add_rows(G_xx, out['xx'], idx['ghosts:free'])
 G_xy = add_rows(G_xy, out['xy'], idx['ghosts:free'])
 G_xz = add_rows(G_xz, out['xz'], idx['ghosts:free'])
@@ -111,7 +109,7 @@ G_zz = add_rows(G_zz, out['zz'], idx['ghosts:free'])
 
 out = elastic3d_surface_force(nodes[idx['boundary:free']], 
                               normals[idx['boundary:free']], 
-                              nodes, lamb=lamb, mu=mu, n=n)
+                              nodes, lamb=lamb, mu=mu)
 G_xx = add_rows(G_xx, out['xx'], idx['boundary:free'])
 G_xy = add_rows(G_xy, out['xy'], idx['boundary:free'])
 G_xz = add_rows(G_xz, out['xz'], idx['boundary:free'])
@@ -122,7 +120,7 @@ G_zx = add_rows(G_zx, out['zx'], idx['boundary:free'])
 G_zy = add_rows(G_zy, out['zy'], idx['boundary:free'])
 G_zz = add_rows(G_zz, out['zz'], idx['boundary:free'])
 
-out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes, n=1)
+out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes)
 G_xx = add_rows(G_xx, out['xx'], idx['boundary:fix'])
 G_yy = add_rows(G_yy, out['yy'], idx['boundary:fix'])
 G_zz = add_rows(G_zz, out['zz'], idx['boundary:fix'])

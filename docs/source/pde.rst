@@ -12,7 +12,7 @@ computational geometry functions for two and three-dimensions
 
   fd
   nodes
-  stencil
+  knn
   geometry
   halton
 

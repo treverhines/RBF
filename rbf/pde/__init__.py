@@ -4,4 +4,4 @@ from rbf.pde import (domain,
                      geometry,
                      halton,
                      nodes,
-                     stencil)
+                     knn)
