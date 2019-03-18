@@ -17,17 +17,17 @@ Features
 * Functions for evaluating RBFs and their exact derivatives.
 * A class for RBF interpolation, which is used for interpolating and 
   smoothing scattered, noisy, N-dimensional data.
-* An abstraction for Gaussian processes. Gaussian processes are 
-  primarily used here for Gaussian process regression (GPR), which is 
-  a nonparametric Bayesian interpolation/smoothing method.
 * An algorithm for generating Radial Basis Function Finite Difference
   (RBF-FD) weights. This is used for solving large scale PDEs over 
   irregular domains.
 * A node generation algorithm which can be used for solving PDEs with 
   the spectral RBF method or the RBF-FD method.
+* An abstraction for Gaussian processes. Gaussian processes are 
+  primarily used here for Gaussian process regression (GPR), which is 
+  a nonparametric Bayesian interpolation/smoothing method.
 * Halton sequence generator.
 * Computational geometry functions (e.g. point in polygon testing) for
-  1, 2, and 3 spatial dimensions.
+  two and three spatial dimensions.
 
 Table of Contents
 =================

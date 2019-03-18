@@ -9,7 +9,6 @@ weights).
 import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve
-from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
 
 from rbf.basis import phs3
@@ -25,7 +24,7 @@ smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
 N = 500 # total number of nodes.
 
-n = 20 # stencil size. Increase this will generally improve accuracy
+n = 25 # stencil size. Increase this will generally improve accuracy
 
 basis = phs3 # radial basis function used to compute the weights. Odd
              # order polyharmonic splines (e.g., phs3) have always
@@ -61,14 +60,19 @@ d[groups['boundary:all']] = 0.0
 # find the solution at the nodes
 u_soln = spsolve(A, d) 
 
-# interpolate the solution on a grid
-xg, yg = np.meshgrid(np.linspace(-0.05, 2.05, 400), 
-                     np.linspace(-0.05, 2.05, 400))
+# Create a grid for interpolating the solution
+xg, yg = np.meshgrid(np.linspace(0.0, 2.02, 100), 
+                     np.linspace(0.0, 2.02, 100))
 points = np.array([xg.flatten(), yg.flatten()]).T                    
-u_itp = LinearNDInterpolator(nodes, u_soln)(points)
+
+# We can use any method of scattered interpolation (e.g.,
+# scipy.interpolate.LinearNDInterpolator). Here we repurpose the
+# RBF-FD method to do the interpolation with a high order of accuracy
+u_itp = weight_matrix(points, nodes, diffs=[0, 0], n=n).dot(u_soln)
+
 # mask points outside of the domain
 u_itp[~contains(points, vert, smp)] = np.nan 
-ug = u_itp.reshape((400, 400)) # fold back into a grid
+ug = u_itp.reshape((100, 100)) # fold back into a grid
 # make a contour plot of the solution
 fig, ax = plt.subplots()
 p = ax.contourf(xg, yg, ug, np.linspace(-1e-6, 0.16, 9), cmap='viridis')
@@ -77,6 +81,8 @@ for s in smp:
   ax.plot(vert[s, 0], vert[s, 1], 'k-', lw=2)
 
 ax.set_aspect('equal')
+ax.set_xlim(-0.05, 2.05)
+ax.set_ylim(-0.05, 2.05)
 fig.colorbar(p, ax=ax)
 fig.tight_layout()
 plt.savefig('../figures/fd.i.png')
