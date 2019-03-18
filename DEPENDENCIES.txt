@@ -3,7 +3,3 @@ numpydoc
 scipy
 sympy
 cython
-networkx
-
-
-
