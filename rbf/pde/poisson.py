@@ -104,8 +104,9 @@ def poisson_discs(rfunc, bounds, seeds=10, k=50):
     Parameters
     ----------
     rfunc : callable
-        A function that takes a single (d,) array point as input and
-        returns the minimum nearest neighbor distance at that point.
+        A function that takes a (n, d) array of points as input and
+        returns the minimum nearest neighbor distance for those
+        points.
 
     bounds : (d, 2) array
         The lower and upper bounds for each spatial dimension         
@@ -124,16 +125,18 @@ def poisson_discs(rfunc, bounds, seeds=10, k=50):
     
     References
     ----------
-    TODO
+    [1] Bridson, R., Fast Poisson Disk Sampling in Arbitrary
+        Dimensions.
+
     '''
     bounds = np.asarray(bounds)
     assert_shape(bounds, (None, 2), 'bounds')
     dim = bounds.shape[0]
     
-    nodes = halton(seeds, dim)
-    nodes  = nodes*bounds.ptp(axis=1) + bounds[:, 0]
-    radii = np.array([rfunc(n) for n in nodes])
-    dc = _DiscCollection(nodes, radii)
+    centers = halton(seeds, dim)
+    centers  = centers*bounds.ptp(axis=1) + bounds[:, 0]
+    radii = np.asarray(rfunc(centers))
+    dc = _DiscCollection(centers, radii)
     active = np.arange(seeds).tolist()
 
     # initialize some Halton sequences as random number generators. By
@@ -147,36 +150,37 @@ def poisson_discs(rfunc, bounds, seeds=10, k=50):
     while active:
         # randomly pick a disc index from `active`
         i = active[int(idx_rng(1)[0, 0]*len(active))]
-        rmin = rfunc(dc.centers[i])
-        rmax = 2*rmin
+        center_i = dc.centers[i]
+        radius_i = dc.radii[i]
+        rmin, rmax = radius_i, 2*radius_i
         if dim == 2:
             # randomly generate test points around disc i
             r = r_rng(k)[:, 0]*(rmax - rmin) + rmin
             theta = theta_rng(k)[:, 0]*2*np.pi
-            x = dc.centers[i, 0] + r*np.cos(theta)
-            y = dc.centers[i, 1] + r*np.sin(theta)
+            x = center_i[0] + r*np.cos(theta)
+            y = center_i[1] + r*np.sin(theta)
             # toss out test points that are out of bounds 
             keep = ((x >= bounds[0, 0]) & (x <= bounds[0, 1]) &
                     (y >= bounds[1, 0]) & (y <= bounds[1, 1]))
             # the centers and radii for k test discs
             cnts = np.array([x[keep], y[keep]]).T
-            rads = np.array([rfunc(c) for c in cnts])
+            rads = np.asarray(rfunc(cnts))
 
         elif dim == 3:
             # randomly generate points around disc i
             r = r_rng(k)[:, 0]*(rmax - rmin) + rmin
             theta = theta_rng(k)[:, 0]*2*np.pi
             phi = phi_rng(k)[:, 0]*np.pi
-            x = dc.centers[i, 0] + r*np.cos(theta)*np.sin(phi)
-            y = dc.centers[i, 1] + r*np.sin(theta)*np.sin(phi)
-            z = dc.centers[i, 2] + r*np.cos(phi)
+            x = center_i[0] + r*np.cos(theta)*np.sin(phi)
+            y = center_i[1] + r*np.sin(theta)*np.sin(phi)
+            z = center_i[2] + r*np.cos(phi)
             # toss out test points that are out of bounds 
             keep = ((x >= bounds[0, 0]) & (x <= bounds[0, 1]) &
                     (y >= bounds[1, 0]) & (y <= bounds[1, 1]) &
                     (z >= bounds[2, 0]) & (z <= bounds[2, 1]))
             # the centers and radii for k test discs
             cnts = np.array([x[keep], y[keep], z[keep]]).T
-            rads = np.array([rfunc(c) for c in cnts])
+            rads = np.asarray(rfunc(cnts))
 
         placed_disc = False
         for c, r in zip(cnts, rads):
