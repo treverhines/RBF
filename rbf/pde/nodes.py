@@ -10,7 +10,7 @@ from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 
 from rbf.utils import assert_shape
-from rbf.pde.halton import Halton
+from rbf.pde.halton import HaltonSequence as Halton
 from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.geometry import (intersection,
                               intersection_count,
