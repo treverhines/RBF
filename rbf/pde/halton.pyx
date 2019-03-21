@@ -43,24 +43,24 @@ cdef double halton_n(long n,
 
 @boundscheck(False)
 @wraparound(False)
-def halton(long N,
-           long D=1,
-           long start=0,
-           long skip=1,
-           long prime_index=0):   
+def halton_sequence(long size,
+                    long dim=1,
+                    long start=0,
+                    long skip=1,
+                    long prime_index=0):   
   ''' 
-  Computes a halton sequence with length `N` and dimensions `D`
+  Returns a Halton sequence with length `size` and dimensions `dim`
 
   Parameters
   ----------
-  N : int  
-    Length of the halton sequence
+  size : int  
+    Number of Halton sequence elements to return
 
-  D : int, optional
-    Dimensions. defaults to 1
+  dim : int, optional
+    Number of dimensions. defaults to 1
 
   start : int, optional
-    Starting index in the halton sequence. defaults to 0
+    Starting index for the Halton sequence. defaults to 0
       
   skip : int, optional
     Increment by this amount. defaults to 1
@@ -71,22 +71,22 @@ def halton(long N,
       
   Returns
   -------
-  (N, D) array
+  (size, dim) array
 
   '''
   cdef:
     long i, j
-    double[:, :] seq = np.empty((N, D), dtype=float)
-    long[:] p = PRIMES[prime_index:prime_index + D]
+    double[:, :] seq = np.empty((size, dim), dtype=float)
+    long[:] p = PRIMES[prime_index:prime_index + dim]
 
-  for i in range(N):
-    for j in range(D):
+  for i in range(size):
+    for j in range(dim):
       seq[i, j] = halton_n(i, p[j], start, skip)
 
   return np.asarray(seq)
 
 
-class Halton(object):
+class HaltonSequence(object):
   ''' 
   Produces a Halton sequence when called and remembers the state of
   the sequence so that repeated calls produce the next items in the
@@ -94,7 +94,7 @@ class Halton(object):
 
   Parameters             
   ----------         
-  D : int, optional
+  dim : int, optional
     Dimensions, defaults to 1    
 
   start : int, optional
@@ -108,28 +108,88 @@ class Halton(object):
     starting prime number)
         
   '''
-  def __init__(self, D=1, start=0, skip=1, prime_index=0):
+  def __init__(self, dim=1, start=0, skip=1, prime_index=0):
     self.count = start
     self.skip = skip
-    self.dim = D
+    self.dim = dim
     self.prime_index = prime_index
 
-  def __call__(self, N):
+  def __call__(self, size=None):
+    return self.random(size=size)
+
+  def random(self, size=None):
     ''' 
+    Returns elements of a Halton sequence with values between 0 and 1
+    
     Parameters         
     ----------               
-    N : int
-     Number of elements to return  
+    size : int, optional
+      Number of elements to return. If this is not given, then a
+      single element will be returned as a (dim,) array.
                         
     Returns       
     -------        
-    out : (N, D) array
+    out : (dim,) or (size, dim) array
 
     '''
-    out = halton(N, self.dim, self.count, self.skip, self.prime_index)
-    self.count += N*self.skip
+    if size is None:
+        size = 1
+        output_1d = True
+
+    else:
+        output_1d = False
+            
+    out = halton_sequence(size, 
+                          self.dim, 
+                          self.count, 
+                          self.skip, 
+                          self.prime_index)
+    self.count += size*self.skip
+
+    if output_1d:
+        out = out[0]
+    
     return out
   
+  def randint(self, a, b=None, size=None):
+    '''
+    Returns elements of the Halton sequence that have been mapped to
+    integers between `a` and `b`. If `b` is not given, then the
+    returned values are between 0 and `a`.
 
+    Parameters
+    ----------
+    a : int
+
+    b : int, optional
+    
+    '''
+    if b is None:
+        b = a
+        a = 0
+    
+    a, b = int(a), int(b)
+    out = self.random(size=size)
+    out = (out*(b - a) + a).astype(int)
+    return out
+        
+  def uniform(self, low=0.0, high=1.0, size=None):
+    '''
+    Returns elements of the Halton sequence that have been linearly
+    mapped to floats between `low` and `high`.
+
+    Parameters
+    ----------
+    low : float or (dim,) float array
+
+    high : float or (dim,) float array
+    
+    '''
+    low = np.asarray(low, dtype=float)
+    high = np.asarray(high, dtype=float)
+    out = self.random(size=size)
+    out = (out*(high - low) + low)
+    return out
+  
 
 

@@ -44,7 +44,7 @@ class _DiscCollection:
         # tree build
         recent_centers = self.centers[self.tree.n:]
         dist = np.linalg.norm(recent_centers - cnt[None, :], axis=1)
-        out, = (dist < rad).nonzero()
+        out, = (dist <= rad).nonzero()
         out = (out + self.tree.n).tolist()
         # use the tree to test the remaining discs
         out += self.tree.query_ball_point(cnt, rad)
@@ -59,7 +59,7 @@ class _DiscCollection:
         # tree build
         recent_centers = self.centers[self.tree.n:]
         dist = np.linalg.norm(recent_centers - cnt[None, :], axis=1)
-        if np.any(dist < rad):
+        if np.any(dist <= rad):
             return True
                     
         # use the tree to test the remaining discs
