@@ -152,7 +152,7 @@ class Test(unittest.TestCase):
     # calculate pi through monte carlo simulations
     P = 100000
     vert,smp = rbf.pde.domain.circle(5)    
-    pnts = 2*(rbf.pde.halton.halton(P,2) - 0.5)
+    pnts = 2*(rbf.pde.halton.halton_sequence(P,2) - 0.5)
     is_inside = rbf.pde.geometry.contains(pnts,vert,smp)
     pi_est = 4*sum(is_inside)/P
     self.assertTrue(np.isclose(pi_est,np.pi,atol=1e-2))    
@@ -184,7 +184,7 @@ class Test(unittest.TestCase):
     # calculate area of sphere using monte carlo simulations
     P = 10000
     vert,smp = rbf.pde.domain.sphere(5)
-    pnts = 2*(rbf.pde.halton.halton(P,3) - 0.5)
+    pnts = 2*(rbf.pde.halton.halton_sequence(P,3) - 0.5)
     is_inside = rbf.pde.geometry.contains(pnts,vert,smp)
     vol_est = 8*sum(is_inside)/P
     vol = 4*np.pi/3

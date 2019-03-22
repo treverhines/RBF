@@ -103,7 +103,7 @@ class Test(unittest.TestCase):
     # estimate derivative in f(x,y) = sin(2*pi*x)*cos(2*pi*y). The 
     # accuracy should improve with increasing polynomial order  
     x = np.array([0.5,0.5])
-    H = rbf.pde.halton.Halton(2)
+    H = rbf.pde.halton.HaltonSequence(2)
     nodes = H(500)
     
     u = test_func2d(nodes)
@@ -143,7 +143,7 @@ class Test(unittest.TestCase):
     # accuracy should improve with increasing polynomial order test 
     # test d/dy
     x = np.array([0.7,0.6])
-    H = rbf.pde.halton.Halton(2)
+    H = rbf.pde.halton.HaltonSequence(2)
     nodes = H(500)
     
     u = test_func2d(nodes)

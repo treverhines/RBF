@@ -16,15 +16,14 @@ from rbf.pde.geometry import (intersection,
                               intersection_count,
                               simplex_outward_normals,
                               simplex_normals,
-                              nearest_point,
-                              oriented_simplices)
+                              nearest_point)
 
 logger = logging.getLogger(__name__)
 
 
 def _disperse(nodes,
               rho=None,
-              pinned_nodes=None,
+              fixed_nodes=None,
               m=None,
               delta=0.1,
               vert=None,
@@ -38,10 +37,12 @@ def _disperse(nodes,
   if rho is None:
     rho = lambda x: np.ones(x.shape[0])
 
-  if pinned_nodes is None:
-    pinned_nodes = np.zeros((0, nodes.shape[1]), dtype=float)
-
-  pinned_nodes = np.asarray(pinned_nodes, dtype=float)
+  if fixed_nodes is None:
+    fixed_nodes = np.zeros((0, nodes.shape[1]), dtype=float)
+  else:
+    fixed_nodes = np.asarray(fixed_nodes)
+    assert_shape(fixed_nodes, (None, nodes.shape[1]), 'fixed_nodes')     
+    
   if m is None:
     # the default number of neighboring nodes to use when computing
     # the repulsion force is 7 for 2D and 13 for 3D
@@ -53,13 +54,13 @@ def _disperse(nodes,
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
-  m = min(m, nodes.shape[0]+pinned_nodes.shape[0])
+  m = min(m, nodes.shape[0]+fixed_nodes.shape[0])
   # if m is 0 or 1 then the nodes remain stationary
   if m <= 1:
     return np.array(nodes, copy=True)
 
   # form collection of all nodes
-  all_nodes = np.vstack((nodes, pinned_nodes))
+  all_nodes = np.vstack((nodes, fixed_nodes))
   # find index and distance to nearest nodes
   i, d = k_nearest_neighbors(nodes, all_nodes, m, vert=vert, smp=smp)
   # dont consider a node to be one of its own nearest neighbors
@@ -84,34 +85,79 @@ def _disperse(nodes,
   return out
 
 
-def _disperse_within_boundary(nodes,
-                              vert,
-                              smp,
-                              rho=None,
-                              pinned_nodes=None,
-                              m=None,
-                              delta=0.1,
-                              bound_force=False):
+def disperse(nodes,
+             vert,
+             smp,
+             rho=None,
+             fixed_nodes=None,
+             m=None,
+             delta=0.1,
+             bound_force=False):
   '''
-  Returns `nodes` after beingly slightly dispersed within the
-  boundaries defined by `vert` and `smp`. The disperson is analogous
-  to electrostatic repulsion, where neighboring node exert a repulsive
-  force on eachother. If a node is repelled into a boundary then it
-  bounces back in.
+  Slightly disperses the nodes within the domain defined by `vert` and
+  `smp`. The disperson is analogous to electrostatic repulsion, where
+  neighboring node exert a repulsive force on eachother. If a node is
+  repelled into a boundary then it bounces back in. 
+
+  Parameters
+  ----------
+  nodes : (n, d) float array
+    Initial node positions
+
+  vert : (p, d) float array
+    Domain vertices
+  
+  smp : (q, d) int array
+    Connectivity of the vertices to form the boundary
+  
+  rho : callable, option
+    Takes an (n, d) array as input and returns the repulsion force for
+    a node at those position. This should be normalized to be between
+    0 and 1 and correspond to the desired node density.
+
+  fixed_nodes : (k, d) float array, optional
+    Nodes which do not move and only provide a repulsion force
+
+  m : int, optional
+    The number of adjacent nodes used to determine repulsion forces
+    for each node
+                 
+  delta : float, optional
+    The step size. Each node moves in the direction of the repulsion
+    force by a distance `delta` times the distance to the nearest
+    neighbor.
+
+  bound_force : bool, optional
+    If True then nodes cannot repel eachother across the domain
+    boundaries.
+
+  Returns
+  -------
+  (n, d) float array
+  
   '''
+  nodes = np.asarray(nodes, dtype=float)
+  vert = np.asarray(vert, dtype=float)
+  smp = np.asarray(smp, dtype=int) 
+  assert_shape(nodes, (None, None), 'nodes')
+  dim = nodes.shape[1]
+  assert_shape(vert, (None, dim), 'vert')
+  assert_shape(smp, (None, dim), 'smp')
+  
   if bound_force:
     bound_vert, bound_smp = vert, smp
   else:
     bound_vert, bound_smp = None, None
 
   # node positions after repulsion
-  out = _disperse(nodes, rho=rho, pinned_nodes=pinned_nodes, m=m,
+  out = _disperse(nodes, rho=rho, fixed_nodes=fixed_nodes, m=m,
                   delta=delta, vert=bound_vert, smp=bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = intersection_count(nodes, out, vert, smp) > 0
   # point where nodes intersected the boundary and the simplex they
   # intersected at
-  intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], vert, smp)
+  intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], 
+                                    vert, smp)
   # normal vector to intersection point
   intr_norms = simplex_normals(vert, smp[intr_idx])
   # distance that the node wanted to travel beyond the boundary
@@ -125,29 +171,51 @@ def _disperse_within_boundary(nodes,
   return out
 
 
-def _snap_to_boundary(nodes, vert, smp, delta=0.5):
+def snap_to_boundary(nodes, vert, smp, delta=0.5):
   '''
-  Snaps nodes to the boundary defined by `vert` and `smp`. This is
-  done by slightly shifting each node along the basis directions and
-  checking to see if that caused a boundary intersection. If so, then
-  the intersecting node is reset at the point of intersection.
+  Snaps `nodes` to the boundary defined by `vert` and `smp`. If a node
+  is sufficiently close to the boundary, then it will be snapped to
+  the closest point on the boundary. A node is sufficiently close if
+  the distance to the boundary is `delta` times the distance to its
+  nearest neighbor.
 
+  Parameters
+  ----------
+  nodes : (n, d) float array
+    Node positions
+  
+  vert : (p, d) float array
+    Domain vertices
+  
+  smp : (q, d) int array
+    Connectivity of the vertices to form the domain boundary
+  
+  delta : float, optional
+    Snapping distance factor. The snapping distance is `delta` times
+    the distance to the nearest neighbor.
+      
   Returns
   -------
-  (N, D) float array
-    New nodes positions.
+  (n, d) float array
+    Node poistion    
 
-  (N, D) int array
-    Index of the simplex that each node is on. If a node is not on a
-    simplex (i.e. it is an interior node) then the simplex index is
-    -1.
+  (n, d) int array
+    Index of the simplex that each node snapped to. If a node did not
+    snap to the boundary then its value will be -1.
 
   '''
+  nodes = np.asarray(nodes, dtype=float)
+  vert = np.asarray(vert, dtype=float)
+  smp = np.asarray(smp, dtype=int) 
+  assert_shape(nodes, (None, None), 'nodes')
   n, dim = nodes.shape
+  assert_shape(vert, (None, dim), 'vert')
+  assert_shape(smp, (None, dim), 'smp')
+
   # find the distance to the nearest node
-  dx = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
+  dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
   nrst_pnt, nrst_smpid = nearest_point(nodes, vert, smp)
-  snap = np.linalg.norm(nrst_pnt - nodes, axis=1) < dx*delta
+  snap = np.linalg.norm(nrst_pnt - nodes, axis=1) < dist*delta
   out_smpid = np.full(n, -1, dtype=int)
   out_nodes = np.array(nodes, copy=True)
   out_nodes[snap] = nrst_pnt[snap]
@@ -155,136 +223,22 @@ def _snap_to_boundary(nodes, vert, smp, delta=0.5):
   return out_nodes, out_smpid
 
 
-def _make_normal_vectors(smpid, vert, smp):
-  '''
-  Create an (n, d) array of normal vectors for each node. If the node
-  is not a boundary node then the corresponding row contains NaN's.
-  '''
-  # get the normal vectors for each simplex
-  simplex_normals = simplex_outward_normals(vert, smp)
-  # allocate an array of nans for the node normal vectors 
-  normals = np.full((smpid.shape[0], vert.shape[1]), np.nan)
-  # find which nodes are attached to a simplex. set those normal
-  # vectors to be the normal vector for the simplex they are attached
-  # to
-  normals[smpid >= 0] = simplex_normals[smpid[smpid >= 0]]
-  return normals
-
-
-def _make_group_indices(smpid, boundary_groups):
-  '''
-  Create a dictionary identifying the nodes in each group.
-  '''
-  groups = {'interior': [-1]}
-  # each boundary group name is prepended with "boundary:" 
-  for k, v in boundary_groups.items():
-    groups['boundary:%s' % k] =  v
-    
-  # put the nodes into groups based on which (if any) simplex the
-  # nodes are attached to.
-  indices = {}
-  for group_name, group_smp in groups.items():
-    # get the node indices that belong to this group
-    group_indices = [i for i, s in enumerate(smpid) if s in group_smp]
-    indices[group_name] = np.array(group_indices, dtype=int)
-
-  return indices
-
-
-def _vertex_outward_normals(vert, smp):
-  '''
-  Get the "normal" vectors for each vertex of the domain. Here the
-  normal vector is the average of the normal vectors for each simplex
-  that the vertex is part of.
-  '''
-  simplex_normals = simplex_outward_normals(vert, smp)
-  vertex_normals = np.zeros_like(vert)
-  for i, s in enumerate(smp):
-    vertex_normals[s] += simplex_normals[i]
-  
-  vertex_normals /= np.linalg.norm(vertex_normals, axis=1)[:, None]   
-  return vertex_normals
-
-
-def _append_vertices(nodes,
-                     groups, 
-                     normals,
-                     vert,
-                     smp,
-                     boundary_groups):
-  '''
-  Append the domain vertices to the node set. 
-  '''
-  # append the vertices
-  out_nodes = np.vstack((nodes, vert))
-  # append the vertex normals
-  vertex_normals = _vertex_outward_normals(vert, smp)
-  out_normals = np.vstack((normals, vertex_normals))
-  # find the first simplex containing each vertex
-  smpid = [np.nonzero(smp == i)[0][0] for i in range(vert.shape[0])] 
-  # find out which group each vertex belongs to
-  vertex_groups = _make_group_indices(smpid, boundary_groups)
-  out_groups = groups.copy()
-  for group_name, group_idx in vertex_groups.items():  
-    # append the vertex groups to each group
-    group_idx = group_idx + nodes.shape[0]
-    group_idx = np.hstack((groups[group_name], group_idx))
-    out_groups[group_name] = group_idx
-              
-  return out_nodes, out_groups, out_normals      
-
-
-def _append_ghost_nodes(nodes, 
-                        groups,
-                        normals,
-                        boundary_groups_with_ghosts):
-  '''                        
-  add ghost nodes for the specified groups. This is smart enough to
-  not create duplicate ghost nodes if the boundary groups share
-  simplices
-  '''
-  # collect the indices of all nodes that get a ghost
-  idx = set()
-  for k in boundary_groups_with_ghosts:
-    idx = idx.union(groups['boundary:%s' % k])
-  
-  idx = list(idx)      
-  # get the distance to the nearest neighbor for these nodes
-  dx = k_nearest_neighbors(nodes[idx], nodes, 2)[1][:, 1]
-  # create ghost nodes for this group
-  ghosts = nodes[idx] + dx[:, None]*normals[idx]
-  # append the ghosts to the nodes
-  out_nodes = np.vstack((nodes, ghosts))
-  # append a set of nans to the normals
-  ghost_normals = np.full_like(ghosts, np.nan)
-  out_normals = np.vstack((normals, ghost_normals))
-  # find the indices of ghost nodes that belong to each boundary
-  # group
-  out_groups = groups.copy()
-  for k in boundary_groups_with_ghosts:
-    ghost_group_k = []
-    for n in groups['boundary:%s' % k]:
-      # find the index of the ghost node corresponding to node `n`
-      g = nodes.shape[0] + idx.index(n)
-      ghost_group_k.append(g)
-    
-    out_groups['ghosts:%s' % k] = np.array(ghost_group_k, dtype=int)    
-
-  # add the indices for the remaining groups  
-  return out_nodes, out_groups, out_normals
-
-
-def _neighbor_argsort(nodes, m=None):
+def neighbor_argsort(nodes, m=None):
   '''
   Returns a permutation array that sorts `nodes` so that each node and
   its `m` nearest neighbors are close together in memory. This is done
   through the use of a KD Tree and the Reverse Cuthill-McKee
   algorithm.
 
+  Parameters
+  ----------
+  nodes : (n, d) float array
+  
+  m : int, optional
+         
   Returns
   -------
   (N,) int array
-    Sorting indices.
 
   Examples
   --------
@@ -298,6 +252,9 @@ def _neighbor_argsort(nodes, m=None):
          [ 0.,  1.]])
 
   '''
+  nodes = np.asarray(nodes, dtype=float)
+  assert_shape(nodes, (None, None), 'nodes')
+  
   if m is None:
     # this should be roughly equal to the stencil size for the RBF-FD
     # problem
@@ -315,56 +272,7 @@ def _neighbor_argsort(nodes, m=None):
   return permutation
 
 
-def _sort_nodes(nodes, groups, normals):
-  '''
-  sort so that nodes that are close in space are also close in memory
-  '''
-  sort_idx = _neighbor_argsort(nodes)
-  out_nodes = nodes[sort_idx]
-  out_normals = normals[sort_idx]
-  # update the groups because of this sorting
-  out_groups = {}
-  reverse_sort_idx = np.argsort(sort_idx)
-  for key, val in groups.items():
-    out_groups[key] = reverse_sort_idx[val]
-
-  return out_nodes, out_groups, out_normals
-
-
-def _test_node_spacing(nodes, rho):
-  '''
-  Test that no nodes are unusually close to eachother (which may
-  have occurred when snapping nodes to the boundary or placing ghost
-  nodes.
-  '''
-  if rho is None:
-    rho = lambda x: np.ones(x.shape[0])
-
-  # distance to nearest neighbor
-  dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
-  if np.any(dist == 0.0):
-    is_zero = (dist == 0.0)
-    indices, = is_zero.nonzero()
-    for idx in indices:
-      logger.warning(
-        'Node %s (%s) is in the same location as another node.' 
-        % (idx, nodes[idx]))
-    
-  density = 1.0/dist**nodes.shape[1]
-  normalized_density = np.log10(density / rho(nodes))
-  percs = np.percentile(normalized_density, [10, 50, 90])
-  med = percs[1]
-  idr = percs[2] - percs[0]
-  is_too_close = normalized_density < (med - 2*idr)
-  if np.any(is_too_close):
-    indices, = is_too_close.nonzero()
-    for idx in indices:
-      logger.warning(
-        'Node %s (%s) is unusually close to a neighboring '
-        'node.' % (idx, nodes[idx]))
-
-
-def min_energy_nodes(N, vert, smp,
+def min_energy_nodes(n, vert, smp,
                      rho=None,
                      pinned_nodes=None,
                      itr=100,
@@ -376,56 +284,50 @@ def min_energy_nodes(N, vert, smp,
                      include_vertices=False,
                      bound_force=False):
   '''
-  Generates nodes within a 1, 2, or 3 dimensional domain using a
+  Generates nodes within a two or three dimensional domain using a
   minimum energy algorithm.
 
-  The algorithm is as follows: A quasi-random set of nodes is first
-  generated within the domain from a Halton sequence. The nodes
-  positions are then iteratively adjusted. For each iteration, the
-  nearest neighbors to each node are found. A repulsion force is
-  calculated for each node using the distance to its nearest neighbors
-  and their charges (which are inversely proportional to the node
-  density). Each node then moves in the direction of the net force
-  acting on it. If a node is repelled into boundary, it will bounce
-  back into the domain. When the iteration are complete, nodes that
-  are sufficiently close to the boundary are snapped to the boundary.
-  This function returns the nodes, the normal vectors to the boundary
-  nodes, and an index set indicating which nodes belong to which
-  group.
+  The algorithm is as follows: Nodes are first generated within the
+  domain using rejection sampling. The nodes positions are then
+  iteratively adjusted. For each iteration, a repulsion force is
+  calculated for each node using the distance to its nearest
+  neighbors. Each node then moves in the direction of the net force
+  acting on it. If a node is repelled into the boundary, it will
+  bounce back into the domain. When the iteration are complete, nodes
+  that are sufficiently close to the boundary are snapped to the
+  boundary.
 
   Parameters
   ----------
-  N : int
-    Number of nodes
+  n : int
+    The number of nodes generated during rejection sampling. This may
+    be less than the actual number of nodes returned.
 
-  vert : (P, D) array
+  vert : (p, d) array
     Vertices making up the boundary
 
-  smp : (Q, D) array
+  smp : (q, d) array
     Describes how the vertices are connected to form the boundary
 
   rho : function, optional
-    Node density function. Takes a (?, D) array of coordinates in D
-    dimensional space and returns an (?,) array of densities which
-    have been normalized so that the maximum density in the domain is
-    1.0. This function will still work if the maximum value is
-    normalized to something less than 1.0; however it will be less
-    efficient.
+    Node density function. Takes a (n, d) array of coordinates and
+    returns an (n,) array of desired node densities at those
+    coordinates. This function should be normalized to be between 0
+    and 1.
 
-  pinned_nodes : (F, D) array, optional
+  pinned_nodes : (k, d) array, optional
     Nodes which do not move and only provide a repulsion force. These
     nodes are included in the set of nodes returned by this function
     and they are in the group named "pinned".
 
   itr : int, optional
-    Number of repulsion iterations. If this number is small then the
-    nodes will not reach a minimum energy equilibrium.
+    Number of repulsion iterations.
 
   m : int, optional
     Number of neighboring nodes to use when calculating the repulsion
     force. This defaults to 7 for 2D nodes and 13 for 3D nodes.
     Deviating from these default values may yield a node distribution
-    that is not consistent with the node density function `rho`. 
+    that is not consistent with the node density function `rho`.
 
   delta : float, optional
     Scaling factor for the node step size in each iteration. The
@@ -442,9 +344,8 @@ def min_energy_nodes(N, vert, smp,
     the groups and the values are lists of simplex indices making up
     each group. This function will return a dictionary identifying
     which nodes belong to each boundary group. By default, there is a
-    group for each simplex making up the boundary and another group
-    named 'all' for the entire boundary. Specifically, The default
-    value is `{'all':range(len(smp)), '0':[0], '1':[1], ...}`.
+    single group named 'all' for the entire boundary. Specifically,
+    The default value is `{'all':range(len(smp))}`.
 
   boundary_groups_with_ghosts: list of strs, optional
     List of boundary groups that will be given ghost nodes. By
@@ -466,31 +367,30 @@ def min_energy_nodes(N, vert, smp,
 
   Returns
   -------
-  (N, D) float array
+  (n, d) float array
     Nodes positions
 
   dict 
     The indices of nodes belonging to each group. There will always be
     a group called 'interior' containing the nodes that are not on the
     boundary. By default there is a group containing all the boundary
-    nodes called 'boundary:all', and there are groups containing the
-    boundary nodes for each simplex called 'boundary:0', 'boundary:1',
-    ..., 'boundary:Q'. If `boundary_groups` was specified, then those
-    groups will be included in this dictionary and their names will be
-    given a 'boundary:' prefix. If `boundary_groups_with_ghosts` was
-    specified then those groups of ghost nodes will be included in
-    this dictionary and their names will be given a 'ghosts:' prefix.
+    nodes called 'boundary:all'. If `boundary_groups` was specified,
+    then those groups will be included in this dictionary and their
+    names will be given a 'boundary:' prefix. If
+    `boundary_groups_with_ghosts` was specified then those groups of
+    ghost nodes will be included in this dictionary and their names
+    will be given a 'ghosts:' prefix.
     
-  (N, D) float array
+  (n, d) float array
     Outward normal vectors for each node. If a node is not on the
     boundary then its corresponding row will contain NaNs.
 
   Notes
   -----
-  It is assumed that `vert` and `smp` define a closed domain. If
-  this is not the case, then it is likely that an error message will
-  be raised which says "ValueError: No intersection found for
-  segment ...".
+  It is assumed that `vert` and `smp` define a closed domain. If this
+  is not the case, then it is likely that an error message will be
+  raised which says "ValueError: No intersection found for segment
+  ...".
 
   Examples
   --------
@@ -516,11 +416,7 @@ def min_energy_nodes(N, vert, smp,
   view the indices of nodes making each group
 
   >>> out[1] 
-  {'boundary:0': array([0]),
-   'boundary:1': array([6, 4, 2]),
-   'boundary:2': array([7, 1]),
-   'boundary:3': array([5, 3]),
-   'boundary:all': array([7, 6, 5, 4, 3, 2, 1, 0]),
+  {'boundary:all': array([7, 6, 5, 4, 3, 2, 1, 0]),
    'interior': array([8])}
 
   view the outward normal vectors for each node, note that the normal
@@ -538,78 +434,91 @@ def min_energy_nodes(N, vert, smp,
          [ nan,  nan]])
     
   '''
-  logger.debug('starting minimum energy node generation')
   vert = np.asarray(vert, dtype=float)
   assert_shape(vert, (None, None), 'vert')
-  
+  dim = vert.shape[1]
   smp = np.asarray(smp, dtype=int)
-  assert_shape(smp, (None, vert.shape[1]), 'smp')
+  assert_shape(smp, (None, dim), 'smp')
   
-  # make sure the simplex normal vectors point outward    
-  smp = oriented_simplices(vert, smp)
-  
-  if boundary_groups is None:
-    boundary_groups = {'all': range(smp.shape[0])}
-    for i in range(smp.shape[0]):
-      boundary_groups[str(i)] = [i]
+  if rho is None:
+    rho = lambda x: np.ones(x.shape[0])
+
+  nodes = rejection_sampling(n, rho, vert, smp)
     
-  if pinned_nodes is None:
-    pinned_nodes = np.zeros((0, vert.shape[1]), dtype=float)
-  else:
-    pinned_nodes = np.array(pinned_nodes, dtype=float)            
-    
-  assert_shape(pinned_nodes, (None, vert.shape[1]), 'pinned_nodes')
-  
-  logger.debug('finding node positions with rejection sampling')
-  nodes = rejection_sampling(N, rho, vert, smp)
-    
-  # `pinned_nodes` consist of specific nodes that we want included in
-  # the output nodes. If `include_vertices` is True then add the
-  # vertices to the pinned nodes, labeling the combination as
-  # `pinned_nodes_`
-  if include_vertices:  
-    pinned_nodes_ = np.vstack((pinned_nodes, vert))
-  else:
-    pinned_nodes_ = pinned_nodes
-      
-  # use a minimum energy algorithm to spread out the nodes
+  # the `fixed_nodes` are used to provide a repulsion force during
+  # dispersion, but they do not move. TODO There is chance that one
+  # of the points in `fixed_nodes` is equal to a point in `nodes`.
+  # This situation should be handled
+  fixed_nodes = np.zeros((0, dim), dtype=float)     
+  if pinned_nodes is not None:
+    pinned_nodes = np.asarray(pinned_nodes, dtype=float)
+    assert_shape(pinned_nodes, (None, dim), 'pinned_nodes')
+    fixed_nodes = np.vstack((fixed_nodes, pinned_nodes))
+
+  if include_vertices:
+    fixed_nodes = np.vstack((fixed_nodes, vert))
+
   for i in range(itr):
     logger.debug('starting node repulsion iteration %s of %s' % (i+1, itr))
-    nodes = _disperse_within_boundary(
-      nodes, vert, smp, rho=rho, pinned_nodes=pinned_nodes_, m=m, 
-      delta=delta, bound_force=bound_force)
+    nodes = disperse(nodes, vert, smp, 
+                     rho=rho, 
+                     fixed_nodes=fixed_nodes, 
+                     m=m, 
+                     delta=delta, 
+                     bound_force=bound_force)
 
-  nodes, smpid = _snap_to_boundary(nodes, vert, smp, delta=snap_delta)
-  normals = _make_normal_vectors(smpid, vert, smp)
-  groups = _make_group_indices(smpid, boundary_groups)
-  
+  # append the domain vertices to the collection of nodes if requested
   if include_vertices:
-    nodes, groups, normals = _append_vertices(
-      nodes, groups, normals, vert, smp, boundary_groups)
+    nodes = np.vstack((nodes, vert))
+    
+  # snap nodes to the boundary, identifying which simplex each node
+  # was snapped to
+  nodes, smpid = snap_to_boundary(nodes, vert, smp, delta=snap_delta)
 
-  if pinned_nodes.size != 0:
-    # append the pinned nodes to the output    
-    groups['pinned'] = np.arange(
-      nodes.shape[0],
-      nodes.shape[0] + pinned_nodes.shape[0])
-    normals = np.vstack((
-      normals, 
-      np.full_like(pinned_nodes, np.nan)))        
+  # find the normal vectors for each node that snapped to the boundary
+  smp_normals = simplex_outward_normals(vert, smp)
+  normals = np.full_like(nodes, np.nan)
+  normals[smpid >= 0] = smp_normals[smpid[smpid >= 0]]
+  
+  # create a dictionary identifying which nodes belong to which group
+  groups = {}
+  groups['interior'], = (smpid == -1).nonzero()
+
+  # append the user specified pinned nodes
+  if pinned_nodes is not None:
+    pinned_idx = np.arange(pinned_nodes.shape[0]) + nodes.shape[0]
+    pinned_normals = np.full_like(pinned_nodes, np.nan)
     nodes = np.vstack((nodes, pinned_nodes))
-            
-  if boundary_groups_with_ghosts is not None:  
-    nodes, groups, normals = _append_ghost_nodes(
-      nodes, groups, normals, boundary_groups_with_ghosts)
+    normals = np.vstack((normals, pinned_normals))
+    groups['pinned'] = pinned_idx
+    
+  if boundary_groups is None:
+    boundary_groups = {'all': range(smp.shape[0])}
 
+  if boundary_groups_with_ghosts is None:
+    boundary_groups_with_ghosts = []    
+
+  # create groups for the boundary nodes
+  for k, v in boundary_groups.items():
+    bnd_idx = np.array([i for i, j in enumerate(smpid) if j in v])
+    groups['boundary:' + k] = bnd_idx
+    if k in boundary_groups_with_ghosts:
+      # append ghost nodes if requested
+      dist = k_nearest_neighbors(nodes[bnd_idx], nodes, 2)[1][:, [1]]
+      ghost_idx = np.arange(bnd_idx.shape[0]) + nodes.shape[0]         
+      ghost_nodes = nodes[bnd_idx] + 0.5*dist*normals[bnd_idx]
+      ghost_normals = np.full_like(ghost_nodes, np.nan)
+      nodes = np.vstack((nodes, ghost_nodes))
+      normals = np.vstack((normals, ghost_normals))
+      groups['ghosts:' + k] = ghost_idx
+  
   # sort `nodes` so that spatially adjacent nodes are close together
-  # in memory. Update `indices` so that it is still pointing to the
-  # same nodes
-  nodes, groups, normals = _sort_nodes(nodes, groups, normals)
+  sort_idx = neighbor_argsort(nodes)
+  nodes = nodes[sort_idx]
+  normals = normals[sort_idx]
+  reverse_sort_idx = np.argsort(sort_idx)
+  groups = {k: reverse_sort_idx[v] for k, v in groups.items()}
 
-  # verify that the nodes are not too close to eachother
-  _test_node_spacing(nodes, rho)
-
-  logger.debug('finished generating %s nodes' % nodes.shape[0])
   return nodes, groups, normals
 
 
