@@ -440,7 +440,9 @@ def prepare_nodes(nodes, vert, smp,
   if include_vertices:
     fixed_nodes = np.vstack((fixed_nodes, vert))
 
-  for _ in range(iterations):
+  for i in range(iterations):
+    logger.debug('starting node dispersion iterations %s of %s' 
+                 % (i + 1, iterations))
     nodes = disperse(nodes, vert, smp, 
                      rho=rho, 
                      fixed_nodes=fixed_nodes, 

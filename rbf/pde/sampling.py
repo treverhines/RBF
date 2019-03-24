@@ -44,6 +44,7 @@ def rejection_sampling(size, rho, vert, smp, max_sample_size=1000000):
     (size, d) float array
 
     '''
+    logger.debug('generating nodes with rejection sampling ...')
     assert_shape(vert, (None, None), 'vert')
     dim = vert.shape[1]
     assert_shape(smp, (None, dim), 'smp')
@@ -103,6 +104,8 @@ def rejection_sampling(size, rho, vert, smp, max_sample_size=1000000):
         total_samples += sample_size
         acceptance = points.shape[0]/total_samples
 
+    logger.debug('generated %s nodes with rejection sampling' 
+                 % points.shape[0])
     return points
 
 
@@ -235,6 +238,7 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     Dimensions.
 
     '''
+    logger.debug('generating nodes with Poisson disc sampling ...')
     assert_shape(vert, (None, None), 'vert')
     dim = vert.shape[1]
     assert_shape(smp, (None, dim), 'smp')
@@ -321,4 +325,6 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     nodes = dc.centers
     # throw out nodes that are outside of the domain
     nodes = nodes[contains(nodes, vert, smp)]
+    logger.debug('generated %s nodes with Poisson disc sampling' 
+                 % nodes.shape[0])
     return nodes
