@@ -1,5 +1,5 @@
 '''
-A module for generating Poisson discs with variable disc radius
+A module for generating points with a user specified distribution.
 '''
 import logging
 
@@ -108,9 +108,9 @@ def rejection_sampling(size, rho, vert, smp, max_sample_size=1000000):
 
 class _DiscCollection:
     '''
-    A class used within `poisson_discs`. This is a container for
-    discs, where a disc is described by a center and a radius, which
-    also contains efficient querying methods.
+    A class used within `poisson_discs`. This class is a container for
+    discs, where a disc is described by a center and a radius. This
+    class also provides efficient querying methods.
     '''
     def __init__(self, centers, radii, leafsize=100):
         self.centers = centers
@@ -129,7 +129,7 @@ class _DiscCollection:
         self.centers = np.vstack((self.centers, [cnt]))
         self.radii = np.hstack((self.radii, [rad]))
         # only rebuild the tree after every `leafsize` new points have
-        # been added.
+        # been added. 
         if (len(self.centers) % self.leafsize) == 0:
             self.tree = cKDTree(self.centers, 
                                 leafsize=self.leafsize, 
@@ -210,10 +210,13 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
         returns the desired minimum nearest neighbor distance for
         those points.
 
-    bounds : (d, 2) array
-        The lower and upper bounds for each spatial dimension         
+    vert : (p, d) float array
+        Vertices of the domain
 
-    seed : int
+    smp : (q, d) int array
+        Connectivity of the domain
+
+    seeds : int
         The number of initial points, which are generated from a
         Halton sequence.
 
@@ -229,7 +232,7 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     References
     ----------
     [1] Bridson, R., Fast Poisson Disk Sampling in Arbitrary
-        Dimensions.
+    Dimensions.
 
     '''
     assert_shape(vert, (None, None), 'vert')
@@ -294,17 +297,21 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
         for c, r in zip(cnts, rads):
             # test whether the test disc contains the centers of
             # surrounding discs
-            if not dc.any_centers_in_disc(c, r):
-                # test whether the surrounding discs contain the
-                # center of the test disc
-                if not dc.any_discs_contain_point(c):
-                    # create a new disc with center `c` and radius `r`
-                    dc.add_disc(c, r)
-                    # this new disc is active, meaning that we will
-                    # search for new discs to place around it
-                    active += [len(dc.centers) - 1]
-                    placed_disc = True
-                    break
+            if dc.any_centers_in_disc(c, r):
+                continue
+                
+            # test whether the surrounding discs contain the center of
+            # the test disc
+            if dc.any_discs_contain_point(c):
+                continue
+            
+            # create a new disc with center `c` and radius `r`
+            dc.add_disc(c, r)
+            # this new disc is active, meaning that we will search for
+            # new discs to place around it
+            active += [len(dc.centers) - 1]
+            placed_disc = True
+            break
 
         if not placed_disc:
             # we cannot find a disc to place around disc i, and so
@@ -315,73 +322,3 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     # throw out nodes that are outside of the domain
     nodes = nodes[contains(nodes, vert, smp)]
     return nodes
-
-
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle
-    from rbf.pde.knn import k_nearest_neighbors
-    import time
-    logging.basicConfig(level=logging.DEBUG)
-
-    def rfunc(x):
-        r = np.linalg.norm(x - 0.5, axis=1)
-        return 0.02 + 0.2*r
-        
-    # define the domain
-    vert = np.array([[0.0, 0.0], 
-                     [1.0, 0.0],
-                     [1.0, 1.0],
-                     [0.0, 1.0]])
-    smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])                     
-
-    # demonstrate Poisson disc sampling    
-    start = time.time()
-    centers = poisson_discs(rfunc, vert, smp, k=200)
-    print('generated %s nodes in %s seconds' % 
-          (len(centers), time.time() - start)) 
-    radii = rfunc(centers)
-
-    # get the distance to the nearest neighbor
-    _, dist = k_nearest_neighbors(centers, centers, 2)
-    dist = dist[:,1]
-
-    fig, ax = plt.subplots()
-
-    # plot the domain
-    for s in smp:
-        ax.plot(vert[s, 0], vert[s, 1], 'k-')
-        
-    # plot the discs
-    for c, r in zip(centers, radii):
-        ax.plot(c[0], c[1], 'C0.')
-        ax.add_artist(Circle(c, r, color='C0', alpha=0.1))
-
-    ax.set_aspect('equal')
-    ax.set_title('Poisson discs with variable radii')
-    plt.tight_layout()
-
-    fig, ax = plt.subplots()
-    ax.hist(dist/radii, 10)
-    ax.set_xlabel('(nearest neighbor distance) / (disc radius)')  
-    ax.grid(ls=':', color='k')    
-    plt.tight_layout()
-
-    # demonstrate rejection sampling
-    def rho(x):
-        return 0.02**2 / rfunc(x)**2
-    
-    points = rejection_sampling(100, rho, vert, smp)
-
-    fig, ax = plt.subplots()
-    # plot the domain
-    for s in smp:
-        ax.plot(vert[s, 0], vert[s, 1], 'k-')
-
-    ax.plot(points[:, 0], points[:, 1], 'C0o')
-    ax.set_aspect('equal')
-    plt.tight_layout()
-    
-    plt.show()            
-    
-

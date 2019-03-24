@@ -15,14 +15,16 @@ from rbf.basis import phs3
 from rbf.sputils import add_rows
 from rbf.pde.fd import weight_matrix
 from rbf.pde.geometry import contains
-from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.nodes import poisson_disc_nodes
 
 # Define the problem domain with line segments.
 vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],
                  [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-N = 500 # total number of nodes.
+# the node spacing is 0.05 at [1, 1] and increases as we move away
+# from that point
+spacing = lambda x: 0.05 + 0.05*np.linalg.norm(x - 1.0, axis=1)
 
 n = 25 # stencil size. Increase this will generally improve accuracy
 
@@ -37,7 +39,8 @@ order = 2 # Order of the added polynomials. This should be at least as
           # case). Larger values may improve accuracy
 
 # generate nodes
-nodes, groups, _ = min_energy_nodes(N, vert, smp) 
+nodes, groups, _ = poisson_disc_nodes(spacing, vert, smp) 
+N = nodes.shape[0]
 
 # create the "left hand side" matrix. 
 # create the component which evaluates the PDE

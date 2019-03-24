@@ -14,6 +14,7 @@ computational geometry functions for two and three-dimensions
   nodes
   knn
   geometry
+  sampling
   halton
 
 References

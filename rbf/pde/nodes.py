@@ -1,6 +1,6 @@
 '''
-provides a function for generating a locally quasi-uniform
-distribution of nodes over an arbitrary domain
+This module provides functions for generating nodes used for solving
+PDEs with the RBF and RBF-FD method.
 '''
 from __future__ import division
 import logging
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def _disperse(nodes,
               rho=None,
               fixed_nodes=None,
-              m=None,
+              neighbors=None,
               delta=0.1,
               vert=None,
               smp=None):
@@ -35,7 +35,8 @@ def _disperse(nodes,
   the boundary
   '''
   if rho is None:
-    rho = lambda x: np.ones(x.shape[0])
+    def rho(x): 
+        return np.ones(x.shape[0])
 
   if fixed_nodes is None:
     fixed_nodes = np.zeros((0, nodes.shape[1]), dtype=float)
@@ -43,26 +44,27 @@ def _disperse(nodes,
     fixed_nodes = np.asarray(fixed_nodes)
     assert_shape(fixed_nodes, (None, nodes.shape[1]), 'fixed_nodes')     
     
-  if m is None:
+  if neighbors is None:
     # the default number of neighboring nodes to use when computing
     # the repulsion force is 7 for 2D and 13 for 3D
     if nodes.shape[1] == 2:
-      m = 7
+      neighbors = 7
 
     elif nodes.shape[1] == 3:
-      m = 13
+      neighbors = 13
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
-  m = min(m, nodes.shape[0]+fixed_nodes.shape[0])
+  neighbors = min(neighbors, nodes.shape[0] + fixed_nodes.shape[0])
   # if m is 0 or 1 then the nodes remain stationary
-  if m <= 1:
+  if neighbors <= 1:
     return np.array(nodes, copy=True)
 
   # form collection of all nodes
   all_nodes = np.vstack((nodes, fixed_nodes))
   # find index and distance to nearest nodes
-  i, d = k_nearest_neighbors(nodes, all_nodes, m, vert=vert, smp=smp)
+  i, d = k_nearest_neighbors(nodes, all_nodes, neighbors, 
+                             vert=vert, smp=smp)
   # dont consider a node to be one of its own nearest neighbors
   i, d = i[:, 1:], d[:, 1:]
   # compute the force proportionality constant between each node
@@ -90,7 +92,7 @@ def disperse(nodes,
              smp,
              rho=None,
              fixed_nodes=None,
-             m=None,
+             neighbors=None,
              delta=0.1,
              bound_force=False):
   '''
@@ -110,15 +112,14 @@ def disperse(nodes,
   smp : (q, d) int array
     Connectivity of the vertices to form the boundary
   
-  rho : callable, option
+  rho : callable, optional
     Takes an (n, d) array as input and returns the repulsion force for
-    a node at those position. This should be normalized to be between
-    0 and 1 and correspond to the desired node density.
+    a node at those position. 
 
   fixed_nodes : (k, d) float array, optional
     Nodes which do not move and only provide a repulsion force
 
-  m : int, optional
+  neighbors : int, optional
     The number of adjacent nodes used to determine repulsion forces
     for each node
                  
@@ -150,8 +151,9 @@ def disperse(nodes,
     bound_vert, bound_smp = None, None
 
   # node positions after repulsion
-  out = _disperse(nodes, rho=rho, fixed_nodes=fixed_nodes, m=m,
-                  delta=delta, vert=bound_vert, smp=bound_smp)
+  out = _disperse(nodes, rho=rho, fixed_nodes=fixed_nodes, 
+                  neighbors=neighbors, delta=delta, vert=bound_vert, 
+                  smp=bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = intersection_count(nodes, out, vert, smp) > 0
   # point where nodes intersected the boundary and the simplex they
@@ -272,67 +274,104 @@ def neighbor_argsort(nodes, m=None):
   return permutation
 
 
-def min_energy_nodes(n, vert, smp,
-                     rho=None,
-                     pinned_nodes=None,
-                     itr=100,
-                     m=None,
-                     delta=0.05,
-                     snap_delta=0.5,
-                     boundary_groups=None,
-                     boundary_groups_with_ghosts=None,
-                     include_vertices=False,
-                     bound_force=False):
+def _check_spacing(nodes, rho=None):
   '''
-  Generates nodes within a two or three dimensional domain using a
-  minimum energy algorithm.
+  Check if any nodes are unusually close to eachother. If so, a
+  warning will be printed.
+  '''
+  n, dim = nodes.shape
 
-  The algorithm is as follows: Nodes are first generated within the
-  domain using rejection sampling. The nodes positions are then
-  iteratively adjusted. For each iteration, a repulsion force is
-  calculated for each node using the distance to its nearest
-  neighbors. Each node then moves in the direction of the net force
-  acting on it. If a node is repelled into the boundary, it will
-  bounce back into the domain. When the iteration are complete, nodes
-  that are sufficiently close to the boundary are snapped to the
-  boundary.
+  if rho is None:
+    def rho(x):
+        return np.ones(x.shape[0])
+
+  # distance to nearest neighbor
+  dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
+  if np.any(dist == 0.0):
+    is_zero = (dist == 0.0)
+    indices, = is_zero.nonzero()
+    for idx in indices:
+      logger.warning(
+        'Node %s (%s) is in the same location as another node.' 
+        % (idx, nodes[idx]))
+    
+  density = 1.0/dist**dim
+  normalized_density = np.log10(density / rho(nodes))
+  percs = np.percentile(normalized_density, [10, 50, 90])
+  med = percs[1]
+  idr = percs[2] - percs[0]
+  is_too_close = normalized_density < (med - 2*idr)
+  if np.any(is_too_close):
+    indices, = is_too_close.nonzero()
+    for idx in indices:
+      logger.warning(
+        'Node %s (%s) is unusually close to a neighboring '
+        'node.' % (idx, nodes[idx]))
+
+
+def prepare_nodes(nodes, vert, smp,
+                  rho=None,
+                  iterations=100,
+                  neighbors=None,
+                  dispersion_delta=0.05,
+                  bound_force=False,
+                  pinned_nodes=None,
+                  snap_delta=0.5,
+                  boundary_groups=None,
+                  boundary_groups_with_ghosts=None,
+                  include_vertices=False):
+  '''
+  Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
+  method. This includes: dispersing the nodes away from eachother to
+  ensure a more even spacing, snapping nodes to the boundary,
+  determining the normal vectors for each node, determining the group
+  that each node belongs to, creating ghost nodes, sorting the nodes
+  so that adjacent nodes are close in memory, and verifying that no
+  two nodes are anomalously close to eachother.
+
+  The function returns a set of nodes, the normal vectors for each
+  node, and a dictionary identifying which group each node belongs to.
 
   Parameters
   ----------
-  n : int
-    The number of nodes generated during rejection sampling. This may
-    be less than the actual number of nodes returned.
+  nodes : (n, d) float arrary
+    An initial sampling of nodes within the domain
 
-  vert : (p, d) array
-    Vertices making up the boundary
+  vert : (p, d) float array
+    Vertices making up the domain boundary
 
   smp : (q, d) array
     Describes how the vertices are connected to form the boundary
 
-  rho : function, optional
+  rho : function, optional 
     Node density function. Takes a (n, d) array of coordinates and
     returns an (n,) array of desired node densities at those
-    coordinates. This function should be normalized to be between 0
-    and 1.
+    coordinates. This is used during the node dispersion step.
 
-  pinned_nodes : (k, d) array, optional
-    Nodes which do not move and only provide a repulsion force. These
-    nodes are included in the set of nodes returned by this function
-    and they are in the group named "pinned".
+  iterations : int, optional
+    Number of dispersion iterations.
 
-  itr : int, optional
-    Number of repulsion iterations.
-
-  m : int, optional
+  neighbors : int, optional
     Number of neighboring nodes to use when calculating the repulsion
     force. This defaults to 7 for 2D nodes and 13 for 3D nodes.
     Deviating from these default values may yield a node distribution
     that is not consistent with the node density function `rho`.
 
-  delta : float, optional
-    Scaling factor for the node step size in each iteration. The
-    step size is equal to `delta` times the distance to the nearest
-    neighbor.
+  dispersion_delta : float, optional
+    Scaling factor for the node step size in each iteration. The step
+    size is equal to `dispersion_delta` times the distance to the
+    nearest neighbor.
+
+  bound_force : bool, optional
+    If `True`, then nodes cannot repel other nodes through the domain
+    boundary. Set this to `True` if the domain has edges that nearly
+    touch eachother. Setting this to `True` may significantly increase
+    computation time.
+
+  pinned_nodes : (k, d) array, optional
+    Nodes which do not move and only provide a repulsion force. These
+    nodes are included in the set of nodes returned by this function
+    and they are in the group named "pinned".
 
   snap_delta : float, optional
     Controls the maximum snapping distance. The maximum snapping
@@ -352,12 +391,6 @@ def min_energy_nodes(n, vert, smp,
     default, no boundary groups are given ghost nodes. The groups
     specified here must exist in `boundary_groups`.
 
-  bound_force : bool, optional
-    If `True`, then nodes cannot repel other nodes through the domain
-    boundary. Set this to `True` if the domain has edges that nearly
-    touch eachother. Setting this to `True` may significantly increase
-    computation time.
-
   include_vertices : bool, optional
     If `True`, then the vertices will be included in the output nodes.
     Each vertex will be assigned to the boundary group that its
@@ -367,7 +400,7 @@ def min_energy_nodes(n, vert, smp,
 
   Returns
   -------
-  (n, d) float array
+  (m, d) float array
     Nodes positions
 
   dict 
@@ -385,70 +418,19 @@ def min_energy_nodes(n, vert, smp,
     Outward normal vectors for each node. If a node is not on the
     boundary then its corresponding row will contain NaNs.
 
-  Notes
-  -----
-  It is assumed that `vert` and `smp` define a closed domain. If this
-  is not the case, then it is likely that an error message will be
-  raised which says "ValueError: No intersection found for segment
-  ...".
-
-  Examples
-  --------
-  make 9 nodes within the unit square   
-
-  >>> vert = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])  
-  >>> smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
-  >>> out = min_energy_nodes(9, vert, smp)  
-
-  view the nodes
-
-  >>> out[0]  
-  array([[ 0.50325675,  0.        ],
-         [ 0.00605261,  1.        ],
-         [ 1.        ,  0.51585247],
-         [ 0.        ,  0.00956821],
-         [ 1.        ,  0.99597894],
-         [ 0.        ,  0.5026365 ],
-         [ 1.        ,  0.00951112],
-         [ 0.48867638,  1.        ],
-         [ 0.54063894,  0.47960892]])
-
-  view the indices of nodes making each group
-
-  >>> out[1] 
-  {'boundary:all': array([7, 6, 5, 4, 3, 2, 1, 0]),
-   'interior': array([8])}
-
-  view the outward normal vectors for each node, note that the normal
-  vector for the interior node is `nan`
-
-  >>> out[2] 
-  array([[  0.,  -1.],
-         [  0.,   1.],
-         [  1.,  -0.],
-         [ -1.,  -0.],
-         [  1.,  -0.],
-         [ -1.,  -0.],
-         [  1.,  -0.],
-         [  0.,   1.],
-         [ nan,  nan]])
-    
   '''
+  nodes = np.asarray(nodes, dtype=float)
   vert = np.asarray(vert, dtype=float)
-  assert_shape(vert, (None, None), 'vert')
-  dim = vert.shape[1]
   smp = np.asarray(smp, dtype=int)
-  assert_shape(smp, (None, dim), 'smp')
-  
-  if rho is None:
-    rho = lambda x: np.ones(x.shape[0])
+  assert_shape(nodes, (None, None), 'nodes')
+  dim = nodes.shape[1]
+  assert_shape(vert, (None, dim), 'vert')
+  assert_shape(smp, (None, dim), 'smp')    
 
-  nodes = rejection_sampling(n, rho, vert, smp)
-    
   # the `fixed_nodes` are used to provide a repulsion force during
-  # dispersion, but they do not move. TODO There is chance that one
-  # of the points in `fixed_nodes` is equal to a point in `nodes`.
-  # This situation should be handled
+  # dispersion, but they do not move. TODO There is chance that one of
+  # the points in `fixed_nodes` is equal to a point in `nodes`. This
+  # situation should be handled
   fixed_nodes = np.zeros((0, dim), dtype=float)     
   if pinned_nodes is not None:
     pinned_nodes = np.asarray(pinned_nodes, dtype=float)
@@ -458,13 +440,12 @@ def min_energy_nodes(n, vert, smp,
   if include_vertices:
     fixed_nodes = np.vstack((fixed_nodes, vert))
 
-  for i in range(itr):
-    logger.debug('starting node repulsion iteration %s of %s' % (i+1, itr))
+  for _ in range(iterations):
     nodes = disperse(nodes, vert, smp, 
                      rho=rho, 
                      fixed_nodes=fixed_nodes, 
-                     m=m, 
-                     delta=delta, 
+                     neighbors=neighbors, 
+                     delta=dispersion_delta, 
                      bound_force=bound_force)
 
   # append the domain vertices to the collection of nodes if requested
@@ -519,8 +500,188 @@ def min_energy_nodes(n, vert, smp,
   reverse_sort_idx = np.argsort(sort_idx)
   groups = {k: reverse_sort_idx[v] for k, v in groups.items()}
 
+  _check_spacing(nodes, rho)
+
   return nodes, groups, normals
 
+  
+def min_energy_nodes(n, vert, smp, rho=None, **kwargs):
+  '''
+  Generates nodes within a two or three dimensional. This first
+  generates nodes with a rejection sampling algorithm, and then the
+  nodes are dispersed to ensure a more even distribution.
+
+  Parameters
+  ----------
+  n : int
+    The number of nodes generated during rejection sampling. This is
+    not necessarily equal to the number of nodes returned.
+
+  vert : (p, d) array
+    Vertices making up the boundary
+
+  smp : (q, d) array
+    Describes how the vertices are connected to form the boundary
+
+  rho : function, optional
+    Node density function. Takes a (n, d) array of coordinates and
+    returns an (n,) array of desired node densities at those
+    coordinates. This function should be normalized to be between 0
+    and 1.
+
+  **kwargs
+    Additional arguments passed to `prepare_nodes`    
+
+  Returns
+  -------
+  (n, d) float array
+    Nodes positions
+
+  dict 
+    The indices of nodes belonging to each group. There will always be
+    a group called 'interior' containing the nodes that are not on the
+    boundary. By default there is a group containing all the boundary
+    nodes called 'boundary:all'. If `boundary_groups` was specified,
+    then those groups will be included in this dictionary and their
+    names will be given a 'boundary:' prefix. If
+    `boundary_groups_with_ghosts` was specified then those groups of
+    ghost nodes will be included in this dictionary and their names
+    will be given a 'ghosts:' prefix.
+    
+  (n, d) float array
+    Outward normal vectors for each node. If a node is not on the
+    boundary then its corresponding row will contain NaNs.
+
+  Notes
+  -----
+  It is assumed that `vert` and `smp` define a closed domain. If this
+  is not the case, then it is likely that an error message will be
+  raised which says "ValueError: No intersection found for segment
+
+  Examples
+  --------
+  make 9 nodes within the unit square   
+
+  >>> vert = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])  
+  >>> smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
+  >>> out = min_energy_nodes(9, vert, smp)  
+
+  view the nodes
+
+  >>> out[0]  
+  array([[ 0.50325675,  0.        ],
+         [ 0.00605261,  1.        ],
+         [ 1.        ,  0.51585247],
+         [ 0.        ,  0.00956821],
+         [ 1.        ,  0.99597894],
+         [ 0.        ,  0.5026365 ],
+         [ 1.        ,  0.00951112],
+         [ 0.48867638,  1.        ],
+         [ 0.54063894,  0.47960892]])
+
+  view the indices of nodes making each group
+
+  >>> out[1] 
+  {'boundary:all': array([7, 6, 5, 4, 3, 2, 1, 0]),
+   'interior': array([8])}
+
+  view the outward normal vectors for each node, note that the normal
+  vector for the interior node is `nan`
+
+  >>> out[2] 
+  array([[  0.,  -1.],
+         [  0.,   1.],
+         [  1.,  -0.],
+         [ -1.,  -0.],
+         [  1.,  -0.],
+         [ -1.,  -0.],
+         [  1.,  -0.],
+         [  0.,   1.],
+         [ nan,  nan]])
+    
+  '''
+  vert = np.asarray(vert, dtype=float)
+  assert_shape(vert, (None, None), 'vert')
+  dim = vert.shape[1]
+  smp = np.asarray(smp, dtype=int)
+  assert_shape(smp, (None, dim), 'smp')
+  
+  if rho is None:
+    def rho(x): 
+        return np.ones(x.shape[0])
+
+  nodes = rejection_sampling(n, rho, vert, smp)
+  out = prepare_nodes(nodes, vert, smp, rho=rho, **kwargs)
+  return out                      
 
 
+def poisson_disc_nodes(radius, vert, smp, **kwargs):
+  '''
+  Generates nodes within a two or three dimensional domain. This first
+  generate nodes with Poisson disc sampling, and then the nodes are
+  dispersed to ensure a more even distribution. This function is
+  considerably slower than `min_energy_nodes` but it has the advantage
+  of directly specifying the node spacing.
 
+  Parameters
+  ----------
+  radius : float or callable
+    The radius for each disc. This is the minimum allowable distance
+    between the nodes generated by Poisson disc sampling. This can be
+    a float or a function that takes a (n, d) array of locations and
+    returns an (n,) array of disc radii.
+
+  vert : (p, d) array
+    Vertices making up the boundary
+
+  smp : (q, d) array
+    Describes how the vertices are connected to form the boundary
+
+  **kwargs
+    Additional arguments passed to `prepare_nodes`    
+
+  Returns
+  -------
+  (n, d) float array
+    Nodes positions
+
+  dict 
+    The indices of nodes belonging to each group. There will always be
+    a group called 'interior' containing the nodes that are not on the
+    boundary. By default there is a group containing all the boundary
+    nodes called 'boundary:all'. If `boundary_groups` was specified,
+    then those groups will be included in this dictionary and their
+    names will be given a 'boundary:' prefix. If
+    `boundary_groups_with_ghosts` was specified then those groups of
+    ghost nodes will be included in this dictionary and their names
+    will be given a 'ghosts:' prefix.
+    
+  (n, d) float array
+    Outward normal vectors for each node. If a node is not on the
+    boundary then its corresponding row will contain NaNs.
+
+  Notes
+  -----
+  It is assumed that `vert` and `smp` define a closed domain. If this
+  is not the case, then it is likely that an error message will be
+  raised which says "ValueError: No intersection found for segment
+    
+  '''
+  vert = np.asarray(vert, dtype=float)
+  assert_shape(vert, (None, None), 'vert')
+  dim = vert.shape[1]
+  smp = np.asarray(smp, dtype=int)
+  assert_shape(smp, (None, dim), 'smp')
+  
+  if np.isscalar(radius):
+    scalar_radius = radius
+    def radius(x): 
+        return np.full(x.shape[0], scalar_radius)
+
+  def rho(x):
+    # the density function corresponding to the radius function
+    return 1.0/(radius(x)**dim)
+        
+  nodes = poisson_discs(radius, vert, smp)
+  out = prepare_nodes(nodes, vert, smp, rho=rho, **kwargs)
+  return out

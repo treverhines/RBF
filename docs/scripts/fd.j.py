@@ -13,7 +13,7 @@ from rbf.basis import phs3
 from rbf.sputils import add_rows
 from rbf.pde.fd import weight_matrix
 from rbf.pde.geometry import contains
-from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.nodes import poisson_disc_nodes
 
 
 def series_solution(nodes, n=50):
@@ -41,10 +41,9 @@ smp = np.array([[0, 1], [1, 2], [4, 5], [5, 0], [2, 3], [3, 4]])
 boundary_groups = {'fixed': [0, 1, 2, 3],
                    'free': [4, 5]}
 
-N_nominal = 500 # The nominal number of nodes. The actual number of
-                # nodes will be larger in this example
+spacing = 0.07  # The approximate spacing between nodes
 
-n = 20 # stencil size. Increasing this will generally improve accuracy
+n = 25 # stencil size. Increasing this will generally improve accuracy
 
 basis = phs3 # radial basis function used to compute the weights. Odd
              # order polyharmonic splines (e.g., phs3) have always
@@ -57,8 +56,8 @@ order = 2 # Order of the added polynomials. This should be at least as
           # case). Larger values may improve accuracy
 
 # generate nodes
-nodes, groups, normals = min_energy_nodes(
-  N_nominal, 
+nodes, groups, normals = poisson_disc_nodes(
+  spacing, 
   vert, 
   smp, 
   boundary_groups=boundary_groups,

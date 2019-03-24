@@ -111,14 +111,14 @@ spectral RBF method. An example of the two methods is provided below.
 
 .. code-block:: python
 
-  '''
-  In this example we solve the Poisson equation over an L-shaped domain
-  with fixed boundary conditions. We use the multiquadratic RBF (`mq`)
+  ''' 
+  In this example we solve the Poisson equation over an L-shaped domain 
+  with fixed boundary conditions. We use the multiquadratic RBF (`mq`) 
   '''
   import numpy as np
   from rbf.basis import mq
   from rbf.pde.geometry import contains
-  from rbf.pde.nodes import min_energy_nodes
+  from rbf.pde.nodes import poisson_disc_nodes
   import matplotlib.pyplot as plt
 
   # Define the problem domain with line segments.
@@ -126,13 +126,14 @@ spectral RBF method. An example of the two methods is provided below.
                    [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
   smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-  N = 500 # total number of nodes
+  spacing = 0.06 # approximate spacing between nodes
 
-  eps = 5.0  # shape parameter. This needs to be tuned for each problem
+  eps = 0.2/spacing  # shape parameter
 
   # generate the nodes. `nodes` is a (N, 2) float array, `groups` is a
   # dict identifying which group each node is in
-  nodes, groups, _ = min_energy_nodes(N,vert,smp)
+  nodes, groups, _ = poisson_disc_nodes(spacing, vert, smp)
+  N = nodes.shape[0]
 
   # create "left hand side" matrix
   A = np.empty((N, N))
@@ -192,14 +193,16 @@ spectral RBF method. An example of the two methods is provided below.
   from rbf.sputils import add_rows
   from rbf.pde.fd import weight_matrix
   from rbf.pde.geometry import contains
-  from rbf.pde.nodes import min_energy_nodes
+  from rbf.pde.nodes import poisson_disc_nodes
 
   # Define the problem domain with line segments.
   vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],
                    [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
   smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-  N = 500 # total number of nodes.
+  # the node spacing is 0.05 at [1, 1] and increases as we move away
+  # from that point
+  spacing = lambda x: 0.05 + 0.05*np.linalg.norm(x - 1.0, axis=1)
 
   n = 25 # stencil size. Increase this will generally improve accuracy
 
@@ -214,7 +217,8 @@ spectral RBF method. An example of the two methods is provided below.
             # case). Larger values may improve accuracy
 
   # generate nodes
-  nodes, groups, _ = min_energy_nodes(N, vert, smp)
+  nodes, groups, _ = poisson_disc_nodes(spacing, vert, smp)
+  N = nodes.shape[0]
 
   # create the "left hand side" matrix.
   # create the component which evaluates the PDE

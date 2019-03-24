@@ -5,7 +5,7 @@ with fixed boundary conditions. We use the multiquadratic RBF (`mq`)
 import numpy as np
 from rbf.basis import mq
 from rbf.pde.geometry import contains
-from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.nodes import poisson_disc_nodes
 import matplotlib.pyplot as plt
 
 # Define the problem domain with line segments.
@@ -13,13 +13,14 @@ vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],
                  [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-N = 500 # total number of nodes
+spacing = 0.06 # approximate spacing between nodes
 
-eps = 5.0  # shape parameter. This needs to be tuned for each problem
+eps = 0.2/spacing  # shape parameter
 
 # generate the nodes. `nodes` is a (N, 2) float array, `groups` is a
 # dict identifying which group each node is in
-nodes, groups, _ = min_energy_nodes(N,vert,smp) 
+nodes, groups, _ = poisson_disc_nodes(spacing, vert, smp) 
+N = nodes.shape[0]
 
 # create "left hand side" matrix
 A = np.empty((N, N))
