@@ -81,7 +81,6 @@ packages are too slow for RBF purposes.
 '''
 # python imports
 from __future__ import division
-from itertools import combinations
 
 import numpy as np
 from scipy.special import factorial
@@ -91,7 +90,7 @@ from rbf.utils import assert_shape
 # cython imports
 cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
-from libc.math cimport fabs, fmin, sqrt, asin, atan2, sin, cos, INFINITY
+from libc.math cimport fabs, sqrt, INFINITY
 
 
 cdef struct vector1d:
@@ -501,7 +500,7 @@ cdef bint segment_intersects_triangle(segment3d seg,
   '''
   cdef:
     double proj1, proj2, t
-    vector3d pnt, norm
+    vector3d pnt, norm, anorm
     vector2d pnt_proj
     triangle2d tri_proj
 
@@ -529,7 +528,10 @@ cdef bint segment_intersects_triangle(segment3d seg,
   pnt.y = seg.a.y + t*(seg.b.y - seg.a.y)
   pnt.z = seg.a.z + t*(seg.b.z - seg.a.z)
 
-  if (fabs(norm.x) >= fabs(norm.y)) & (fabs(norm.x) >= fabs(norm.z)):
+  anorm.x = fabs(norm.x)
+  anorm.y = fabs(norm.y)
+  anorm.z = fabs(norm.z)
+  if (anorm.x >= anorm.y) & (anorm.x >= anorm.z):
     pnt_proj.x = pnt.y
     pnt_proj.y = pnt.z
     tri_proj.a.x = tri.a.y
@@ -540,7 +542,7 @@ cdef bint segment_intersects_triangle(segment3d seg,
     tri_proj.c.y = tri.c.z
     return point_in_triangle(pnt_proj, tri_proj)
 
-  elif (fabs(norm.y) >= fabs(norm.x)) & (fabs(norm.y) >= fabs(norm.z)):
+  elif (anorm.y >= anorm.x) & (anorm.y >= anorm.z):
     pnt_proj.x = pnt.x
     pnt_proj.y = pnt.z
     tri_proj.a.x = tri.a.x
@@ -551,7 +553,7 @@ cdef bint segment_intersects_triangle(segment3d seg,
     tri_proj.c.y = tri.c.z
     return point_in_triangle(pnt_proj, tri_proj)
 
-  elif (fabs(norm.z) >= fabs(norm.x)) & (fabs(norm.z) >= fabs(norm.y)):
+  else:
     pnt_proj.x = pnt.x
     pnt_proj.y = pnt.y
     tri_proj.a.x = tri.a.x
