@@ -81,7 +81,6 @@ packages are too slow for RBF purposes.
 '''
 # python imports
 from __future__ import division
-from itertools import combinations
 
 import numpy as np
 from scipy.special import factorial
@@ -91,7 +90,7 @@ from rbf.utils import assert_shape
 # cython imports
 cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
-from libc.math cimport fabs, fmin, sqrt, asin, atan2, sin, cos, INFINITY
+from libc.math cimport fabs, sqrt, INFINITY
 
 
 cdef struct vector1d:
@@ -150,86 +149,134 @@ cdef double distance_3d(vector3d vec1, vector3d vec2) nogil:
               (vec1.z - vec2.z)**2)
 
 
-cdef vector1d transform_to_line_space(vector2d pnt, 
-                                      vector2d org, 
-                                      vector2d norm) nogil:
+@cdivision(True)
+cdef vector2d orthogonal_2d(vector2d vec) nogil:
+    '''
+    Returns a normalized vector that is orthogonal to `vec`
+    '''
+    cdef:
+        vector2d out
+        float mag
+    
+    out.x = -vec.y
+    out.y = vec.x
+    mag = sqrt(out.x**2 + out.y**2)
+    out.x /= mag
+    out.y /= mag
+    return out
+
+
+@cdivision(True)
+cdef (vector3d, vector3d) orthogonal_3d(vector3d vec) nogil:
+    '''
+    Returns two normalized vectors that are orthogonal to `vec` and
+    orthogonal to eachother
+    '''
+    cdef:
+        vector3d avec, out1, out2
+        float mag
+    
+    avec.x = fabs(vec.x)
+    avec.y = fabs(vec.y)
+    avec.z = fabs(vec.z)
+    if (avec.x <= avec.y) & (avec.x <= avec.z):
+        out1.x = 0.0
+        out1.y = -vec.z
+        out1.z = vec.y
+
+    elif (avec.y <= avec.x) & (avec.y <= avec.z):
+        out1.x = -vec.z
+        out1.y = 0.0
+        out1.z = vec.x
+
+    else:
+        out1.x = -vec.y
+        out1.y = vec.x
+        out1.z = 0.0
+
+    out2.x =  (vec.y*out1.z - vec.z*out1.y)
+    out2.y = -(vec.x*out1.z - vec.z*out1.x)
+    out2.z =  (vec.x*out1.y - vec.y*out1.x)
+
+    mag = sqrt(out1.x**2 + out1.y**2 + out1.z**2)
+    out1.x /= mag
+    out1.y /= mag
+    out1.z /= mag
+
+    mag = sqrt(out2.x**2 + out2.y**2 + out2.z**2)
+    out2.x /= mag
+    out2.y /= mag
+    out2.z /= mag
+    return out1, out2
+
+    
+cdef vector1d transform_to_line(vector2d pnt, 
+                                vector2d org, 
+                                vector2d norm) nogil:
   '''
-  project `pnt` onto the line with point `org` and normal vector
-  `nrm`. The returned one-dimensional vector is the offset along the
-  line between the projected point and `org`.
+  Project `pnt` into a 1d coordinate system with origin `org` and the
+  basis vector returned by `orthogonal_2d(norm)`.
   '''
   cdef:
+    vector2d orth
     vector1d out
-    double theta
     
-  # shift the coordinate system so that `org` is at the center and
-  # then rotate the coordinate system so that `norm` points in the
-  # positive x direction. Finally, take then y component of `pnt` in
-  # the rotated coordinate system.
-  theta = atan2(norm.y, norm.x)
-  out.x = -sin(theta)*(pnt.x - org.x) + cos(theta)*(pnt.y - org.y)
+  orth = orthogonal_2d(norm)
+  out.x = orth.x*(pnt.x - org.x) + orth.y*(pnt.y - org.y)
   return out
 
 
-cdef vector2d transform_from_line_space(vector1d pnt, 
-                                        vector2d org, 
-                                        vector2d norm) nogil:
+cdef vector2d transform_from_line(vector1d pnt, 
+                                  vector2d org, 
+                                  vector2d norm) nogil:
   '''
-  Transform a one-dimensional vector, describing the offset along a
-  line from the point `org`, back onto the line in two-dimensions.
+  Project `pnt` back into a 2d coordinate system
   '''
   cdef:
-    vector2d out
-    double theta
+    vector2d out, orth
 
-  # Consider the point to be lying on the y-axis, then rotate and
-  # shift the point so that it is on the line
-  theta = atan2(norm.y, norm.x)
-  out.x = org.x - sin(theta)*pnt.x
-  out.y = org.y + cos(theta)*pnt.x
+  orth = orthogonal_2d(norm)
+  out.x = org.x + orth.x*pnt.x
+  out.y = org.y + orth.y*pnt.x
   return out    
 
 
 @cdivision(True)
-cdef vector2d transform_to_plane_space(vector3d pnt,
-                                       vector3d org,
-                                       vector3d norm) nogil:
+cdef vector2d transform_to_plane(vector3d pnt,
+                                 vector3d org,
+                                 vector3d norm) nogil:
   '''
-  project `pnt` onto the plane with point `org` and normal vector
-  `nrm`. The returned two-dimensional vector is the offset along the
-  plane between the projected point and `org`.
+  Project `pnt` into a 2d coordinate system with origin `org` and the
+  basis vectors returned by `orthogonal_3d(norm)`.
   '''
   cdef:
-    double theta_z, theta_y
+    vector3d orth1, orth2
     vector2d out
 
-  theta_z = atan2(norm.y, norm.x)
-  theta_y = asin(norm.z / sqrt(norm.x**2 + norm.y**2 + norm.z**2))
-  out.x = (-sin(theta_z)*(pnt.x - org.x) + 
-            cos(theta_z)*(pnt.y - org.y))
-  out.y = (-sin(theta_y)*cos(theta_z)*(pnt.x - org.x) +
-           -sin(theta_y)*sin(theta_z)*(pnt.y - org.y) +
-            cos(theta_y)*(pnt.z - org.z))
-  return out                                      
+  orth1, orth2 = orthogonal_3d(norm)
+  out.x = (orth1.x*(pnt.x - org.x) +
+           orth1.y*(pnt.y - org.y) +
+           orth1.z*(pnt.z - org.z))
+  out.y = (orth2.x*(pnt.x - org.x) +
+           orth2.y*(pnt.y - org.y) +
+           orth2.z*(pnt.z - org.z))
+  return out
 
 
 @cdivision(True)
-cdef vector3d transform_from_plane_space(vector2d pnt,
-                                         vector3d org,
-                                         vector3d norm) nogil:
+cdef vector3d transform_from_plane(vector2d pnt,
+                                   vector3d org,
+                                   vector3d norm) nogil:
   '''
-  Project a two-dimensional vector, describing the offset along a
-  plane from the point `org`, back onto the plane in three-dimensions.
+  Project `pnt` back into a 3d coordinate system
   '''
   cdef:
-    double theta_z, theta_y
-    vector3d out
+    vector3d out, orth1, orth2
 
-  theta_z = atan2(norm.y, norm.x)
-  theta_y = asin(norm.z / sqrt(norm.x**2 + norm.y**2 + norm.z**2))
-  out.x = org.x - sin(theta_z)*pnt.x - sin(theta_y)*cos(theta_z)*pnt.y
-  out.y = org.y + cos(theta_z)*pnt.x - sin(theta_y)*sin(theta_z)*pnt.y
-  out.z = org.z + cos(theta_y)*pnt.y
+  orth1, orth2 = orthogonal_3d(norm)
+  out.x = org.x + orth1.x*pnt.x + orth2.x*pnt.y
+  out.y = org.y + orth1.y*pnt.x + orth2.y*pnt.y
+  out.z = org.z + orth1.z*pnt.x + orth2.z*pnt.y
   return out
   
 
@@ -318,13 +365,13 @@ cdef vector2d nearest_point_in_segment(vector2d pnt,
     segment1d seg_proj
     
   norm = segment_normal(seg)
-  pnt_proj = transform_to_line_space(pnt, seg.a, norm)
-  seg_proj.a = transform_to_line_space(seg.a, seg.a, norm)
-  seg_proj.b = transform_to_line_space(seg.b, seg.a, norm)
+  pnt_proj = transform_to_line(pnt, seg.a, norm)
+  seg_proj.a = transform_to_line(seg.a, seg.a, norm)
+  seg_proj.b = transform_to_line(seg.b, seg.a, norm)
   # if the point projects inside the segment, then use that projected
   # point
   if point_in_segment(pnt_proj, seg_proj):
-    out = transform_from_line_space(pnt_proj, seg.a, norm)
+    out = transform_from_line(pnt_proj, seg.a, norm)
 
   # otherwise use the closest vertex    
   elif (distance_1d(pnt_proj, seg_proj.a) <
@@ -350,14 +397,14 @@ cdef vector3d nearest_point_in_triangle(vector3d pnt,
     
     
   norm = triangle_normal(tri)
-  pnt_proj = transform_to_plane_space(pnt, tri.a, norm)
-  tri_proj.a = transform_to_plane_space(tri.a, tri.a, norm)
-  tri_proj.b = transform_to_plane_space(tri.b, tri.a, norm)
-  tri_proj.c = transform_to_plane_space(tri.c, tri.a, norm)
+  pnt_proj = transform_to_plane(pnt, tri.a, norm)
+  tri_proj.a = transform_to_plane(tri.a, tri.a, norm)
+  tri_proj.b = transform_to_plane(tri.b, tri.a, norm)
+  tri_proj.c = transform_to_plane(tri.c, tri.a, norm)
   # if the point projects inside the triangle, then use that projected
   # point
   if point_in_triangle(pnt_proj, tri_proj):
-    out = transform_from_plane_space(pnt_proj, tri.a, norm)
+    out = transform_from_plane(pnt_proj, tri.a, norm)
 
   # otherwise use closest point on the edges
   else:
@@ -377,13 +424,13 @@ cdef vector3d nearest_point_in_triangle(vector3d pnt,
     dist_ca = distance_2d(pnt_proj, nrst_ca)
 
     if (dist_ab <= dist_bc) & (dist_ab <= dist_ca):
-        out = transform_from_plane_space(nrst_ab, tri.a, norm)
+        out = transform_from_plane(nrst_ab, tri.a, norm)
 
     elif (dist_bc <= dist_ab) & (dist_bc <= dist_ca):
-        out = transform_from_plane_space(nrst_bc, tri.a, norm)
+        out = transform_from_plane(nrst_bc, tri.a, norm)
 
     else:
-        out = transform_from_plane_space(nrst_ca, tri.a, norm)
+        out = transform_from_plane(nrst_ca, tri.a, norm)
 
   return out
 
@@ -425,7 +472,7 @@ cdef bint segment_intersects_segment(segment2d seg1,
   pnt.y = seg1.a.y + t*(seg1.b.y - seg1.a.y)
 
   # we need to now project the segment and intersection to 1d. We
-  # could use `transform_to_line_space`, but that involves expensive trig
+  # could use `transform_to_line`, but that involves expensive trig
   # operations. Instead we just throw out one of the components.
   
   # if the normal x component is larger then compare y values
@@ -453,7 +500,7 @@ cdef bint segment_intersects_triangle(segment3d seg,
   '''
   cdef:
     double proj1, proj2, t
-    vector3d pnt, norm
+    vector3d pnt, norm, anorm
     vector2d pnt_proj
     triangle2d tri_proj
 
@@ -481,7 +528,10 @@ cdef bint segment_intersects_triangle(segment3d seg,
   pnt.y = seg.a.y + t*(seg.b.y - seg.a.y)
   pnt.z = seg.a.z + t*(seg.b.z - seg.a.z)
 
-  if (fabs(norm.x) >= fabs(norm.y)) & (fabs(norm.x) >= fabs(norm.z)):
+  anorm.x = fabs(norm.x)
+  anorm.y = fabs(norm.y)
+  anorm.z = fabs(norm.z)
+  if (anorm.x >= anorm.y) & (anorm.x >= anorm.z):
     pnt_proj.x = pnt.y
     pnt_proj.y = pnt.z
     tri_proj.a.x = tri.a.y
@@ -492,7 +542,7 @@ cdef bint segment_intersects_triangle(segment3d seg,
     tri_proj.c.y = tri.c.z
     return point_in_triangle(pnt_proj, tri_proj)
 
-  elif (fabs(norm.y) >= fabs(norm.x)) & (fabs(norm.y) >= fabs(norm.z)):
+  elif (anorm.y >= anorm.x) & (anorm.y >= anorm.z):
     pnt_proj.x = pnt.x
     pnt_proj.y = pnt.z
     tri_proj.a.x = tri.a.x
@@ -503,7 +553,7 @@ cdef bint segment_intersects_triangle(segment3d seg,
     tri_proj.c.y = tri.c.z
     return point_in_triangle(pnt_proj, tri_proj)
 
-  elif (fabs(norm.z) >= fabs(norm.x)) & (fabs(norm.z) >= fabs(norm.y)):
+  else:
     pnt_proj.x = pnt.x
     pnt_proj.y = pnt.y
     tri_proj.a.x = tri.a.x
