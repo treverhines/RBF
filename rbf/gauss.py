@@ -697,7 +697,8 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     mu_x = gp._mean(x, diff)
     C_xy = gp._covariance(x, y, diff, obs_diff)
 
-    # pad p_x with as many zero columns as there are noise basis vectors
+    # pad p_x with as many zero columns as there are noise basis
+    # vectors
     p_x = gp._basis(x, diff)
     p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
     p_x = np.hstack((p_x, p_x_pad))
@@ -906,7 +907,8 @@ def outliers(d, s, mu=None, sigma=None, p=None, tol=4.0, maxitr=50):
   # boolean array indicating outliers
   out = np.zeros(n, dtype=bool)
   while True:
-    LOGGER.debug('Starting iteration %s of outlier detection routine' % (itr+1))
+    LOGGER.debug('Starting iteration %s of outlier detection routine' 
+                 % (itr+1))
     # remove rows and cols where `out` is True
     sigma_i = sigma[:, ~out][~out, :]
     p_i = p[~out]
@@ -1106,11 +1108,11 @@ class GaussianProcess(object):
 
     `x1` and `x2` are (N, D) and (M, D) arrays of positions,
     respectively. `diff1` and `diff2` are (D,) int array derivative
-    specifications. `out` can be an (N, M) array or scipy sparse matrix
-    (csc format would be most efficient). If this function only takes
-    two arguments, then it is assumed to not be differentiable and the
-    `differentiate` method for the `GaussianProcess` instance will
-    return an error.
+    specifications. `out` can be an (N, M) array or scipy sparse
+    matrix (csc format would be most efficient). If this function only
+    takes two arguments, then it is assumed to not be differentiable
+    and the `differentiate` method for the `GaussianProcess` instance
+    will return an error.
 
   basis : function, optional
     Function which returns either the improper basis functions
@@ -1353,11 +1355,12 @@ class GaussianProcess(object):
   def likelihood(self, y, d, sigma=None, p=None):
     ''' 
     Returns the log likelihood of drawing the observations `d` from
-    this `GaussianProcess`. The observations could potentially have noise
-    which is described by `sigma` and `p`. If the Gaussian process
-    contains any improper basis functions or if `p` is specified, then the
-    restricted likelihood is returned. For more information, see the
-    documentation for `rbf.gauss.likelihood` and references therein.
+    this `GaussianProcess`. The observations could potentially have
+    noise which is described by `sigma` and `p`. If the Gaussian
+    process contains any improper basis functions or if `p` is
+    specified, then the restricted likelihood is returned. For more
+    information, see the documentation for `rbf.gauss.likelihood` and
+    references therein.
 
     Parameters
     ----------
@@ -1409,8 +1412,8 @@ class GaussianProcess(object):
 
     obs_diff = np.zeros(dim, dtype=int)
 
-    # find the mean, covariance, and improper basis for the combination
-    # of the Gaussian process and the noise.
+    # find the mean, covariance, and improper basis for the
+    # combination of the Gaussian process and the noise.
     mu = self._mean(y, obs_diff)
 
     gp_sigma = self._covariance(y, y, obs_diff, obs_diff)
@@ -1472,8 +1475,8 @@ class GaussianProcess(object):
     
     obs_diff = np.zeros(dim, dtype=int)
    
-	  # find the mean, covariance, and improper basis for the combination
-  	# of the Gaussian process and the noise.
+    # find the mean, covariance, and improper basis for the
+    # combination of the Gaussian process and the noise.
     gp_mu = self._mean(y, obs_diff)
     gp_sigma = self._covariance(y, y, obs_diff, obs_diff)
     gp_p = self._basis(y, obs_diff)
@@ -1557,10 +1560,10 @@ class GaussianProcess(object):
       Evaluation points
         
     diff1, diff2 : (D,) int array
-      Derivative specification. For example, if `diff1` is (0,) and 
-      `diff2` is (1,), then the returned covariance matrix will indicate 
-      how the Gaussian process at `x1` covaries with the derivative of 
-      the Gaussian process at `x2`.
+      Derivative specification. For example, if `diff1` is (0,) and
+      `diff2` is (1,), then the returned covariance matrix will
+      indicate how the Gaussian process at `x1` covaries with the
+      derivative of the Gaussian process at `x2`.
 
     Returns
     -------
@@ -1882,11 +1885,11 @@ def gpbfc(basis, mu, sigma, dim=None):
   Parameters
   ----------
   basis : function
-    Function that takes either one argument, `x`, or two arguments, 
-    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is a 
-    (D,) array specifying the derivative. This function returns an 
-    (N, P) array, where each column is a basis function evaluated at 
-    `x`. 
+    Function that takes either one argument, `x`, or two arguments,
+    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is
+    a (D,) array specifying the derivative. This function returns an
+    (N, P) array, where each column is a basis function evaluated at
+    `x`.
   
   mu : (P,) array
     Expected value of the basis function coefficients.

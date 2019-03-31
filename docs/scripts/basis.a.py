@@ -15,7 +15,7 @@ smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
 spacing = 0.06 # approximate spacing between nodes
 
-eps = 0.2/spacing  # shape parameter
+eps = 0.3/spacing  # shape parameter
 
 # generate the nodes. `nodes` is a (N, 2) float array, `groups` is a
 # dict identifying which group each node is in
@@ -40,7 +40,7 @@ coeff = np.linalg.solve(A, d)
 xg, yg = np.meshgrid(np.linspace(0.0, 2.02, 100),
                      np.linspace(0.0, 2.02, 100))
 points = np.array([xg.flatten(), yg.flatten()]).T                    
-u = mq(points, nodes, eps=eps).dot(coeff) 
+u = mq(points, nodes, eps=eps).dot(coeff)
 # mask points outside of the domain
 u[~contains(points, vert, smp)] = np.nan 
 # fold the solution into a grid

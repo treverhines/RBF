@@ -25,7 +25,7 @@ class Test(unittest.TestCase):
     itp = H(P)
     val = test_func2d(obs)
 
-    I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=3)
+    I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
     valitp_est = I(itp)
     valitp_true = test_func2d(itp)
     self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -40,7 +40,7 @@ class Test(unittest.TestCase):
     itp = H(P)
     val = test_func2d(obs)
 
-    I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=3)
+    I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
     valitp1 = I(itp,chunk_size=10*P)
     valitp2 = I(itp,chunk_size=P)
     valitp3 = I(itp,chunk_size=100)
@@ -60,7 +60,7 @@ class Test(unittest.TestCase):
     itp = H(P)
     val = test_func2d(obs)
 
-    I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=3)
+    I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
     valitp_est = I(itp,diff=(1,0))
     valitp_true = test_func2d_diffx(itp)
     self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -73,7 +73,7 @@ class Test(unittest.TestCase):
     itp = H(P)
     val = test_func2d(obs)
 
-    I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=3)
+    I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
     valitp_est = I(itp,diff=(0,1))
     valitp_true = test_func2d_diffy(itp)
     self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -90,7 +90,7 @@ class Test(unittest.TestCase):
     # reproduce a zeroth order function despite the penalty parameter
     val = 4.0 + 0*obs[:,0]
     I = rbf.interpolate.RBFInterpolant(obs,val,sigma=10000.0,
-                                       basis=rbf.basis.phs3,order=0)
+                                       phi=rbf.basis.phs3,order=0)
     valitp_est = I(itp)
     valitp_true = 4.0 + 0.0*itp[:,1] 
     self.assertTrue(np.allclose(valitp_est,valitp_true))
@@ -107,7 +107,7 @@ class Test(unittest.TestCase):
     # reproduce a first order function despite the penalty parameter
     val = 4.0 + 2.0*obs[:,1] + 3.0*obs[:,0]
     I = rbf.interpolate.RBFInterpolant(obs,val,sigma=10000.0,
-                                       basis=rbf.basis.phs3,order=1)
+                                       phi=rbf.basis.phs3,order=1)
     valitp_est = I(itp)
     valitp_true = 4.0 + 2.0*itp[:,1] + 3.0*itp[:,0]
     self.assertTrue(np.allclose(valitp_est,valitp_true))
@@ -124,7 +124,7 @@ class Test(unittest.TestCase):
     val += np.random.normal(0.0,0.1,val.shape)
     
     I = rbf.interpolate.RBFInterpolant(obs,val,sigma=3.0,
-                                       basis=rbf.basis.phs3,order=1)
+                                       phi=rbf.basis.phs3,order=1)
     valitp_est = I(itp)
     valitp_true = test_func2d(itp)
     self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-1))
@@ -140,7 +140,7 @@ class Test(unittest.TestCase):
                     [0.5,-0.5],
                     [1.5,0.5],
                     [-0.5,0.5]])
-    I = rbf.interpolate.RBFInterpolant(obs,val,basis=rbf.basis.phs3,order=1,
+    I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=1,
                                        extrapolate=False)
     out = I(itp)
     soln_true = np.array([False,True,True,True,True])
@@ -159,7 +159,7 @@ class Test(unittest.TestCase):
     sigma = np.zeros(N)
     sigma[0] = np.inf
     I = rbf.interpolate.RBFInterpolant(obs,val,sigma=sigma,
-                                       basis=rbf.basis.phs3,order=1)    
+                                       phi=rbf.basis.phs3,order=1)    
     valitp_est = I(itp)
     valitp_true = test_func2d(itp)
     self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -173,7 +173,7 @@ class Test(unittest.TestCase):
     itp = H(P)
     val = test_func2d(obs)
     I = rbf.interpolate.RBFInterpolant(obs,val,
-                                       basis=rbf.basis.spwen31,order=1,
+                                       phi=rbf.basis.spwen31,order=1,
                                        eps=0.5)    
     valitp_est = I(itp)
     valitp_true = test_func2d(itp)

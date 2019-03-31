@@ -64,7 +64,7 @@ def _max_poly_order(size, dim):
 
 
 def weights(x, s, diffs, coeffs=None,
-            basis=rbf.basis.phs3, order=None,
+            phi=rbf.basis.phs3, order=None,
             eps=1.0):
   ''' 
   Returns the weights which map a functions values at `s` to an
@@ -98,7 +98,7 @@ def weights(x, s, diffs, coeffs=None,
     specified as a (D,) array then `coeffs` should be a length 1
     array.
 
-  basis : rbf.basis.RBF, optional
+  phi : rbf.basis.RBF instance or str, optional
     Type of RBF. Select from those available in `rbf.basis` or create
     your own.
  
@@ -168,6 +168,8 @@ def weights(x, s, diffs, coeffs=None,
     coeffs = np.asarray(coeffs, dtype=float)
     assert_shape(coeffs, (diffs.shape[0],), 'coeffs')
 
+  phi = rbf.basis.get_rbf(phi)
+
   max_order = _max_poly_order(size, dim)
   if order is None:
     order = _default_poly_order(diffs)
@@ -181,14 +183,14 @@ def weights(x, s, diffs, coeffs=None,
   powers = rbf.poly.powers(order, dim)
   # evaluate the RBF and monomials at each point in the stencil. This
   # becomes the left-hand-side
-  A = basis(s, s, eps=eps)
+  A = phi(s, s, eps=eps)
   P = rbf.poly.mvmonos(s, powers)
   # Evaluate the RBF and monomials for each term in the differential
   # operator. This becomes the right-hand-side.
-  a = coeffs[0]*basis(x[None, :], s, eps=eps, diff=diffs[0])
+  a = coeffs[0]*phi(x[None, :], s, eps=eps, diff=diffs[0])
   p = coeffs[0]*rbf.poly.mvmonos(x[None, :], powers, diff=diffs[0])
   for c, d in zip(coeffs[1:], diffs[1:]):
-    a += c*basis(x[None, :], s, eps=eps, diff=d)
+    a += c*phi(x[None, :], s, eps=eps, diff=d)
     p += c*rbf.poly.mvmonos(x[None, :], powers, diff=d)
 
   # squeeze `a` and `p` into 1d arrays. `a` is ran through as_array
@@ -207,11 +209,11 @@ def weights(x, s, diffs, coeffs=None,
       'point %s with the RBF %s and the polynomial order %s. This '
       'may be due to a stencil with duplicate or collinear points. '
       'The stencil contains the following points:\n%s' % 
-      (x, basis, order, s))
+      (x, phi, order, s))
 
 
 def weight_matrix(x, p, diffs, coeffs=None,
-                  basis=rbf.basis.phs3, order=None,
+                  phi=rbf.basis.phs3, order=None,
                   eps=1.0, n=None, stencils=None):
   ''' 
   Returns a weight matrix which maps a functions values at `p` to an
@@ -243,7 +245,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
     array. If the coefficients for the differential operator vary with
     `x` then `coeffs` can be specified as a (K, N) array.
 
-  basis : rbf.basis.RBF, optional
+  phi : rbf.basis.RBF, optional
     Type of RBF. Select from those available in `rbf.basis` or create 
     your own.
 
@@ -337,7 +339,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
 
     data[i, :] = weights(x[i], p[si], diffs,
                          coeffs=coeffs[:, i], eps=eps[si],
-                         basis=basis, order=order)
+                         phi=phi, order=order)
 
     
   rows = np.repeat(range(data.shape[0]), data.shape[1])

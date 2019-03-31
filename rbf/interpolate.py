@@ -132,7 +132,7 @@ class RBFInterpolant(object):
     Shape parameters for each RBF. This has no effect for odd
     order polyharmonic splines. Defaults to 1.0.
 
-  basis : rbf.basis.RBF instance or str, optional
+  phi : rbf.basis.RBF instance or str, optional
     Radial basis function to use. This can be an RBF instance (e.g,
     `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3').
     See `rbf.basis` for all the available options.
@@ -154,9 +154,9 @@ class RBFInterpolant(object):
   With certain choices of basis functions and polynomial orders this
   interpolant is equivalent to a thin-plate spline.  For example, if
   the observation space is one-dimensional then a thin-plate spline
-  can be obtained with the arguments `basis` = `rbf.basis.phs3` and
+  can be obtained with the arguments `phi` = `rbf.basis.phs3` and
   `order` = 1.  For two-dimensional observation space a thin-plate
-  spline can be obtained with the arguments `basis` = `rbf.basis.phs2`
+  spline can be obtained with the arguments `phi` = `rbf.basis.phs2`
   and `order` = 1. 
 
   References
@@ -168,7 +168,7 @@ class RBFInterpolant(object):
   def __init__(self, y, d,
                sigma=None,
                eps=1.0,
-               basis=rbf.basis.phs3,
+               phi=rbf.basis.phs3,
                order=1,
                extrapolate=True):
     y = np.asarray(y) 
@@ -191,9 +191,11 @@ class RBFInterpolant(object):
       sigma = np.asarray(sigma)
       assert_shape(sigma, (nobs,), 'sigma')
       
+    phi = rbf.basis.get_rbf(phi)
+    
     # form block consisting of the RBF and uncertainties on the
     # diagonal
-    K = basis(y, y, eps=eps) 
+    K = phi(y, y, eps=eps) 
     Cd = scipy.sparse.diags(sigma**2)
     # form the block consisting of the monomials
     powers = rbf.poly.powers(order, dim)
@@ -201,13 +203,13 @@ class RBFInterpolant(object):
     # create zeros vector for the right-hand-side
     z = np.zeros((powers.shape[0],))
     # solve for the RBF and mononomial coefficients
-    basis_coeff, poly_coeff = PartitionedSolver(K + Cd, P).solve(d, z) 
+    phi_coeff, poly_coeff = PartitionedSolver(K + Cd, P).solve(d, z) 
 
     self._y = y
-    self._basis = basis
+    self._phi = phi
     self._order = order 
     self._eps = eps
-    self._basis_coeff = basis_coeff
+    self._phi_coeff = phi_coeff
     self._poly_coeff = poly_coeff
     self._powers = powers 
     self.extrapolate = extrapolate
@@ -244,7 +246,7 @@ class RBFInterpolant(object):
     count = 0
     while count < xlen:
       start, stop = count, count + chunk_size
-      K = self._basis(
+      K = self._phi(
         x[start:stop], 
         self._y, 
         eps=self._eps, 
@@ -253,7 +255,7 @@ class RBFInterpolant(object):
         x[start:stop], 
         self._powers, 
         diff=diff)
-      out[start:stop] = (K.dot(self._basis_coeff) + 
+      out[start:stop] = (K.dot(self._phi_coeff) + 
                          P.dot(self._poly_coeff))
       count += chunk_size
 

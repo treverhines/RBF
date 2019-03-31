@@ -22,17 +22,17 @@ vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],
                  [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-# the node spacing is 0.05 at [1, 1] and increases as we move away
+# the node spacing is 0.03 at [1, 1] and increases as we move away
 # from that point
-spacing = lambda x: 0.05 + 0.05*np.linalg.norm(x - 1.0, axis=1)
+spacing = lambda x: 0.03 + 0.07*np.linalg.norm(x - 1.0, axis=1)
 
 n = 25 # stencil size. Increase this will generally improve accuracy
 
-basis = phs3 # radial basis function used to compute the weights. Odd
-             # order polyharmonic splines (e.g., phs3) have always
-             # performed well for me and they do not require the user
-             # to tune a shape parameter. Use higher order
-             # polyharmonic splines for higher order PDEs.
+phi = phs3 # radial basis function used to compute the weights. Odd
+           # order polyharmonic splines (e.g., phs3) have always
+           # performed well for me and they do not require the user to
+           # tune a shape parameter. Use higher order polyharmonic
+           # splines for higher order PDEs.
 
 order = 2 # Order of the added polynomials. This should be at least as
           # large as the order of the PDE being solved (2 in this
@@ -46,7 +46,7 @@ N = nodes.shape[0]
 # create the component which evaluates the PDE
 A_interior = weight_matrix(nodes[groups['interior']], nodes,
                            diffs=[[2, 0], [0, 2]], n=n, 
-                           basis=basis, order=order)
+                           phi=phi, order=order)
 # create the component for the fixed boundary conditions
 A_boundary = weight_matrix(nodes[groups['boundary:all']], nodes, 
                            diffs=[0, 0]) 

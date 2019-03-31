@@ -41,15 +41,15 @@ smp = np.array([[0, 1], [1, 2], [4, 5], [5, 0], [2, 3], [3, 4]])
 boundary_groups = {'fixed': [0, 1, 2, 3],
                    'free': [4, 5]}
 
-spacing = 0.07  # The approximate spacing between nodes
+spacing = 0.1  # The approximate spacing between nodes
 
 n = 25 # stencil size. Increasing this will generally improve accuracy
 
-basis = phs3 # radial basis function used to compute the weights. Odd
-             # order polyharmonic splines (e.g., phs3) have always
-             # performed well for me and they do not require the user
-             # to tune a shape parameter. Use higher order
-             # polyharmonic splines for higher order PDEs.
+phi = phs3 # radial basis function used to compute the weights. Odd
+           # order polyharmonic splines (e.g., phs3) have always
+           # performed well for me and they do not require the user to
+           # tune a shape parameter. Use higher order polyharmonic
+           # splines for higher order PDEs.
 
 order = 2 # Order of the added polynomials. This should be at least as
           # large as the order of the PDE being solved (2 in this
@@ -72,14 +72,14 @@ A_interior = weight_matrix(nodes[groups['interior']],
                            nodes,
                            n=n, 
                            diffs=[[2, 0], [0, 2]], 
-                           basis=basis, order=order)
+                           phi=phi, order=order)
 
 # use the ghost nodes to evaluate the PDE at the free boundary nodes
 A_ghost = weight_matrix(nodes[groups['boundary:free']], 
                         nodes, 
                         n=n,
                         diffs=[[2, 0], [0, 2]],
-                        basis=basis, order=order)
+                        phi=phi, order=order)
 
 # create the component for the fixed boundary conditions. This is
 # essentially an identity operation and so we only need a stencil size
@@ -98,7 +98,7 @@ A_free = weight_matrix(nodes[groups['boundary:free']],
                        diffs=[[1, 0], [0, 1]],
                        coeffs=[normals[groups['boundary:free'], 0],
                                normals[groups['boundary:free'], 1]],
-                       basis=basis, order=order)
+                       phi=phi, order=order)
                            
 # Add the components to the corresponding rows of `A`
 A = csc_matrix((N, N))

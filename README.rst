@@ -69,13 +69,13 @@ Smoothing Scattered Data
   import matplotlib.pyplot as plt
   np.random.seed(1)
 
-  basis = rbf.basis.phs2
+  phi = rbf.basis.phs2
   order = 1
 
   x_obs = np.random.random((100,2)) # observation points
   u_obs = np.sin(2*np.pi*x_obs[:,0])*np.cos(2*np.pi*x_obs[:,1]) # signal
   u_obs += np.random.normal(0.0,0.2,100) # add noise to signal
-  I = RBFInterpolant(x_obs,u_obs,sigma=0.1,basis=basis,order=order)
+  I = RBFInterpolant(x_obs,u_obs,sigma=0.1,phi=phi,order=order)
   vals = np.linspace(0,1,200)
   x_itp = np.reshape(np.meshgrid(vals,vals),(2,200*200)).T # interp points
   u_itp = I(x_itp) # evaluate the interpolant
@@ -200,17 +200,17 @@ spectral RBF method. An example of the two methods is provided below.
                    [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
   smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-  # the node spacing is 0.05 at [1, 1] and increases as we move away
+  # the node spacing is 0.03 at [1, 1] and increases as we move away
   # from that point
-  spacing = lambda x: 0.05 + 0.05*np.linalg.norm(x - 1.0, axis=1)
+  spacing = lambda x: 0.03 + 0.07*np.linalg.norm(x - 1.0, axis=1)
 
   n = 25 # stencil size. Increase this will generally improve accuracy
 
-  basis = phs3 # radial basis function used to compute the weights. Odd
-               # order polyharmonic splines (e.g., phs3) have always
-               # performed well for me and they do not require the user
-               # to tune a shape parameter. Use higher order
-               # polyharmonic splines for higher order PDEs.
+  phi = phs3 # radial basis function used to compute the weights. Odd
+             # order polyharmonic splines (e.g., phs3) have always
+             # performed well for me and they do not require the user
+             # to tune a shape parameter. Use higher order
+             # polyharmonic splines for higher order PDEs.
 
   order = 2 # Order of the added polynomials. This should be at least as
             # large as the order of the PDE being solved (2 in this
@@ -224,7 +224,7 @@ spectral RBF method. An example of the two methods is provided below.
   # create the component which evaluates the PDE
   A_interior = weight_matrix(nodes[groups['interior']], nodes,
                              diffs=[[2, 0], [0, 2]], n=n,
-                             basis=basis, order=order)
+                             phi=phi, order=order)
   # create the component for the fixed boundary conditions
   A_boundary = weight_matrix(nodes[groups['boundary:all']], nodes,
                              diffs=[0, 0])
