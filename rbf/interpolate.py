@@ -7,8 +7,6 @@ This function has numerous features that are lacking in
 * more choices of basis functions (you can also easily make your own)
 * analytical differentiation of the interpolant 
 * added polynomial terms for improved accuracy
-* prevent extrapolation by masking data that is outside of the 
-  convex hull defined by the data points
 
 RBF Interpolation
 -----------------
@@ -134,8 +132,10 @@ class RBFInterpolant(object):
     Shape parameters for each RBF. This has no effect for odd
     order polyharmonic splines. Defaults to 1.0.
 
-  basis : rbf.basis.RBF instance, optional
-    Radial basis function to use.
+  basis : rbf.basis.RBF instance or str, optional
+    Radial basis function to use. This can be an RBF instance (e.g,
+    `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3').
+    See `rbf.basis` for all the available options.
  
   extrapolate : bool, optional
     Whether to allows points to be extrapolated outside of a convex 
@@ -173,24 +173,23 @@ class RBFInterpolant(object):
                extrapolate=True):
     y = np.asarray(y) 
     assert_shape(y, (None, None), 'y')
+    nobs, dim = y.shape
     
     d = np.asarray(d)
-    assert_shape(d, (y.shape[0],), 'd')
+    assert_shape(d, (nobs,), 'd')
     
-    q,dim = y.shape
-
     if sigma is None:
       # if sigma is not specified then it is zeros
-      sigma = np.zeros(q)
+      sigma = np.zeros(nobs)
 
     elif np.isscalar(sigma):
       # if a float is specified then use it as the uncertainties for
       # all observations
-      sigma = np.repeat(sigma,q)  
+      sigma = np.repeat(sigma, nobs)  
 
     else:
       sigma = np.asarray(sigma)
-      assert_shape(sigma, (y.shape[0],), 'sigma')
+      assert_shape(sigma, (nobs,), 'sigma')
       
     # form block consisting of the RBF and uncertainties on the
     # diagonal

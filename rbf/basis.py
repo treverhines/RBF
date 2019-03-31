@@ -69,24 +69,6 @@ logger = logging.getLogger(__name__)
 _SYMBOLIC_TO_NUMERIC_METHOD = 'ufuncify'
 
 
-def set_symbolic_to_numeric_method(method): 
-  ''' 
-  Sets the method that all RBF instances will use for converting sympy
-  expressions to numeric functions. This can be either "ufuncify" or
-  "lambdify". "ufuncify" will write and compile C code for a numpy
-  universal function, and "lambdify" will evaluate the sympy
-  expression using python-level numpy functions. Calling this function
-  will cause all caches of numeric functions to be cleared.
-  '''
-  global _SYMBOLIC_TO_NUMERIC_METHOD
-  if method not in {'lambdify', 'ufuncify'}:
-    raise ValueError(
-      '`method` must be either "lambdify" or "ufuncify"')
-            
-  _SYMBOLIC_TO_NUMERIC_METHOD = method
-  clear_rbf_caches()
-
-    
 def get_r():
   ''' 
   returns the symbolic variable for :math:`r` which is used to 
@@ -559,6 +541,42 @@ def clear_rbf_caches():
             inst().clear_cache()
 
 
+def get_rbf(val):
+    '''
+    Returns the `RBF` corresponding to `val`. If `val` is a string,
+    then this return the correspondingly named predefined `RBF`. If
+    `val` is an RBF instance then this returns `val`.
+    '''
+    if issubclass(type(val), RBF):
+        return val
+
+    elif val in _PREDEFINED:
+        return _PREDEFINED[val]
+
+    else:        
+        raise ValueError(
+            "Cannot interpret '%s' as an RBF. Use one of %s"
+            % (val, set(_PREDEFINED.keys())))
+        
+
+def set_symbolic_to_numeric_method(method): 
+  ''' 
+  Sets the method that all RBF instances will use for converting sympy
+  expressions to numeric functions. This can be either "ufuncify" or
+  "lambdify". "ufuncify" will write and compile C code for a numpy
+  universal function, and "lambdify" will evaluate the sympy
+  expression using python-level numpy functions. Calling this function
+  will cause all caches of numeric functions to be cleared.
+  '''
+  global _SYMBOLIC_TO_NUMERIC_METHOD
+  if method not in {'lambdify', 'ufuncify'}:
+    raise ValueError(
+      '`method` must be either "lambdify" or "ufuncify"')
+            
+  _SYMBOLIC_TO_NUMERIC_METHOD = method
+  clear_rbf_caches()
+
+
 ## Instantiate some common RBFs
 #####################################################################
 _phs8_limits = {}
@@ -751,3 +769,14 @@ spwen30 = SparseRBF(         (1 - _R/_EPS)**2                                   
 spwen31 = SparseRBF(         (1 - _R/_EPS)**4*(4*_R/_EPS + 1)                      , _EPS, tol=1e-8*_EPS, limits=_wen31_limits)
 
 spwen32 = SparseRBF(         (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS, tol=1e-8*_EPS, limits=_wen32_limits)
+
+_PREDEFINED = {'phs8':phs8, 'phs7':phs7, 'phs6':phs6, 'phs5':phs5,
+               'phs4':phs4, 'phs3':phs3, 'phs2':phs2, 'phs1':phs1,
+               'mq':mq, 'imq':imq, 'iq':iq, 'ga':ga, 'exp':exp,
+               'se':se, 'mat32':mat32, 'mat52':mat52, 
+               'wen10':wen10, 'wen11':wen11, 'wen12':wen12,
+               'wen30':wen30, 'wen31':wen31, 'wen32':wen32,
+               'spwen10':spwen10, 'spwen11':spwen11, 
+               'spwen12':spwen12, 'spwen30':spwen30, 
+               'spwen31':spwen31, 'spwen32':spwen32}
+
