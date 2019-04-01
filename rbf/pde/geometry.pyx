@@ -310,15 +310,21 @@ cdef bint point_in_triangle(vector2d vec, triangle2d tri) nogil:
   three of the barycentric coordinates are positive
   '''
   cdef: 
+    vector2d vec1, vec2, vec3
     double det, l1, l2, l3
 
-  # find barycentric coordinates  
-  det = ((tri.b.y - tri.c.y)*(tri.a.x - tri.c.x) + 
-         (tri.c.x - tri.b.x)*(tri.a.y - tri.c.y))
-  l1 = ((tri.b.y - tri.c.y)*(vec.x - tri.c.x) + 
-        (tri.c.x - tri.b.x)*(vec.y - tri.c.y))/det
-  l2 = ((tri.c.y - tri.a.y)*(vec.x - tri.c.x) + 
-        (tri.a.x - tri.c.x)*(vec.y - tri.c.y))/det
+  vec1.x = tri.a.x - tri.c.x
+  vec1.y = tri.a.y - tri.c.y
+
+  vec2.x = tri.b.x - tri.c.x
+  vec2.y = tri.b.y - tri.c.y
+
+  vec3.x = vec.x - tri.c.x
+  vec3.y = vec.y - tri.c.y
+
+  det = vec1.x*vec2.y - vec1.y*vec2.x
+  l1 = ( vec2.y*vec3.x - vec2.x*vec3.y)/det
+  l2 = (-vec1.y*vec3.x + vec1.x*vec3.y)/det
   l3 = 1 - l1 - l2
   if (l1 >= 0.0) & (l2 >= 0.0) & (l3 >= 0.0):
     return True
@@ -343,14 +349,21 @@ cdef vector3d triangle_normal(triangle3d tri) nogil:
   Returns the vector normal to a 3d triangle
   '''
   cdef:
-    vector3d out
+    vector3d out, vec1, vec2
 
-  out.x = ((tri.b.y - tri.a.y)*(tri.c.z - tri.a.z) - 
-           (tri.b.z - tri.a.z)*(tri.c.y - tri.a.y))
-  out.y = -((tri.b.x - tri.a.x)*(tri.c.z - tri.a.z) - 
-            (tri.b.z - tri.a.z)*(tri.c.x - tri.a.x)) 
-  out.z = ((tri.b.x - tri.a.x)*(tri.c.y - tri.a.y) - 
-           (tri.b.y - tri.a.y)*(tri.c.x - tri.a.x))
+  # create two vectors from the triangle, and then cross them to get
+  # the normal
+  vec1.x = tri.b.x - tri.a.x
+  vec1.y = tri.b.y - tri.a.y
+  vec1.z = tri.b.z - tri.a.z
+
+  vec2.x = tri.c.x - tri.a.x
+  vec2.y = tri.c.y - tri.a.y
+  vec2.z = tri.c.z - tri.a.z
+      
+  out.x =  vec1.y*vec2.z - vec1.z*vec2.y
+  out.y = -vec1.x*vec2.z + vec1.z*vec2.x
+  out.z =  vec1.x*vec2.y - vec1.y*vec2.x
   return out
 
 
