@@ -155,7 +155,8 @@ def disperse(nodes,
                   neighbors=neighbors, delta=delta, vert=bound_vert, 
                   smp=bound_smp)
   # boolean array of nodes which are now outside the domain
-  crossed = intersection_count(nodes, out, vert, smp) > 0
+  crossed = intersection_count(nodes, out, vert, smp, 
+                               use_qotree=True) > 0
   # point where nodes intersected the boundary and the simplex they
   # intersected at
   intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], 
@@ -168,7 +169,8 @@ def disperse(nodes,
   out[crossed] -= 2*intr_norms*np.sum(res*intr_norms, 1)[:, None]
   # check to see if the bounced nodes still intersect the boundary. If
   # not then set the bounced nodes back to their original position
-  crossed = intersection_count(nodes, out, vert, smp) > 0
+  crossed = intersection_count(nodes, out, vert, smp, 
+                               use_qotree=True) > 0
   out[crossed] = nodes[crossed]
   return out
 

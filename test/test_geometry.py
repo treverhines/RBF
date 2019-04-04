@@ -16,8 +16,7 @@ class Test(unittest.TestCase):
     smp = np.array([[0,1],
                     [1,2],
                     [2,3],
-                    [3,0]])                     
-                    
+                    [3,0]], dtype=int)                     
     start = np.array([[0.5,0.5],
                       [0.5,0.5],
                       [0.5,-1.0],
@@ -28,7 +27,11 @@ class Test(unittest.TestCase):
                     [1.0,-1.0]])
     
     soln = np.array([1,0,2,0])
-    out = rbf.pde.geometry.intersection_count(start,end,vert,smp)
+    out = rbf.pde.geometry.intersection_count(start,end,vert,smp,
+                                              use_qotree=True)
+    self.assertTrue(np.all(soln==out))
+    out = rbf.pde.geometry.intersection_count(start,end,vert,smp, 
+                                              use_qotree=False)
     self.assertTrue(np.all(soln==out))
 
   def test_intersection_count_3d(self):    
@@ -45,7 +48,11 @@ class Test(unittest.TestCase):
                     [0.5, 0.5, -1.0],
                     [0.5, 0.5, 0.5]])
     soln = np.array([1, 2, 0])                    
-    out = rbf.pde.geometry.intersection_count(start, end, vert, smp)
+    out = rbf.pde.geometry.intersection_count(start, end, vert, smp,
+                                              use_qotree=True)
+    self.assertTrue(np.all(soln==out))
+    out = rbf.pde.geometry.intersection_count(start, end, vert, smp,
+                                              use_qotree=False)
     self.assertTrue(np.all(soln==out))
     
   def test_intersection_2d(self):
