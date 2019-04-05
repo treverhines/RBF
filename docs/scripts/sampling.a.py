@@ -2,7 +2,9 @@
 This script demonstrates how to generate poisson discs with variable
 radii.
 '''
+import time
 import numpy as np
+import cProfile
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -14,14 +16,18 @@ from rbf.pde.sampling import poisson_discs
 def radius(x):
     '''disc radius as a function of position'''
     r = np.linalg.norm(x - 0.5, axis=1)
-    return 0.02 + 0.2*r
+    return 0.002 + 0.02*r
 
 # define the domain
 vert = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
 
 # generate the discs
+start = time.time()
 centers = poisson_discs(radius, vert, smp)
+runtime = time.time() - start
+print('generated %s samples in %s s' % (len(centers), runtime))
+quit()
 
 # plot the domain and discs
 fig, ax = plt.subplots()

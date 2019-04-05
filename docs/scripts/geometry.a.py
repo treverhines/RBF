@@ -15,8 +15,8 @@ time_without_tree = []
 
 # create a collection of small line segments. 
 point1 = np.random.uniform(-1.0, 1.0, (segments, 3))
-point2 = point1 #+ np.random.normal(0.0, 0.001, (segments, 3))
-for r in range(9):
+point2 = point1 + np.random.normal(0.0, 0.01, (segments, 3))
+for r in range(10):
     vert, smp = sphere(r)
     simplices += [len(smp)]
     

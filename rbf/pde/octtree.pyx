@@ -375,7 +375,6 @@ cdef class OctTree(_OctNode):
             box3d bx1, bx2
             _OctNode node, member
             list family = []
-            list indices = []
 
         bx1.xmin = box[0]
         bx1.ymin = box[1]
@@ -392,6 +391,4 @@ cdef class OctTree(_OctNode):
         for member in family:
             for i, bx2 in member.boxes:
                 if boxes_intersect_3d(bx1, bx2):
-                    indices.append(i)
-
-        return indices
+                    yield i

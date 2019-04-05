@@ -23,6 +23,9 @@ if __name__ == '__main__':
   ext += [Extension(name='rbf.pde.octtree',
                     sources=['rbf/pde/octtree.pyx'],
                     include_dirs=[np.get_include()])]
+  ext += [Extension(name='rbf.pde.sampling',
+                    sources=['rbf/pde/sampling.pyx'],
+                    include_dirs=[np.get_include()])]
   ext += [Extension(name='rbf.misc.bspline',
                     sources=['rbf/misc/bspline.pyx'],
                     include_dirs=[np.get_include()])]

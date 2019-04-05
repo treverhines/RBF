@@ -4,14 +4,32 @@ A module for generating points with a user specified distribution.
 import logging
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 from rbf.utils import assert_shape
 from rbf.pde.halton import HaltonSequence
 from rbf.pde.geometry import contains
+from rbf.pde.quadtree import QuadTree
+from rbf.pde.octtree import OctTree
+
+from libc.math cimport sqrt
 
 logger = logging.getLogger(__name__)
 
+
+cdef double distance(double[:] a, double[:] b):
+    '''
+    computes the distance between two 1d numpy arrays without the
+    overhead of np.linalg.norm
+    '''
+    cdef:
+        long i
+        double out = 0.0
+
+    for i in range(a.shape[0]):
+        out += (a[i] - b[i])**2
+
+    return sqrt(out)        
+            
 
 def rejection_sampling(size, rho, vert, smp, max_sample_size=1000000):
     '''
@@ -115,87 +133,60 @@ class _DiscCollection:
     discs, where a disc is described by a center and a radius. This
     class also provides efficient querying methods.
     '''
-    def __init__(self, centers, radii, leafsize=100):
+    def __init__(self, centers, radii, tree_bounds):
+        # creat bounding boxes for the disks
+        lower_bounds = centers - radii[:, None]
+        upper_bounds = centers + radii[:, None]
+        bounds = np.hstack((lower_bounds, upper_bounds))
+
+        if centers.shape[1] == 2:
+            tree = QuadTree(tree_bounds, max_depth=5)
+        elif centers.shape[1] == 3:
+            tree = OctTree(tree_bounds, max_depth=5)
+        else:
+            raise ValueError()            
+
+        tree.add_boxes(bounds)            
         self.centers = centers
         self.radii = radii
-        self.leafsize = leafsize
-        self.tree = cKDTree(self.centers, 
-                            leafsize=self.leafsize, 
-                            compact_nodes=True, 
-                            balanced_tree=True)
+        self.tree = tree
+        self.dim = centers.shape[1]
+        self.bounds_arr = np.zeros(2*self.dim, dtype=float)
     
     def add_disc(self, cnt, rad):
         '''
         Add a disc with center `cnt` and radius `rad` to the
         collection
         '''
+        lower_bounds = cnt - rad
+        upper_bounds = cnt + rad
+        bounds = np.hstack((lower_bounds, upper_bounds))
+        self.tree.add_boxes(bounds[None])
         self.centers = np.vstack((self.centers, [cnt]))
         self.radii = np.hstack((self.radii, [rad]))
-        # only rebuild the tree after every `leafsize` new points have
-        # been added. 
-        if (len(self.centers) % self.leafsize) == 0:
-            self.tree = cKDTree(self.centers, 
-                                leafsize=self.leafsize, 
-                                compact_nodes=True, 
-                                balanced_tree=True)
+        # clean up the mess every once in a while
+        if (len(self.centers) % 100) == 0:
+            self.tree.prune()
             
-    def centers_in_disc(self, cnt, rad):
+    def intersects(self, cnt, rad):
         '''
-        Returns the indices of discs whose centers are contained in
-        the disc with center `cnt` and radius `rad`
-        '''        
-        # use brute force to test discs that were added since the last
-        # tree build
-        recent_centers = self.centers[self.tree.n:]
-        dist = np.linalg.norm(recent_centers - cnt[None, :], axis=1)
-        out, = (dist <= rad).nonzero()
-        out = (out + self.tree.n).tolist()
-        # use the tree to test the remaining discs
-        out += self.tree.query_ball_point(cnt, rad)
-        return out
-
-    def any_centers_in_disc(self, cnt, rad):
+        Returns True if the disc with center `cnt` and radius `rad`
+        overlaps the center of any disc in this collection OR if any
+        of the discs in this collection overlap `cnt`.
         '''
-        Returns True if any of the disc centers are contained in the
-        disc with center `cnt` and radius `rad`
-        '''
-        # use brute force to test discs that were added since the last
-        # tree build
-        recent_centers = self.centers[self.tree.n:]
-        dist = np.linalg.norm(recent_centers - cnt[None, :], axis=1)
-        if np.any(dist <= rad):
-            return True
-                    
-        # use the tree to test the remaining discs
-        elif self.tree.query_ball_point(cnt, rad):
-            return True
-
-        else:
-            return False            
-
-    def any_discs_contain_point(self, x):
-        '''
-        Returns True if any of the discs contain the point `x`
-        '''
-        rmax = np.max(self.radii)
-        while True:
-            # find the discs with centers that are within a distance
-            # of `rmax` to `x`
-            indices = self.centers_in_disc(x, rmax)
-            # if no disc centers are within a distance of `rmax` to
-            # `x`, then no discs contain `x`
-            if not indices:
-                return False
-
-            # Find the largest radius of all the discs with centers
-            # within `rmax`. 
-            new_rmax = self.radii[indices].max()
-            # If the largest disc radius is equal to `rmax` then it
-            # must contain `x`
-            if new_rmax == rmax:
+        lower_bounds = cnt - rad
+        upper_bounds = cnt + rad
+        self.bounds_arr[:self.dim] = lower_bounds
+        self.bounds_arr[self.dim:] = upper_bounds
+        #bounds = np.hstack((lower_bounds, upper_bounds))
+        # refine the search by only checking disks with overlapping
+        # bounding boxes
+        for idx in self.tree.intersections(self.bounds_arr):
+            dist = distance(cnt, self.centers[idx])
+            if (dist < rad) | (dist < self.radii[idx]):
                 return True
 
-            rmax = new_rmax                
+        return False                
         
     
 def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
@@ -252,7 +243,11 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     
     centers = HaltonSequence(dim).uniform(lb, ub, size=seeds)
     radii = np.asarray(rfunc(centers))
-    dc = _DiscCollection(centers, radii)
+
+    # the bounds for the qotree should extend beyond the bounds where
+    # we are placing nodes
+    tree_bounds = np.hstack((lb - 0.5*(ub - lb), ub + 0.5*(ub - lb)))
+    dc = _DiscCollection(centers, radii, tree_bounds)
     active = np.arange(seeds).tolist()
 
     # initialize some Halton sequences as random number generators. By
@@ -300,15 +295,11 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
         placed_disc = False
         for c, r in zip(cnts, rads):
             # test whether the test disc contains the centers of
-            # surrounding discs
-            if dc.any_centers_in_disc(c, r):
+            # surrounding discs or the surrounding discs contain the
+            # center of the test disc
+            if dc.intersects(c, r):
                 continue
                 
-            # test whether the surrounding discs contain the center of
-            # the test disc
-            if dc.any_discs_contain_point(c):
-                continue
-            
             # create a new disc with center `c` and radius `r`
             dc.add_disc(c, r)
             # this new disc is active, meaning that we will search for

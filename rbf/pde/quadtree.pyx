@@ -300,7 +300,7 @@ cdef class QuadTree(_QuadNode):
 
         Returns
         -------
-        (k,) list of ints
+        generator of ints
             The indices of the boxes that intersect `box`. The indices
             correspond to the order in which the boxes were added to
             the quad tree.
@@ -311,7 +311,6 @@ cdef class QuadTree(_QuadNode):
             box2d bx1, bx2
             _QuadNode node, member
             list family = []
-            list indices = []
 
         bx1.xmin = box[0]
         bx1.ymin = box[1]
@@ -326,6 +325,4 @@ cdef class QuadTree(_QuadNode):
         for member in family:
             for i, bx2 in member.boxes:
                 if boxes_intersect_2d(bx1, bx2):
-                    indices.append(i)
-
-        return indices
+                    yield i
