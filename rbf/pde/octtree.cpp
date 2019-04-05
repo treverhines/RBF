@@ -945,12 +945,12 @@ struct __pyx_t_3rbf_3pde_7octtree_box3d {
   double zmax;
 };
 
-/* "rbf/pde/octtree.pyx":47
- *         # indices. A vector is like a list except it is more efficient
- *         # because its items are typed
- *         vector[(long, box3d)] boxes             # <<<<<<<<<<<<<<
- *         # the total number of boxes that have been added to the node
- *         # and its childen. This is not necessarily equal to len(boxes)
+/* "rbf/pde/octtree.pyx":213
+ *         cdef:
+ *             _OctNode child
+ *             (long, box3d) item = (idx, bx)             # <<<<<<<<<<<<<<
+ * 
+ *         # the box will either be added to the current node or one of
  */
 struct __pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d {
   long f0;
@@ -972,12 +972,12 @@ struct __pyx_obj_3rbf_3pde_7octtree__OctNode {
   long depth;
   long max_depth;
   PyObject *children;
-  std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  boxes;
+  PyObject *boxes;
   long box_count;
 };
 
 
-/* "rbf/pde/octtree.pyx":307
+/* "rbf/pde/octtree.pyx":310
  * 
  * 
  * cdef class OctTree(_OctNode):             # <<<<<<<<<<<<<<
@@ -1087,7 +1087,7 @@ struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode {
 static struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *__pyx_vtabptr_3rbf_3pde_7octtree__OctNode;
 
 
-/* "rbf/pde/octtree.pyx":307
+/* "rbf/pde/octtree.pyx":310
  * 
  * 
  * cdef class OctTree(_OctNode):             # <<<<<<<<<<<<<<
@@ -1291,19 +1291,6 @@ static void __Pyx_WriteUnraisable(const char *name, int clineno,
 /* ExtTypeTest.proto */
 static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
 
-/* ListExtend.proto */
-static CYTHON_INLINE int __Pyx_PyList_Extend(PyObject* L, PyObject* v) {
-#if CYTHON_COMPILING_IN_CPYTHON
-    PyObject* none = _PyList_Extend((PyListObject*)L, v);
-    if (unlikely(!none))
-        return -1;
-    Py_DECREF(none);
-    return 0;
-#else
-    return PyList_SetSlice(L, PY_SSIZE_T_MAX, PY_SSIZE_T_MAX, v);
-#endif
-}
-
 /* ListAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
 static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
@@ -1320,6 +1307,19 @@ static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
 #else
 #define __Pyx_PyList_Append(L,x) PyList_Append(L,x)
 #endif
+
+/* ListExtend.proto */
+static CYTHON_INLINE int __Pyx_PyList_Extend(PyObject* L, PyObject* v) {
+#if CYTHON_COMPILING_IN_CPYTHON
+    PyObject* none = _PyList_Extend((PyListObject*)L, v);
+    if (unlikely(!none))
+        return -1;
+    Py_DECREF(none);
+    return 0;
+#else
+    return PyList_SetSlice(L, PY_SSIZE_T_MAX, PY_SSIZE_T_MAX, v);
+#endif
+}
 
 /* PyCFunctionFastCall.proto */
 #if CYTHON_FAST_PYCCALL
@@ -1630,9 +1630,6 @@ static void __pyx_insert_code_object(int code_line, PyCodeObject* code_object);
 static void __Pyx_AddTraceback(const char *funcname, int c_line,
                                int py_line, const char *filename);
 
-/* None.proto */
-#include <new>
-
 #if PY_MAJOR_VERSION < 3
     static int __Pyx_GetBuffer(PyObject *obj, Py_buffer *view, int flags);
     static void __Pyx_ReleaseBuffer(Py_buffer *view);
@@ -1696,14 +1693,14 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_dou
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dsds_double(PyObject *, int writable_flag);
 
-/* FromPyCTupleUtility.proto */
-static __pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d __pyx_convert__from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(PyObject *);
-
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value);
 
 struct __pyx_t_3rbf_3pde_7octtree_box3d;
 static PyObject* __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(struct __pyx_t_3rbf_3pde_7octtree_box3d s);
+/* ToPyCTupleUtility.proto */
+static PyObject* __pyx_convert__to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d);
+
 /* CppExceptionConversion.proto */
 #ifndef __Pyx_CppExn2PyErr
 #include <new>
@@ -1745,9 +1742,6 @@ static void __Pyx_CppExn2PyErr() {
   }
 }
 #endif
-
-/* ToPyCTupleUtility.proto */
-static PyObject* __pyx_convert__to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d);
 
 /* MemviewSliceCopyTemplate.proto */
 static __Pyx_memviewslice
@@ -1813,8 +1807,6 @@ static int __pyx_memoryview_thread_locks_used;
 static PyThread_type_lock __pyx_memoryview_thread_locks[8];
 static int __pyx_f_3rbf_3pde_7octtree_boxes_intersect_3d(struct __pyx_t_3rbf_3pde_7octtree_box3d, struct __pyx_t_3rbf_3pde_7octtree_box3d); /*proto*/
 static struct __pyx_t_3rbf_3pde_7octtree_box3d __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(PyObject *); /*proto*/
-static std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(PyObject *); /*proto*/
-static PyObject *__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(const std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  &); /*proto*/
 static std::vector<long>  __pyx_convert_vector_from_py_long(PyObject *); /*proto*/
 static PyObject *__pyx_convert_vector_to_py_long(const std::vector<long>  &); /*proto*/
 static struct __pyx_array_obj *__pyx_array_new(PyObject *, Py_ssize_t, char *, char *, char *); /*proto*/
@@ -2403,7 +2395,7 @@ static int __pyx_f_3rbf_3pde_7octtree_boxes_intersect_3d(struct __pyx_t_3rbf_3pd
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":52
+/* "rbf/pde/octtree.pyx":53
  *         long box_count
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
@@ -2448,23 +2440,23 @@ static int __pyx_pw_3rbf_3pde_7octtree_8_OctNode_1__init__(PyObject *__pyx_v_sel
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_parent)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, 1); __PYX_ERR(1, 52, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, 1); __PYX_ERR(1, 53, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_depth)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, 2); __PYX_ERR(1, 52, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, 2); __PYX_ERR(1, 53, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_max_depth)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, 3); __PYX_ERR(1, 52, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, 3); __PYX_ERR(1, 53, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(1, 52, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(1, 53, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 4) {
       goto __pyx_L5_argtuple_error;
@@ -2474,20 +2466,20 @@ static int __pyx_pw_3rbf_3pde_7octtree_8_OctNode_1__init__(PyObject *__pyx_v_sel
       values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
       values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
     }
-    __pyx_v_bounds = __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(values[0]); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 53, __pyx_L3_error)
+    __pyx_v_bounds = __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(values[0]); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 54, __pyx_L3_error)
     __pyx_v_parent = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)values[1]);
-    __pyx_v_depth = __Pyx_PyInt_As_long(values[2]); if (unlikely((__pyx_v_depth == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 55, __pyx_L3_error)
-    __pyx_v_max_depth = __Pyx_PyInt_As_long(values[3]); if (unlikely((__pyx_v_max_depth == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 56, __pyx_L3_error)
+    __pyx_v_depth = __Pyx_PyInt_As_long(values[2]); if (unlikely((__pyx_v_depth == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 56, __pyx_L3_error)
+    __pyx_v_max_depth = __Pyx_PyInt_As_long(values[3]); if (unlikely((__pyx_v_max_depth == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 57, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 52, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 53, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("rbf.pde.octtree._OctNode.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_parent), __pyx_ptype_3rbf_3pde_7octtree__OctNode, 1, "parent", 0))) __PYX_ERR(1, 54, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_parent), __pyx_ptype_3rbf_3pde_7octtree__OctNode, 1, "parent", 0))) __PYX_ERR(1, 55, __pyx_L1_error)
   __pyx_r = __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_v_self), __pyx_v_bounds, __pyx_v_parent, __pyx_v_depth, __pyx_v_max_depth);
 
   /* function exit code */
@@ -2503,10 +2495,9 @@ static int __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(struct __pyx_obj_3rbf_
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  __pyx_t_2;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "rbf/pde/octtree.pyx":57
+  /* "rbf/pde/octtree.pyx":58
  *                  long depth,
  *                  long max_depth):
  *         self.max_depth = max_depth             # <<<<<<<<<<<<<<
@@ -2515,7 +2506,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(struct __pyx_obj_3rbf_
  */
   __pyx_v_self->max_depth = __pyx_v_max_depth;
 
-  /* "rbf/pde/octtree.pyx":58
+  /* "rbf/pde/octtree.pyx":59
  *                  long max_depth):
  *         self.max_depth = max_depth
  *         self.depth = depth             # <<<<<<<<<<<<<<
@@ -2524,7 +2515,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(struct __pyx_obj_3rbf_
  */
   __pyx_v_self->depth = __pyx_v_depth;
 
-  /* "rbf/pde/octtree.pyx":59
+  /* "rbf/pde/octtree.pyx":60
  *         self.max_depth = max_depth
  *         self.depth = depth
  *         self.bounds = bounds             # <<<<<<<<<<<<<<
@@ -2533,12 +2524,12 @@ static int __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(struct __pyx_obj_3rbf_
  */
   __pyx_v_self->bounds = __pyx_v_bounds;
 
-  /* "rbf/pde/octtree.pyx":60
+  /* "rbf/pde/octtree.pyx":61
  *         self.depth = depth
  *         self.bounds = bounds
  *         self.parent = parent             # <<<<<<<<<<<<<<
  *         self.box_count = 0
- *         self.children = ()
+ *         self.children = []
  */
   __Pyx_INCREF(((PyObject *)__pyx_v_parent));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_parent));
@@ -2546,42 +2537,46 @@ static int __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(struct __pyx_obj_3rbf_
   __Pyx_DECREF(((PyObject *)__pyx_v_self->parent));
   __pyx_v_self->parent = __pyx_v_parent;
 
-  /* "rbf/pde/octtree.pyx":61
+  /* "rbf/pde/octtree.pyx":62
  *         self.bounds = bounds
  *         self.parent = parent
  *         self.box_count = 0             # <<<<<<<<<<<<<<
- *         self.children = ()
+ *         self.children = []
  *         self.boxes = [] # this automatically gets coerced to a vector
  */
   __pyx_v_self->box_count = 0;
 
-  /* "rbf/pde/octtree.pyx":62
+  /* "rbf/pde/octtree.pyx":63
  *         self.parent = parent
  *         self.box_count = 0
- *         self.children = ()             # <<<<<<<<<<<<<<
+ *         self.children = []             # <<<<<<<<<<<<<<
  *         self.boxes = [] # this automatically gets coerced to a vector
  * 
  */
-  __Pyx_INCREF(__pyx_empty_tuple);
-  __Pyx_GIVEREF(__pyx_empty_tuple);
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 63, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->children);
   __Pyx_DECREF(__pyx_v_self->children);
-  __pyx_v_self->children = __pyx_empty_tuple;
+  __pyx_v_self->children = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":63
+  /* "rbf/pde/octtree.pyx":64
  *         self.box_count = 0
- *         self.children = ()
+ *         self.children = []
  *         self.boxes = [] # this automatically gets coerced to a vector             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 63, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_t_1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 63, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_self->boxes = __pyx_t_2;
+  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GOTREF(__pyx_v_self->boxes);
+  __Pyx_DECREF(__pyx_v_self->boxes);
+  __pyx_v_self->boxes = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":52
+  /* "rbf/pde/octtree.pyx":53
  *         long box_count
  * 
  *     def __init__(self,             # <<<<<<<<<<<<<<
@@ -2601,7 +2596,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_8_OctNode___init__(struct __pyx_obj_3rbf_
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":65
+/* "rbf/pde/octtree.pyx":66
  *         self.boxes = [] # this automatically gets coerced to a vector
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -2638,72 +2633,72 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_2__repr__(struct __pyx_ob
   PyObject *__pyx_t_10 = NULL;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "rbf/pde/octtree.pyx":68
+  /* "rbf/pde/octtree.pyx":69
  *         out = ('< OctNode: x=(%s, %s), y=(%s, %s), z=(%s, %s), '
  *                'depth=%s/%s, box count=%s >' %
  *                (self.bounds.xmin, self.bounds.xmax,             # <<<<<<<<<<<<<<
  *                 self.bounds.ymin, self.bounds.ymax,
  *                 self.bounds.zmin, self.bounds.zmax,
  */
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->bounds.xmin); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 68, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->bounds.xmin); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_self->bounds.xmax); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 68, __pyx_L1_error)
+  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_self->bounds.xmax); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "rbf/pde/octtree.pyx":69
+  /* "rbf/pde/octtree.pyx":70
  *                'depth=%s/%s, box count=%s >' %
  *                (self.bounds.xmin, self.bounds.xmax,
  *                 self.bounds.ymin, self.bounds.ymax,             # <<<<<<<<<<<<<<
  *                 self.bounds.zmin, self.bounds.zmax,
  *                 self.depth, self.max_depth,
  */
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_self->bounds.ymin); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 69, __pyx_L1_error)
+  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_self->bounds.ymin); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyFloat_FromDouble(__pyx_v_self->bounds.ymax); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 69, __pyx_L1_error)
+  __pyx_t_4 = PyFloat_FromDouble(__pyx_v_self->bounds.ymax); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "rbf/pde/octtree.pyx":70
+  /* "rbf/pde/octtree.pyx":71
  *                (self.bounds.xmin, self.bounds.xmax,
  *                 self.bounds.ymin, self.bounds.ymax,
  *                 self.bounds.zmin, self.bounds.zmax,             # <<<<<<<<<<<<<<
  *                 self.depth, self.max_depth,
  *                 self.box_count))
  */
-  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_self->bounds.zmin); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 70, __pyx_L1_error)
+  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_self->bounds.zmin); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = PyFloat_FromDouble(__pyx_v_self->bounds.zmax); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 70, __pyx_L1_error)
+  __pyx_t_6 = PyFloat_FromDouble(__pyx_v_self->bounds.zmax); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "rbf/pde/octtree.pyx":71
+  /* "rbf/pde/octtree.pyx":72
  *                 self.bounds.ymin, self.bounds.ymax,
  *                 self.bounds.zmin, self.bounds.zmax,
  *                 self.depth, self.max_depth,             # <<<<<<<<<<<<<<
  *                 self.box_count))
  *         return out
  */
-  __pyx_t_7 = __Pyx_PyInt_From_long(__pyx_v_self->depth); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 71, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyInt_From_long(__pyx_v_self->depth); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 71, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
 
-  /* "rbf/pde/octtree.pyx":72
+  /* "rbf/pde/octtree.pyx":73
  *                 self.bounds.zmin, self.bounds.zmax,
  *                 self.depth, self.max_depth,
  *                 self.box_count))             # <<<<<<<<<<<<<<
  *         return out
  * 
  */
-  __pyx_t_9 = __Pyx_PyInt_From_long(__pyx_v_self->box_count); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 72, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyInt_From_long(__pyx_v_self->box_count); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
 
-  /* "rbf/pde/octtree.pyx":68
+  /* "rbf/pde/octtree.pyx":69
  *         out = ('< OctNode: x=(%s, %s), y=(%s, %s), z=(%s, %s), '
  *                'depth=%s/%s, box count=%s >' %
  *                (self.bounds.xmin, self.bounds.xmax,             # <<<<<<<<<<<<<<
  *                 self.bounds.ymin, self.bounds.ymax,
  *                 self.bounds.zmin, self.bounds.zmax,
  */
-  __pyx_t_10 = PyTuple_New(9); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 68, __pyx_L1_error)
+  __pyx_t_10 = PyTuple_New(9); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_GIVEREF(__pyx_t_1);
   PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_1);
@@ -2733,20 +2728,20 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_2__repr__(struct __pyx_ob
   __pyx_t_8 = 0;
   __pyx_t_9 = 0;
 
-  /* "rbf/pde/octtree.pyx":67
+  /* "rbf/pde/octtree.pyx":68
  *     def __repr__(self):
  *         out = ('< OctNode: x=(%s, %s), y=(%s, %s), z=(%s, %s), '
  *                'depth=%s/%s, box count=%s >' %             # <<<<<<<<<<<<<<
  *                (self.bounds.xmin, self.bounds.xmax,
  *                 self.bounds.ymin, self.bounds.ymax,
  */
-  __pyx_t_9 = __Pyx_PyString_Format(__pyx_kp_s_OctNode_x_s_s_y_s_s_z_s_s_depth, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 67, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyString_Format(__pyx_kp_s_OctNode_x_s_s_y_s_s_z_s_s_depth, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __pyx_v_out = ((PyObject*)__pyx_t_9);
   __pyx_t_9 = 0;
 
-  /* "rbf/pde/octtree.pyx":73
+  /* "rbf/pde/octtree.pyx":74
  *                 self.depth, self.max_depth,
  *                 self.box_count))
  *         return out             # <<<<<<<<<<<<<<
@@ -2758,7 +2753,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_2__repr__(struct __pyx_ob
   __pyx_r = __pyx_v_out;
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":65
+  /* "rbf/pde/octtree.pyx":66
  *         self.boxes = [] # this automatically gets coerced to a vector
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -2787,7 +2782,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_2__repr__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":75
+/* "rbf/pde/octtree.pyx":76
  *         return out
  * 
  *     cdef void subdivide_nodes(self):             # <<<<<<<<<<<<<<
@@ -2824,7 +2819,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   PyObject *__pyx_t_6 = NULL;
   __Pyx_RefNannySetupContext("subdivide_nodes", 0);
 
-  /* "rbf/pde/octtree.pyx":89
+  /* "rbf/pde/octtree.pyx":90
  *         # if we have reached the max depth, then do not make any
  *         # children
  *         if self.depth == self.max_depth:             # <<<<<<<<<<<<<<
@@ -2834,7 +2829,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_1 = ((__pyx_v_self->depth == __pyx_v_self->max_depth) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":90
+    /* "rbf/pde/octtree.pyx":91
  *         # children
  *         if self.depth == self.max_depth:
  *             return             # <<<<<<<<<<<<<<
@@ -2843,7 +2838,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":89
+    /* "rbf/pde/octtree.pyx":90
  *         # if we have reached the max depth, then do not make any
  *         # children
  *         if self.depth == self.max_depth:             # <<<<<<<<<<<<<<
@@ -2852,7 +2847,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   }
 
-  /* "rbf/pde/octtree.pyx":92
+  /* "rbf/pde/octtree.pyx":93
  *             return
  * 
  *         dx = self.bounds.xmax - self.bounds.xmin             # <<<<<<<<<<<<<<
@@ -2861,7 +2856,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_dx = (__pyx_v_self->bounds.xmax - __pyx_v_self->bounds.xmin);
 
-  /* "rbf/pde/octtree.pyx":93
+  /* "rbf/pde/octtree.pyx":94
  * 
  *         dx = self.bounds.xmax - self.bounds.xmin
  *         dy = self.bounds.ymax - self.bounds.ymin             # <<<<<<<<<<<<<<
@@ -2870,7 +2865,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_dy = (__pyx_v_self->bounds.ymax - __pyx_v_self->bounds.ymin);
 
-  /* "rbf/pde/octtree.pyx":94
+  /* "rbf/pde/octtree.pyx":95
  *         dx = self.bounds.xmax - self.bounds.xmin
  *         dy = self.bounds.ymax - self.bounds.ymin
  *         dz = self.bounds.zmax - self.bounds.zmin             # <<<<<<<<<<<<<<
@@ -2879,7 +2874,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_dz = (__pyx_v_self->bounds.zmax - __pyx_v_self->bounds.zmin);
 
-  /* "rbf/pde/octtree.pyx":96
+  /* "rbf/pde/octtree.pyx":97
  *         dz = self.bounds.zmax - self.bounds.zmin
  * 
  *         bounds1.xmin = self.bounds.xmin             # <<<<<<<<<<<<<<
@@ -2889,7 +2884,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.xmin;
   __pyx_v_bounds1.xmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":97
+  /* "rbf/pde/octtree.pyx":98
  * 
  *         bounds1.xmin = self.bounds.xmin
  *         bounds1.xmax = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -2898,7 +2893,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds1.xmax = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":98
+  /* "rbf/pde/octtree.pyx":99
  *         bounds1.xmin = self.bounds.xmin
  *         bounds1.xmax = self.bounds.xmin + dx/2
  *         bounds1.ymin = self.bounds.ymin             # <<<<<<<<<<<<<<
@@ -2908,7 +2903,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.ymin;
   __pyx_v_bounds1.ymin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":99
+  /* "rbf/pde/octtree.pyx":100
  *         bounds1.xmax = self.bounds.xmin + dx/2
  *         bounds1.ymin = self.bounds.ymin
  *         bounds1.ymax = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -2917,7 +2912,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds1.ymax = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":100
+  /* "rbf/pde/octtree.pyx":101
  *         bounds1.ymin = self.bounds.ymin
  *         bounds1.ymax = self.bounds.ymin + dy/2
  *         bounds1.zmin = self.bounds.zmin             # <<<<<<<<<<<<<<
@@ -2927,7 +2922,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.zmin;
   __pyx_v_bounds1.zmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":101
+  /* "rbf/pde/octtree.pyx":102
  *         bounds1.ymax = self.bounds.ymin + dy/2
  *         bounds1.zmin = self.bounds.zmin
  *         bounds1.zmax = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -2936,7 +2931,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds1.zmax = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":103
+  /* "rbf/pde/octtree.pyx":104
  *         bounds1.zmax = self.bounds.zmin + dz/2
  * 
  *         bounds2.xmin = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -2945,7 +2940,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds2.xmin = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":104
+  /* "rbf/pde/octtree.pyx":105
  * 
  *         bounds2.xmin = self.bounds.xmin + dx/2
  *         bounds2.xmax = self.bounds.xmin + dx             # <<<<<<<<<<<<<<
@@ -2954,7 +2949,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds2.xmax = (__pyx_v_self->bounds.xmin + __pyx_v_dx);
 
-  /* "rbf/pde/octtree.pyx":105
+  /* "rbf/pde/octtree.pyx":106
  *         bounds2.xmin = self.bounds.xmin + dx/2
  *         bounds2.xmax = self.bounds.xmin + dx
  *         bounds2.ymin = self.bounds.ymin             # <<<<<<<<<<<<<<
@@ -2964,7 +2959,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.ymin;
   __pyx_v_bounds2.ymin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":106
+  /* "rbf/pde/octtree.pyx":107
  *         bounds2.xmax = self.bounds.xmin + dx
  *         bounds2.ymin = self.bounds.ymin
  *         bounds2.ymax = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -2973,7 +2968,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds2.ymax = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":107
+  /* "rbf/pde/octtree.pyx":108
  *         bounds2.ymin = self.bounds.ymin
  *         bounds2.ymax = self.bounds.ymin + dy/2
  *         bounds2.zmin = self.bounds.zmin             # <<<<<<<<<<<<<<
@@ -2983,7 +2978,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.zmin;
   __pyx_v_bounds2.zmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":108
+  /* "rbf/pde/octtree.pyx":109
  *         bounds2.ymax = self.bounds.ymin + dy/2
  *         bounds2.zmin = self.bounds.zmin
  *         bounds2.zmax = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -2992,7 +2987,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds2.zmax = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":110
+  /* "rbf/pde/octtree.pyx":111
  *         bounds2.zmax = self.bounds.zmin + dz/2
  * 
  *         bounds3.xmin = self.bounds.xmin             # <<<<<<<<<<<<<<
@@ -3002,7 +2997,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.xmin;
   __pyx_v_bounds3.xmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":111
+  /* "rbf/pde/octtree.pyx":112
  * 
  *         bounds3.xmin = self.bounds.xmin
  *         bounds3.xmax = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -3011,7 +3006,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds3.xmax = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":112
+  /* "rbf/pde/octtree.pyx":113
  *         bounds3.xmin = self.bounds.xmin
  *         bounds3.xmax = self.bounds.xmin + dx/2
  *         bounds3.ymin = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -3020,7 +3015,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds3.ymin = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":113
+  /* "rbf/pde/octtree.pyx":114
  *         bounds3.xmax = self.bounds.xmin + dx/2
  *         bounds3.ymin = self.bounds.ymin + dy/2
  *         bounds3.ymax = self.bounds.ymin + dy             # <<<<<<<<<<<<<<
@@ -3029,7 +3024,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds3.ymax = (__pyx_v_self->bounds.ymin + __pyx_v_dy);
 
-  /* "rbf/pde/octtree.pyx":114
+  /* "rbf/pde/octtree.pyx":115
  *         bounds3.ymin = self.bounds.ymin + dy/2
  *         bounds3.ymax = self.bounds.ymin + dy
  *         bounds3.zmin = self.bounds.zmin             # <<<<<<<<<<<<<<
@@ -3039,7 +3034,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.zmin;
   __pyx_v_bounds3.zmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":115
+  /* "rbf/pde/octtree.pyx":116
  *         bounds3.ymax = self.bounds.ymin + dy
  *         bounds3.zmin = self.bounds.zmin
  *         bounds3.zmax = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -3048,7 +3043,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds3.zmax = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":117
+  /* "rbf/pde/octtree.pyx":118
  *         bounds3.zmax = self.bounds.zmin + dz/2
  * 
  *         bounds4.xmin = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -3057,7 +3052,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds4.xmin = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":118
+  /* "rbf/pde/octtree.pyx":119
  * 
  *         bounds4.xmin = self.bounds.xmin + dx/2
  *         bounds4.xmax = self.bounds.xmin + dx             # <<<<<<<<<<<<<<
@@ -3066,7 +3061,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds4.xmax = (__pyx_v_self->bounds.xmin + __pyx_v_dx);
 
-  /* "rbf/pde/octtree.pyx":119
+  /* "rbf/pde/octtree.pyx":120
  *         bounds4.xmin = self.bounds.xmin + dx/2
  *         bounds4.xmax = self.bounds.xmin + dx
  *         bounds4.ymin = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -3075,7 +3070,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds4.ymin = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":120
+  /* "rbf/pde/octtree.pyx":121
  *         bounds4.xmax = self.bounds.xmin + dx
  *         bounds4.ymin = self.bounds.ymin + dy/2
  *         bounds4.ymax = self.bounds.ymin + dy             # <<<<<<<<<<<<<<
@@ -3084,7 +3079,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds4.ymax = (__pyx_v_self->bounds.ymin + __pyx_v_dy);
 
-  /* "rbf/pde/octtree.pyx":121
+  /* "rbf/pde/octtree.pyx":122
  *         bounds4.ymin = self.bounds.ymin + dy/2
  *         bounds4.ymax = self.bounds.ymin + dy
  *         bounds4.zmin = self.bounds.zmin             # <<<<<<<<<<<<<<
@@ -3094,7 +3089,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.zmin;
   __pyx_v_bounds4.zmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":122
+  /* "rbf/pde/octtree.pyx":123
  *         bounds4.ymax = self.bounds.ymin + dy
  *         bounds4.zmin = self.bounds.zmin
  *         bounds4.zmax = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -3103,7 +3098,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds4.zmax = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":124
+  /* "rbf/pde/octtree.pyx":125
  *         bounds4.zmax = self.bounds.zmin + dz/2
  * 
  *         bounds5.xmin = self.bounds.xmin             # <<<<<<<<<<<<<<
@@ -3113,7 +3108,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.xmin;
   __pyx_v_bounds5.xmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":125
+  /* "rbf/pde/octtree.pyx":126
  * 
  *         bounds5.xmin = self.bounds.xmin
  *         bounds5.xmax = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -3122,7 +3117,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds5.xmax = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":126
+  /* "rbf/pde/octtree.pyx":127
  *         bounds5.xmin = self.bounds.xmin
  *         bounds5.xmax = self.bounds.xmin + dx/2
  *         bounds5.ymin = self.bounds.ymin             # <<<<<<<<<<<<<<
@@ -3132,7 +3127,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.ymin;
   __pyx_v_bounds5.ymin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":127
+  /* "rbf/pde/octtree.pyx":128
  *         bounds5.xmax = self.bounds.xmin + dx/2
  *         bounds5.ymin = self.bounds.ymin
  *         bounds5.ymax = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -3141,7 +3136,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds5.ymax = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":128
+  /* "rbf/pde/octtree.pyx":129
  *         bounds5.ymin = self.bounds.ymin
  *         bounds5.ymax = self.bounds.ymin + dy/2
  *         bounds5.zmin = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -3150,7 +3145,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds5.zmin = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":129
+  /* "rbf/pde/octtree.pyx":130
  *         bounds5.ymax = self.bounds.ymin + dy/2
  *         bounds5.zmin = self.bounds.zmin + dz/2
  *         bounds5.zmax = self.bounds.zmin + dz             # <<<<<<<<<<<<<<
@@ -3159,7 +3154,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds5.zmax = (__pyx_v_self->bounds.zmin + __pyx_v_dz);
 
-  /* "rbf/pde/octtree.pyx":131
+  /* "rbf/pde/octtree.pyx":132
  *         bounds5.zmax = self.bounds.zmin + dz
  * 
  *         bounds6.xmin = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -3168,7 +3163,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds6.xmin = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":132
+  /* "rbf/pde/octtree.pyx":133
  * 
  *         bounds6.xmin = self.bounds.xmin + dx/2
  *         bounds6.xmax = self.bounds.xmin + dx             # <<<<<<<<<<<<<<
@@ -3177,7 +3172,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds6.xmax = (__pyx_v_self->bounds.xmin + __pyx_v_dx);
 
-  /* "rbf/pde/octtree.pyx":133
+  /* "rbf/pde/octtree.pyx":134
  *         bounds6.xmin = self.bounds.xmin + dx/2
  *         bounds6.xmax = self.bounds.xmin + dx
  *         bounds6.ymin = self.bounds.ymin             # <<<<<<<<<<<<<<
@@ -3187,7 +3182,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.ymin;
   __pyx_v_bounds6.ymin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":134
+  /* "rbf/pde/octtree.pyx":135
  *         bounds6.xmax = self.bounds.xmin + dx
  *         bounds6.ymin = self.bounds.ymin
  *         bounds6.ymax = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -3196,7 +3191,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds6.ymax = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":135
+  /* "rbf/pde/octtree.pyx":136
  *         bounds6.ymin = self.bounds.ymin
  *         bounds6.ymax = self.bounds.ymin + dy/2
  *         bounds6.zmin = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -3205,7 +3200,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds6.zmin = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":136
+  /* "rbf/pde/octtree.pyx":137
  *         bounds6.ymax = self.bounds.ymin + dy/2
  *         bounds6.zmin = self.bounds.zmin + dz/2
  *         bounds6.zmax = self.bounds.zmin + dz             # <<<<<<<<<<<<<<
@@ -3214,7 +3209,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds6.zmax = (__pyx_v_self->bounds.zmin + __pyx_v_dz);
 
-  /* "rbf/pde/octtree.pyx":138
+  /* "rbf/pde/octtree.pyx":139
  *         bounds6.zmax = self.bounds.zmin + dz
  * 
  *         bounds7.xmin = self.bounds.xmin             # <<<<<<<<<<<<<<
@@ -3224,7 +3219,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_2 = __pyx_v_self->bounds.xmin;
   __pyx_v_bounds7.xmin = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":139
+  /* "rbf/pde/octtree.pyx":140
  * 
  *         bounds7.xmin = self.bounds.xmin
  *         bounds7.xmax = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -3233,7 +3228,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds7.xmax = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":140
+  /* "rbf/pde/octtree.pyx":141
  *         bounds7.xmin = self.bounds.xmin
  *         bounds7.xmax = self.bounds.xmin + dx/2
  *         bounds7.ymin = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -3242,7 +3237,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds7.ymin = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":141
+  /* "rbf/pde/octtree.pyx":142
  *         bounds7.xmax = self.bounds.xmin + dx/2
  *         bounds7.ymin = self.bounds.ymin + dy/2
  *         bounds7.ymax = self.bounds.ymin + dy             # <<<<<<<<<<<<<<
@@ -3251,7 +3246,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds7.ymax = (__pyx_v_self->bounds.ymin + __pyx_v_dy);
 
-  /* "rbf/pde/octtree.pyx":142
+  /* "rbf/pde/octtree.pyx":143
  *         bounds7.ymin = self.bounds.ymin + dy/2
  *         bounds7.ymax = self.bounds.ymin + dy
  *         bounds7.zmin = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -3260,7 +3255,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds7.zmin = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":143
+  /* "rbf/pde/octtree.pyx":144
  *         bounds7.ymax = self.bounds.ymin + dy
  *         bounds7.zmin = self.bounds.zmin + dz/2
  *         bounds7.zmax = self.bounds.zmin + dz             # <<<<<<<<<<<<<<
@@ -3269,7 +3264,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds7.zmax = (__pyx_v_self->bounds.zmin + __pyx_v_dz);
 
-  /* "rbf/pde/octtree.pyx":145
+  /* "rbf/pde/octtree.pyx":146
  *         bounds7.zmax = self.bounds.zmin + dz
  * 
  *         bounds8.xmin = self.bounds.xmin + dx/2             # <<<<<<<<<<<<<<
@@ -3278,7 +3273,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds8.xmin = (__pyx_v_self->bounds.xmin + (__pyx_v_dx / 2.0));
 
-  /* "rbf/pde/octtree.pyx":146
+  /* "rbf/pde/octtree.pyx":147
  * 
  *         bounds8.xmin = self.bounds.xmin + dx/2
  *         bounds8.xmax = self.bounds.xmin + dx             # <<<<<<<<<<<<<<
@@ -3287,7 +3282,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds8.xmax = (__pyx_v_self->bounds.xmin + __pyx_v_dx);
 
-  /* "rbf/pde/octtree.pyx":147
+  /* "rbf/pde/octtree.pyx":148
  *         bounds8.xmin = self.bounds.xmin + dx/2
  *         bounds8.xmax = self.bounds.xmin + dx
  *         bounds8.ymin = self.bounds.ymin + dy/2             # <<<<<<<<<<<<<<
@@ -3296,7 +3291,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds8.ymin = (__pyx_v_self->bounds.ymin + (__pyx_v_dy / 2.0));
 
-  /* "rbf/pde/octtree.pyx":148
+  /* "rbf/pde/octtree.pyx":149
  *         bounds8.xmax = self.bounds.xmin + dx
  *         bounds8.ymin = self.bounds.ymin + dy/2
  *         bounds8.ymax = self.bounds.ymin + dy             # <<<<<<<<<<<<<<
@@ -3305,7 +3300,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds8.ymax = (__pyx_v_self->bounds.ymin + __pyx_v_dy);
 
-  /* "rbf/pde/octtree.pyx":149
+  /* "rbf/pde/octtree.pyx":150
  *         bounds8.ymin = self.bounds.ymin + dy/2
  *         bounds8.ymax = self.bounds.ymin + dy
  *         bounds8.zmin = self.bounds.zmin + dz/2             # <<<<<<<<<<<<<<
@@ -3314,7 +3309,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds8.zmin = (__pyx_v_self->bounds.zmin + (__pyx_v_dz / 2.0));
 
-  /* "rbf/pde/octtree.pyx":150
+  /* "rbf/pde/octtree.pyx":151
  *         bounds8.ymax = self.bounds.ymin + dy
  *         bounds8.zmin = self.bounds.zmin + dz/2
  *         bounds8.zmax = self.bounds.zmin + dz             # <<<<<<<<<<<<<<
@@ -3323,28 +3318,28 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
  */
   __pyx_v_bounds8.zmax = (__pyx_v_self->bounds.zmin + __pyx_v_dz);
 
-  /* "rbf/pde/octtree.pyx":153
+  /* "rbf/pde/octtree.pyx":154
  * 
  *         child1 = _OctNode(
  *             bounds1, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child2 = _OctNode(
  *             bounds2, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_3 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 153, __pyx_L1_error)
+  __pyx_t_3 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds1); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 153, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 153, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "rbf/pde/octtree.pyx":152
+  /* "rbf/pde/octtree.pyx":153
  *         bounds8.zmax = self.bounds.zmin + dz
  * 
  *         child1 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds1, self, self.depth + 1, self.max_depth)
  *         child2 = _OctNode(
  */
-  __pyx_t_6 = PyTuple_New(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 152, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_New(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_GIVEREF(__pyx_t_3);
   PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_3);
@@ -3358,34 +3353,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_3 = 0;
   __pyx_t_4 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_6, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 152, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_6, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_v_child1 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "rbf/pde/octtree.pyx":155
+  /* "rbf/pde/octtree.pyx":156
  *             bounds1, self, self.depth + 1, self.max_depth)
  *         child2 = _OctNode(
  *             bounds2, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child3 = _OctNode(
  *             bounds3, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_5 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds2); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 155, __pyx_L1_error)
+  __pyx_t_5 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds2); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 155, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_4 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 155, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "rbf/pde/octtree.pyx":154
+  /* "rbf/pde/octtree.pyx":155
  *         child1 = _OctNode(
  *             bounds1, self, self.depth + 1, self.max_depth)
  *         child2 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds2, self, self.depth + 1, self.max_depth)
  *         child3 = _OctNode(
  */
-  __pyx_t_3 = PyTuple_New(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 154, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_5);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_5);
@@ -3399,34 +3394,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_5 = 0;
   __pyx_t_6 = 0;
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 154, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_child2 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "rbf/pde/octtree.pyx":157
+  /* "rbf/pde/octtree.pyx":158
  *             bounds2, self, self.depth + 1, self.max_depth)
  *         child3 = _OctNode(
  *             bounds3, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child4 = _OctNode(
  *             bounds4, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_4 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds3); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 157, __pyx_L1_error)
+  __pyx_t_4 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds3); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 157, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 157, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "rbf/pde/octtree.pyx":156
+  /* "rbf/pde/octtree.pyx":157
  *         child2 = _OctNode(
  *             bounds2, self, self.depth + 1, self.max_depth)
  *         child3 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds3, self, self.depth + 1, self.max_depth)
  *         child4 = _OctNode(
  */
-  __pyx_t_5 = PyTuple_New(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 156, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_4);
@@ -3440,34 +3435,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_4 = 0;
   __pyx_t_3 = 0;
   __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_5, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 156, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_5, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_child3 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "rbf/pde/octtree.pyx":159
+  /* "rbf/pde/octtree.pyx":160
  *             bounds3, self, self.depth + 1, self.max_depth)
  *         child4 = _OctNode(
  *             bounds4, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child5 = _OctNode(
  *             bounds5, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_6 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds4); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 159, __pyx_L1_error)
+  __pyx_t_6 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds4); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 159, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 159, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "rbf/pde/octtree.pyx":158
+  /* "rbf/pde/octtree.pyx":159
  *         child3 = _OctNode(
  *             bounds3, self, self.depth + 1, self.max_depth)
  *         child4 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds4, self, self.depth + 1, self.max_depth)
  *         child5 = _OctNode(
  */
-  __pyx_t_4 = PyTuple_New(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 158, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_6);
   PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_6);
@@ -3481,34 +3476,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_6 = 0;
   __pyx_t_5 = 0;
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 158, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_child4 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "rbf/pde/octtree.pyx":161
+  /* "rbf/pde/octtree.pyx":162
  *             bounds4, self, self.depth + 1, self.max_depth)
  *         child5 = _OctNode(
  *             bounds5, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child6 = _OctNode(
  *             bounds6, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_3 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds5); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 161, __pyx_L1_error)
+  __pyx_t_3 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds5); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 161, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 161, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "rbf/pde/octtree.pyx":160
+  /* "rbf/pde/octtree.pyx":161
  *         child4 = _OctNode(
  *             bounds4, self, self.depth + 1, self.max_depth)
  *         child5 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds5, self, self.depth + 1, self.max_depth)
  *         child6 = _OctNode(
  */
-  __pyx_t_6 = PyTuple_New(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 160, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_New(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_GIVEREF(__pyx_t_3);
   PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_3);
@@ -3522,34 +3517,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_3 = 0;
   __pyx_t_4 = 0;
   __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_6, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 160, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_6, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_v_child5 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "rbf/pde/octtree.pyx":163
+  /* "rbf/pde/octtree.pyx":164
  *             bounds5, self, self.depth + 1, self.max_depth)
  *         child6 = _OctNode(
  *             bounds6, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child7 = _OctNode(
  *             bounds7, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_5 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds6); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 163, __pyx_L1_error)
+  __pyx_t_5 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds6); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 163, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_4 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 163, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "rbf/pde/octtree.pyx":162
+  /* "rbf/pde/octtree.pyx":163
  *         child5 = _OctNode(
  *             bounds5, self, self.depth + 1, self.max_depth)
  *         child6 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds6, self, self.depth + 1, self.max_depth)
  *         child7 = _OctNode(
  */
-  __pyx_t_3 = PyTuple_New(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 162, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_5);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_5);
@@ -3563,34 +3558,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_5 = 0;
   __pyx_t_6 = 0;
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 162, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_3, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_child6 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "rbf/pde/octtree.pyx":165
+  /* "rbf/pde/octtree.pyx":166
  *             bounds6, self, self.depth + 1, self.max_depth)
  *         child7 = _OctNode(
  *             bounds7, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  *         child8 = _OctNode(
  *             bounds8, self, self.depth + 1, self.max_depth)
  */
-  __pyx_t_4 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds7); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 165, __pyx_L1_error)
+  __pyx_t_4 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds7); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 165, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 165, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "rbf/pde/octtree.pyx":164
+  /* "rbf/pde/octtree.pyx":165
  *         child6 = _OctNode(
  *             bounds6, self, self.depth + 1, self.max_depth)
  *         child7 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds7, self, self.depth + 1, self.max_depth)
  *         child8 = _OctNode(
  */
-  __pyx_t_5 = PyTuple_New(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 164, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_4);
@@ -3604,34 +3599,34 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_4 = 0;
   __pyx_t_3 = 0;
   __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_5, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 164, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_5, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_child7 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "rbf/pde/octtree.pyx":167
+  /* "rbf/pde/octtree.pyx":168
  *             bounds7, self, self.depth + 1, self.max_depth)
  *         child8 = _OctNode(
  *             bounds8, self, self.depth + 1, self.max_depth)             # <<<<<<<<<<<<<<
  * 
- *         self.children = (child1, child2, child3, child4,
+ *         self.children = [child1, child2, child3, child4,
  */
-  __pyx_t_6 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds8); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 167, __pyx_L1_error)
+  __pyx_t_6 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bounds8); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 167, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyInt_From_long((__pyx_v_self->depth + 1)); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 167, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_v_self->max_depth); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  /* "rbf/pde/octtree.pyx":166
+  /* "rbf/pde/octtree.pyx":167
  *         child7 = _OctNode(
  *             bounds7, self, self.depth + 1, self.max_depth)
  *         child8 = _OctNode(             # <<<<<<<<<<<<<<
  *             bounds8, self, self.depth + 1, self.max_depth)
  * 
  */
-  __pyx_t_4 = PyTuple_New(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 166, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_6);
   PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_6);
@@ -3645,52 +3640,52 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __pyx_t_6 = 0;
   __pyx_t_5 = 0;
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 166, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree__OctNode), __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_child8 = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "rbf/pde/octtree.pyx":169
+  /* "rbf/pde/octtree.pyx":170
  *             bounds8, self, self.depth + 1, self.max_depth)
  * 
- *         self.children = (child1, child2, child3, child4,             # <<<<<<<<<<<<<<
- *                          child5, child6, child7, child8)
+ *         self.children = [child1, child2, child3, child4,             # <<<<<<<<<<<<<<
+ *                          child5, child6, child7, child8]
  * 
  */
-  __pyx_t_3 = PyTuple_New(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 169, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(((PyObject *)__pyx_v_child1));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child1));
-  PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_child1));
+  PyList_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_v_child1));
   __Pyx_INCREF(((PyObject *)__pyx_v_child2));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child2));
-  PyTuple_SET_ITEM(__pyx_t_3, 1, ((PyObject *)__pyx_v_child2));
+  PyList_SET_ITEM(__pyx_t_3, 1, ((PyObject *)__pyx_v_child2));
   __Pyx_INCREF(((PyObject *)__pyx_v_child3));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child3));
-  PyTuple_SET_ITEM(__pyx_t_3, 2, ((PyObject *)__pyx_v_child3));
+  PyList_SET_ITEM(__pyx_t_3, 2, ((PyObject *)__pyx_v_child3));
   __Pyx_INCREF(((PyObject *)__pyx_v_child4));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child4));
-  PyTuple_SET_ITEM(__pyx_t_3, 3, ((PyObject *)__pyx_v_child4));
+  PyList_SET_ITEM(__pyx_t_3, 3, ((PyObject *)__pyx_v_child4));
   __Pyx_INCREF(((PyObject *)__pyx_v_child5));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child5));
-  PyTuple_SET_ITEM(__pyx_t_3, 4, ((PyObject *)__pyx_v_child5));
+  PyList_SET_ITEM(__pyx_t_3, 4, ((PyObject *)__pyx_v_child5));
   __Pyx_INCREF(((PyObject *)__pyx_v_child6));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child6));
-  PyTuple_SET_ITEM(__pyx_t_3, 5, ((PyObject *)__pyx_v_child6));
+  PyList_SET_ITEM(__pyx_t_3, 5, ((PyObject *)__pyx_v_child6));
   __Pyx_INCREF(((PyObject *)__pyx_v_child7));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child7));
-  PyTuple_SET_ITEM(__pyx_t_3, 6, ((PyObject *)__pyx_v_child7));
+  PyList_SET_ITEM(__pyx_t_3, 6, ((PyObject *)__pyx_v_child7));
   __Pyx_INCREF(((PyObject *)__pyx_v_child8));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_child8));
-  PyTuple_SET_ITEM(__pyx_t_3, 7, ((PyObject *)__pyx_v_child8));
+  PyList_SET_ITEM(__pyx_t_3, 7, ((PyObject *)__pyx_v_child8));
   __Pyx_GIVEREF(__pyx_t_3);
   __Pyx_GOTREF(__pyx_v_self->children);
   __Pyx_DECREF(__pyx_v_self->children);
   __pyx_v_self->children = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "rbf/pde/octtree.pyx":75
+  /* "rbf/pde/octtree.pyx":76
  *         return out
  * 
  *     cdef void subdivide_nodes(self):             # <<<<<<<<<<<<<<
@@ -3718,8 +3713,8 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_subdivide_nodes(struct __pyx_ob
   __Pyx_RefNannyFinishContext();
 }
 
-/* "rbf/pde/octtree.pyx":172
- *                          child5, child6, child7, child8)
+/* "rbf/pde/octtree.pyx":173
+ *                          child5, child6, child7, child8]
  * 
  *     cdef bint contains_box(self, box3d bx):             # <<<<<<<<<<<<<<
  *         '''
@@ -3732,7 +3727,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("contains_box", 0);
 
-  /* "rbf/pde/octtree.pyx":178
+  /* "rbf/pde/octtree.pyx":179
  *         # if the lower bounds of `self` are not below `bx`, then
  *         # return false
  *         if self.bounds.xmin >= bx.xmin:             # <<<<<<<<<<<<<<
@@ -3742,7 +3737,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   __pyx_t_1 = ((__pyx_v_self->bounds.xmin >= __pyx_v_bx.xmin) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":179
+    /* "rbf/pde/octtree.pyx":180
  *         # return false
  *         if self.bounds.xmin >= bx.xmin:
  *             return False             # <<<<<<<<<<<<<<
@@ -3752,7 +3747,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":178
+    /* "rbf/pde/octtree.pyx":179
  *         # if the lower bounds of `self` are not below `bx`, then
  *         # return false
  *         if self.bounds.xmin >= bx.xmin:             # <<<<<<<<<<<<<<
@@ -3761,7 +3756,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
  */
   }
 
-  /* "rbf/pde/octtree.pyx":180
+  /* "rbf/pde/octtree.pyx":181
  *         if self.bounds.xmin >= bx.xmin:
  *             return False
  *         elif self.bounds.ymin >= bx.ymin:             # <<<<<<<<<<<<<<
@@ -3771,7 +3766,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   __pyx_t_1 = ((__pyx_v_self->bounds.ymin >= __pyx_v_bx.ymin) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":181
+    /* "rbf/pde/octtree.pyx":182
  *             return False
  *         elif self.bounds.ymin >= bx.ymin:
  *             return False             # <<<<<<<<<<<<<<
@@ -3781,7 +3776,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":180
+    /* "rbf/pde/octtree.pyx":181
  *         if self.bounds.xmin >= bx.xmin:
  *             return False
  *         elif self.bounds.ymin >= bx.ymin:             # <<<<<<<<<<<<<<
@@ -3790,7 +3785,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
  */
   }
 
-  /* "rbf/pde/octtree.pyx":182
+  /* "rbf/pde/octtree.pyx":183
  *         elif self.bounds.ymin >= bx.ymin:
  *             return False
  *         elif self.bounds.zmin >= bx.zmin:             # <<<<<<<<<<<<<<
@@ -3800,7 +3795,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   __pyx_t_1 = ((__pyx_v_self->bounds.zmin >= __pyx_v_bx.zmin) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":183
+    /* "rbf/pde/octtree.pyx":184
  *             return False
  *         elif self.bounds.zmin >= bx.zmin:
  *             return False             # <<<<<<<<<<<<<<
@@ -3810,7 +3805,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":182
+    /* "rbf/pde/octtree.pyx":183
  *         elif self.bounds.ymin >= bx.ymin:
  *             return False
  *         elif self.bounds.zmin >= bx.zmin:             # <<<<<<<<<<<<<<
@@ -3819,7 +3814,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
  */
   }
 
-  /* "rbf/pde/octtree.pyx":187
+  /* "rbf/pde/octtree.pyx":188
  *         # if the upper bounds of `self` are not above `bx`, then
  *         # return false
  *         elif self.bounds.xmax <= bx.xmax:             # <<<<<<<<<<<<<<
@@ -3829,7 +3824,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   __pyx_t_1 = ((__pyx_v_self->bounds.xmax <= __pyx_v_bx.xmax) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":188
+    /* "rbf/pde/octtree.pyx":189
  *         # return false
  *         elif self.bounds.xmax <= bx.xmax:
  *             return False             # <<<<<<<<<<<<<<
@@ -3839,7 +3834,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":187
+    /* "rbf/pde/octtree.pyx":188
  *         # if the upper bounds of `self` are not above `bx`, then
  *         # return false
  *         elif self.bounds.xmax <= bx.xmax:             # <<<<<<<<<<<<<<
@@ -3848,7 +3843,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
  */
   }
 
-  /* "rbf/pde/octtree.pyx":189
+  /* "rbf/pde/octtree.pyx":190
  *         elif self.bounds.xmax <= bx.xmax:
  *             return False
  *         elif self.bounds.ymax <= bx.ymax:             # <<<<<<<<<<<<<<
@@ -3858,7 +3853,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   __pyx_t_1 = ((__pyx_v_self->bounds.ymax <= __pyx_v_bx.ymax) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":190
+    /* "rbf/pde/octtree.pyx":191
  *             return False
  *         elif self.bounds.ymax <= bx.ymax:
  *             return False             # <<<<<<<<<<<<<<
@@ -3868,7 +3863,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":189
+    /* "rbf/pde/octtree.pyx":190
  *         elif self.bounds.xmax <= bx.xmax:
  *             return False
  *         elif self.bounds.ymax <= bx.ymax:             # <<<<<<<<<<<<<<
@@ -3877,7 +3872,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
  */
   }
 
-  /* "rbf/pde/octtree.pyx":191
+  /* "rbf/pde/octtree.pyx":192
  *         elif self.bounds.ymax <= bx.ymax:
  *             return False
  *         elif self.bounds.zmax <= bx.zmax:             # <<<<<<<<<<<<<<
@@ -3887,7 +3882,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   __pyx_t_1 = ((__pyx_v_self->bounds.zmax <= __pyx_v_bx.zmax) != 0);
   if (__pyx_t_1) {
 
-    /* "rbf/pde/octtree.pyx":192
+    /* "rbf/pde/octtree.pyx":193
  *             return False
  *         elif self.bounds.zmax <= bx.zmax:
  *             return False             # <<<<<<<<<<<<<<
@@ -3897,7 +3892,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":191
+    /* "rbf/pde/octtree.pyx":192
  *         elif self.bounds.ymax <= bx.ymax:
  *             return False
  *         elif self.bounds.zmax <= bx.zmax:             # <<<<<<<<<<<<<<
@@ -3906,7 +3901,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
  */
   }
 
-  /* "rbf/pde/octtree.pyx":194
+  /* "rbf/pde/octtree.pyx":195
  *             return False
  *         else:
  *             return True             # <<<<<<<<<<<<<<
@@ -3918,8 +3913,8 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
     goto __pyx_L0;
   }
 
-  /* "rbf/pde/octtree.pyx":172
- *                          child5, child6, child7, child8)
+  /* "rbf/pde/octtree.pyx":173
+ *                          child5, child6, child7, child8]
  * 
  *     cdef bint contains_box(self, box3d bx):             # <<<<<<<<<<<<<<
  *         '''
@@ -3932,7 +3927,7 @@ static int __pyx_f_3rbf_3pde_7octtree_8_OctNode_contains_box(struct __pyx_obj_3r
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":196
+/* "rbf/pde/octtree.pyx":197
  *             return True
  * 
  *     cdef void add_box(self, long idx, box3d bx):             # <<<<<<<<<<<<<<
@@ -3950,9 +3945,10 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
   PyObject *__pyx_t_4 = NULL;
   Py_ssize_t __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
+  int __pyx_t_7;
   __Pyx_RefNannySetupContext("add_box", 0);
 
-  /* "rbf/pde/octtree.pyx":212
+  /* "rbf/pde/octtree.pyx":213
  *         cdef:
  *             _OctNode child
  *             (long, box3d) item = (idx, bx)             # <<<<<<<<<<<<<<
@@ -3963,7 +3959,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
   __pyx_t_1.f1 = __pyx_v_bx;
   __pyx_v_item = __pyx_t_1;
 
-  /* "rbf/pde/octtree.pyx":216
+  /* "rbf/pde/octtree.pyx":217
  *         # the box will either be added to the current node or one of
  *         # its children so increment `box_count`
  *         self.box_count += 1             # <<<<<<<<<<<<<<
@@ -3972,18 +3968,18 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
  */
   __pyx_v_self->box_count = (__pyx_v_self->box_count + 1);
 
-  /* "rbf/pde/octtree.pyx":220
+  /* "rbf/pde/octtree.pyx":221
  *         # if the item can fit in any of the nodes children. If the
  *         # node has no children, then give it some.
  *         if not self.children:             # <<<<<<<<<<<<<<
  *             self.subdivide_nodes()
  * 
  */
-  __pyx_t_2 = (__pyx_v_self->children != Py_None)&&(PyTuple_GET_SIZE(__pyx_v_self->children) != 0);
+  __pyx_t_2 = (__pyx_v_self->children != Py_None)&&(PyList_GET_SIZE(__pyx_v_self->children) != 0);
   __pyx_t_3 = ((!__pyx_t_2) != 0);
   if (__pyx_t_3) {
 
-    /* "rbf/pde/octtree.pyx":221
+    /* "rbf/pde/octtree.pyx":222
  *         # node has no children, then give it some.
  *         if not self.children:
  *             self.subdivide_nodes()             # <<<<<<<<<<<<<<
@@ -3992,7 +3988,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
  */
     ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_self->__pyx_vtab)->subdivide_nodes(__pyx_v_self);
 
-    /* "rbf/pde/octtree.pyx":220
+    /* "rbf/pde/octtree.pyx":221
  *         # if the item can fit in any of the nodes children. If the
  *         # node has no children, then give it some.
  *         if not self.children:             # <<<<<<<<<<<<<<
@@ -4001,7 +3997,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
  */
   }
 
-  /* "rbf/pde/octtree.pyx":223
+  /* "rbf/pde/octtree.pyx":224
  *             self.subdivide_nodes()
  * 
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4010,22 +4006,22 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
  */
   if (unlikely(__pyx_v_self->children == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(1, 223, __pyx_L1_error)
+    __PYX_ERR(1, 224, __pyx_L1_error)
   }
   __pyx_t_4 = __pyx_v_self->children; __Pyx_INCREF(__pyx_t_4); __pyx_t_5 = 0;
   for (;;) {
-    if (__pyx_t_5 >= PyTuple_GET_SIZE(__pyx_t_4)) break;
+    if (__pyx_t_5 >= PyList_GET_SIZE(__pyx_t_4)) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(1, 223, __pyx_L1_error)
+    __pyx_t_6 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_5); __Pyx_INCREF(__pyx_t_6); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(1, 224, __pyx_L1_error)
     #else
-    __pyx_t_6 = PySequence_ITEM(__pyx_t_4, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 223, __pyx_L1_error)
+    __pyx_t_6 = PySequence_ITEM(__pyx_t_4, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 224, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     #endif
-    if (!(likely(((__pyx_t_6) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_6, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 223, __pyx_L1_error)
+    if (!(likely(((__pyx_t_6) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_6, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 224, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_child, ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_6));
     __pyx_t_6 = 0;
 
-    /* "rbf/pde/octtree.pyx":224
+    /* "rbf/pde/octtree.pyx":225
  * 
  *         for child in self.children:
  *             if child.contains_box(bx):             # <<<<<<<<<<<<<<
@@ -4035,7 +4031,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
     __pyx_t_3 = (((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->contains_box(__pyx_v_child, __pyx_v_bx) != 0);
     if (__pyx_t_3) {
 
-      /* "rbf/pde/octtree.pyx":225
+      /* "rbf/pde/octtree.pyx":226
  *         for child in self.children:
  *             if child.contains_box(bx):
  *                 child.add_box(idx, bx)             # <<<<<<<<<<<<<<
@@ -4044,7 +4040,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
  */
       ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->add_box(__pyx_v_child, __pyx_v_idx, __pyx_v_bx);
 
-      /* "rbf/pde/octtree.pyx":226
+      /* "rbf/pde/octtree.pyx":227
  *             if child.contains_box(bx):
  *                 child.add_box(idx, bx)
  *                 return             # <<<<<<<<<<<<<<
@@ -4054,7 +4050,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       goto __pyx_L0;
 
-      /* "rbf/pde/octtree.pyx":224
+      /* "rbf/pde/octtree.pyx":225
  * 
  *         for child in self.children:
  *             if child.contains_box(bx):             # <<<<<<<<<<<<<<
@@ -4063,7 +4059,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
  */
     }
 
-    /* "rbf/pde/octtree.pyx":223
+    /* "rbf/pde/octtree.pyx":224
  *             self.subdivide_nodes()
  * 
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4073,30 +4069,32 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "rbf/pde/octtree.pyx":231
- *         # children, so we add the item to `self`. `push_back` is like
+  /* "rbf/pde/octtree.pyx":233
  *         # `append` for vectors
- *         self.boxes.push_back(item)             # <<<<<<<<<<<<<<
+ *         #self.boxes.push_back(item)
+ *         self.boxes.append(item)             # <<<<<<<<<<<<<<
  *         return
  * 
  */
-  try {
-    __pyx_v_self->boxes.push_back(__pyx_v_item);
-  } catch(...) {
-    __Pyx_CppExn2PyErr();
-    __PYX_ERR(1, 231, __pyx_L1_error)
+  if (unlikely(__pyx_v_self->boxes == Py_None)) {
+    PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "append");
+    __PYX_ERR(1, 233, __pyx_L1_error)
   }
+  __pyx_t_4 = __pyx_convert__to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_item); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 233, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_7 = __Pyx_PyList_Append(__pyx_v_self->boxes, __pyx_t_4); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(1, 233, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "rbf/pde/octtree.pyx":232
- *         # `append` for vectors
- *         self.boxes.push_back(item)
+  /* "rbf/pde/octtree.pyx":234
+ *         #self.boxes.push_back(item)
+ *         self.boxes.append(item)
  *         return             # <<<<<<<<<<<<<<
  * 
  *     cdef _OctNode smallest_bounding_node(self, box3d bx):
  */
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":196
+  /* "rbf/pde/octtree.pyx":197
  *             return True
  * 
  *     cdef void add_box(self, long idx, box3d bx):             # <<<<<<<<<<<<<<
@@ -4114,7 +4112,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_add_box(struct __pyx_obj_3rbf_3
   __Pyx_RefNannyFinishContext();
 }
 
-/* "rbf/pde/octtree.pyx":234
+/* "rbf/pde/octtree.pyx":236
  *         return
  * 
  *     cdef _OctNode smallest_bounding_node(self, box3d bx):             # <<<<<<<<<<<<<<
@@ -4132,7 +4130,7 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
   int __pyx_t_4;
   __Pyx_RefNannySetupContext("smallest_bounding_node", 0);
 
-  /* "rbf/pde/octtree.pyx":248
+  /* "rbf/pde/octtree.pyx":250
  *             _OctNode child
  * 
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4141,22 +4139,22 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
  */
   if (unlikely(__pyx_v_self->children == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(1, 248, __pyx_L1_error)
+    __PYX_ERR(1, 250, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_v_self->children; __Pyx_INCREF(__pyx_t_1); __pyx_t_2 = 0;
   for (;;) {
-    if (__pyx_t_2 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
+    if (__pyx_t_2 >= PyList_GET_SIZE(__pyx_t_1)) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely(0 < 0)) __PYX_ERR(1, 248, __pyx_L1_error)
+    __pyx_t_3 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_3); __pyx_t_2++; if (unlikely(0 < 0)) __PYX_ERR(1, 250, __pyx_L1_error)
     #else
-    __pyx_t_3 = PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 248, __pyx_L1_error)
+    __pyx_t_3 = PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 250, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
-    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 248, __pyx_L1_error)
+    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 250, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_child, ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_3));
     __pyx_t_3 = 0;
 
-    /* "rbf/pde/octtree.pyx":249
+    /* "rbf/pde/octtree.pyx":251
  * 
  *         for child in self.children:
  *             if child.contains_box(bx):             # <<<<<<<<<<<<<<
@@ -4166,7 +4164,7 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
     __pyx_t_4 = (((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->contains_box(__pyx_v_child, __pyx_v_bx) != 0);
     if (__pyx_t_4) {
 
-      /* "rbf/pde/octtree.pyx":250
+      /* "rbf/pde/octtree.pyx":252
  *         for child in self.children:
  *             if child.contains_box(bx):
  *                 return child.smallest_bounding_node(bx)             # <<<<<<<<<<<<<<
@@ -4174,14 +4172,14 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
  *         # if we reach this point, then the item is contained in no
  */
       __Pyx_XDECREF(((PyObject *)__pyx_r));
-      __pyx_t_3 = ((PyObject *)((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->smallest_bounding_node(__pyx_v_child, __pyx_v_bx)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 250, __pyx_L1_error)
+      __pyx_t_3 = ((PyObject *)((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->smallest_bounding_node(__pyx_v_child, __pyx_v_bx)); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 252, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_r = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_3);
       __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "rbf/pde/octtree.pyx":249
+      /* "rbf/pde/octtree.pyx":251
  * 
  *         for child in self.children:
  *             if child.contains_box(bx):             # <<<<<<<<<<<<<<
@@ -4190,7 +4188,7 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
  */
     }
 
-    /* "rbf/pde/octtree.pyx":248
+    /* "rbf/pde/octtree.pyx":250
  *             _OctNode child
  * 
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4200,7 +4198,7 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":254
+  /* "rbf/pde/octtree.pyx":256
  *         # if we reach this point, then the item is contained in no
  *         # children, so `self` is the smallest bounding node.
  *         return self             # <<<<<<<<<<<<<<
@@ -4212,7 +4210,7 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
   __pyx_r = __pyx_v_self;
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":234
+  /* "rbf/pde/octtree.pyx":236
  *         return
  * 
  *     cdef _OctNode smallest_bounding_node(self, box3d bx):             # <<<<<<<<<<<<<<
@@ -4233,7 +4231,7 @@ static struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_f_3rbf_3pde_7octtree_
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":256
+/* "rbf/pde/octtree.pyx":258
  *         return self
  * 
  *     cdef list descendant_nodes(self):             # <<<<<<<<<<<<<<
@@ -4252,19 +4250,19 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_descendant_nodes(struct __
   PyObject *__pyx_t_4 = NULL;
   __Pyx_RefNannySetupContext("descendant_nodes", 0);
 
-  /* "rbf/pde/octtree.pyx":262
+  /* "rbf/pde/octtree.pyx":264
  *         cdef:
  *             _OctNode child
  *             list nodes = []             # <<<<<<<<<<<<<<
  * 
  *         nodes.extend(self.children)
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 262, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_nodes = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":264
+  /* "rbf/pde/octtree.pyx":266
  *             list nodes = []
  * 
  *         nodes.extend(self.children)             # <<<<<<<<<<<<<<
@@ -4273,10 +4271,10 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_descendant_nodes(struct __
  */
   __pyx_t_1 = __pyx_v_self->children;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyList_Extend(__pyx_v_nodes, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 264, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_Extend(__pyx_v_nodes, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 266, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":265
+  /* "rbf/pde/octtree.pyx":267
  * 
  *         nodes.extend(self.children)
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4285,34 +4283,34 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_descendant_nodes(struct __
  */
   if (unlikely(__pyx_v_self->children == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(1, 265, __pyx_L1_error)
+    __PYX_ERR(1, 267, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_v_self->children; __Pyx_INCREF(__pyx_t_1); __pyx_t_3 = 0;
   for (;;) {
-    if (__pyx_t_3 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
+    if (__pyx_t_3 >= PyList_GET_SIZE(__pyx_t_1)) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_3); __Pyx_INCREF(__pyx_t_4); __pyx_t_3++; if (unlikely(0 < 0)) __PYX_ERR(1, 265, __pyx_L1_error)
+    __pyx_t_4 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_3); __Pyx_INCREF(__pyx_t_4); __pyx_t_3++; if (unlikely(0 < 0)) __PYX_ERR(1, 267, __pyx_L1_error)
     #else
-    __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 265, __pyx_L1_error)
+    __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 267, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     #endif
-    if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 265, __pyx_L1_error)
+    if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 267, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_child, ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_4));
     __pyx_t_4 = 0;
 
-    /* "rbf/pde/octtree.pyx":266
+    /* "rbf/pde/octtree.pyx":268
  *         nodes.extend(self.children)
  *         for child in self.children:
  *             nodes.extend(child.descendant_nodes())             # <<<<<<<<<<<<<<
  * 
  *         return nodes
  */
-    __pyx_t_4 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->descendant_nodes(__pyx_v_child); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 266, __pyx_L1_error)
+    __pyx_t_4 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->descendant_nodes(__pyx_v_child); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 268, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyList_Extend(__pyx_v_nodes, __pyx_t_4); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 266, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyList_Extend(__pyx_v_nodes, __pyx_t_4); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 268, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "rbf/pde/octtree.pyx":265
+    /* "rbf/pde/octtree.pyx":267
  * 
  *         nodes.extend(self.children)
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4322,7 +4320,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_descendant_nodes(struct __
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":268
+  /* "rbf/pde/octtree.pyx":270
  *             nodes.extend(child.descendant_nodes())
  * 
  *         return nodes             # <<<<<<<<<<<<<<
@@ -4334,7 +4332,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_descendant_nodes(struct __
   __pyx_r = __pyx_v_nodes;
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":256
+  /* "rbf/pde/octtree.pyx":258
  *         return self
  * 
  *     cdef list descendant_nodes(self):             # <<<<<<<<<<<<<<
@@ -4356,7 +4354,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_descendant_nodes(struct __
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":270
+/* "rbf/pde/octtree.pyx":272
  *         return nodes
  * 
  *     cdef list ancestor_nodes(self):             # <<<<<<<<<<<<<<
@@ -4374,19 +4372,19 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
   int __pyx_t_4;
   __Pyx_RefNannySetupContext("ancestor_nodes", 0);
 
-  /* "rbf/pde/octtree.pyx":275
+  /* "rbf/pde/octtree.pyx":277
  *         '''
  *         cdef:
  *             list nodes = []             # <<<<<<<<<<<<<<
  * 
  *         if self.parent is None:
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 275, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_nodes = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":277
+  /* "rbf/pde/octtree.pyx":279
  *             list nodes = []
  * 
  *         if self.parent is None:             # <<<<<<<<<<<<<<
@@ -4397,7 +4395,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
   __pyx_t_3 = (__pyx_t_2 != 0);
   if (__pyx_t_3) {
 
-    /* "rbf/pde/octtree.pyx":278
+    /* "rbf/pde/octtree.pyx":280
  * 
  *         if self.parent is None:
  *             return nodes             # <<<<<<<<<<<<<<
@@ -4409,7 +4407,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
     __pyx_r = __pyx_v_nodes;
     goto __pyx_L0;
 
-    /* "rbf/pde/octtree.pyx":277
+    /* "rbf/pde/octtree.pyx":279
  *             list nodes = []
  * 
  *         if self.parent is None:             # <<<<<<<<<<<<<<
@@ -4418,7 +4416,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
  */
   }
 
-  /* "rbf/pde/octtree.pyx":280
+  /* "rbf/pde/octtree.pyx":282
  *             return nodes
  * 
  *         nodes.append(self.parent)             # <<<<<<<<<<<<<<
@@ -4427,22 +4425,22 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
  */
   __pyx_t_1 = ((PyObject *)__pyx_v_self->parent);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyList_Append(__pyx_v_nodes, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 280, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyList_Append(__pyx_v_nodes, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 282, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":281
+  /* "rbf/pde/octtree.pyx":283
  * 
  *         nodes.append(self.parent)
  *         nodes.extend(self.parent.ancestor_nodes())             # <<<<<<<<<<<<<<
  *         return nodes
  * 
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_self->parent->__pyx_vtab)->ancestor_nodes(__pyx_v_self->parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 281, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_self->parent->__pyx_vtab)->ancestor_nodes(__pyx_v_self->parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 283, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyList_Extend(__pyx_v_nodes, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 281, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyList_Extend(__pyx_v_nodes, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(1, 283, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":282
+  /* "rbf/pde/octtree.pyx":284
  *         nodes.append(self.parent)
  *         nodes.extend(self.parent.ancestor_nodes())
  *         return nodes             # <<<<<<<<<<<<<<
@@ -4454,7 +4452,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
   __pyx_r = __pyx_v_nodes;
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":270
+  /* "rbf/pde/octtree.pyx":272
  *         return nodes
  * 
  *     cdef list ancestor_nodes(self):             # <<<<<<<<<<<<<<
@@ -4474,7 +4472,7 @@ static PyObject *__pyx_f_3rbf_3pde_7octtree_8_OctNode_ancestor_nodes(struct __py
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":284
+/* "rbf/pde/octtree.pyx":286
  *         return nodes
  * 
  *     cpdef void prune(self):             # <<<<<<<<<<<<<<
@@ -4498,7 +4496,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
   else if (unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_prune); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 284, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_prune); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 286, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (!PyCFunction_Check(__pyx_t_1) || (PyCFunction_GET_FUNCTION(__pyx_t_1) != (PyCFunction)__pyx_pw_3rbf_3pde_7octtree_8_OctNode_5prune)) {
       __Pyx_INCREF(__pyx_t_1);
@@ -4513,10 +4511,10 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
         }
       }
       if (__pyx_t_4) {
-        __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 284, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 286, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       } else {
-        __pyx_t_2 = __Pyx_PyObject_CallNoArg(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 284, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_CallNoArg(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 286, __pyx_L1_error)
       }
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -4527,7 +4525,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "rbf/pde/octtree.pyx":291
+  /* "rbf/pde/octtree.pyx":293
  *         cdef:
  *             _OctNode child
  *             bint remove_children = True             # <<<<<<<<<<<<<<
@@ -4536,7 +4534,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
  */
   __pyx_v_remove_children = 1;
 
-  /* "rbf/pde/octtree.pyx":293
+  /* "rbf/pde/octtree.pyx":295
  *             bint remove_children = True
  * 
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4545,22 +4543,22 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
  */
   if (unlikely(__pyx_v_self->children == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(1, 293, __pyx_L1_error)
+    __PYX_ERR(1, 295, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_v_self->children; __Pyx_INCREF(__pyx_t_1); __pyx_t_5 = 0;
   for (;;) {
-    if (__pyx_t_5 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
+    if (__pyx_t_5 >= PyList_GET_SIZE(__pyx_t_1)) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_2); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(1, 293, __pyx_L1_error)
+    __pyx_t_2 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_5); __Pyx_INCREF(__pyx_t_2); __pyx_t_5++; if (unlikely(0 < 0)) __PYX_ERR(1, 295, __pyx_L1_error)
     #else
-    __pyx_t_2 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 293, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(__pyx_t_1, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     #endif
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 293, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 295, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_child, ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_2));
     __pyx_t_2 = 0;
 
-    /* "rbf/pde/octtree.pyx":294
+    /* "rbf/pde/octtree.pyx":296
  * 
  *         for child in self.children:
  *             child.prune()             # <<<<<<<<<<<<<<
@@ -4569,26 +4567,26 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
  */
     ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_child->__pyx_vtab)->prune(__pyx_v_child, 0);
 
-    /* "rbf/pde/octtree.pyx":295
+    /* "rbf/pde/octtree.pyx":297
  *         for child in self.children:
  *             child.prune()
  *             if child.children:             # <<<<<<<<<<<<<<
  *                 remove_children = False
  * 
  */
-    __pyx_t_6 = (__pyx_v_child->children != Py_None)&&(PyTuple_GET_SIZE(__pyx_v_child->children) != 0);
+    __pyx_t_6 = (__pyx_v_child->children != Py_None)&&(PyList_GET_SIZE(__pyx_v_child->children) != 0);
     if (__pyx_t_6) {
 
-      /* "rbf/pde/octtree.pyx":296
+      /* "rbf/pde/octtree.pyx":298
  *             child.prune()
  *             if child.children:
  *                 remove_children = False             # <<<<<<<<<<<<<<
  * 
- *             elif child.boxes.size() != 0:
+ *             #elif child.boxes.size() != 0:
  */
       __pyx_v_remove_children = 0;
 
-      /* "rbf/pde/octtree.pyx":295
+      /* "rbf/pde/octtree.pyx":297
  *         for child in self.children:
  *             child.prune()
  *             if child.children:             # <<<<<<<<<<<<<<
@@ -4598,36 +4596,36 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
       goto __pyx_L5;
     }
 
-    /* "rbf/pde/octtree.pyx":298
- *                 remove_children = False
+    /* "rbf/pde/octtree.pyx":301
  * 
- *             elif child.boxes.size() != 0:             # <<<<<<<<<<<<<<
+ *             #elif child.boxes.size() != 0:
+ *             elif child.boxes:             # <<<<<<<<<<<<<<
  *                 remove_children = False
  * 
  */
-    __pyx_t_6 = ((__pyx_v_child->boxes.size() != 0) != 0);
+    __pyx_t_6 = (__pyx_v_child->boxes != Py_None)&&(PyList_GET_SIZE(__pyx_v_child->boxes) != 0);
     if (__pyx_t_6) {
 
-      /* "rbf/pde/octtree.pyx":299
- * 
- *             elif child.boxes.size() != 0:
+      /* "rbf/pde/octtree.pyx":302
+ *             #elif child.boxes.size() != 0:
+ *             elif child.boxes:
  *                 remove_children = False             # <<<<<<<<<<<<<<
  * 
  *         if remove_children:
  */
       __pyx_v_remove_children = 0;
 
-      /* "rbf/pde/octtree.pyx":298
- *                 remove_children = False
+      /* "rbf/pde/octtree.pyx":301
  * 
- *             elif child.boxes.size() != 0:             # <<<<<<<<<<<<<<
+ *             #elif child.boxes.size() != 0:
+ *             elif child.boxes:             # <<<<<<<<<<<<<<
  *                 remove_children = False
  * 
  */
     }
     __pyx_L5:;
 
-    /* "rbf/pde/octtree.pyx":293
+    /* "rbf/pde/octtree.pyx":295
  *             bint remove_children = True
  * 
  *         for child in self.children:             # <<<<<<<<<<<<<<
@@ -4637,40 +4635,42 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":301
+  /* "rbf/pde/octtree.pyx":304
  *                 remove_children = False
  * 
  *         if remove_children:             # <<<<<<<<<<<<<<
- *             self.children = ()
+ *             self.children = []
  * 
  */
   __pyx_t_6 = (__pyx_v_remove_children != 0);
   if (__pyx_t_6) {
 
-    /* "rbf/pde/octtree.pyx":302
+    /* "rbf/pde/octtree.pyx":305
  * 
  *         if remove_children:
- *             self.children = ()             # <<<<<<<<<<<<<<
+ *             self.children = []             # <<<<<<<<<<<<<<
  * 
  *         return
  */
-    __Pyx_INCREF(__pyx_empty_tuple);
-    __Pyx_GIVEREF(__pyx_empty_tuple);
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 305, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_GIVEREF(__pyx_t_1);
     __Pyx_GOTREF(__pyx_v_self->children);
     __Pyx_DECREF(__pyx_v_self->children);
-    __pyx_v_self->children = __pyx_empty_tuple;
+    __pyx_v_self->children = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
 
-    /* "rbf/pde/octtree.pyx":301
+    /* "rbf/pde/octtree.pyx":304
  *                 remove_children = False
  * 
  *         if remove_children:             # <<<<<<<<<<<<<<
- *             self.children = ()
+ *             self.children = []
  * 
  */
   }
 
-  /* "rbf/pde/octtree.pyx":304
- *             self.children = ()
+  /* "rbf/pde/octtree.pyx":307
+ *             self.children = []
  * 
  *         return             # <<<<<<<<<<<<<<
  * 
@@ -4678,7 +4678,7 @@ static void __pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(struct __pyx_obj_3rbf_3pd
  */
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":284
+  /* "rbf/pde/octtree.pyx":286
  *         return nodes
  * 
  *     cpdef void prune(self):             # <<<<<<<<<<<<<<
@@ -4718,7 +4718,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_4prune(struct __pyx_obj_3
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("prune", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(__pyx_v_self, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 284, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_3rbf_3pde_7octtree_8_OctNode_prune(__pyx_v_self, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4865,7 +4865,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_5depth___get__(struct __p
  *         # the greatest possible depth for this tree
  *         long max_depth             # <<<<<<<<<<<<<<
  *         # the direct descendants for this node
- *         tuple children
+ *         list children
  */
 
 /* Python wrapper */
@@ -4907,7 +4907,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_9max_depth___get__(struct
 /* "rbf/pde/octtree.pyx":43
  *         long max_depth
  *         # the direct descendants for this node
- *         tuple children             # <<<<<<<<<<<<<<
+ *         list children             # <<<<<<<<<<<<<<
  *         # the boxes contained in this node and their corresponding
  *         # indices. A vector is like a list except it is more efficient
  */
@@ -4941,10 +4941,10 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_8children___get__(struct 
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":47
- *         # indices. A vector is like a list except it is more efficient
+/* "rbf/pde/octtree.pyx":48
  *         # because its items are typed
- *         vector[(long, box3d)] boxes             # <<<<<<<<<<<<<<
+ *         #vector[(long, box3d)] boxes
+ *         list boxes             # <<<<<<<<<<<<<<
  *         # the total number of boxes that have been added to the node
  *         # and its childen. This is not necessarily equal to len(boxes)
  */
@@ -4965,27 +4965,20 @@ static PyObject *__pyx_pw_3rbf_3pde_7octtree_8_OctNode_5boxes_1__get__(PyObject 
 static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_5boxes___get__(struct __pyx_obj_3rbf_3pde_7octtree__OctNode *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_self->boxes); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 47, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __Pyx_INCREF(__pyx_v_self->boxes);
+  __pyx_r = __pyx_v_self->boxes;
   goto __pyx_L0;
 
   /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_AddTraceback("rbf.pde.octtree._OctNode.boxes.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":50
+/* "rbf/pde/octtree.pyx":51
  *         # the total number of boxes that have been added to the node
  *         # and its childen. This is not necessarily equal to len(boxes)
  *         long box_count             # <<<<<<<<<<<<<<
@@ -5012,7 +5005,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_9box_count___get__(struct
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v_self->box_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 50, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_long(__pyx_v_self->box_count); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5136,7 +5129,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_8_OctNode_8__setstate_cython__(CYTH
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":325
+/* "rbf/pde/octtree.pyx":328
  * 
  *     '''
  *     def __init__(self, double[:] bounds, long max_depth=5):             # <<<<<<<<<<<<<<
@@ -5179,7 +5172,7 @@ static int __pyx_pw_3rbf_3pde_7octtree_7OctTree_1__init__(PyObject *__pyx_v_self
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(1, 325, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(1, 328, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -5190,16 +5183,16 @@ static int __pyx_pw_3rbf_3pde_7octtree_7OctTree_1__init__(PyObject *__pyx_v_self
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_bounds = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_bounds.memview)) __PYX_ERR(1, 325, __pyx_L3_error)
+    __pyx_v_bounds = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_bounds.memview)) __PYX_ERR(1, 328, __pyx_L3_error)
     if (values[1]) {
-      __pyx_v_max_depth = __Pyx_PyInt_As_long(values[1]); if (unlikely((__pyx_v_max_depth == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 325, __pyx_L3_error)
+      __pyx_v_max_depth = __Pyx_PyInt_As_long(values[1]); if (unlikely((__pyx_v_max_depth == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 328, __pyx_L3_error)
     } else {
       __pyx_v_max_depth = ((long)5);
     }
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 325, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 328, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("rbf.pde.octtree.OctTree.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -5231,7 +5224,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   PyObject *__pyx_t_13 = NULL;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "rbf/pde/octtree.pyx":329
+  /* "rbf/pde/octtree.pyx":332
  *             box3d bx
  * 
  *         bx.xmin = bounds[0]             # <<<<<<<<<<<<<<
@@ -5246,11 +5239,11 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else if (unlikely(__pyx_t_1 >= __pyx_v_bounds.shape[0])) __pyx_t_2 = 0;
   if (unlikely(__pyx_t_2 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_2);
-    __PYX_ERR(1, 329, __pyx_L1_error)
+    __PYX_ERR(1, 332, __pyx_L1_error)
   }
   __pyx_v_bx.xmin = (*((double *) ( /* dim=0 */ (__pyx_v_bounds.data + __pyx_t_1 * __pyx_v_bounds.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":330
+  /* "rbf/pde/octtree.pyx":333
  * 
  *         bx.xmin = bounds[0]
  *         bx.ymin = bounds[1]             # <<<<<<<<<<<<<<
@@ -5265,11 +5258,11 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else if (unlikely(__pyx_t_3 >= __pyx_v_bounds.shape[0])) __pyx_t_2 = 0;
   if (unlikely(__pyx_t_2 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_2);
-    __PYX_ERR(1, 330, __pyx_L1_error)
+    __PYX_ERR(1, 333, __pyx_L1_error)
   }
   __pyx_v_bx.ymin = (*((double *) ( /* dim=0 */ (__pyx_v_bounds.data + __pyx_t_3 * __pyx_v_bounds.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":331
+  /* "rbf/pde/octtree.pyx":334
  *         bx.xmin = bounds[0]
  *         bx.ymin = bounds[1]
  *         bx.zmin = bounds[2]             # <<<<<<<<<<<<<<
@@ -5284,11 +5277,11 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else if (unlikely(__pyx_t_4 >= __pyx_v_bounds.shape[0])) __pyx_t_2 = 0;
   if (unlikely(__pyx_t_2 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_2);
-    __PYX_ERR(1, 331, __pyx_L1_error)
+    __PYX_ERR(1, 334, __pyx_L1_error)
   }
   __pyx_v_bx.zmin = (*((double *) ( /* dim=0 */ (__pyx_v_bounds.data + __pyx_t_4 * __pyx_v_bounds.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":332
+  /* "rbf/pde/octtree.pyx":335
  *         bx.ymin = bounds[1]
  *         bx.zmin = bounds[2]
  *         bx.xmax = bounds[3]             # <<<<<<<<<<<<<<
@@ -5303,11 +5296,11 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else if (unlikely(__pyx_t_5 >= __pyx_v_bounds.shape[0])) __pyx_t_2 = 0;
   if (unlikely(__pyx_t_2 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_2);
-    __PYX_ERR(1, 332, __pyx_L1_error)
+    __PYX_ERR(1, 335, __pyx_L1_error)
   }
   __pyx_v_bx.xmax = (*((double *) ( /* dim=0 */ (__pyx_v_bounds.data + __pyx_t_5 * __pyx_v_bounds.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":333
+  /* "rbf/pde/octtree.pyx":336
  *         bx.zmin = bounds[2]
  *         bx.xmax = bounds[3]
  *         bx.ymax = bounds[4]             # <<<<<<<<<<<<<<
@@ -5322,11 +5315,11 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else if (unlikely(__pyx_t_6 >= __pyx_v_bounds.shape[0])) __pyx_t_2 = 0;
   if (unlikely(__pyx_t_2 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_2);
-    __PYX_ERR(1, 333, __pyx_L1_error)
+    __PYX_ERR(1, 336, __pyx_L1_error)
   }
   __pyx_v_bx.ymax = (*((double *) ( /* dim=0 */ (__pyx_v_bounds.data + __pyx_t_6 * __pyx_v_bounds.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":334
+  /* "rbf/pde/octtree.pyx":337
  *         bx.xmax = bounds[3]
  *         bx.ymax = bounds[4]
  *         bx.zmax = bounds[5]             # <<<<<<<<<<<<<<
@@ -5341,18 +5334,18 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else if (unlikely(__pyx_t_7 >= __pyx_v_bounds.shape[0])) __pyx_t_2 = 0;
   if (unlikely(__pyx_t_2 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_2);
-    __PYX_ERR(1, 334, __pyx_L1_error)
+    __PYX_ERR(1, 337, __pyx_L1_error)
   }
   __pyx_v_bx.zmax = (*((double *) ( /* dim=0 */ (__pyx_v_bounds.data + __pyx_t_7 * __pyx_v_bounds.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":335
+  /* "rbf/pde/octtree.pyx":338
  *         bx.ymax = bounds[4]
  *         bx.zmax = bounds[5]
  *         super().__init__(bx, None, 1, max_depth)             # <<<<<<<<<<<<<<
  * 
  *     def add_boxes(self, double[:, :] boxes):
  */
-  __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 335, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_INCREF(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree_OctTree));
   __Pyx_GIVEREF(((PyObject *)__pyx_ptype_3rbf_3pde_7octtree_OctTree));
@@ -5360,15 +5353,15 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   __Pyx_INCREF(((PyObject *)__pyx_v_self));
   __Pyx_GIVEREF(((PyObject *)__pyx_v_self));
   PyTuple_SET_ITEM(__pyx_t_9, 1, ((PyObject *)__pyx_v_self));
-  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_builtin_super, __pyx_t_9, NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 335, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_builtin_super, __pyx_t_9, NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_init); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 335, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_n_s_init); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bx); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 335, __pyx_L1_error)
+  __pyx_t_10 = __pyx_convert__to_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_bx); if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyInt_From_long(__pyx_v_max_depth); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 335, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyInt_From_long(__pyx_v_max_depth); if (unlikely(!__pyx_t_11)) __PYX_ERR(1, 338, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_12 = NULL;
   __pyx_t_2 = 0;
@@ -5385,7 +5378,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_9)) {
     PyObject *__pyx_temp[5] = {__pyx_t_12, __pyx_t_10, Py_None, __pyx_int_1, __pyx_t_11};
-    __pyx_t_8 = __Pyx_PyFunction_FastCall(__pyx_t_9, __pyx_temp+1-__pyx_t_2, 4+__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 335, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyFunction_FastCall(__pyx_t_9, __pyx_temp+1-__pyx_t_2, 4+__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 338, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -5395,7 +5388,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_9)) {
     PyObject *__pyx_temp[5] = {__pyx_t_12, __pyx_t_10, Py_None, __pyx_int_1, __pyx_t_11};
-    __pyx_t_8 = __Pyx_PyCFunction_FastCall(__pyx_t_9, __pyx_temp+1-__pyx_t_2, 4+__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 335, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyCFunction_FastCall(__pyx_t_9, __pyx_temp+1-__pyx_t_2, 4+__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 338, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -5403,7 +5396,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   } else
   #endif
   {
-    __pyx_t_13 = PyTuple_New(4+__pyx_t_2); if (unlikely(!__pyx_t_13)) __PYX_ERR(1, 335, __pyx_L1_error)
+    __pyx_t_13 = PyTuple_New(4+__pyx_t_2); if (unlikely(!__pyx_t_13)) __PYX_ERR(1, 338, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_13);
     if (__pyx_t_12) {
       __Pyx_GIVEREF(__pyx_t_12); PyTuple_SET_ITEM(__pyx_t_13, 0, __pyx_t_12); __pyx_t_12 = NULL;
@@ -5420,14 +5413,14 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
     PyTuple_SET_ITEM(__pyx_t_13, 3+__pyx_t_2, __pyx_t_11);
     __pyx_t_10 = 0;
     __pyx_t_11 = 0;
-    __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_9, __pyx_t_13, NULL); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 335, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_9, __pyx_t_13, NULL); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 338, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
   }
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "rbf/pde/octtree.pyx":325
+  /* "rbf/pde/octtree.pyx":328
  * 
  *     '''
  *     def __init__(self, double[:] bounds, long max_depth=5):             # <<<<<<<<<<<<<<
@@ -5453,7 +5446,7 @@ static int __pyx_pf_3rbf_3pde_7octtree_7OctTree___init__(struct __pyx_obj_3rbf_3
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":337
+/* "rbf/pde/octtree.pyx":340
  *         super().__init__(bx, None, 1, max_depth)
  * 
  *     def add_boxes(self, double[:, :] boxes):             # <<<<<<<<<<<<<<
@@ -5470,7 +5463,7 @@ static PyObject *__pyx_pw_3rbf_3pde_7octtree_7OctTree_3add_boxes(PyObject *__pyx
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("add_boxes (wrapper)", 0);
   assert(__pyx_arg_boxes); {
-    __pyx_v_boxes = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(__pyx_arg_boxes, PyBUF_WRITABLE); if (unlikely(!__pyx_v_boxes.memview)) __PYX_ERR(1, 337, __pyx_L3_error)
+    __pyx_v_boxes = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(__pyx_arg_boxes, PyBUF_WRITABLE); if (unlikely(!__pyx_v_boxes.memview)) __PYX_ERR(1, 340, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5508,7 +5501,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
   Py_ssize_t __pyx_t_16;
   __Pyx_RefNannySetupContext("add_boxes", 0);
 
-  /* "rbf/pde/octtree.pyx":352
+  /* "rbf/pde/octtree.pyx":355
  *             box3d bx
  * 
  *         for i in range(boxes.shape[0]):             # <<<<<<<<<<<<<<
@@ -5520,7 +5513,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "rbf/pde/octtree.pyx":353
+    /* "rbf/pde/octtree.pyx":356
  * 
  *         for i in range(boxes.shape[0]):
  *             bx.xmin = boxes[i, 0]             # <<<<<<<<<<<<<<
@@ -5540,11 +5533,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     } else if (unlikely(__pyx_t_5 >= __pyx_v_boxes.shape[1])) __pyx_t_6 = 1;
     if (unlikely(__pyx_t_6 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_6);
-      __PYX_ERR(1, 353, __pyx_L1_error)
+      __PYX_ERR(1, 356, __pyx_L1_error)
     }
     __pyx_v_bx.xmin = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_boxes.data + __pyx_t_4 * __pyx_v_boxes.strides[0]) ) + __pyx_t_5 * __pyx_v_boxes.strides[1]) )));
 
-    /* "rbf/pde/octtree.pyx":354
+    /* "rbf/pde/octtree.pyx":357
  *         for i in range(boxes.shape[0]):
  *             bx.xmin = boxes[i, 0]
  *             bx.ymin = boxes[i, 1]             # <<<<<<<<<<<<<<
@@ -5564,11 +5557,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     } else if (unlikely(__pyx_t_8 >= __pyx_v_boxes.shape[1])) __pyx_t_6 = 1;
     if (unlikely(__pyx_t_6 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_6);
-      __PYX_ERR(1, 354, __pyx_L1_error)
+      __PYX_ERR(1, 357, __pyx_L1_error)
     }
     __pyx_v_bx.ymin = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_boxes.data + __pyx_t_7 * __pyx_v_boxes.strides[0]) ) + __pyx_t_8 * __pyx_v_boxes.strides[1]) )));
 
-    /* "rbf/pde/octtree.pyx":355
+    /* "rbf/pde/octtree.pyx":358
  *             bx.xmin = boxes[i, 0]
  *             bx.ymin = boxes[i, 1]
  *             bx.zmin = boxes[i, 2]             # <<<<<<<<<<<<<<
@@ -5588,11 +5581,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     } else if (unlikely(__pyx_t_10 >= __pyx_v_boxes.shape[1])) __pyx_t_6 = 1;
     if (unlikely(__pyx_t_6 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_6);
-      __PYX_ERR(1, 355, __pyx_L1_error)
+      __PYX_ERR(1, 358, __pyx_L1_error)
     }
     __pyx_v_bx.zmin = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_boxes.data + __pyx_t_9 * __pyx_v_boxes.strides[0]) ) + __pyx_t_10 * __pyx_v_boxes.strides[1]) )));
 
-    /* "rbf/pde/octtree.pyx":356
+    /* "rbf/pde/octtree.pyx":359
  *             bx.ymin = boxes[i, 1]
  *             bx.zmin = boxes[i, 2]
  *             bx.xmax = boxes[i, 3]             # <<<<<<<<<<<<<<
@@ -5612,11 +5605,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     } else if (unlikely(__pyx_t_12 >= __pyx_v_boxes.shape[1])) __pyx_t_6 = 1;
     if (unlikely(__pyx_t_6 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_6);
-      __PYX_ERR(1, 356, __pyx_L1_error)
+      __PYX_ERR(1, 359, __pyx_L1_error)
     }
     __pyx_v_bx.xmax = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_boxes.data + __pyx_t_11 * __pyx_v_boxes.strides[0]) ) + __pyx_t_12 * __pyx_v_boxes.strides[1]) )));
 
-    /* "rbf/pde/octtree.pyx":357
+    /* "rbf/pde/octtree.pyx":360
  *             bx.zmin = boxes[i, 2]
  *             bx.xmax = boxes[i, 3]
  *             bx.ymax = boxes[i, 4]             # <<<<<<<<<<<<<<
@@ -5636,11 +5629,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     } else if (unlikely(__pyx_t_14 >= __pyx_v_boxes.shape[1])) __pyx_t_6 = 1;
     if (unlikely(__pyx_t_6 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_6);
-      __PYX_ERR(1, 357, __pyx_L1_error)
+      __PYX_ERR(1, 360, __pyx_L1_error)
     }
     __pyx_v_bx.ymax = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_boxes.data + __pyx_t_13 * __pyx_v_boxes.strides[0]) ) + __pyx_t_14 * __pyx_v_boxes.strides[1]) )));
 
-    /* "rbf/pde/octtree.pyx":358
+    /* "rbf/pde/octtree.pyx":361
  *             bx.xmax = boxes[i, 3]
  *             bx.ymax = boxes[i, 4]
  *             bx.zmax = boxes[i, 5]             # <<<<<<<<<<<<<<
@@ -5660,11 +5653,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     } else if (unlikely(__pyx_t_16 >= __pyx_v_boxes.shape[1])) __pyx_t_6 = 1;
     if (unlikely(__pyx_t_6 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_6);
-      __PYX_ERR(1, 358, __pyx_L1_error)
+      __PYX_ERR(1, 361, __pyx_L1_error)
     }
     __pyx_v_bx.zmax = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_boxes.data + __pyx_t_15 * __pyx_v_boxes.strides[0]) ) + __pyx_t_16 * __pyx_v_boxes.strides[1]) )));
 
-    /* "rbf/pde/octtree.pyx":359
+    /* "rbf/pde/octtree.pyx":362
  *             bx.ymax = boxes[i, 4]
  *             bx.zmax = boxes[i, 5]
  *             self.add_box(self.box_count, bx)             # <<<<<<<<<<<<<<
@@ -5674,7 +5667,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
     ((struct __pyx_vtabstruct_3rbf_3pde_7octtree_OctTree *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.add_box(((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_v_self), __pyx_v_self->__pyx_base.box_count, __pyx_v_bx);
   }
 
-  /* "rbf/pde/octtree.pyx":337
+  /* "rbf/pde/octtree.pyx":340
  *         super().__init__(bx, None, 1, max_depth)
  * 
  *     def add_boxes(self, double[:, :] boxes):             # <<<<<<<<<<<<<<
@@ -5695,7 +5688,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_2add_boxes(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "rbf/pde/octtree.pyx":361
+/* "rbf/pde/octtree.pyx":364
  *             self.add_box(self.box_count, bx)
  * 
  *     def intersections(self, double[:] box):             # <<<<<<<<<<<<<<
@@ -5712,7 +5705,7 @@ static PyObject *__pyx_pw_3rbf_3pde_7octtree_7OctTree_5intersections(PyObject *_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("intersections (wrapper)", 0);
   assert(__pyx_arg_box); {
-    __pyx_v_box = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_arg_box, PyBUF_WRITABLE); if (unlikely(!__pyx_v_box.memview)) __PYX_ERR(1, 361, __pyx_L3_error)
+    __pyx_v_box = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_arg_box, PyBUF_WRITABLE); if (unlikely(!__pyx_v_box.memview)) __PYX_ERR(1, 364, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5749,44 +5742,43 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   int __pyx_t_10;
   Py_ssize_t __pyx_t_11;
   PyObject *__pyx_t_12 = NULL;
-  std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d> ::iterator __pyx_t_13;
-  std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  *__pyx_t_14;
-  __pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d __pyx_t_15;
+  Py_ssize_t __pyx_t_13;
+  PyObject *__pyx_t_14 = NULL;
+  PyObject *__pyx_t_15 = NULL;
   PyObject *__pyx_t_16 = NULL;
   PyObject *__pyx_t_17 = NULL;
-  PyObject *__pyx_t_18 = NULL;
-  PyObject *(*__pyx_t_19)(PyObject *);
-  long __pyx_t_20;
-  struct __pyx_t_3rbf_3pde_7octtree_box3d __pyx_t_21;
-  int __pyx_t_22;
+  PyObject *(*__pyx_t_18)(PyObject *);
+  long __pyx_t_19;
+  struct __pyx_t_3rbf_3pde_7octtree_box3d __pyx_t_20;
+  int __pyx_t_21;
   __Pyx_RefNannySetupContext("intersections", 0);
 
-  /* "rbf/pde/octtree.pyx":383
+  /* "rbf/pde/octtree.pyx":386
  *             box3d bx1, bx2
  *             _OctNode node, member
  *             list family = []             # <<<<<<<<<<<<<<
  *             vector[long] indices = []
  * 
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 383, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 386, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_family = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":384
+  /* "rbf/pde/octtree.pyx":387
  *             _OctNode node, member
  *             list family = []
  *             vector[long] indices = []             # <<<<<<<<<<<<<<
  * 
  *         bx1.xmin = box[0]
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 384, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 387, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_convert_vector_from_py_long(__pyx_t_1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 384, __pyx_L1_error)
+  __pyx_t_2 = __pyx_convert_vector_from_py_long(__pyx_t_1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 387, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_indices = __pyx_t_2;
 
-  /* "rbf/pde/octtree.pyx":386
+  /* "rbf/pde/octtree.pyx":389
  *             vector[long] indices = []
  * 
  *         bx1.xmin = box[0]             # <<<<<<<<<<<<<<
@@ -5801,11 +5793,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   } else if (unlikely(__pyx_t_3 >= __pyx_v_box.shape[0])) __pyx_t_4 = 0;
   if (unlikely(__pyx_t_4 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_4);
-    __PYX_ERR(1, 386, __pyx_L1_error)
+    __PYX_ERR(1, 389, __pyx_L1_error)
   }
   __pyx_v_bx1.xmin = (*((double *) ( /* dim=0 */ (__pyx_v_box.data + __pyx_t_3 * __pyx_v_box.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":387
+  /* "rbf/pde/octtree.pyx":390
  * 
  *         bx1.xmin = box[0]
  *         bx1.ymin = box[1]             # <<<<<<<<<<<<<<
@@ -5820,11 +5812,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   } else if (unlikely(__pyx_t_5 >= __pyx_v_box.shape[0])) __pyx_t_4 = 0;
   if (unlikely(__pyx_t_4 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_4);
-    __PYX_ERR(1, 387, __pyx_L1_error)
+    __PYX_ERR(1, 390, __pyx_L1_error)
   }
   __pyx_v_bx1.ymin = (*((double *) ( /* dim=0 */ (__pyx_v_box.data + __pyx_t_5 * __pyx_v_box.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":388
+  /* "rbf/pde/octtree.pyx":391
  *         bx1.xmin = box[0]
  *         bx1.ymin = box[1]
  *         bx1.zmin = box[2]             # <<<<<<<<<<<<<<
@@ -5839,11 +5831,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   } else if (unlikely(__pyx_t_6 >= __pyx_v_box.shape[0])) __pyx_t_4 = 0;
   if (unlikely(__pyx_t_4 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_4);
-    __PYX_ERR(1, 388, __pyx_L1_error)
+    __PYX_ERR(1, 391, __pyx_L1_error)
   }
   __pyx_v_bx1.zmin = (*((double *) ( /* dim=0 */ (__pyx_v_box.data + __pyx_t_6 * __pyx_v_box.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":389
+  /* "rbf/pde/octtree.pyx":392
  *         bx1.ymin = box[1]
  *         bx1.zmin = box[2]
  *         bx1.xmax = box[3]             # <<<<<<<<<<<<<<
@@ -5858,11 +5850,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   } else if (unlikely(__pyx_t_7 >= __pyx_v_box.shape[0])) __pyx_t_4 = 0;
   if (unlikely(__pyx_t_4 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_4);
-    __PYX_ERR(1, 389, __pyx_L1_error)
+    __PYX_ERR(1, 392, __pyx_L1_error)
   }
   __pyx_v_bx1.xmax = (*((double *) ( /* dim=0 */ (__pyx_v_box.data + __pyx_t_7 * __pyx_v_box.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":390
+  /* "rbf/pde/octtree.pyx":393
  *         bx1.zmin = box[2]
  *         bx1.xmax = box[3]
  *         bx1.ymax = box[4]             # <<<<<<<<<<<<<<
@@ -5877,11 +5869,11 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   } else if (unlikely(__pyx_t_8 >= __pyx_v_box.shape[0])) __pyx_t_4 = 0;
   if (unlikely(__pyx_t_4 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_4);
-    __PYX_ERR(1, 390, __pyx_L1_error)
+    __PYX_ERR(1, 393, __pyx_L1_error)
   }
   __pyx_v_bx1.ymax = (*((double *) ( /* dim=0 */ (__pyx_v_box.data + __pyx_t_8 * __pyx_v_box.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":391
+  /* "rbf/pde/octtree.pyx":394
  *         bx1.xmax = box[3]
  *         bx1.ymax = box[4]
  *         bx1.zmax = box[5]             # <<<<<<<<<<<<<<
@@ -5896,56 +5888,56 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   } else if (unlikely(__pyx_t_9 >= __pyx_v_box.shape[0])) __pyx_t_4 = 0;
   if (unlikely(__pyx_t_4 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_4);
-    __PYX_ERR(1, 391, __pyx_L1_error)
+    __PYX_ERR(1, 394, __pyx_L1_error)
   }
   __pyx_v_bx1.zmax = (*((double *) ( /* dim=0 */ (__pyx_v_box.data + __pyx_t_9 * __pyx_v_box.strides[0]) )));
 
-  /* "rbf/pde/octtree.pyx":394
+  /* "rbf/pde/octtree.pyx":397
  *         # find the smallest node that `box` fits in, and then test
  *         # whether that box intersects any boxes in related nodes
  *         node = self.smallest_bounding_node(bx1)             # <<<<<<<<<<<<<<
  *         family.append(node)
  *         family.extend(node.ancestor_nodes())
  */
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_3rbf_3pde_7octtree_OctTree *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.smallest_bounding_node(((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_v_self), __pyx_v_bx1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 394, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_3rbf_3pde_7octtree_OctTree *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.smallest_bounding_node(((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_v_self), __pyx_v_bx1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 397, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_node = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":395
+  /* "rbf/pde/octtree.pyx":398
  *         # whether that box intersects any boxes in related nodes
  *         node = self.smallest_bounding_node(bx1)
  *         family.append(node)             # <<<<<<<<<<<<<<
  *         family.extend(node.ancestor_nodes())
  *         family.extend(node.descendant_nodes())
  */
-  __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_family, ((PyObject *)__pyx_v_node)); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(1, 395, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_family, ((PyObject *)__pyx_v_node)); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(1, 398, __pyx_L1_error)
 
-  /* "rbf/pde/octtree.pyx":396
+  /* "rbf/pde/octtree.pyx":399
  *         node = self.smallest_bounding_node(bx1)
  *         family.append(node)
  *         family.extend(node.ancestor_nodes())             # <<<<<<<<<<<<<<
  *         family.extend(node.descendant_nodes())
  *         for member in family:
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_node->__pyx_vtab)->ancestor_nodes(__pyx_v_node); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 396, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_node->__pyx_vtab)->ancestor_nodes(__pyx_v_node); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 399, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_10 = __Pyx_PyList_Extend(__pyx_v_family, __pyx_t_1); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(1, 396, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyList_Extend(__pyx_v_family, __pyx_t_1); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(1, 399, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":397
+  /* "rbf/pde/octtree.pyx":400
  *         family.append(node)
  *         family.extend(node.ancestor_nodes())
  *         family.extend(node.descendant_nodes())             # <<<<<<<<<<<<<<
  *         for member in family:
  *             for i, bx2 in member.boxes:
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_node->__pyx_vtab)->descendant_nodes(__pyx_v_node); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 397, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_3rbf_3pde_7octtree__OctNode *)__pyx_v_node->__pyx_vtab)->descendant_nodes(__pyx_v_node); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 400, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_10 = __Pyx_PyList_Extend(__pyx_v_family, __pyx_t_1); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(1, 397, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyList_Extend(__pyx_v_family, __pyx_t_1); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(1, 400, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":398
+  /* "rbf/pde/octtree.pyx":401
  *         family.extend(node.ancestor_nodes())
  *         family.extend(node.descendant_nodes())
  *         for member in family:             # <<<<<<<<<<<<<<
@@ -5956,94 +5948,99 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   for (;;) {
     if (__pyx_t_11 >= PyList_GET_SIZE(__pyx_t_1)) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_12 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_11); __Pyx_INCREF(__pyx_t_12); __pyx_t_11++; if (unlikely(0 < 0)) __PYX_ERR(1, 398, __pyx_L1_error)
+    __pyx_t_12 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_11); __Pyx_INCREF(__pyx_t_12); __pyx_t_11++; if (unlikely(0 < 0)) __PYX_ERR(1, 401, __pyx_L1_error)
     #else
-    __pyx_t_12 = PySequence_ITEM(__pyx_t_1, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 398, __pyx_L1_error)
+    __pyx_t_12 = PySequence_ITEM(__pyx_t_1, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 401, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     #endif
-    if (!(likely(((__pyx_t_12) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_12, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 398, __pyx_L1_error)
+    if (!(likely(((__pyx_t_12) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_12, __pyx_ptype_3rbf_3pde_7octtree__OctNode))))) __PYX_ERR(1, 401, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_member, ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)__pyx_t_12));
     __pyx_t_12 = 0;
 
-    /* "rbf/pde/octtree.pyx":399
+    /* "rbf/pde/octtree.pyx":402
  *         family.extend(node.descendant_nodes())
  *         for member in family:
  *             for i, bx2 in member.boxes:             # <<<<<<<<<<<<<<
  *                 if boxes_intersect_3d(bx1, bx2):
  *                     indices.push_back(i)
  */
-    __pyx_t_14 = &__pyx_v_member->boxes;
-    __pyx_t_13 = __pyx_t_14->begin();
+    if (unlikely(__pyx_v_member->boxes == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+      __PYX_ERR(1, 402, __pyx_L1_error)
+    }
+    __pyx_t_12 = __pyx_v_member->boxes; __Pyx_INCREF(__pyx_t_12); __pyx_t_13 = 0;
     for (;;) {
-      if (!(__pyx_t_13 != __pyx_t_14->end())) break;
-      __pyx_t_15 = *__pyx_t_13;
-      ++__pyx_t_13;
-      __pyx_t_12 = __pyx_convert__to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_t_15); if (unlikely(!__pyx_t_12)) __PYX_ERR(1, 399, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_12);
-      if ((likely(PyTuple_CheckExact(__pyx_t_12))) || (PyList_CheckExact(__pyx_t_12))) {
-        PyObject* sequence = __pyx_t_12;
+      if (__pyx_t_13 >= PyList_GET_SIZE(__pyx_t_12)) break;
+      #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+      __pyx_t_14 = PyList_GET_ITEM(__pyx_t_12, __pyx_t_13); __Pyx_INCREF(__pyx_t_14); __pyx_t_13++; if (unlikely(0 < 0)) __PYX_ERR(1, 402, __pyx_L1_error)
+      #else
+      __pyx_t_14 = PySequence_ITEM(__pyx_t_12, __pyx_t_13); __pyx_t_13++; if (unlikely(!__pyx_t_14)) __PYX_ERR(1, 402, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_14);
+      #endif
+      if ((likely(PyTuple_CheckExact(__pyx_t_14))) || (PyList_CheckExact(__pyx_t_14))) {
+        PyObject* sequence = __pyx_t_14;
         Py_ssize_t size = __Pyx_PySequence_SIZE(sequence);
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(1, 399, __pyx_L1_error)
+          __PYX_ERR(1, 402, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
-          __pyx_t_16 = PyTuple_GET_ITEM(sequence, 0); 
-          __pyx_t_17 = PyTuple_GET_ITEM(sequence, 1); 
+          __pyx_t_15 = PyTuple_GET_ITEM(sequence, 0); 
+          __pyx_t_16 = PyTuple_GET_ITEM(sequence, 1); 
         } else {
-          __pyx_t_16 = PyList_GET_ITEM(sequence, 0); 
-          __pyx_t_17 = PyList_GET_ITEM(sequence, 1); 
+          __pyx_t_15 = PyList_GET_ITEM(sequence, 0); 
+          __pyx_t_16 = PyList_GET_ITEM(sequence, 1); 
         }
+        __Pyx_INCREF(__pyx_t_15);
         __Pyx_INCREF(__pyx_t_16);
-        __Pyx_INCREF(__pyx_t_17);
         #else
-        __pyx_t_16 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 399, __pyx_L1_error)
+        __pyx_t_15 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(1, 402, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_15);
+        __pyx_t_16 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_16)) __PYX_ERR(1, 402, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_16);
-        __pyx_t_17 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_17)) __PYX_ERR(1, 399, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_17);
         #endif
-        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_18 = PyObject_GetIter(__pyx_t_12); if (unlikely(!__pyx_t_18)) __PYX_ERR(1, 399, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_18);
-        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        __pyx_t_19 = Py_TYPE(__pyx_t_18)->tp_iternext;
-        index = 0; __pyx_t_16 = __pyx_t_19(__pyx_t_18); if (unlikely(!__pyx_t_16)) goto __pyx_L7_unpacking_failed;
-        __Pyx_GOTREF(__pyx_t_16);
-        index = 1; __pyx_t_17 = __pyx_t_19(__pyx_t_18); if (unlikely(!__pyx_t_17)) goto __pyx_L7_unpacking_failed;
+        __pyx_t_17 = PyObject_GetIter(__pyx_t_14); if (unlikely(!__pyx_t_17)) __PYX_ERR(1, 402, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_19(__pyx_t_18), 2) < 0) __PYX_ERR(1, 399, __pyx_L1_error)
-        __pyx_t_19 = NULL;
-        __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
+        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+        __pyx_t_18 = Py_TYPE(__pyx_t_17)->tp_iternext;
+        index = 0; __pyx_t_15 = __pyx_t_18(__pyx_t_17); if (unlikely(!__pyx_t_15)) goto __pyx_L7_unpacking_failed;
+        __Pyx_GOTREF(__pyx_t_15);
+        index = 1; __pyx_t_16 = __pyx_t_18(__pyx_t_17); if (unlikely(!__pyx_t_16)) goto __pyx_L7_unpacking_failed;
+        __Pyx_GOTREF(__pyx_t_16);
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_18(__pyx_t_17), 2) < 0) __PYX_ERR(1, 402, __pyx_L1_error)
+        __pyx_t_18 = NULL;
+        __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
         goto __pyx_L8_unpacking_done;
         __pyx_L7_unpacking_failed:;
-        __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-        __pyx_t_19 = NULL;
+        __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
+        __pyx_t_18 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(1, 399, __pyx_L1_error)
+        __PYX_ERR(1, 402, __pyx_L1_error)
         __pyx_L8_unpacking_done:;
       }
-      __pyx_t_20 = __Pyx_PyInt_As_long(__pyx_t_16); if (unlikely((__pyx_t_20 == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 399, __pyx_L1_error)
+      __pyx_t_19 = __Pyx_PyInt_As_long(__pyx_t_15); if (unlikely((__pyx_t_19 == (long)-1) && PyErr_Occurred())) __PYX_ERR(1, 402, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+      __pyx_t_20 = __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_t_16); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 402, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-      __pyx_t_21 = __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(__pyx_t_17); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 399, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-      __pyx_v_i = __pyx_t_20;
-      __pyx_v_bx2 = __pyx_t_21;
+      __pyx_v_i = __pyx_t_19;
+      __pyx_v_bx2 = __pyx_t_20;
 
-      /* "rbf/pde/octtree.pyx":400
+      /* "rbf/pde/octtree.pyx":403
  *         for member in family:
  *             for i, bx2 in member.boxes:
  *                 if boxes_intersect_3d(bx1, bx2):             # <<<<<<<<<<<<<<
  *                     indices.push_back(i)
  * 
  */
-      __pyx_t_22 = (__pyx_f_3rbf_3pde_7octtree_boxes_intersect_3d(__pyx_v_bx1, __pyx_v_bx2) != 0);
-      if (__pyx_t_22) {
+      __pyx_t_21 = (__pyx_f_3rbf_3pde_7octtree_boxes_intersect_3d(__pyx_v_bx1, __pyx_v_bx2) != 0);
+      if (__pyx_t_21) {
 
-        /* "rbf/pde/octtree.pyx":401
+        /* "rbf/pde/octtree.pyx":404
  *             for i, bx2 in member.boxes:
  *                 if boxes_intersect_3d(bx1, bx2):
  *                     indices.push_back(i)             # <<<<<<<<<<<<<<
@@ -6054,10 +6051,10 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
           __pyx_v_indices.push_back(__pyx_v_i);
         } catch(...) {
           __Pyx_CppExn2PyErr();
-          __PYX_ERR(1, 401, __pyx_L1_error)
+          __PYX_ERR(1, 404, __pyx_L1_error)
         }
 
-        /* "rbf/pde/octtree.pyx":400
+        /* "rbf/pde/octtree.pyx":403
  *         for member in family:
  *             for i, bx2 in member.boxes:
  *                 if boxes_intersect_3d(bx1, bx2):             # <<<<<<<<<<<<<<
@@ -6066,7 +6063,7 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
  */
       }
 
-      /* "rbf/pde/octtree.pyx":399
+      /* "rbf/pde/octtree.pyx":402
  *         family.extend(node.descendant_nodes())
  *         for member in family:
  *             for i, bx2 in member.boxes:             # <<<<<<<<<<<<<<
@@ -6074,8 +6071,9 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
  *                     indices.push_back(i)
  */
     }
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-    /* "rbf/pde/octtree.pyx":398
+    /* "rbf/pde/octtree.pyx":401
  *         family.extend(node.ancestor_nodes())
  *         family.extend(node.descendant_nodes())
  *         for member in family:             # <<<<<<<<<<<<<<
@@ -6085,19 +6083,19 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "rbf/pde/octtree.pyx":403
+  /* "rbf/pde/octtree.pyx":406
  *                     indices.push_back(i)
  * 
  *         return indices             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_convert_vector_to_py_long(__pyx_v_indices); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 403, __pyx_L1_error)
+  __pyx_t_1 = __pyx_convert_vector_to_py_long(__pyx_v_indices); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 406, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "rbf/pde/octtree.pyx":361
+  /* "rbf/pde/octtree.pyx":364
  *             self.add_box(self.box_count, bx)
  * 
  *     def intersections(self, double[:] box):             # <<<<<<<<<<<<<<
@@ -6109,9 +6107,10 @@ static PyObject *__pyx_pf_3rbf_3pde_7octtree_7OctTree_4intersections(struct __py
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_XDECREF(__pyx_t_14);
+  __Pyx_XDECREF(__pyx_t_15);
   __Pyx_XDECREF(__pyx_t_16);
   __Pyx_XDECREF(__pyx_t_17);
-  __Pyx_XDECREF(__pyx_t_18);
   __Pyx_AddTraceback("rbf.pde.octtree.OctTree.intersections", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -6923,187 +6922,6 @@ static struct __pyx_t_3rbf_3pde_7octtree_box3d __pyx_convert__from_py_struct____
   __Pyx_pretend_to_initialize(&__pyx_r);
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_value);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "vector.from_py":45
- * 
- * @cname("__pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d")
- * cdef vector[X] __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(object o) except *:             # <<<<<<<<<<<<<<
- *     cdef vector[X] v
- *     for item in o:
- */
-
-static std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(PyObject *__pyx_v_o) {
-  std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  __pyx_v_v;
-  PyObject *__pyx_v_item = NULL;
-  std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  __pyx_r;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  Py_ssize_t __pyx_t_2;
-  PyObject *(*__pyx_t_3)(PyObject *);
-  PyObject *__pyx_t_4 = NULL;
-  __pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d __pyx_t_5;
-  __Pyx_RefNannySetupContext("__pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d", 0);
-
-  /* "vector.from_py":47
- * cdef vector[X] __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(object o) except *:
- *     cdef vector[X] v
- *     for item in o:             # <<<<<<<<<<<<<<
- *         v.push_back(<X>item)
- *     return v
- */
-  if (likely(PyList_CheckExact(__pyx_v_o)) || PyTuple_CheckExact(__pyx_v_o)) {
-    __pyx_t_1 = __pyx_v_o; __Pyx_INCREF(__pyx_t_1); __pyx_t_2 = 0;
-    __pyx_t_3 = NULL;
-  } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_o); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = Py_TYPE(__pyx_t_1)->tp_iternext; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
-  }
-  for (;;) {
-    if (likely(!__pyx_t_3)) {
-      if (likely(PyList_CheckExact(__pyx_t_1))) {
-        if (__pyx_t_2 >= PyList_GET_SIZE(__pyx_t_1)) break;
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_4 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_4); __pyx_t_2++; if (unlikely(0 < 0)) __PYX_ERR(0, 47, __pyx_L1_error)
-        #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_4);
-        #endif
-      } else {
-        if (__pyx_t_2 >= PyTuple_GET_SIZE(__pyx_t_1)) break;
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_4 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_2); __Pyx_INCREF(__pyx_t_4); __pyx_t_2++; if (unlikely(0 < 0)) __PYX_ERR(0, 47, __pyx_L1_error)
-        #else
-        __pyx_t_4 = PySequence_ITEM(__pyx_t_1, __pyx_t_2); __pyx_t_2++; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_4);
-        #endif
-      }
-    } else {
-      __pyx_t_4 = __pyx_t_3(__pyx_t_1);
-      if (unlikely(!__pyx_t_4)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 47, __pyx_L1_error)
-        }
-        break;
-      }
-      __Pyx_GOTREF(__pyx_t_4);
-    }
-    __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_4);
-    __pyx_t_4 = 0;
-
-    /* "vector.from_py":48
- *     cdef vector[X] v
- *     for item in o:
- *         v.push_back(<X>item)             # <<<<<<<<<<<<<<
- *     return v
- * 
- */
-    __pyx_t_5 = __pyx_convert__from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(__pyx_v_item); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 48, __pyx_L1_error)
-    __pyx_v_v.push_back(((__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d)__pyx_t_5));
-
-    /* "vector.from_py":47
- * cdef vector[X] __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(object o) except *:
- *     cdef vector[X] v
- *     for item in o:             # <<<<<<<<<<<<<<
- *         v.push_back(<X>item)
- *     return v
- */
-  }
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "vector.from_py":49
- *     for item in o:
- *         v.push_back(<X>item)
- *     return v             # <<<<<<<<<<<<<<
- * 
- * 
- */
-  __pyx_r = __pyx_v_v;
-  goto __pyx_L0;
-
-  /* "vector.from_py":45
- * 
- * @cname("__pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d")
- * cdef vector[X] __pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(object o) except *:             # <<<<<<<<<<<<<<
- *     cdef vector[X] v
- *     for item in o:
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_AddTraceback("vector.from_py.__pyx_convert_vector_from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_pretend_to_initialize(&__pyx_r);
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_item);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "vector.to_py":60
- * 
- * @cname("__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d")
- * cdef object __pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(vector[X]& v):             # <<<<<<<<<<<<<<
- *     return [v[i] for i in range(v.size())]
- * 
- */
-
-static PyObject *__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(const std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d>  &__pyx_v_v) {
-  size_t __pyx_v_i;
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  size_t __pyx_t_2;
-  size_t __pyx_t_3;
-  size_t __pyx_t_4;
-  PyObject *__pyx_t_5 = NULL;
-  __Pyx_RefNannySetupContext("__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d", 0);
-
-  /* "vector.to_py":61
- * @cname("__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d")
- * cdef object __pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(vector[X]& v):
- *     return [v[i] for i in range(v.size())]             # <<<<<<<<<<<<<<
- * 
- * 
- */
-  __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_v_v.size();
-  __pyx_t_3 = __pyx_t_2;
-  for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
-    __pyx_v_i = __pyx_t_4;
-    __pyx_t_5 = __pyx_convert__to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d((__pyx_v_v[__pyx_v_i])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 61, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  }
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
-  goto __pyx_L0;
-
-  /* "vector.to_py":60
- * 
- * @cname("__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d")
- * cdef object __pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(vector[X]& v):             # <<<<<<<<<<<<<<
- *     return [v[i] for i in range(v.size())]
- * 
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_AddTraceback("vector.to_py.__pyx_convert_vector_to_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = 0;
-  __pyx_L0:;
-  __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
@@ -20217,9 +20035,9 @@ static PyObject *__pyx_tp_new_3rbf_3pde_7octtree__OctNode(PyTypeObject *t, CYTHO
   if (unlikely(!o)) return 0;
   p = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)o);
   p->__pyx_vtab = __pyx_vtabptr_3rbf_3pde_7octtree__OctNode;
-  new((void*)&(p->boxes)) std::vector<__pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d> ();
   p->parent = ((struct __pyx_obj_3rbf_3pde_7octtree__OctNode *)Py_None); Py_INCREF(Py_None);
   p->children = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  p->boxes = ((PyObject*)Py_None); Py_INCREF(Py_None);
   return o;
 }
 
@@ -20231,9 +20049,9 @@ static void __pyx_tp_dealloc_3rbf_3pde_7octtree__OctNode(PyObject *o) {
   }
   #endif
   PyObject_GC_UnTrack(o);
-  __Pyx_call_destructor(p->boxes);
   Py_CLEAR(p->parent);
   Py_CLEAR(p->children);
+  Py_CLEAR(p->boxes);
   (*Py_TYPE(o)->tp_free)(o);
 }
 
@@ -20246,6 +20064,9 @@ static int __pyx_tp_traverse_3rbf_3pde_7octtree__OctNode(PyObject *o, visitproc 
   if (p->children) {
     e = (*v)(p->children, a); if (e) return e;
   }
+  if (p->boxes) {
+    e = (*v)(p->boxes, a); if (e) return e;
+  }
   return 0;
 }
 
@@ -20257,6 +20078,9 @@ static int __pyx_tp_clear_3rbf_3pde_7octtree__OctNode(PyObject *o) {
   Py_XDECREF(tmp);
   tmp = ((PyObject*)p->children);
   p->children = ((PyObject*)Py_None); Py_INCREF(Py_None);
+  Py_XDECREF(tmp);
+  tmp = ((PyObject*)p->boxes);
+  p->boxes = ((PyObject*)Py_None); Py_INCREF(Py_None);
   Py_XDECREF(tmp);
   return 0;
 }
@@ -21265,8 +21089,8 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 };
 static int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 2, __pyx_L1_error)
-  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_n_s_super); if (!__pyx_builtin_super) __PYX_ERR(1, 335, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(1, 352, __pyx_L1_error)
+  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_n_s_super); if (!__pyx_builtin_super) __PYX_ERR(1, 338, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(1, 355, __pyx_L1_error)
   __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 18, __pyx_L1_error)
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 19, __pyx_L1_error)
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(0, 147, __pyx_L1_error)
@@ -21755,14 +21579,14 @@ static int __Pyx_modinit_type_init_code(void) {
   __pyx_vtabptr_3rbf_3pde_7octtree_OctTree = &__pyx_vtable_3rbf_3pde_7octtree_OctTree;
   __pyx_vtable_3rbf_3pde_7octtree_OctTree.__pyx_base = *__pyx_vtabptr_3rbf_3pde_7octtree__OctNode;
   __pyx_type_3rbf_3pde_7octtree_OctTree.tp_base = __pyx_ptype_3rbf_3pde_7octtree__OctNode;
-  if (PyType_Ready(&__pyx_type_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 307, __pyx_L1_error)
+  if (PyType_Ready(&__pyx_type_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 310, __pyx_L1_error)
   __pyx_type_3rbf_3pde_7octtree_OctTree.tp_print = 0;
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_type_3rbf_3pde_7octtree_OctTree.tp_dictoffset && __pyx_type_3rbf_3pde_7octtree_OctTree.tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_type_3rbf_3pde_7octtree_OctTree.tp_getattro = __Pyx_PyObject_GenericGetAttr;
   }
-  if (__Pyx_SetVtable(__pyx_type_3rbf_3pde_7octtree_OctTree.tp_dict, __pyx_vtabptr_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 307, __pyx_L1_error)
-  if (PyObject_SetAttrString(__pyx_m, "OctTree", (PyObject *)&__pyx_type_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 307, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 307, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_type_3rbf_3pde_7octtree_OctTree.tp_dict, __pyx_vtabptr_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 310, __pyx_L1_error)
+  if (PyObject_SetAttrString(__pyx_m, "OctTree", (PyObject *)&__pyx_type_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 310, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_3rbf_3pde_7octtree_OctTree) < 0) __PYX_ERR(1, 310, __pyx_L1_error)
   __pyx_ptype_3rbf_3pde_7octtree_OctTree = &__pyx_type_3rbf_3pde_7octtree_OctTree;
   __pyx_vtabptr_array = &__pyx_vtable_array;
   __pyx_vtable_array.get_memview = (PyObject *(*)(struct __pyx_array_obj *))__pyx_array_get_memview;
@@ -25222,36 +25046,6 @@ __pyx_fail:
 __pyx_fail:
     result.memview = NULL;
     result.data = NULL;
-    return result;
-}
-
-/* FromPyCTupleUtility */
-          static __pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d __pyx_convert__from_py___pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d(PyObject * o) {
-    __pyx_ctuple_long__and_struct__space___dunderpyx_t_3rbf_3pde_7octtree_box3d result;
-    if (!PyTuple_Check(o) || PyTuple_GET_SIZE(o) != 2) {
-        PyErr_Format(PyExc_TypeError, "Expected %.16s of size %d, got %.200s", "a tuple", 2, Py_TYPE(o)->tp_name);
-        goto bad;
-    }
-#if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        result.f0 = __Pyx_PyInt_As_long(PyTuple_GET_ITEM(o, 0));
-        if ((result.f0 == (long)-1) && PyErr_Occurred()) goto bad;
-        result.f1 = __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(PyTuple_GET_ITEM(o, 1));
-        if (PyErr_Occurred()) goto bad;
-#else
-    {
-        PyObject *item;
-        item = PySequence_ITEM(o, 0);  if (unlikely(!item)) goto bad;
-        result.f0 = __Pyx_PyInt_As_long(item);
-        Py_DECREF(item);
-        if ((result.f0 == (long)-1) && PyErr_Occurred()) goto bad;
-        item = PySequence_ITEM(o, 1);  if (unlikely(!item)) goto bad;
-        result.f1 = __pyx_convert__from_py_struct____pyx_t_3rbf_3pde_7octtree_box3d(item);
-        Py_DECREF(item);
-        if (PyErr_Occurred()) goto bad;
-    }
-#endif
-    return result;
-bad:
     return result;
 }
 

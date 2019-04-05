@@ -1,7 +1,3 @@
-# distutils: language = c++
-from libcpp.vector cimport vector
-
-
 cdef struct box2d:
     double xmin, xmax, ymin, ymax
 
@@ -36,11 +32,10 @@ cdef class _QuadNode:
         # the greatest possible depth for this tree
         long max_depth
         # the direct descendants for this node
-        tuple children
+        list children
         # the boxes contained in this node and their corresponding
-        # indices. A vector is like a list except it is more efficient
-        # because its items are typed
-        vector[(long, box2d)] boxes
+        # indices.
+        list boxes
         # the total number of boxes that have been added to the node
         # and its childen. This is not necessarily equal to len(boxes)
         long box_count
@@ -55,8 +50,8 @@ cdef class _QuadNode:
         self.bounds = bounds
         self.parent = parent
         self.box_count = 0
-        self.children = ()
-        self.boxes = [] # this automatically gets coerced to a vector
+        self.children = []
+        self.boxes = []
 
     def __repr__(self):
         out = ('< QuadNode: x=(%s, %s), y=(%s, %s), depth=%s/%s, '
@@ -113,7 +108,7 @@ cdef class _QuadNode:
             bounds3, self, self.depth + 1, self.max_depth)
         child4 = _QuadNode(
             bounds4, self, self.depth + 1, self.max_depth)
-        self.children = (child1, child2, child3, child4)
+        self.children = [child1, child2, child3, child4]
 
     cdef bint contains_box(self, box2d bx):
         '''
@@ -151,7 +146,6 @@ cdef class _QuadNode:
         '''
         cdef:
             _QuadNode child
-            (long, box2d) item = (idx, bx)
             
         # the box will either be added to the current node or one of
         # its children so increment `box_count`
@@ -168,9 +162,8 @@ cdef class _QuadNode:
                 return
 
         # if we reach this point, then the item is contained in no
-        # children, so we add the item to `self`. `push_back` is like
-        # `append` for vectors
-        self.boxes.push_back(item)
+        # children, so we add the item to `self`. 
+        self.boxes.append((idx, bx))
         return
 
     cdef _QuadNode smallest_bounding_node(self, box2d bx):
@@ -237,11 +230,11 @@ cdef class _QuadNode:
             if child.children:
                 remove_children = False
             
-            elif child.boxes.size() != 0:
+            elif child.boxes:
                 remove_children = False
         
         if remove_children:
-            self.children = ()
+            self.children = []
             
         return
 
@@ -318,7 +311,7 @@ cdef class QuadTree(_QuadNode):
             box2d bx1, bx2
             _QuadNode node, member
             list family = []
-            vector[long] indices = []
+            list indices = []
 
         bx1.xmin = box[0]
         bx1.ymin = box[1]
@@ -333,6 +326,6 @@ cdef class QuadTree(_QuadNode):
         for member in family:
             for i, bx2 in member.boxes:
                 if boxes_intersect_2d(bx1, bx2):
-                    indices.push_back(i)
+                    indices.append(i)
 
         return indices
