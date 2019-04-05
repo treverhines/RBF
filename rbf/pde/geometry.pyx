@@ -1,14 +1,12 @@
 ''' 
 Module of cythonized functions for basic computational geometry in 2
-and 3 dimensions. This modules requires all geometric objects (e.g.
-volumes, polygons, surfaces, segments, etc.) to be described as
-simplicial complexes. A simplicial complex is a collection of
-simplices (e.g. segments, triangles, tetrahedra, etc.).  In this
-module, simplicial complexes in D-dimenional space are described with
-an (N, D) array of vertices and and (M, D) array describing the
-indices of vertices making up each simplex. As an example, the unit
-square in two dimensions can be described as collection of line
-segments:
+and 3 dimensions. This modules requires geometric objects (e.g.
+polygons, polyhedra, surfaces, segments, etc.) to be described as a
+collection of simplices (i.e. segments or triangles). In this module,
+geometric objects in D-dimensional space are described with an (N, D)
+array of vertices and and (M, D) array describing the indices of
+vertices making up each simplex. As an example, the unit square in two
+dimensions can be described as collection of line segments:
 
 >>> vertices = [[0.0, 0.0],
                 [1.0, 0.0],
@@ -43,33 +41,33 @@ of triangles:
                  [2, 3, 7],
                  [2, 6, 7]]
  
-This module is primarily use to find whether and where line segments
-intersect a simplicial complex and whether points are contained within
-a closed simplicial complex.  For example, one can determine whether a
+This module is primarily used to find whether and where line segments
+intersect a geometric object and whether points are contained within a
+closed geometric object.  For example, one can determine whether a
 collection of points, saved as `points`, are contained within a
-simplicial complex, defined by `vertices` and `simplices` with the
+geometric object, defined by `vertices` and `simplices` with the
 command
 
 >>> contains(points, vertices, simplices)
 
 which returns a boolean array.
 
-One can find the number of times a collection of line segments, 
-defined by `start_points` and `end_points`, intersect a simplicial 
-complex with the command
+One can find the number of times a collection of line segments,
+defined by `start_points` and `end_points`, intersect a geometric
+object with the command
 
 >> intersection_count(start_points, end_points, vertices, simplices)
 
-which returns an array of the number of simplexes intersections for
-each segment. If it is known that a collection of line segments
-intersect a simplicial complex then the intersection point can be
-found with the command
+which returns an array of the number of simplices intersected by each
+segment. If it is known that a collection of line segments intersect a
+geometric object then the intersection point can be found with the
+command
 
 >> intersection(start_points, end_points, vertices, simplices)
  
 This returns an (N, D) float array of intersection points, and an (N,)
 int array identifying which simplex the intersection occurred at. If a
-line segment does not intersect the simplicial complex then the above
+line segment does not intersect the geometric object then the above
 command returns a ValueError. If there are multiple intersections for
 a single segment then only the first detected intersection will be
 returned.
@@ -711,6 +709,7 @@ def _intersection_count_2d(double[:, :] start_pnts,
 
     tree = QuadTree(domain_bounds, max_depth=5)
     tree.add_boxes(smp_bounds) 
+    tree.prune()
 
     for i in range(N):
       seg1.a.x = start_pnts[i, 0]
@@ -790,6 +789,7 @@ def _intersection_count_3d(double[:, :] start_pnts,
 
     tree = OctTree(domain_bounds, max_depth=5)
     tree.add_boxes(smp_bounds) 
+    tree.prune()
 
     for i in range(N):
       seg.a.x = start_pnts[i, 0]

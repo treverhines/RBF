@@ -94,7 +94,8 @@ def disperse(nodes,
              fixed_nodes=None,
              neighbors=None,
              delta=0.1,
-             bound_force=False):
+             bound_force=False,
+             use_qotree=False):
   '''
   Slightly disperses the nodes within the domain defined by `vert` and
   `smp`. The disperson is analogous to electrostatic repulsion, where
@@ -132,6 +133,10 @@ def disperse(nodes,
     If True then nodes cannot repel eachother across the domain
     boundaries.
 
+  use_qotree : bool, optional
+    Whether to use a quad/oct tree to detect when a node collides with
+    the boundary. 
+
   Returns
   -------
   (n, d) float array
@@ -156,7 +161,7 @@ def disperse(nodes,
                   smp=bound_smp)
   # boolean array of nodes which are now outside the domain
   crossed = intersection_count(nodes, out, vert, smp, 
-                               use_qotree=True) > 0
+                               use_qotree=use_qotree) > 0
   # point where nodes intersected the boundary and the simplex they
   # intersected at
   intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], 
@@ -170,7 +175,7 @@ def disperse(nodes,
   # check to see if the bounced nodes still intersect the boundary. If
   # not then set the bounced nodes back to their original position
   crossed = intersection_count(nodes, out, vert, smp, 
-                               use_qotree=True) > 0
+                               use_qotree=use_qotree) > 0
   out[crossed] = nodes[crossed]
   return out
 
@@ -321,7 +326,8 @@ def prepare_nodes(nodes, vert, smp,
                   snap_delta=0.5,
                   boundary_groups=None,
                   boundary_groups_with_ghosts=None,
-                  include_vertices=False):
+                  include_vertices=False,
+                  use_qotree=False):
   '''
   Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
   method. This includes: dispersing the nodes away from eachother to
@@ -400,6 +406,10 @@ def prepare_nodes(nodes, vert, smp,
     groups, then the vertex will be assigned to the group containing
     the simplex that comes first in `smp`.
 
+  use_qotree : bool, optional
+    Whether to use a quad/oct tree to detect when a node collides with
+    the boundary during the dispersion phase.
+
   Returns
   -------
   (m, d) float array
@@ -450,7 +460,8 @@ def prepare_nodes(nodes, vert, smp,
                      fixed_nodes=fixed_nodes, 
                      neighbors=neighbors, 
                      delta=dispersion_delta, 
-                     bound_force=bound_force)
+                     bound_force=bound_force,
+                     use_qotree=use_qotree)
 
   # append the domain vertices to the collection of nodes if requested
   if include_vertices:

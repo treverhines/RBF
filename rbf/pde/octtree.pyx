@@ -1,3 +1,6 @@
+# distutils: language = c++
+from libcpp.vector cimport vector
+
 
 cdef struct box3d:
     double xmin, xmax, ymin, ymax, zmin, zmax
@@ -37,10 +40,11 @@ cdef class _OctNode:
         # the greatest possible depth for this tree
         long max_depth
         # the direct descendants for this node
-        list children
+        tuple children
         # the boxes contained in this node and their corresponding
-        # indices
-        list boxes
+        # indices. A vector is like a list except it is more efficient
+        # because its items are typed
+        vector[(long, box3d)] boxes
         # the total number of boxes that have been added to the node
         # and its childen. This is not necessarily equal to len(boxes)
         long box_count
@@ -55,8 +59,8 @@ cdef class _OctNode:
         self.bounds = bounds
         self.parent = parent
         self.box_count = 0
-        self.children = []
-        self.boxes = []
+        self.children = ()
+        self.boxes = [] # this automatically gets coerced to a vector
 
     def __repr__(self):
         out = ('< OctNode: x=(%s, %s), y=(%s, %s), z=(%s, %s), '
@@ -162,8 +166,8 @@ cdef class _OctNode:
         child8 = _OctNode(
             bounds8, self, self.depth + 1, self.max_depth)
 
-        self.children = [child1, child2, child3, child4,
-                         child5, child6, child7, child8]
+        self.children = (child1, child2, child3, child4,
+                         child5, child6, child7, child8)
 
     cdef bint contains_box(self, box3d bx):
         '''
@@ -205,6 +209,7 @@ cdef class _OctNode:
         '''
         cdef:
             _OctNode child
+            (long, box3d) item = (idx, bx)
 
         # the box will either be added to the current node or one of
         # its children so increment `box_count`
@@ -221,8 +226,9 @@ cdef class _OctNode:
                 return
 
         # if we reach this point, then the item is contained in no
-        # children, so we add the item to `self`.
-        self.boxes.append((idx, bx))
+        # children, so we add the item to `self`. `push_back` is like
+        # `append` for vectors
+        self.boxes.push_back(item)
         return
 
     cdef _OctNode smallest_bounding_node(self, box3d bx):
@@ -277,23 +283,24 @@ cdef class _OctNode:
 
     cpdef void prune(self):
         '''
-        Removes nodes that have no boxes and no children. This should
-        be called only when all the boxes have been added.
+        Recursively removes a nodes children if the children have no
+        children of their own and if none of the children have boxes.
         '''
         cdef:
             _OctNode child
-            list kept_children = []
+            bint remove_children = True
 
         for child in self.children:
             child.prune()
-            # if, after pruning, the child has children of its own or
-            # it has boxes, then keep it
             if child.children:
-                kept_children.append(child)
-            elif child.boxes:
-                kept_children.append(child)
+                remove_children = False
+                
+            elif child.boxes.size() != 0:
+                remove_children = False
 
-        self.children = kept_children
+        if remove_children:
+            self.children = ()
+            
         return
 
 
@@ -340,10 +347,9 @@ cdef class OctTree(_OctNode):
 
         cdef:
             long i
-            long nboxes = boxes.shape[0]
             box3d bx
 
-        for i in range(nboxes):
+        for i in range(boxes.shape[0]):
             bx.xmin = boxes[i, 0]
             bx.ymin = boxes[i, 1]
             bx.zmin = boxes[i, 2]
@@ -375,7 +381,7 @@ cdef class OctTree(_OctNode):
             box3d bx1, bx2
             _OctNode node, member
             list family = []
-            list indices = []
+            vector[long] indices = []
 
         bx1.xmin = box[0]
         bx1.ymin = box[1]
@@ -392,6 +398,6 @@ cdef class OctTree(_OctNode):
         for member in family:
             for i, bx2 in member.boxes:
                 if boxes_intersect_3d(bx1, bx2):
-                    indices.append(i)
+                    indices.push_back(i)
 
         return indices
