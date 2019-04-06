@@ -14,6 +14,7 @@ from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.sampling import rejection_sampling, poisson_discs
 from rbf.pde.geometry import (intersection,
                               intersection_count,
+                              intersection_count_rtree,
                               simplex_outward_normals,
                               simplex_normals,
                               nearest_point)
@@ -95,7 +96,7 @@ def disperse(nodes,
              neighbors=None,
              delta=0.1,
              bound_force=False,
-             use_qotree=False):
+             tree=None):
   '''
   Slightly disperses the nodes within the domain defined by `vert` and
   `smp`. The disperson is analogous to electrostatic repulsion, where
@@ -133,9 +134,7 @@ def disperse(nodes,
     If True then nodes cannot repel eachother across the domain
     boundaries.
 
-  use_qotree : bool, optional
-    Whether to use a quad/oct tree to detect when a node collides with
-    the boundary. 
+  tree : rtree.index.Index instance, optional
 
   Returns
   -------
@@ -160,8 +159,7 @@ def disperse(nodes,
                   neighbors=neighbors, delta=delta, vert=bound_vert, 
                   smp=bound_smp)
   # boolean array of nodes which are now outside the domain
-  crossed = intersection_count(nodes, out, vert, smp, 
-                               use_qotree=use_qotree) > 0
+  crossed = intersection_count(nodes, out, vert, smp, tree=tree) > 0
   # point where nodes intersected the boundary and the simplex they
   # intersected at
   intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], 
@@ -174,8 +172,7 @@ def disperse(nodes,
   out[crossed] -= 2*intr_norms*np.sum(res*intr_norms, 1)[:, None]
   # check to see if the bounced nodes still intersect the boundary. If
   # not then set the bounced nodes back to their original position
-  crossed = intersection_count(nodes, out, vert, smp, 
-                               use_qotree=use_qotree) > 0
+  crossed = intersection_count(nodes, out, vert, smp, tree=tree) > 0
   out[crossed] = nodes[crossed]
   return out
 
@@ -327,7 +324,7 @@ def prepare_nodes(nodes, vert, smp,
                   boundary_groups=None,
                   boundary_groups_with_ghosts=None,
                   include_vertices=False,
-                  use_qotree=False):
+                  use_tree=False):
   '''
   Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
   method. This includes: dispersing the nodes away from eachother to
@@ -406,8 +403,8 @@ def prepare_nodes(nodes, vert, smp,
     groups, then the vertex will be assigned to the group containing
     the simplex that comes first in `smp`.
 
-  use_qotree : bool, optional
-    Whether to use a quad/oct tree to detect when a node collides with
+  use_tree : bool, optional
+    Whether to use an Rtree to detect when a node collides with
     the boundary during the dispersion phase.
 
   Returns
@@ -452,6 +449,14 @@ def prepare_nodes(nodes, vert, smp,
   if include_vertices:
     fixed_nodes = np.vstack((fixed_nodes, vert))
 
+  if use_tree:
+    logger.debug('building R-tree ...')
+    tree = intersection_count_rtree(vert, smp)
+    logger.debug('done')
+    
+  else:
+    tree = None        
+    
   for i in range(iterations):
     logger.debug('starting node dispersion iterations %s of %s' 
                  % (i + 1, iterations))
@@ -461,7 +466,7 @@ def prepare_nodes(nodes, vert, smp,
                      neighbors=neighbors, 
                      delta=dispersion_delta, 
                      bound_force=bound_force,
-                     use_qotree=use_qotree)
+                     tree=tree)
 
   # append the domain vertices to the collection of nodes if requested
   if include_vertices:

@@ -8,24 +8,24 @@ import numpy as np
 from rbf.utils import assert_shape
 from rbf.pde.halton import HaltonSequence
 from rbf.pde.geometry import contains
-from rbf.pde.quadtree import QuadTree
-from rbf.pde.octtree import OctTree
+from rtree.index import Index, Property
 
 from libc.math cimport sqrt
 
 logger = logging.getLogger(__name__)
 
 
-cdef double distance(double[:] a, double[:] b):
+cdef double distance(tuple a, tuple b):
     '''
-    computes the distance between two 1d numpy arrays without the
+    computes the distance between two 1d tuples without the
     overhead of np.linalg.norm
     '''
     cdef:
         long i
+        long n = len(a)
         double out = 0.0
 
-    for i in range(a.shape[0]):
+    for i in range(n):
         out += (a[i] - b[i])**2
 
     return sqrt(out)        
@@ -110,13 +110,14 @@ def rejection_sampling(size, rho, vert, smp, max_sample_size=1000000):
         # reject test points that are outside of the domain
         test_points = test_points[contains(test_points, vert, smp)]
         # append what remains to the collection of accepted points. If
-        # there are too many new points, then cut it back down so the total
-        # size is `size`
+        # there are too many new points, then cut it back down so the
+        # total size is `size`
         if (test_points.shape[0] + points.shape[0]) > size:
             test_points = test_points[:(size - points.shape[0])]
 
         points = np.vstack((points, test_points))
-        logger.debug('accepted %s of %s points' % (points.shape[0], size))
+        logger.debug(
+            'accepted %s of %s points' % (points.shape[0], size))
         # update the acceptance. the acceptance is the ratio of
         # accepted points to sampled points
         total_samples += sample_size
@@ -131,57 +132,63 @@ class _DiscCollection:
     '''
     A class used within `poisson_discs`. This class is a container for
     discs, where a disc is described by a center and a radius. This
-    class also provides efficient querying methods.
+    class provides an efficient method for determining whether a query
+    disc intersects and discs in the collection.
     '''
-    def __init__(self, centers, radii, tree_bounds):
-        # creat bounding boxes for the disks
-        lower_bounds = centers - radii[:, None]
-        upper_bounds = centers + radii[:, None]
-        bounds = np.hstack((lower_bounds, upper_bounds))
-
-        if centers.shape[1] == 2:
-            tree = QuadTree(tree_bounds, max_depth=5)
-        elif centers.shape[1] == 3:
-            tree = OctTree(tree_bounds, max_depth=5)
+    def __init__(self, dim):
+        if dim == 2:
+            p = Property()
+            p.dimension = 2
+            tree = Index(properties=p)
+            
+        elif dim == 3:
+            p = Property()
+            p.dimension = 3
+            tree = Index(properties=p)
+            
         else:
             raise ValueError()            
 
-        tree.add_boxes(bounds)            
-        self.centers = centers
-        self.radii = radii
         self.tree = tree
-        self.dim = centers.shape[1]
-        self.bounds_arr = np.zeros(2*self.dim, dtype=float)
+        self.centers = []
+        self.radii = []
     
     def add_disc(self, cnt, rad):
         '''
         Add a disc with center `cnt` and radius `rad` to the
         collection
+
+        Parameters
+        ----------
+        cnt : (dim,) tuple
+
+        rad : float
+        
         '''
-        lower_bounds = cnt - rad
-        upper_bounds = cnt + rad
-        bounds = np.hstack((lower_bounds, upper_bounds))
-        self.tree.add_boxes(bounds[None])
-        self.centers = np.vstack((self.centers, [cnt]))
-        self.radii = np.hstack((self.radii, [rad]))
-        # clean up the mess every once in a while
-        if (len(self.centers) % 100) == 0:
-            self.tree.prune()
+        lower_bounds = tuple(c - rad for c in cnt)
+        upper_bounds = tuple(c + rad for c in cnt)
+        bounds = lower_bounds + upper_bounds
+        self.tree.add(len(self.centers), bounds)
+        self.centers += [cnt]
+        self.radii += [rad]
             
     def intersects(self, cnt, rad):
         '''
         Returns True if the disc with center `cnt` and radius `rad`
         overlaps the center of any disc in this collection OR if any
         of the discs in this collection overlap `cnt`.
+
+        Parameters
+        ----------
+        cnt : (dim,) tuple
+
+        rad : float
+
         '''
-        lower_bounds = cnt - rad
-        upper_bounds = cnt + rad
-        self.bounds_arr[:self.dim] = lower_bounds
-        self.bounds_arr[self.dim:] = upper_bounds
-        #bounds = np.hstack((lower_bounds, upper_bounds))
-        # refine the search by only checking disks with overlapping
-        # bounding boxes
-        for idx in self.tree.intersections(self.bounds_arr):
+        lower_bounds = tuple(c - rad for c in cnt)
+        upper_bounds = tuple(c + rad for c in cnt)
+        query_bounds = lower_bounds + upper_bounds
+        for idx in self.tree.intersection(query_bounds):
             dist = distance(cnt, self.centers[idx])
             if (dist < rad) | (dist < self.radii[idx]):
                 return True
@@ -189,7 +196,7 @@ class _DiscCollection:
         return False                
         
     
-def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
+def poisson_discs(rfunc, vert, smp, seeds=10, k=100):
     '''
     Generates Poisson disc points within the domain defined by `vert`
     and `smp`. Poisson disc points are tightly packed but are no
@@ -240,22 +247,19 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     # end
     lb = np.min(vert, axis=0)
     ub = np.max(vert, axis=0)
-    
+    # create the disc collection and give it some initial seed discs
+    dc = _DiscCollection(dim)
     centers = HaltonSequence(dim).uniform(lb, ub, size=seeds)
-    radii = np.asarray(rfunc(centers))
-
-    # the bounds for the qotree should extend beyond the bounds where
-    # we are placing nodes
-    tree_bounds = np.hstack((lb - 0.5*(ub - lb), ub + 0.5*(ub - lb)))
-    dc = _DiscCollection(centers, radii, tree_bounds)
-    active = np.arange(seeds).tolist()
-
+    radii = rfunc(centers)
+    for c, r in zip(centers, radii):
+        dc.add_disc(tuple(c), r)
+        
+    active = list(range(seeds))
     # initialize some Halton sequences as random number generators. By
     # using Halton sequences, I am ensuring that the output is
     # deterministic without messing with the global RNG seeds.
     idx_rng = HaltonSequence(1, prime_index=0)
     pnt_rng = HaltonSequence(dim, prime_index=1)
-
     while active:
         # randomly pick a disc index from `active`
         i = active[idx_rng.randint(len(active))[0]]
@@ -265,22 +269,20 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
         if dim == 2:
             # randomly generate test points around disc i
             r, theta = pnt_rng.uniform([rmin,       0], 
-                                       [rmax, 2*np.pi], 
-                                       k).T
+                                       [rmax, 2*np.pi], k).T
             x = center_i[0] + r*np.cos(theta)
             y = center_i[1] + r*np.sin(theta)
             # toss out test points that are out of bounds 
             keep = ((x >= lb[0]) & (x <= ub[0]) &
                     (y >= lb[1]) & (y <= ub[1]))
-            # the centers and radii for k test discs
             cnts = np.array([x[keep], y[keep]]).T
-            rads = np.asarray(rfunc(cnts))
+            rads = rfunc(cnts)
 
         elif dim == 3:
             # randomly generate points around disc i
             r, theta, phi = pnt_rng.uniform([rmin,       0,     0], 
                                             [rmax, 2*np.pi, np.pi], 
-                                            k).T
+                                            k).T 
             x = center_i[0] + r*np.cos(theta)*np.sin(phi)
             y = center_i[1] + r*np.sin(theta)*np.sin(phi)
             z = center_i[2] + r*np.cos(phi)
@@ -288,20 +290,19 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
             keep = ((x >= lb[0]) & (x <= ub[0]) &
                     (y >= lb[1]) & (y <= ub[1]) &
                     (z >= lb[2]) & (z <= ub[2]))
-            # the centers and radii for k test discs
             cnts = np.array([x[keep], y[keep], z[keep]]).T
-            rads = np.asarray(rfunc(cnts))
+            rads = rfunc(cnts)
 
         placed_disc = False
         for c, r in zip(cnts, rads):
             # test whether the test disc contains the centers of
             # surrounding discs or the surrounding discs contain the
             # center of the test disc
-            if dc.intersects(c, r):
+            if dc.intersects(tuple(c), r):
                 continue
                 
             # create a new disc with center `c` and radius `r`
-            dc.add_disc(c, r)
+            dc.add_disc(tuple(c), r)
             # this new disc is active, meaning that we will search for
             # new discs to place around it
             active += [len(dc.centers) - 1]
@@ -313,7 +314,7 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
             # disc i is no longer active
             active.remove(i)
             
-    nodes = dc.centers
+    nodes = np.array(dc.centers)
     # throw out nodes that are outside of the domain
     nodes = nodes[contains(nodes, vert, smp)]
     logger.debug('generated %s nodes with Poisson disc sampling' 

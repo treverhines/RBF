@@ -84,8 +84,7 @@ import numpy as np
 from scipy.special import factorial
 
 from rbf.utils import assert_shape
-from rbf.pde.quadtree import QuadTree
-from rbf.pde.octtree import OctTree
+from rtree.index import Index, Property
 
 # cython imports
 cimport numpy as np
@@ -669,54 +668,32 @@ def _intersection_count_2d(double[:, :] start_pnts,
                            double[:, :] end_pnts,
                            double[:, :] vertices,
                            long[:, :] simplices,
-                           bint use_qotree):
+                           tree=None):
   ''' 
   Returns an array containing the number of simplices intersected
-  between start_pnts and end_pnts.
+  between start_pnts and end_pnts. 
   '''
   cdef:
     long i, j
     long N = start_pnts.shape[0]
     long M = simplices.shape[0]
     long[:] out = np.zeros((N,), dtype=int, order='c')
+    double[:, :] seg_bounds
     segment2d seg1, seg2
-    # type variables used if we are using a q/o tree
-    double[:, :] seg_bounds, smp_bounds
-    double[:] domain_bounds
 
-  # with a quad/oct tree
-  if use_qotree:
+  # with an rtree
+  if tree is not None:
     # convert vertices and simplices to numpy arrays so that we can do
     # numpy indexing
-    simplices_arr = np.asarray(simplices)
-    vertices_arr = np.asarray(vertices)
-
     seg_min = np.minimum(start_pnts, end_pnts)
     seg_max = np.maximum(start_pnts, end_pnts)
     seg_bounds = np.hstack((seg_min, seg_max))
-
-    smp_min = vertices_arr[simplices_arr].min(axis=1)
-    smp_max = vertices_arr[simplices_arr].max(axis=1)
-    smp_bounds = np.hstack((smp_min, smp_max))
-
-    domain_min = smp_min.min(axis=0)
-    domain_max = smp_max.max(axis=0)
-    domain_width = domain_max - domain_min
-    domain_center = (domain_max + domain_min)/2.0
-    # have the bounds for the quadtree extend 10% beyond the simplices
-    domain_bounds = np.hstack([domain_center - 0.55*domain_width,
-                               domain_center + 0.55*domain_width])
-
-    tree = QuadTree(domain_bounds, max_depth=5)
-    tree.add_boxes(smp_bounds) 
-    tree.prune()
-
     for i in range(N):
       seg1.a.x = start_pnts[i, 0]
       seg1.a.y = start_pnts[i, 1]
       seg1.b.x = end_pnts[i, 0]
       seg1.b.y = end_pnts[i, 1]
-      for j in tree.intersections(seg_bounds[i]):
+      for j in tree.intersection(seg_bounds[i]):
         seg2.a.x = vertices[simplices[j, 0], 0]
         seg2.a.y = vertices[simplices[j, 0], 1]
         seg2.b.x = vertices[simplices[j, 1], 0]
@@ -724,7 +701,7 @@ def _intersection_count_2d(double[:, :] start_pnts,
         if segment_intersects_segment(seg1, seg2):
           out[i] += 1
 
-  # without a quad/oct tree
+  # without an rtree
   else:    
     for i in range(N):
       seg1.a.x = start_pnts[i, 0]
@@ -748,7 +725,7 @@ def _intersection_count_3d(double[:, :] start_pnts,
                            double[:, :] end_pnts,                         
                            double[:, :] vertices,
                            long[:, :] simplices,
-                           bint use_qotree):
+                           tree=None):
   ''' 
   Returns an array of the number of intersections between each line
   segment, described by start_pnts and end_pnts, and the simplices
@@ -758,39 +735,15 @@ def _intersection_count_3d(double[:, :] start_pnts,
     int N = start_pnts.shape[0]
     int M = simplices.shape[0]
     long[:] out = np.zeros((N,), dtype=int, order='c')
+    double[:, :] seg_bounds
     segment3d seg
     triangle3d tri
-    # type variables used if we are using a q/o tree
-    double[:, :] seg_bounds, smp_bounds
-    double[:] domain_bounds
 
-  # with a quad/oct tree
-  if use_qotree:
-    # convert vertices and simplices to numpy arrays so that we can do
-    # numpy indexing
-    simplices_arr = np.asarray(simplices)
-    vertices_arr = np.asarray(vertices)
-
+  # with an rtree
+  if tree is not None:
     seg_min = np.minimum(start_pnts, end_pnts)
     seg_max = np.maximum(start_pnts, end_pnts)
     seg_bounds = np.hstack((seg_min, seg_max))
-    
-    smp_min = vertices_arr[simplices_arr].min(axis=1)
-    smp_max = vertices_arr[simplices_arr].max(axis=1)
-    smp_bounds = np.hstack((smp_min, smp_max))
-
-    domain_min = smp_min.min(axis=0)
-    domain_max = smp_max.max(axis=0)
-    domain_width = domain_max - domain_min
-    domain_center = (domain_max + domain_min)/2.0
-    # have the bounds for the quadtree extend 10% beyond the simplices
-    domain_bounds = np.hstack([domain_center - 0.55*domain_width,
-                               domain_center + 0.55*domain_width])
-
-    tree = OctTree(domain_bounds, max_depth=5)
-    tree.add_boxes(smp_bounds) 
-    tree.prune()
-
     for i in range(N):
       seg.a.x = start_pnts[i, 0]
       seg.a.y = start_pnts[i, 1]
@@ -798,7 +751,7 @@ def _intersection_count_3d(double[:, :] start_pnts,
       seg.b.x = end_pnts[i, 0]
       seg.b.y = end_pnts[i, 1]
       seg.b.z = end_pnts[i, 2]
-      for j in tree.intersections(seg_bounds[i]):
+      for j in tree.intersection(seg_bounds[i]):
         tri.a.x = vertices[simplices[j, 0], 0]
         tri.a.y = vertices[simplices[j, 0], 1]
         tri.a.z = vertices[simplices[j, 0], 2]
@@ -811,7 +764,7 @@ def _intersection_count_3d(double[:, :] start_pnts,
         if segment_intersects_triangle(seg, tri):
           out[i] += 1
 
-  # without a quad/oct tree
+  # without an rtree
   else:
     for i in range(N):
       seg.a.x = start_pnts[i, 0]
@@ -1048,11 +1001,44 @@ def intersection(start_points, end_points, vertices, simplices):
   return out
 
 
+def intersection_count_rtree(vertices, simplices):
+  '''
+  This creates an `rtree.index.Index` instances which is used to
+  efficiently reduce the number of simplices checked for intersections
+  in the function `intersection_count`.
+
+  Parameters
+  ----------
+  vertices : (M, D) array 
+    Vertices within the simplicial complex. `M` is the number of 
+    vertices
+
+  simplices : (P, D) array
+    Connectivity of the vertices. Each row contains the vertex 
+    indices which form one simplex of the simplicial complex
+
+  '''
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.asarray(simplices, dtype=int)
+    
+  smp_min = vertices[simplices].min(axis=1)
+  smp_max = vertices[simplices].max(axis=1)
+  smp_bounds = np.hstack((smp_min, smp_max))
+
+  p = Property()
+  p.dimension = vertices.shape[1]
+  tree = Index(properties=p)
+  for i, b in enumerate(smp_bounds):
+    tree.add(i, b)
+
+  return tree        
+
+
 def intersection_count(start_points, 
                        end_points, 
                        vertices, 
                        simplices,
-                       use_qotree=False):
+                       tree=None):
   ''' 
   Returns the number of simplices crossed by the line segments. The
   line segments are described by `start_points` and `end_points`. This
@@ -1075,11 +1061,10 @@ def intersection_count(start_points,
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
-  use_qotree : bool, optional
-    Use a quad-tree or oct-tree to reduce the number of simplices
-    queried for each segment. Building and querying the tree does
-    introduce overhead. Set this to True if the segments are short and
-    the number of segments is large.
+  tree : rtree.index.Index instance
+    An rtree used to reduce the number of simplices checked for
+    intersection. This should be the output of
+    `intersection_count_rtree(vertices, simplices)`. 
 
   Returns
   -------
@@ -1103,13 +1088,13 @@ def intersection_count(start_points,
                                  end_points, 
                                  vertices, 
                                  simplices, 
-                                 use_qotree)
+                                 tree=tree)
   elif dim == 3:
     out = _intersection_count_3d(start_points, 
                                  end_points, 
                                  vertices, 
                                  simplices,
-                                 use_qotree)
+                                 tree=tree)
   else:
     raise ValueError(
       'The number of spatial dimensions must be 2 or 3')
@@ -1173,8 +1158,7 @@ def contains(points, vertices, simplices):
   count = intersection_count(points, 
                              outside_point, 
                              vertices, 
-                             simplices,
-                             use_qotree=False)
+                             simplices)
   out = np.array(count % 2, dtype=bool)
   return out
 
