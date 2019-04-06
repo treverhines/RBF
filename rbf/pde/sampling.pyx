@@ -196,7 +196,7 @@ class _DiscCollection:
         return False                
         
     
-def poisson_discs(rfunc, vert, smp, seeds=10, k=100):
+def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     '''
     Generates Poisson disc points within the domain defined by `vert`
     and `smp`. Poisson disc points are tightly packed but are no

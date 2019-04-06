@@ -5,3 +5,4 @@ dist
 *.c
 *.pyc
 rbf/*.html
+rbf/pde/*.html

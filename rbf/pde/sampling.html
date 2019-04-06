@@ -2933,7 +2933,7 @@ static PyObject *__pyx_gb_3rbf_3pde_8sampling_15_DiscCollection_10intersects_5ge
   goto __pyx_L0;
 </pre><pre class="cython line score-0">&#xA0;<span class="">197</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">198</span>: </pre>
-<pre class="cython line score-82" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">199</span>: <span class="k">def</span> <span class="nf">poisson_discs</span><span class="p">(</span><span class="n">rfunc</span><span class="p">,</span> <span class="n">vert</span><span class="p">,</span> <span class="n">smp</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="mf">10</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">100</span><span class="p">):</span></pre>
+<pre class="cython line score-82" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">199</span>: <span class="k">def</span> <span class="nf">poisson_discs</span><span class="p">(</span><span class="n">rfunc</span><span class="p">,</span> <span class="n">vert</span><span class="p">,</span> <span class="n">smp</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="mf">10</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">50</span><span class="p">):</span></pre>
 <pre class='cython code score-82 '>/* Python wrapper */
 static PyObject *__pyx_pw_3rbf_3pde_8sampling_3poisson_discs(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static char __pyx_doc_3rbf_3pde_8sampling_2poisson_discs[] = "\n    Generates Poisson disc points within the domain defined by `vert`\n    and `smp`. Poisson disc points are tightly packed but are no\n    closer than a user specified value. This algorithm is based on\n    [1], and it has been modified to allow for spatially variable\n    spacing. This works for two and three spatial dimension.\n\n    Parameters\n    ----------\n    rfunc : callable\n        A function that takes a (n, d) array of points as input and\n        returns the desired minimum nearest neighbor distance for\n        those points.\n\n    vert : (p, d) float array\n        Vertices of the domain\n\n    smp : (q, d) int array\n        Connectivity of the domain\n\n    seeds : int\n        The number of initial points, which are generated from a\n        Halton sequence.\n\n    k : int\n        The maximum number of attempts at finding a new neighbor for a\n        point before giving up. Increasing this generally results in\n        tighter packing.\n        \n    Returns\n    -------\n    (n, d) float array\n    \n    References\n    ----------\n    [1] Bridson, R., Fast Poisson Disk Sampling in Arbitrary\n    Dimensions.\n\n    ";
@@ -2951,7 +2951,7 @@ static PyObject *__pyx_pw_3rbf_3pde_8sampling_3poisson_discs(PyObject *__pyx_sel
     static PyObject **__pyx_pyargnames[] = {&amp;__pyx_n_s_rfunc,&amp;__pyx_n_s_vert,&amp;__pyx_n_s_smp,&amp;__pyx_n_s_seeds,&amp;__pyx_n_s_k,0};
     PyObject* values[5] = {0,0,0,0,0};
     values[3] = ((PyObject *)__pyx_int_10);
-    values[4] = ((PyObject *)__pyx_int_100);
+    values[4] = ((PyObject *)__pyx_int_50);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = <span class='py_macro_api'>PyTuple_GET_SIZE</span>(__pyx_args);
