@@ -101,7 +101,7 @@ def disperse(nodes,
   Slightly disperses the nodes within the domain defined by `vert` and
   `smp`. The disperson is analogous to electrostatic repulsion, where
   neighboring node exert a repulsive force on eachother. If a node is
-  repelled into a boundary then it bounces back in. 
+  repelled into a boundary then it bounces back in.
 
   Parameters
   ----------
@@ -135,6 +135,8 @@ def disperse(nodes,
     boundaries.
 
   tree : rtree.index.Index instance, optional
+    An R-tree used to efficiently check for boundary intersections.
+    This should be the output of `intersection_count_rtree(vert, smp)`
 
   Returns
   -------
@@ -158,22 +160,24 @@ def disperse(nodes,
   out = _disperse(nodes, rho=rho, fixed_nodes=fixed_nodes, 
                   neighbors=neighbors, delta=delta, vert=bound_vert, 
                   smp=bound_smp)
-  # boolean array of nodes which are now outside the domain
+  # indices of nodes which are now outside the domain
   crossed = intersection_count(nodes, out, vert, smp, tree=tree) > 0
-  # point where nodes intersected the boundary and the simplex they
+  crossed, = crossed.nonzero()
+  # points where nodes intersected the boundary and the simplex they
   # intersected at
   intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], 
                                     vert, smp)
-  # normal vector to intersection point
+  # normal vector to intersection points
   intr_norms = simplex_normals(vert, smp[intr_idx])
   # distance that the node wanted to travel beyond the boundary
   res = out[crossed] - intr_pnt
-  # bouce node off the boundary
+  # bounce node off the boundary
   out[crossed] -= 2*intr_norms*np.sum(res*intr_norms, 1)[:, None]
   # check to see if the bounced nodes still intersect the boundary. If
-  # not then set the bounced nodes back to their original position
-  crossed = intersection_count(nodes, out, vert, smp, tree=tree) > 0
-  out[crossed] = nodes[crossed]
+  # they do, then set them back to their original position
+  still_crossed = intersection_count(nodes[crossed], out[crossed], 
+                                     vert, smp, tree=tree) > 0
+  out[crossed[still_crossed]] = nodes[crossed[still_crossed]]
   return out
 
 
@@ -324,7 +328,8 @@ def prepare_nodes(nodes, vert, smp,
                   boundary_groups=None,
                   boundary_groups_with_ghosts=None,
                   include_vertices=False,
-                  use_tree=False):
+                  use_tree=False,
+                  orient_simplices=True):
   '''
   Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
   method. This includes: dispersing the nodes away from eachother to
@@ -404,8 +409,13 @@ def prepare_nodes(nodes, vert, smp,
     the simplex that comes first in `smp`.
 
   use_tree : bool, optional
-    Whether to use an Rtree to detect when a node collides with
+    Whether to use an R-tree to detect when a node collides with
     the boundary during the dispersion phase.
+
+  orient_simplices : bool, optional
+    Orients the simplices to make sure their normal vectors point
+    outward. Set this to False if you are sure the simplices are
+    properly oriented.
 
   Returns
   -------
@@ -477,7 +487,11 @@ def prepare_nodes(nodes, vert, smp,
   nodes, smpid = snap_to_boundary(nodes, vert, smp, delta=snap_delta)
 
   # find the normal vectors for each node that snapped to the boundary
-  smp_normals = simplex_outward_normals(vert, smp)
+  if orient_simplices:
+    smp_normals = simplex_outward_normals(vert, smp)
+  else:
+    smp_normals = simplex_normals(vert, smp)
+    
   normals = np.full_like(nodes, np.nan)
   normals[smpid >= 0] = smp_normals[smpid[smpid >= 0]]
   

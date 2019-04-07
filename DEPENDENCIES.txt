@@ -3,3 +3,4 @@ numpydoc
 scipy
 sympy
 cython
+rtree

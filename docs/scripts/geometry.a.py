@@ -9,7 +9,7 @@ from rbf.pde.geometry import (intersection_count,
                               intersection_count_rtree)
 import time
 
-segments = 10000
+segments = 50000
 simplices = []
 time_with_tree = []
 time_tree_build = []
@@ -17,8 +17,8 @@ time_without_tree = []
 
 # create a collection of small line segments. 
 point1 = np.random.uniform(-1.0, 1.0, (segments, 3))
-point2 = point1 + np.random.normal(0.0, 1.0, (segments, 3))
-for r in range(7):
+point2 = point1 + np.random.normal(0.0, 0.1, (segments, 3))
+for r in range(8):
     vert, smp = sphere(r)
     simplices += [len(smp)]
     
