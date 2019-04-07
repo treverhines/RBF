@@ -45,7 +45,7 @@ plt.savefig('../figures/sampling.a.1.png')
 # verifies that all nodes are spaced sufficiently far away
 fig, ax = plt.subplots()
 dist = k_nearest_neighbors(centers, centers, 2)[1][:, 1]
-ax.hist(dist/radius(centers), 10)
+ax.hist(dist/radius(centers), 20)
 ax.set_xlabel('(nearest neighbor distance) / (disc radius)')
 ax.set_ylabel('count')
 ax.grid(ls=':', color='k')
