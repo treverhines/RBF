@@ -185,7 +185,7 @@ spectral RBF method. An example of the two methods is provided below.
   weights).
   '''
   import numpy as np
-  from scipy.sparse import csc_matrix
+  from scipy.sparse import coo_matrix
   from scipy.sparse.linalg import spsolve
   import matplotlib.pyplot as plt
 
@@ -229,7 +229,7 @@ spectral RBF method. An example of the two methods is provided below.
   A_boundary = weight_matrix(nodes[groups['boundary:all']], nodes,
                              diffs=[0, 0])
   # Add the components to the corresponding rows of `A`
-  A = csc_matrix((N, N))
+  A = coo_matrix((N, N))
   A = add_rows(A, A_interior, groups['interior'])
   A = add_rows(A, A_boundary, groups['boundary:all'])
 
