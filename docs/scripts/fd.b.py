@@ -57,10 +57,10 @@ nodes, groups, normals = min_energy_nodes(
 N = nodes.shape[0]
 
 ## Create the sparse submatrices for the system matrix 
-G_xx = sp.csr_matrix((N, N))
-G_xy = sp.csr_matrix((N, N))
-G_yx = sp.csr_matrix((N, N))
-G_yy = sp.csr_matrix((N, N))
+G_xx = sp.coo_matrix((N, N))
+G_xy = sp.coo_matrix((N, N))
+G_yx = sp.coo_matrix((N, N))
+G_yy = sp.coo_matrix((N, N))
 
 ## Enforce the PDE on interior nodes AND the free surface nodes 
 # x component of force resulting from displacement in the x direction.

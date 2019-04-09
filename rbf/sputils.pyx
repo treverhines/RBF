@@ -13,12 +13,13 @@ from cython cimport boundscheck, wraparound
 
 logger = logging.getLogger(__name__)
 
+
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray _coo_row_norms(double[:] data, 
-                                int[:] row, 
-                                long nrows,
-                                long order):
+def _coo_row_norms(double[:] data, 
+                   int[:] row, 
+                   long nrows, 
+                   long order):
     '''
     Computes the row norms of a COO matrix
     '''
@@ -113,15 +114,17 @@ def add_rows(A, B, idx):
     Parameters
     ----------
     A: (n1, m) sparse matrix
+        CSC, CSR, BSR, or COO matrix for best efficiency
 
     B: (n2, m) sparse matrix
+        CSC, CSR, BSR, or COO matrix for best efficiency
 
     idx: (n2,) int array
         rows of `A` that `B` will be added to
 
     Returns
     -------
-    (n1, m) CSC sparse matrix
+    (n1, m) COO sparse matrix
 
     '''
     idx = np.asarray(idx, dtype=int)
@@ -133,11 +136,11 @@ def add_rows(A, B, idx):
 
     assert_shape(B, (None, A.shape[1]), 'B')
     assert_shape(idx, (B.shape[0],), 'idx')
-    # coerce `A` to csc to ensure csc output
-    A = A.tocsc(copy=False)
+    # coerce `A` to coo to ensure coo output
+    A = A.tocoo(copy=False)
     # coerce `B` to coo to expand out its rows
     B = B.tocoo(copy=False)
-    B = sp.csc_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
+    B = sp.coo_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
     # Now add the expanded `B` to `A`
     out = A + B
     return out

@@ -117,15 +117,15 @@ N = nodes.shape[0]
 
 ## BUILD THE LEFT-HAND-SIDE MATRIX
 # allocate the left-hand-side matrix components
-G_xx = sp.csc_matrix((N, N))
-G_xy = sp.csc_matrix((N, N))
-G_xz = sp.csc_matrix((N, N))
-G_yx = sp.csc_matrix((N, N))
-G_yy = sp.csc_matrix((N, N))
-G_yz = sp.csc_matrix((N, N))
-G_zx = sp.csc_matrix((N, N))
-G_zy = sp.csc_matrix((N, N))
-G_zz = sp.csc_matrix((N, N))
+G_xx = sp.coo_matrix((N, N))
+G_xy = sp.coo_matrix((N, N))
+G_xz = sp.coo_matrix((N, N))
+G_yx = sp.coo_matrix((N, N))
+G_yy = sp.coo_matrix((N, N))
+G_yz = sp.coo_matrix((N, N))
+G_zx = sp.coo_matrix((N, N))
+G_zy = sp.coo_matrix((N, N))
+G_zz = sp.coo_matrix((N, N))
 
 # add the body force constraints
 out = elastic3d_body_force(nodes[idx['interior']], nodes, lamb=lamb, mu=mu, n=n)
@@ -219,7 +219,6 @@ G_z = sp.hstack((G_zx, G_zy, G_zz))
 del G_zx, G_zy, G_zz
 G = sp.vstack((G_x, G_y, G_z))
 del G_x, G_y, G_z
-G = G.tocsc()
 G.eliminate_zeros()
 
 # create the right-hand-side vector

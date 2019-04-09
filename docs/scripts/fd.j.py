@@ -4,7 +4,7 @@ with a mix of free and fixed boundary conditions. We use the RBF-FD
 method and demonstrate the use of ghost nodes along the free boundary.
 '''
 import numpy as np
-from scipy.sparse import csc_matrix
+from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
@@ -101,7 +101,7 @@ A_free = weight_matrix(nodes[groups['boundary:free']],
                        phi=phi, order=order)
                            
 # Add the components to the corresponding rows of `A`
-A = csc_matrix((N, N))
+A = coo_matrix((N, N))
 A = add_rows(A, A_interior, groups['interior'])
 A = add_rows(A, A_ghost, groups['ghosts:free'])
 A = add_rows(A, A_fixed, groups['boundary:fixed'])

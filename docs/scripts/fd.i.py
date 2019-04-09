@@ -7,7 +7,7 @@ scalable and does not require the user to specify a shape parameter
 weights).
 '''
 import numpy as np
-from scipy.sparse import csc_matrix
+from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt
 
@@ -51,7 +51,7 @@ A_interior = weight_matrix(nodes[groups['interior']], nodes,
 A_boundary = weight_matrix(nodes[groups['boundary:all']], nodes, 
                            diffs=[0, 0]) 
 # Add the components to the corresponding rows of `A`
-A = csc_matrix((N, N))
+A = coo_matrix((N, N))
 A = add_rows(A, A_interior, groups['interior'])
 A = add_rows(A, A_boundary, groups['boundary:all'])
                            
@@ -90,5 +90,3 @@ fig.colorbar(p, ax=ax)
 fig.tight_layout()
 plt.savefig('../figures/fd.i.png')
 plt.show()
-
-

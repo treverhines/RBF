@@ -273,7 +273,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
     
   Returns
   -------
-  (N, M) csc sparse matrix          
+  (N, M) coo sparse matrix          
       
   Examples
   --------
@@ -346,6 +346,6 @@ def weight_matrix(x, p, diffs, coeffs=None,
   cols = stencils.ravel()
   data = data.ravel()
   shape = x.shape[0], p.shape[0]
-  L = sp.csc_matrix((data, (rows, cols)), shape)
+  L = sp.coo_matrix((data, (rows, cols)), shape)
   logger.debug('  done')
   return L

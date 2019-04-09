@@ -303,6 +303,11 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
                 
             # create a new disc with center `c` and radius `r`
             dc.add_disc(tuple(c), r)
+            if (len(dc.centers) % 1000) == 0:
+                logger.debug(
+                    'generated %s nodes with Poisson disc sampling '
+                    '...'  % len(dc.centers))
+
             # this new disc is active, meaning that we will search for
             # new discs to place around it
             active += [len(dc.centers) - 1]
@@ -317,6 +322,7 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     nodes = np.array(dc.centers)
     # throw out nodes that are outside of the domain
     nodes = nodes[contains(nodes, vert, smp)]
-    logger.debug('generated %s nodes with Poisson disc sampling' 
-                 % nodes.shape[0])
+    logger.debug(
+        'finished generating %s nodes with Poisson disc sampling' 
+        % nodes.shape[0])
     return nodes

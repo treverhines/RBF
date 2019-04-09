@@ -71,17 +71,17 @@ N = nodes.shape[0]
 # The "left hand side" matrices are built with the convenience
 # functions from *rbf.elastic*. Read the documentation for these
 # functions to better understand this step.
-G_xx = sp.csr_matrix((N, N))
-G_xy = sp.csr_matrix((N, N))
-G_xz = sp.csr_matrix((N, N))
+G_xx = sp.coo_matrix((N, N))
+G_xy = sp.coo_matrix((N, N))
+G_xz = sp.coo_matrix((N, N))
 
-G_yx = sp.csr_matrix((N, N))
-G_yy = sp.csr_matrix((N, N))
-G_yz = sp.csr_matrix((N, N))
+G_yx = sp.coo_matrix((N, N))
+G_yy = sp.coo_matrix((N, N))
+G_yz = sp.coo_matrix((N, N))
 
-G_zx = sp.csr_matrix((N, N))
-G_zy = sp.csr_matrix((N, N))
-G_zz = sp.csr_matrix((N, N))
+G_zx = sp.coo_matrix((N, N))
+G_zy = sp.coo_matrix((N, N))
+G_zz = sp.coo_matrix((N, N))
 
 out = elastic3d_body_force(nodes[idx['interior']], nodes, 
                            lamb=lamb, mu=mu)
@@ -129,7 +129,6 @@ G_x = sp.hstack((G_xx, G_xy, G_xz))
 G_y = sp.hstack((G_yx, G_yy, G_yz))
 G_z = sp.hstack((G_zx, G_zy, G_zz))
 G = sp.vstack((G_x, G_y, G_z))
-G = G.tocsr()
 
 # build the right-hand-side vector
 d_x = np.zeros((N,))
