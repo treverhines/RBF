@@ -13,7 +13,7 @@ vert = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 1.0],
                  [1.0, 1.0], [1.0, 2.0], [0.0, 2.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]])
 
-spacing = 0.06 # approximate spacing between nodes
+spacing = 0.07 # approximate spacing between nodes
 
 eps = 0.3/spacing  # shape parameter
 

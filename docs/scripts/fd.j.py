@@ -61,8 +61,7 @@ nodes, groups, normals = poisson_disc_nodes(
   vert, 
   smp, 
   boundary_groups=boundary_groups,
-  boundary_groups_with_ghosts=['free'],
-  include_vertices=True) 
+  boundary_groups_with_ghosts=['free'])
 
 N = nodes.shape[0] 
 

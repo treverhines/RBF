@@ -49,10 +49,10 @@ def _disperse(nodes,
     # the default number of neighboring nodes to use when computing
     # the repulsion force is 7 for 2D and 13 for 3D
     if nodes.shape[1] == 2:
-      neighbors = 7
+      neighbors = 4
 
     elif nodes.shape[1] == 3:
-      neighbors = 13
+      neighbors = 5
 
   # ensure that the number of nodes used to determine repulsion force
   # is less than or equal to the total number of nodes
@@ -319,7 +319,7 @@ def _check_spacing(nodes, rho=None):
 
 def prepare_nodes(nodes, vert, smp,
                   rho=None,
-                  iterations=100,
+                  iterations=20,
                   neighbors=None,
                   dispersion_delta=0.05,
                   bound_force=False,
@@ -649,7 +649,8 @@ def min_energy_nodes(n, vert, smp, rho=None, **kwargs):
   return out                      
 
 
-def poisson_disc_nodes(radius, vert, smp, **kwargs):
+def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5, 
+                       **kwargs):
   '''
   Generates nodes within a two or three dimensional domain. This first
   generate nodes with Poisson disc sampling, and then the nodes are
@@ -716,6 +717,7 @@ def poisson_disc_nodes(radius, vert, smp, **kwargs):
     # the density function corresponding to the radius function
     return 1.0/(radius(x)**dim)
         
-  nodes = poisson_discs(radius, vert, smp)
+  nodes = poisson_discs(radius, vert, smp, ntests=ntests, 
+                        rmax_factor=rmax_factor)
   out = prepare_nodes(nodes, vert, smp, rho=rho, **kwargs)
   return out

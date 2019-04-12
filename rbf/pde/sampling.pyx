@@ -63,6 +63,8 @@ def rejection_sampling(size, rho, vert, smp, max_sample_size=1000000):
 
     '''
     logger.debug('generating nodes with rejection sampling ...')
+    vert = np.asarray(vert, dtype=float)
+    smp = np.asarray(smp, dtype=int)
     assert_shape(vert, (None, None), 'vert')
     dim = vert.shape[1]
     assert_shape(smp, (None, dim), 'smp')
@@ -196,7 +198,8 @@ class _DiscCollection:
         return False                
         
     
-def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
+def poisson_discs(rfunc, vert, smp, seeds=10, ntests=50, 
+                  rmax_factor=1.5):
     '''
     Generates Poisson disc points within the domain defined by `vert`
     and `smp`. Poisson disc points are tightly packed but are no
@@ -221,10 +224,12 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
         The number of initial points, which are generated from a
         Halton sequence.
 
-    k : int
+    ntests : int, optional
         The maximum number of attempts at finding a new neighbor for a
         point before giving up. Increasing this generally results in
         tighter packing.
+
+    rmax_factor : float, optional
         
     Returns
     -------
@@ -237,6 +242,8 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
 
     '''
     logger.debug('generating nodes with Poisson disc sampling ...')
+    vert = np.asarray(vert, dtype=float)
+    smp = np.asarray(smp, dtype=int)
     assert_shape(vert, (None, None), 'vert')
     dim = vert.shape[1]
     assert_shape(smp, (None, dim), 'smp')
@@ -259,17 +266,21 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
     # using Halton sequences, I am ensuring that the output is
     # deterministic without messing with the global RNG seeds.
     idx_rng = HaltonSequence(1, prime_index=0)
-    pnt_rng = HaltonSequence(dim, prime_index=1)
+    pnt_rng = HaltonSequence(dim - 1, prime_index=1)
     while active:
         # randomly pick a disc index from `active`
         i = active[idx_rng.randint(len(active))[0]]
         center_i = dc.centers[i]
         radius_i = dc.radii[i]
-        rmin, rmax = radius_i, 2*radius_i
+        # the minimum and maximum distance that the test points can be
+        # away from the chosen center.
+        rmin, rmax = radius_i, rmax_factor*radius_i
         if dim == 2:
-            # randomly generate test points around disc i
-            r, theta = pnt_rng.uniform([rmin,       0], 
-                                       [rmax, 2*np.pi], k).T
+            # generate test points around the selected disc. The test
+            # points gradually move outward and the angle is picked
+            # from a uniform distribution
+            r = np.linspace(rmin, rmax, ntests + 1)[1:]
+            theta, = pnt_rng.uniform([0], [2*np.pi], ntests).T
             x = center_i[0] + r*np.cos(theta)
             y = center_i[1] + r*np.sin(theta)
             # toss out test points that are out of bounds 
@@ -279,10 +290,13 @@ def poisson_discs(rfunc, vert, smp, seeds=10, k=50):
             rads = rfunc(cnts)
 
         elif dim == 3:
-            # randomly generate points around disc i
-            r, theta, phi = pnt_rng.uniform([rmin,       0,     0], 
-                                            [rmax, 2*np.pi, np.pi], 
-                                            k).T 
+            # generate test points around the selected disc. The test
+            # points gradually move outward and the angles are picked
+            # from a uniform distribution
+            r = np.linspace(rmin, rmax, ntests + 1)[1:]
+            theta, phi = pnt_rng.uniform([      0,     0], 
+                                         [2*np.pi, np.pi], 
+                                         ntests).T 
             x = center_i[0] + r*np.cos(theta)*np.sin(phi)
             y = center_i[1] + r*np.sin(theta)*np.sin(phi)
             z = center_i[2] + r*np.cos(phi)
