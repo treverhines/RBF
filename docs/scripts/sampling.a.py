@@ -10,8 +10,6 @@ from matplotlib.patches import Circle
 
 from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.sampling import poisson_discs
-from rbf.pde.nodes import snap_to_boundary, disperse, poisson_disc_nodes, min_energy_nodes
-
 
 def radius(x):
     '''disc radius as a function of position'''

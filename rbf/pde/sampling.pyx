@@ -15,7 +15,7 @@ from libc.math cimport sqrt
 logger = logging.getLogger(__name__)
 
 
-cdef double distance(tuple a, tuple b):
+cdef double distance(list a, list b):
     '''
     computes the distance between two 1d tuples without the
     overhead of np.linalg.norm
@@ -167,8 +167,8 @@ class _DiscCollection:
         rad : float
         
         '''
-        lower_bounds = tuple(c - rad for c in cnt)
-        upper_bounds = tuple(c + rad for c in cnt)
+        lower_bounds = [c - rad for c in cnt]
+        upper_bounds = [c + rad for c in cnt]
         bounds = lower_bounds + upper_bounds
         self.tree.add(len(self.centers), bounds)
         self.centers += [cnt]
@@ -187,8 +187,8 @@ class _DiscCollection:
         rad : float
 
         '''
-        lower_bounds = tuple(c - rad for c in cnt)
-        upper_bounds = tuple(c + rad for c in cnt)
+        lower_bounds = [c - rad for c in cnt]
+        upper_bounds = [c + rad for c in cnt]
         query_bounds = lower_bounds + upper_bounds
         for idx in self.tree.intersection(query_bounds):
             dist = distance(cnt, self.centers[idx])
@@ -259,7 +259,7 @@ def poisson_discs(rfunc, vert, smp, seeds=10, ntests=50,
     centers = HaltonSequence(dim).uniform(lb, ub, size=seeds)
     radii = rfunc(centers)
     for c, r in zip(centers, radii):
-        dc.add_disc(tuple(c), r)
+        dc.add_disc(c.tolist(), r)
         
     active = list(range(seeds))
     # initialize some Halton sequences as random number generators. By
@@ -312,11 +312,11 @@ def poisson_discs(rfunc, vert, smp, seeds=10, ntests=50,
             # test whether the test disc contains the centers of
             # surrounding discs or the surrounding discs contain the
             # center of the test disc
-            if dc.intersects(tuple(c), r):
+            if dc.intersects(c.tolist(), r):
                 continue
                 
             # create a new disc with center `c` and radius `r`
-            dc.add_disc(tuple(c), r)
+            dc.add_disc(c.tolist(), r)
             if (len(dc.centers) % 1000) == 0:
                 logger.debug(
                     'generated %s nodes with Poisson disc sampling '
