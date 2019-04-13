@@ -335,6 +335,7 @@ def poisson_discs(rfunc, vert, smp, seeds=10, ntests=50,
             
     nodes = np.array(dc.centers)
     # throw out nodes that are outside of the domain
+    logger.debug('removing nodes that are outside of the domain ...')
     nodes = nodes[contains(nodes, vert, smp)]
     logger.debug(
         'finished generating %s nodes with Poisson disc sampling' 

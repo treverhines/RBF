@@ -484,11 +484,15 @@ def prepare_nodes(nodes, vert, smp,
     
   # snap nodes to the boundary, identifying which simplex each node
   # was snapped to
+  logger.debug('snapping nodes to boundary ...')
   nodes, smpid = snap_to_boundary(nodes, vert, smp, delta=snap_delta)
+  logger.debug('done')
 
   # find the normal vectors for each node that snapped to the boundary
   if orient_simplices:
+    logger.debug('orienting simplices and computing normals ...')
     smp_normals = simplex_outward_normals(vert, smp)
+    logger.debug('done')
   else:
     smp_normals = simplex_normals(vert, smp)
     
@@ -514,6 +518,7 @@ def prepare_nodes(nodes, vert, smp,
     boundary_groups_with_ghosts = []    
 
   # create groups for the boundary nodes
+  logger.debug('grouping bounding nodes and generating ghosts ...')
   for k, v in boundary_groups.items():
     bnd_idx = np.array([i for i, j in enumerate(smpid) if j in v])
     groups['boundary:' + k] = bnd_idx
@@ -527,14 +532,20 @@ def prepare_nodes(nodes, vert, smp,
       normals = np.vstack((normals, ghost_normals))
       groups['ghosts:' + k] = ghost_idx
   
+  logger.debug('done')
+  
   # sort `nodes` so that spatially adjacent nodes are close together
+  logger.debug('sorting nodes ...')
   sort_idx = neighbor_argsort(nodes)
+  logger.debug('done')
   nodes = nodes[sort_idx]
   normals = normals[sort_idx]
   reverse_sort_idx = np.argsort(sort_idx)
   groups = {k: reverse_sort_idx[v] for k, v in groups.items()}
 
+  logger.debug('checking the quality of the generated nodes ...')
   _check_spacing(nodes, rho)
+  logger.debug('done')
 
   return nodes, groups, normals
 
