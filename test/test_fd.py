@@ -177,5 +177,3 @@ class Test(unittest.TestCase):
     w = rbf.pde.fd.weights(x,nodes,(0,1),
                        phi=rbf.basis.phs8)
     self.assertTrue(np.isclose(u.dot(w),diff_true,atol=1e-2))
-    
-                         

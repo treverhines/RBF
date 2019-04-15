@@ -84,7 +84,6 @@ import numpy as np
 from scipy.special import factorial
 
 from rbf.utils import assert_shape
-from rtree.index import Index, Property
 
 # cython imports
 cimport numpy as np
@@ -667,8 +666,7 @@ def _nearest_point_3d(double[:, :] pnts,
 def _intersection_count_2d(double[:, :] start_pnts,
                            double[:, :] end_pnts,
                            double[:, :] vertices,
-                           long[:, :] simplices,
-                           tree=None):
+                           long[:, :] simplices):
   ''' 
   Returns an array containing the number of simplices intersected
   between start_pnts and end_pnts. 
@@ -678,43 +676,20 @@ def _intersection_count_2d(double[:, :] start_pnts,
     long N = start_pnts.shape[0]
     long M = simplices.shape[0]
     long[:] out = np.zeros((N,), dtype=int, order='c')
-    double[:, :] seg_bounds
     segment2d seg1, seg2
 
-  # with an rtree
-  if tree is not None:
-    # convert vertices and simplices to numpy arrays so that we can do
-    # numpy indexing
-    seg_min = np.minimum(start_pnts, end_pnts)
-    seg_max = np.maximum(start_pnts, end_pnts)
-    seg_bounds = np.hstack((seg_min, seg_max))
-    for i in range(N):
-      seg1.a.x = start_pnts[i, 0]
-      seg1.a.y = start_pnts[i, 1]
-      seg1.b.x = end_pnts[i, 0]
-      seg1.b.y = end_pnts[i, 1]
-      for j in tree.intersection(seg_bounds[i]):
-        seg2.a.x = vertices[simplices[j, 0], 0]
-        seg2.a.y = vertices[simplices[j, 0], 1]
-        seg2.b.x = vertices[simplices[j, 1], 0]
-        seg2.b.y = vertices[simplices[j, 1], 1]
-        if segment_intersects_segment(seg1, seg2):
-          out[i] += 1
-
-  # without an rtree
-  else:    
-    for i in range(N):
-      seg1.a.x = start_pnts[i, 0]
-      seg1.a.y = start_pnts[i, 1]
-      seg1.b.x = end_pnts[i, 0]
-      seg1.b.y = end_pnts[i, 1]
-      for j in range(M):
-        seg2.a.x = vertices[simplices[j, 0], 0]
-        seg2.a.y = vertices[simplices[j, 0], 1]
-        seg2.b.x = vertices[simplices[j, 1], 0]
-        seg2.b.y = vertices[simplices[j, 1], 1]
-        if segment_intersects_segment(seg1, seg2):
-          out[i] += 1
+  for i in range(N):
+    seg1.a.x = start_pnts[i, 0]
+    seg1.a.y = start_pnts[i, 1]
+    seg1.b.x = end_pnts[i, 0]
+    seg1.b.y = end_pnts[i, 1]
+    for j in range(M):
+      seg2.a.x = vertices[simplices[j, 0], 0]
+      seg2.a.y = vertices[simplices[j, 0], 1]
+      seg2.b.x = vertices[simplices[j, 1], 0]
+      seg2.b.y = vertices[simplices[j, 1], 1]
+      if segment_intersects_segment(seg1, seg2):
+        out[i] += 1
     
   return np.asarray(out)
 
@@ -724,8 +699,7 @@ def _intersection_count_2d(double[:, :] start_pnts,
 def _intersection_count_3d(double[:, :] start_pnts,
                            double[:, :] end_pnts,                         
                            double[:, :] vertices,
-                           long[:, :] simplices,
-                           tree=None):
+                           long[:, :] simplices):
   ''' 
   Returns an array of the number of intersections between each line
   segment, described by start_pnts and end_pnts, and the simplices
@@ -735,56 +709,28 @@ def _intersection_count_3d(double[:, :] start_pnts,
     int N = start_pnts.shape[0]
     int M = simplices.shape[0]
     long[:] out = np.zeros((N,), dtype=int, order='c')
-    double[:, :] seg_bounds
     segment3d seg
     triangle3d tri
 
-  # with an rtree
-  if tree is not None:
-    seg_min = np.minimum(start_pnts, end_pnts)
-    seg_max = np.maximum(start_pnts, end_pnts)
-    seg_bounds = np.hstack((seg_min, seg_max))
-    for i in range(N):
-      seg.a.x = start_pnts[i, 0]
-      seg.a.y = start_pnts[i, 1]
-      seg.a.z = start_pnts[i, 2]
-      seg.b.x = end_pnts[i, 0]
-      seg.b.y = end_pnts[i, 1]
-      seg.b.z = end_pnts[i, 2]
-      for j in tree.intersection(seg_bounds[i]):
-        tri.a.x = vertices[simplices[j, 0], 0]
-        tri.a.y = vertices[simplices[j, 0], 1]
-        tri.a.z = vertices[simplices[j, 0], 2]
-        tri.b.x = vertices[simplices[j, 1], 0]
-        tri.b.y = vertices[simplices[j, 1], 1]
-        tri.b.z = vertices[simplices[j, 1], 2]
-        tri.c.x = vertices[simplices[j, 2], 0]
-        tri.c.y = vertices[simplices[j, 2], 1]
-        tri.c.z = vertices[simplices[j, 2], 2]
-        if segment_intersects_triangle(seg, tri):
-          out[i] += 1
-
-  # without an rtree
-  else:
-    for i in range(N):
-      seg.a.x = start_pnts[i, 0]
-      seg.a.y = start_pnts[i, 1]
-      seg.a.z = start_pnts[i, 2]
-      seg.b.x = end_pnts[i, 0]
-      seg.b.y = end_pnts[i, 1]
-      seg.b.z = end_pnts[i, 2]
-      for j in range(M):
-        tri.a.x = vertices[simplices[j, 0], 0]
-        tri.a.y = vertices[simplices[j, 0], 1]
-        tri.a.z = vertices[simplices[j, 0], 2]
-        tri.b.x = vertices[simplices[j, 1], 0]
-        tri.b.y = vertices[simplices[j, 1], 1]
-        tri.b.z = vertices[simplices[j, 1], 2]
-        tri.c.x = vertices[simplices[j, 2], 0]
-        tri.c.y = vertices[simplices[j, 2], 1]
-        tri.c.z = vertices[simplices[j, 2], 2]
-        if segment_intersects_triangle(seg, tri):
-          out[i] += 1
+  for i in range(N):
+    seg.a.x = start_pnts[i, 0]
+    seg.a.y = start_pnts[i, 1]
+    seg.a.z = start_pnts[i, 2]
+    seg.b.x = end_pnts[i, 0]
+    seg.b.y = end_pnts[i, 1]
+    seg.b.z = end_pnts[i, 2]
+    for j in range(M):
+      tri.a.x = vertices[simplices[j, 0], 0]
+      tri.a.y = vertices[simplices[j, 0], 1]
+      tri.a.z = vertices[simplices[j, 0], 2]
+      tri.b.x = vertices[simplices[j, 1], 0]
+      tri.b.y = vertices[simplices[j, 1], 1]
+      tri.b.z = vertices[simplices[j, 1], 2]
+      tri.c.x = vertices[simplices[j, 2], 0]
+      tri.c.y = vertices[simplices[j, 2], 1]
+      tri.c.z = vertices[simplices[j, 2], 2]
+      if segment_intersects_triangle(seg, tri):
+        out[i] += 1
 
   return np.asarray(out)  
 
@@ -1001,44 +947,10 @@ def intersection(start_points, end_points, vertices, simplices):
   return out
 
 
-def intersection_count_rtree(vertices, simplices):
-  '''
-  This creates an `rtree.index.Index` instances which is used to
-  efficiently reduce the number of simplices checked for intersections
-  in the function `intersection_count`.
-
-  Parameters
-  ----------
-  vertices : (M, D) array 
-    Vertices within the simplicial complex. `M` is the number of 
-    vertices
-
-  simplices : (P, D) array
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  '''
-  vertices = np.asarray(vertices, dtype=float)
-  simplices = np.asarray(simplices, dtype=int)
-    
-  smp_min = vertices[simplices].min(axis=1)
-  smp_max = vertices[simplices].max(axis=1)
-  smp_bounds = np.hstack((smp_min, smp_max))
-
-  p = Property()
-  p.dimension = vertices.shape[1]
-  tree = Index(properties=p)
-  for i, b in enumerate(smp_bounds):
-    tree.add(i, b)
-
-  return tree        
-
-
 def intersection_count(start_points, 
                        end_points, 
                        vertices, 
-                       simplices,
-                       tree=None):
+                       simplices):
   ''' 
   Returns the number of simplices crossed by the line segments. The
   line segments are described by `start_points` and `end_points`. This
@@ -1061,11 +973,6 @@ def intersection_count(start_points,
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
-  tree : rtree.index.Index instance
-    An rtree used to reduce the number of simplices checked for
-    intersection. This should be the output of
-    `intersection_count_rtree(vertices, simplices)`. 
-
   Returns
   -------
   out : (N,) int array
@@ -1087,14 +994,12 @@ def intersection_count(start_points,
     out = _intersection_count_2d(start_points,
                                  end_points, 
                                  vertices, 
-                                 simplices, 
-                                 tree=tree)
+                                 simplices)
   elif dim == 3:
     out = _intersection_count_3d(start_points, 
                                  end_points, 
                                  vertices, 
-                                 simplices,
-                                 tree=tree)
+                                 simplices)
   else:
     raise ValueError(
       'The number of spatial dimensions must be 2 or 3')
@@ -1151,10 +1056,10 @@ def contains(points, vertices, simplices):
   assert_shape(simplices, (None, dim), 'simplices')    
 
   rnd = np.random.uniform(0.5, 2.0, (points.shape[1],))    
+  # randomly generate a point that is known to be outside of the
+  # domain
   outside_point = vertices.min(axis=0) - rnd*vertices.ptp(axis=0)
   outside_point = np.repeat([outside_point], points.shape[0], axis=0)
-  # dont use quad/oct trees to query intersections because the
-  # segments are generally large 
   count = intersection_count(points, 
                              outside_point, 
                              vertices, 

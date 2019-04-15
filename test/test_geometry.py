@@ -27,10 +27,6 @@ class Test(unittest.TestCase):
                     [1.0,-1.0]])
     
     soln = np.array([1,0,2,0])
-    tree = rbf.pde.geometry.intersection_count_rtree(vert, smp)
-    out = rbf.pde.geometry.intersection_count(start,end,vert,smp,
-                                              tree=tree)
-    self.assertTrue(np.all(soln==out))
     out = rbf.pde.geometry.intersection_count(start,end,vert,smp)
     self.assertTrue(np.all(soln==out))
 
@@ -48,10 +44,6 @@ class Test(unittest.TestCase):
                     [0.5, 0.5, -1.0],
                     [0.5, 0.5, 0.5]])
     soln = np.array([1, 2, 0])                    
-    tree = rbf.pde.geometry.intersection_count_rtree(vert, smp)
-    out = rbf.pde.geometry.intersection_count(start, end, vert, smp,
-                                              tree=tree)
-    self.assertTrue(np.all(soln==out))
     out = rbf.pde.geometry.intersection_count(start, end, vert, smp)
     self.assertTrue(np.all(soln==out))
     

@@ -9,17 +9,199 @@ import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 
+from rtree.index import Index, Property
+
 from rbf.utils import assert_shape
 from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.sampling import rejection_sampling, poisson_discs
-from rbf.pde.geometry import (intersection,
-                              intersection_count,
-                              intersection_count_rtree,
-                              simplex_outward_normals,
-                              simplex_normals,
-                              nearest_point)
+from rbf.pde import geometry as geo
 
 logger = logging.getLogger(__name__)
+
+
+def build_rtree(vert, smp):
+  '''                                                                  
+  This creates an `rtree.index.Index` instances which is used to
+  efficiently reduce the number of simplices checked in the functions
+  `intersection_count` and `snap_to_boundary`.
+                                                                       
+  Parameters                                                           
+  ----------                                                           
+  vert : (M, D) array                                              
+    Vertices within the simplicial complex. `M` is the number of
+    vertices
+                                                                       
+  smp : (P, D) array                                             
+    Connectivity of the vertices. Each row contains the vertex indices
+    which form one simplex of the simplicial complex
+                                                                       
+  '''                                                                  
+  vert = np.asarray(vert, dtype=float)                         
+  smp = np.asarray(smp, dtype=int)                         
+  assert_shape(vert, (None, None), 'vert')
+  assert_shape(smp, (None, vert.shape[1]), 'smp')
+                                                                       
+  smp_min = vert[smp].min(axis=1)                            
+  smp_max = vert[smp].max(axis=1)                            
+  smp_bounds = np.hstack((smp_min, smp_max))                           
+                                                                       
+  p = Property()                                                       
+  p.dimension = vert.shape[1]                                      
+  tree = Index(properties=p)                                           
+  for i, b in enumerate(smp_bounds):                                   
+    tree.add(i, b)                                                     
+                                                                       
+  return tree      
+
+
+def intersection_count(pnt1, pnt2, vert, smp, tree=None):
+  '''
+  Same as `rbf.pde.geometry.intersection_count` except this has the
+  option to specify an R-Tree instance which is used to efficient
+  search for intersections.
+
+  Parameters
+  ----------
+  pnt1, pnt2 : (n, d) float array
+    The start and end points for N line segments
+
+  vert : (m, d) float array
+    Vertices of the boundary
+  
+  smp : (p, d) int array
+    Connectivity of the vertices.
+  
+  tree : rtre.index.Index, optional
+    An R-tree used to efficiently search for boundary intersections.
+    This should be the object returned by `build_rtree(vert, smp)`
+
+  Returns
+  -------
+  (N,) int array
+    The number of boundary intersections for each segment
+    
+  '''    
+  pnt1 = np.asarray(pnt1, dtype=float)
+  pnt2 = np.asarray(pnt2, dtype=float)
+  vert = np.asarray(vert, dtype=float)
+  smp = np.asarray(smp, dtype=int) 
+  assert_shape(pnt1, (None, None), 'pnt1')
+  n, dim = pnt1.shape
+  assert_shape(pnt2, (n, dim), 'pnt2')
+  assert_shape(vert, (None, dim), 'vert')
+  assert_shape(smp, (None, dim), 'smp')
+
+  if tree is None:
+    # search for intersection with brute force
+    return geo.intersection_count(pnt1, pnt2, vert, smp)
+  
+  else:
+    # efficiently search for intersections with an R-Tree
+    out = np.zeros(n, dtype=int)
+    # The bounding box around each of the segments
+    bounds = np.hstack((np.minimum(pnt1, pnt2),
+                        np.maximum(pnt1, pnt2)))
+    for i, bnd in enumerate(bounds):
+      # get a list of simplices which could potentially be intersected
+      # by segment i
+      potential_smpid = list(tree.intersection(bnd))
+      if not potential_smpid:
+        # no simplices are intersected by the segment
+        continue
+
+      out[[i]] = geo.intersection_count(pnt1[[i]],
+                                        pnt2[[i]],
+                                        vert,
+                                        smp[potential_smpid])
+
+    return out
+    
+
+def snap_to_boundary(nodes, vert, smp, delta=0.5, tree=None):
+  '''
+  Snaps `nodes` to the boundary defined by `vert` and `smp`. If a node
+  is sufficiently close to the boundary, then it will be snapped to
+  the closest point on the boundary. A node is sufficiently close if
+  the distance to the boundary is `delta` times the distance to its
+  nearest neighbor.
+
+  Parameters
+  ----------
+  nodes : (n, d) float array
+    Node positions
+  
+  vert : (p, d) float array
+    Domain vertices
+  
+  smp : (q, d) int array
+    Connectivity of the vertices to form the domain boundary
+  
+  delta : float, optional
+    Snapping distance factor. The snapping distance is `delta` times
+    the distance to the nearest neighbor.
+      
+  tree : rtre.index.Index, optional
+    An R-tree used to efficiently search for boundary intersections.
+    This should be the object returned by `build_rtree(vert, smp)`
+
+  Returns
+  -------
+  (n, d) float array
+    Node poistion    
+
+  (n, d) int array
+    Index of the simplex that each node snapped to. If a node did not
+    snap to the boundary then its value will be -1.
+
+  '''
+  nodes = np.asarray(nodes, dtype=float)
+  vert = np.asarray(vert, dtype=float)
+  smp = np.asarray(smp, dtype=int) 
+  assert_shape(nodes, (None, None), 'nodes')
+  n, dim = nodes.shape
+  assert_shape(vert, (None, dim), 'vert')
+  assert_shape(smp, (None, dim), 'smp')
+
+  # find the distance to the nearest node
+  out_smpid = np.full(n, -1, dtype=int)
+  out_nodes = np.array(nodes, copy=True)
+  nbr_dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
+  snap_dist = delta*nbr_dist
+
+  if tree is None:  
+    # search for simplices to snap to with brute force
+    nrst_pnt, nrst_smpid = geo.nearest_point(nodes, vert, smp)
+    nrst_dist = np.linalg.norm(nrst_pnt - nodes, axis=1)
+    snap = nrst_dist < snap_dist
+    out_nodes[snap] = nrst_pnt[snap]
+    out_smpid[snap] = nrst_smpid[snap]
+  
+  else:
+    # efficiently search for simplices to snap to with an R-Tree
+    bounds = np.hstack((nodes - snap_dist[:, None],                    
+                        nodes + snap_dist[:, None]))                   
+    for i, bnd in enumerate(bounds):                                   
+      # get a list of simplices which node i could potentially snap to
+      potential_smpid = list(tree.intersection(bnd))                 
+      # sort the simplices to ensure that the output is consistent
+      # regardless of whether using an R-tree.
+      potential_smpid.sort() 
+      if not potential_smpid:                                        
+        # no simplices are within the snapping distance
+        continue                                                   
+                                                                       
+      # get the nearest point to the potential simplices and the
+      # simplex containing that nearest point
+      nrst_pnt, nrst_smpid = geo.nearest_point(nodes[[i]],               
+                                               vert,                     
+                                               smp[potential_smpid])     
+      nrst_dist = np.linalg.norm(nodes[i] - nrst_pnt[0])
+      # if the nearest point is within the snapping distance then snap
+      if nrst_dist < snap_dist[i]:                                   
+        out_nodes[i] = nrst_pnt[0]                                 
+        out_smpid[i] = potential_smpid[nrst_smpid[0]]              
+      
+  return out_nodes, out_smpid
 
 
 def _disperse(nodes,
@@ -136,7 +318,7 @@ def disperse(nodes,
 
   tree : rtree.index.Index instance, optional
     An R-tree used to efficiently check for boundary intersections.
-    This should be the output of `intersection_count_rtree(vert, smp)`
+    This should be the output of `build_rtree(vert, smp)`
 
   Returns
   -------
@@ -165,10 +347,10 @@ def disperse(nodes,
   crossed, = crossed.nonzero()
   # points where nodes intersected the boundary and the simplex they
   # intersected at
-  intr_pnt, intr_idx = intersection(nodes[crossed], out[crossed], 
-                                    vert, smp)
+  intr_pnt, intr_idx = geo.intersection(nodes[crossed], out[crossed], 
+                                        vert, smp)
   # normal vector to intersection points
-  intr_norms = simplex_normals(vert, smp[intr_idx])
+  intr_norms = geo.simplex_normals(vert, smp[intr_idx])
   # distance that the node wanted to travel beyond the boundary
   res = out[crossed] - intr_pnt
   # bounce node off the boundary
@@ -179,58 +361,6 @@ def disperse(nodes,
                                      vert, smp, tree=tree) > 0
   out[crossed[still_crossed]] = nodes[crossed[still_crossed]]
   return out
-
-
-def snap_to_boundary(nodes, vert, smp, delta=0.5):
-  '''
-  Snaps `nodes` to the boundary defined by `vert` and `smp`. If a node
-  is sufficiently close to the boundary, then it will be snapped to
-  the closest point on the boundary. A node is sufficiently close if
-  the distance to the boundary is `delta` times the distance to its
-  nearest neighbor.
-
-  Parameters
-  ----------
-  nodes : (n, d) float array
-    Node positions
-  
-  vert : (p, d) float array
-    Domain vertices
-  
-  smp : (q, d) int array
-    Connectivity of the vertices to form the domain boundary
-  
-  delta : float, optional
-    Snapping distance factor. The snapping distance is `delta` times
-    the distance to the nearest neighbor.
-      
-  Returns
-  -------
-  (n, d) float array
-    Node poistion    
-
-  (n, d) int array
-    Index of the simplex that each node snapped to. If a node did not
-    snap to the boundary then its value will be -1.
-
-  '''
-  nodes = np.asarray(nodes, dtype=float)
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int) 
-  assert_shape(nodes, (None, None), 'nodes')
-  n, dim = nodes.shape
-  assert_shape(vert, (None, dim), 'vert')
-  assert_shape(smp, (None, dim), 'smp')
-
-  # find the distance to the nearest node
-  dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
-  nrst_pnt, nrst_smpid = nearest_point(nodes, vert, smp)
-  snap = np.linalg.norm(nrst_pnt - nodes, axis=1) < dist*delta
-  out_smpid = np.full(n, -1, dtype=int)
-  out_nodes = np.array(nodes, copy=True)
-  out_nodes[snap] = nrst_pnt[snap]
-  out_smpid[snap] = nrst_smpid[snap]
-  return out_nodes, out_smpid
 
 
 def neighbor_argsort(nodes, m=None):
@@ -461,7 +591,7 @@ def prepare_nodes(nodes, vert, smp,
 
   if use_tree:
     logger.debug('building R-tree ...')
-    tree = intersection_count_rtree(vert, smp)
+    tree = build_rtree(vert, smp)
     logger.debug('done')
     
   else:
@@ -485,16 +615,17 @@ def prepare_nodes(nodes, vert, smp,
   # snap nodes to the boundary, identifying which simplex each node
   # was snapped to
   logger.debug('snapping nodes to boundary ...')
-  nodes, smpid = snap_to_boundary(nodes, vert, smp, delta=snap_delta)
+  nodes, smpid = snap_to_boundary(nodes, vert, smp, 
+                                  delta=snap_delta, tree=tree)
   logger.debug('done')
 
   # find the normal vectors for each node that snapped to the boundary
   if orient_simplices:
     logger.debug('orienting simplices and computing normals ...')
-    smp_normals = simplex_outward_normals(vert, smp)
+    smp_normals = geo.simplex_outward_normals(vert, smp)
     logger.debug('done')
   else:
-    smp_normals = simplex_normals(vert, smp)
+    smp_normals = geo.simplex_normals(vert, smp)
     
   normals = np.full_like(nodes, np.nan)
   normals[smpid >= 0] = smp_normals[smpid[smpid >= 0]]
@@ -518,8 +649,11 @@ def prepare_nodes(nodes, vert, smp,
     boundary_groups_with_ghosts = []    
 
   # create groups for the boundary nodes
-  logger.debug('grouping bounding nodes and generating ghosts ...')
+  logger.debug('grouping boundary nodes and generating ghosts ...')
   for k, v in boundary_groups.items():
+    # convert the list of simplices in the boundary group to a set,
+    # because it is much faster to determine membership of a set
+    v = set(v)
     bnd_idx = np.array([i for i, j in enumerate(smpid) if j in v])
     groups['boundary:' + k] = bnd_idx
     if k in boundary_groups_with_ghosts:
