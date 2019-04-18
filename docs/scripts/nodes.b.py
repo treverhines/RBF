@@ -3,11 +3,13 @@ This script demonstrates generating nodes with `min_energy_nodes` and
 it verifies that the density of the returned nodes accurately matches
 the specified density.
 '''
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
+
+from rbf.basis import se
 from rbf.pde.nodes import min_energy_nodes
-import rbf
-import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -38,7 +40,7 @@ def actual_rho(x, nodes):
   '''
   out = np.zeros(x.shape[0])
   for n in nodes:
-    out += rbf.basis.se(x, n[None, :], eps=0.01)[:, 0]
+    out += se(x, n[None, :], eps=0.01)[:, 0]
     
   out /= np.max(out)
   return out

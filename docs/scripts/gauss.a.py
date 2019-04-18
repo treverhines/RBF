@@ -6,8 +6,9 @@ their distributions.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-import rbf
 import logging
+from rbf.basis import se
+from rbf.gauss import gpiso
 logging.basicConfig(level=logging.DEBUG)
 np.random.seed(1)
 
@@ -20,7 +21,7 @@ d = np.exp(-0.3*np.abs(y))*np.sin(y) + np.random.normal(0.0,sigma)
 # form a prior Gaussian process which has a squared exponential
 # covariance function (rbf.basis.se), 0.0 for the mean, 1.0 for the
 # standard deviation, and 1.0 for the characteristic length scale.
-gp = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,1.0)) 
+gp = gpiso(se, (0.0, 1.0, 1.0)) 
 sample = gp.sample(x[:,None]) # generate random sample
 mean,std = gp(x[:,None]) # find the mean and standard dev. at x
 gp_cond = gp.condition(y[:,None],d,sigma=sigma) # condition with data

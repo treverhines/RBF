@@ -5,7 +5,7 @@ function
 import numpy as np
 import sympy
 import matplotlib.pyplot as plt
-from rbf.basis import RBF,get_r,get_eps
+from rbf.basis import RBF, get_r, get_eps
 
 r, eps = get_r(), get_eps() # get symbolic variables
 expr = sympy.sin(eps*r)/(eps*r) # symbolic expression for the RBF

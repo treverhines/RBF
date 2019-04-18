@@ -7,11 +7,10 @@ import logging
 import numpy as np
 import scipy.sparse as sp
 
-import rbf.basis
-import rbf.poly
-import rbf.linalg
+from rbf.basis import phs3, get_rbf
+from rbf.poly import count, powers, mvmonos
 from rbf.utils import assert_shape, Memoize
-from rbf.linalg import PartitionedSolver
+from rbf.linalg import PartitionedSolver, as_array
 from rbf.pde.knn import k_nearest_neighbors
 
 logger = logging.getLogger(__name__)
@@ -57,14 +56,14 @@ def _max_poly_order(size, dim):
   size and number of dimensions
   '''
   order = -1
-  while (rbf.poly.count(order+1, dim) <= size):
+  while (count(order+1, dim) <= size):
     order += 1
 
   return order
 
 
 def weights(x, s, diffs, coeffs=None,
-            phi=rbf.basis.phs3, order=None,
+            phi=phs3, order=None,
             eps=1.0):
   ''' 
   Returns the weights which map a functions values at `s` to an
@@ -168,7 +167,7 @@ def weights(x, s, diffs, coeffs=None,
     coeffs = np.asarray(coeffs, dtype=float)
     assert_shape(coeffs, (diffs.shape[0],), 'coeffs')
 
-  phi = rbf.basis.get_rbf(phi)
+  phi = get_rbf(phi)
 
   max_order = _max_poly_order(size, dim)
   if order is None:
@@ -180,22 +179,22 @@ def weights(x, s, diffs, coeffs=None,
       'Polynomial order is too high for the stencil size')
     
   # get the powers for the added monomials
-  powers = rbf.poly.powers(order, dim)
+  pwr = powers(order, dim)
   # evaluate the RBF and monomials at each point in the stencil. This
   # becomes the left-hand-side
   A = phi(s, s, eps=eps)
-  P = rbf.poly.mvmonos(s, powers)
+  P = mvmonos(s, pwr)
   # Evaluate the RBF and monomials for each term in the differential
   # operator. This becomes the right-hand-side.
   a = coeffs[0]*phi(x[None, :], s, eps=eps, diff=diffs[0])
-  p = coeffs[0]*rbf.poly.mvmonos(x[None, :], powers, diff=diffs[0])
+  p = coeffs[0]*mvmonos(x[None, :], pwr, diff=diffs[0])
   for c, d in zip(coeffs[1:], diffs[1:]):
     a += c*phi(x[None, :], s, eps=eps, diff=d)
-    p += c*rbf.poly.mvmonos(x[None, :], powers, diff=d)
+    p += c*mvmonos(x[None, :], pwr, diff=d)
 
   # squeeze `a` and `p` into 1d arrays. `a` is ran through as_array
   # because it may be sparse.
-  a = rbf.linalg.as_array(a)[0]
+  a = as_array(a)[0]
   p = p[0]
 
   # attempt to compute the RBF-FD weights
@@ -213,7 +212,7 @@ def weights(x, s, diffs, coeffs=None,
 
 
 def weight_matrix(x, p, diffs, coeffs=None,
-                  phi=rbf.basis.phs3, order=None,
+                  phi=phs3, order=None,
                   eps=1.0, n=None, stencils=None):
   ''' 
   Returns a weight matrix which maps a functions values at `p` to an

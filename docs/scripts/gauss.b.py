@@ -5,18 +5,19 @@ has two distinct length-scales.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-import rbf
+from rbf.basis import se
+from rbf.gauss import gpiso
 np.random.seed(1)
 
-dx = np.linspace(0.0,5.0,1000)[:,None]
-x = np.linspace(-5,5.0,1000)[:,None]
-gp_long = rbf.gauss.gpiso(rbf.basis.se,(0.0,1.0,2.0))
-gp_short = rbf.gauss.gpiso(rbf.basis.se,(0.0,0.5,0.25))
+dx = np.linspace(0.0, 5.0, 1000)[:,None]
+x = np.linspace(-5, 5.0, 1000)[:,None]
+gp_long = gpiso(se, (0.0, 1.0, 2.0))
+gp_short = gpiso(se, (0.0, 0.5, 0.25))
 gp = gp_long + gp_short
 # compute the autocovariances 
-acov_long = gp_long.covariance(dx,[[0.0]])
-acov_short = gp_short.covariance(dx,[[0.0]])
-acov = gp.covariance(dx,[[0.0]])
+acov_long = gp_long.covariance(dx, [[0.0]])
+acov_short = gp_short.covariance(dx, [[0.0]])
+acov = gp.covariance(dx, [[0.0]])
 # draw 3 samples
 sample = gp.sample(x) 
 # mean and uncertainty of the new gp

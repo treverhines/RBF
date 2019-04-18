@@ -1,5 +1,5 @@
 import numpy as np
-import rbf
+import rbf.gauss
 import unittest
 import matplotlib.pyplot as plt
 import scipy.sparse as sp

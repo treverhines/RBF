@@ -2,9 +2,9 @@
 This script demonstrates how to define a 1D Gibb Gaussian process
 which has variable lengthscales. 
 '''
-import rbf
 import numpy as np
 import matplotlib.pyplot as plt
+from rbf.gauss import gpgibbs
 np.random.seed(0)
 
 def lengthscale(x):
@@ -13,7 +13,7 @@ def lengthscale(x):
     return out
 
 
-gp = rbf.gauss.gpgibbs(lengthscale,0.5,delta=1e-3)
+gp = gpgibbs(lengthscale,0.5,delta=1e-3)
 
 # define some points where we will evaluate the Gaussian process
 x = np.linspace(-5,5,600)[:,None]

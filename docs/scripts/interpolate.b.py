@@ -4,7 +4,7 @@ RBF Interpolation on a unit sphere. This is done by converting theta
 then interpolating over R^3.
 '''
 import numpy as np
-import rbf
+from rbf.interpolate import RBFInterpolant
 import matplotlib.pyplot as plt
 np.random.seed(1)
 
@@ -43,7 +43,7 @@ cart_itp = spherical_to_cartesian(theta_itp,phi_itp)
 # create an RBF interpolant from the cartesian observation points. I
 # am just use the default `RBFInterpolant` parameters here, nothing
 # special.
-I = rbf.interpolate.RBFInterpolant(cart_obs,val_obs)
+I = RBFInterpolant(cart_obs,val_obs)
 # evaluate the interpolant on the interpolation points
 val_itp = I(cart_itp)
 

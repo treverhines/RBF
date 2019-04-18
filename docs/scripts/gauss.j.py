@@ -4,8 +4,8 @@ scattered data and then differentiate the interpolant.
 '''
 import matplotlib.pyplot as plt
 import numpy as np 
-import rbf
-from rbf.gauss import gpiso,gppoly
+from rbf.basis import spwen32
+from rbf.gauss import gpiso, gppoly
 
 # get a verbose log of what is going on
 import logging
@@ -51,7 +51,7 @@ xitp = np.array([x1itp,x2itp]).T
 # datasets with this choice of prior, provided that the lengthscale of
 # the prior is much less than the size of the domain (which is not
 # true for this demo)
-basis = rbf.basis.spwen32 
+basis = spwen32 
 
 # define hyperparameters for the prior. Tune these parameters to get a
 # satisfactory interpolant. These can also be chosen with maximum

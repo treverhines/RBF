@@ -17,7 +17,9 @@ class Test(unittest.TestCase):
         out2a, out2b = snap_to_boundary(pnt, vert, smp, tree=tree)
         
         self.assertTrue(np.all(out1a == out2a))
-        self.assertTrue(np.all(out1b == out2b))
+        # the simplex ids may not be the same if the the nearest point
+        # is a vertex that connects two simplices
+        #self.assertTrue(np.all(out1b == out2b))
 
     def test_snap_to_boundary_3d(self):
         vert, smp = sphere(5)
@@ -28,7 +30,9 @@ class Test(unittest.TestCase):
         out2a, out2b = snap_to_boundary(pnt, vert, smp, tree=tree)
         
         self.assertTrue(np.all(out1a == out2a))
-        self.assertTrue(np.all(out1b == out2b))
+        # the simplex ids may not be the same if the the nearest point
+        # is a vertex that connects two simplices
+        #self.assertTrue(np.all(out1b == out2b))
 
     def test_intersection_count_2d(self):
         vert, smp = circle(5)

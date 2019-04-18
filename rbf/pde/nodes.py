@@ -182,10 +182,7 @@ def snap_to_boundary(nodes, vert, smp, delta=0.5, tree=None):
                         nodes + snap_dist[:, None]))                   
     for i, bnd in enumerate(bounds):                                   
       # get a list of simplices which node i could potentially snap to
-      potential_smpid = list(tree.intersection(bnd))                 
-      # sort the simplices to ensure that the output is consistent
-      # regardless of whether using an R-tree.
-      potential_smpid.sort() 
+      potential_smpid = list(tree.intersection(bnd))
       if not potential_smpid:                                        
         # no simplices are within the snapping distance
         continue                                                   
@@ -684,7 +681,7 @@ def prepare_nodes(nodes, vert, smp,
   return nodes, groups, normals
 
   
-def min_energy_nodes(n, vert, smp, rho=None, **kwargs):
+def min_energy_nodes(n, vert, smp, rho=None, iterations=100, **kwargs):
   '''
   Generates nodes within a two or three dimensional. This first
   generates nodes with a rejection sampling algorithm, and then the
@@ -790,12 +787,13 @@ def min_energy_nodes(n, vert, smp, rho=None, **kwargs):
         return np.ones(x.shape[0])
 
   nodes = rejection_sampling(n, rho, vert, smp)
-  out = prepare_nodes(nodes, vert, smp, rho=rho, **kwargs)
+  out = prepare_nodes(nodes, vert, smp, rho=rho, 
+                      iterations=iterations, **kwargs)
   return out                      
 
 
 def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5, 
-                       **kwargs):
+                       iterations=20, **kwargs):
   '''
   Generates nodes within a two or three dimensional domain. This first
   generate nodes with Poisson disc sampling, and then the nodes are
@@ -864,5 +862,6 @@ def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5,
         
   nodes = poisson_discs(radius, vert, smp, ntests=ntests, 
                         rmax_factor=rmax_factor)
-  out = prepare_nodes(nodes, vert, smp, rho=rho, **kwargs)
+  out = prepare_nodes(nodes, vert, smp, rho=rho, 
+                      iterations=iterations, **kwargs)
   return out

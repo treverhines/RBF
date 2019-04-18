@@ -4,8 +4,8 @@ remove outliers prior to conditioning a *GaussinaProcess*.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-import rbf
 import logging
+from rbf.gauss import gpse, gppoly
 logging.basicConfig(level=logging.DEBUG)
 np.random.seed(1)
 
@@ -18,7 +18,7 @@ noise = np.random.normal(0.0,obs_sigma)
 noise[20],noise[25] = 2.0,1.0 # add anomalously large noise
 obs_mu = np.exp(-0.3*np.abs(y))*np.sin(y) + noise
 # form prior Gaussian process
-prior = rbf.gauss.gpse((0.0,1.0,1.0)) + rbf.gauss.gppoly(1)
+prior = gpse((0.0, 1.0, 1.0)) + gppoly(1)
 # find outliers which will be removed
 toss = prior.outliers(y[:,None],obs_mu,obs_sigma)
 # condition with non-outliers

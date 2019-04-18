@@ -84,8 +84,9 @@ Scientific Publishing Co, 2007.
 import numpy as np
 import scipy.sparse
 import scipy.spatial
-import rbf.basis
-import rbf.poly 
+
+from rbf.poly import powers, mvmonos
+from rbf.basis import phs3, get_rbf
 from rbf.utils import assert_shape
 from rbf.linalg import PartitionedSolver
 
@@ -168,7 +169,7 @@ class RBFInterpolant(object):
   def __init__(self, y, d,
                sigma=None,
                eps=1.0,
-               phi=rbf.basis.phs3,
+               phi=phs3,
                order=1,
                extrapolate=True):
     y = np.asarray(y) 
@@ -191,17 +192,17 @@ class RBFInterpolant(object):
       sigma = np.asarray(sigma)
       assert_shape(sigma, (nobs,), 'sigma')
       
-    phi = rbf.basis.get_rbf(phi)
+    phi = get_rbf(phi)
     
     # form block consisting of the RBF and uncertainties on the
     # diagonal
     K = phi(y, y, eps=eps) 
     Cd = scipy.sparse.diags(sigma**2)
     # form the block consisting of the monomials
-    powers = rbf.poly.powers(order, dim)
-    P = rbf.poly.mvmonos(y, powers)
+    pwr = powers(order, dim)
+    P = mvmonos(y, pwr)
     # create zeros vector for the right-hand-side
-    z = np.zeros((powers.shape[0],))
+    z = np.zeros((pwr.shape[0],))
     # solve for the RBF and mononomial coefficients
     phi_coeff, poly_coeff = PartitionedSolver(K + Cd, P).solve(d, z) 
 
@@ -211,7 +212,7 @@ class RBFInterpolant(object):
     self._eps = eps
     self._phi_coeff = phi_coeff
     self._poly_coeff = poly_coeff
-    self._powers = powers 
+    self._pwr = pwr
     self.extrapolate = extrapolate
 
   def __call__(self, x, diff=None, chunk_size=1000):
@@ -251,9 +252,9 @@ class RBFInterpolant(object):
         self._y, 
         eps=self._eps, 
         diff=diff)
-      P = rbf.poly.mvmonos(
+      P = mvmonos(
         x[start:stop], 
-        self._powers, 
+        self._pwr, 
         diff=diff)
       out[start:stop] = (K.dot(self._phi_coeff) + 
                          P.dot(self._poly_coeff))

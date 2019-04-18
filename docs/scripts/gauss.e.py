@@ -4,23 +4,24 @@ using the *gpiso* function.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-import rbf
-from sympy import sin,exp,pi 
+from sympy import sin, exp, pi 
+from rbf.basis import get_r, get_eps, RBF
+from rbf.gauss import gpiso
 np.random.seed(1)
 
 period = 5.0 
 cls = 0.5 # characteristic length scale
 var = 1.0 # variance
 
-r = rbf.basis.get_r() # get symbolic variables
-eps = rbf.basis.get_eps()
+r = get_r() # get symbolic variables
+eps = get_eps()
 # create a symbolic expression of the periodic covariance function 
 expr = exp(-sin(r*pi/period)**2/eps**2) 
 # define a periodic RBF using the symbolic expression
-basis = rbf.basis.RBF(expr)
+basis = RBF(expr)
 # define a Gaussian process using the periodic RBF
-gp = rbf.gauss.gpiso(basis,(0.0,var,cls))
-t = np.linspace(-10,10,1000)[:,None]
+gp = gpiso(basis, (0.0, var, cls))
+t = np.linspace(-10, 10, 1000)[:,None]
 sample = gp.sample(t) # draw a sample
 mu,sigma = gp(t) # evaluate mean and std. dev.
 
