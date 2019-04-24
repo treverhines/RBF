@@ -4,6 +4,7 @@ import weakref
 from collections import OrderedDict
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 
 def assert_shape(arr, shape, label):
@@ -144,3 +145,17 @@ def clear_memoize_caches():
     for inst in Memoize._INSTANCES:
         if inst() is not None:
             inst().clear_cache()
+
+
+class KDTree(cKDTree):
+    '''
+    Same as `scipy.spatial.cKDTree`, except when calling `query` with
+    `k=1`, the output does not get squeezed to 1D.
+    '''
+    def query(self, x, k=1, **kwargs):
+        dist, indices = super().query(x, k=k, **kwargs)
+        if k == 1:
+            dist = dist[..., None]
+            indices = indices[..., None]
+
+        return dist, indices            

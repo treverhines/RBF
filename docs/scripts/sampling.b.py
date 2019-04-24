@@ -21,7 +21,7 @@ smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
 
 # generate the discs
 start = time.time()
-points = rejection_sampling(1000, rho, vert, smp)
+points = rejection_sampling(1000, rho, (vert, smp))
 print('generated %s nodes in %s seconds' %
       (len(points), time.time() - start))
 

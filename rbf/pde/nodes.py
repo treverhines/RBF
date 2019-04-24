@@ -9,244 +9,25 @@ import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 
-from rtree.index import Index, Property
-
-from rbf.utils import assert_shape
-from rbf.pde.knn import k_nearest_neighbors
+from rbf.utils import assert_shape, KDTree
+from rbf.pde.domain import as_domain
 from rbf.pde.sampling import rejection_sampling, poisson_discs
-from rbf.pde import geometry as geo
+
 
 logger = logging.getLogger(__name__)
 
 
-def build_rtree(vert, smp):
-  '''                                                                  
-  This creates an `rtree.index.Index` instances which is used to
-  efficiently reduce the number of simplices checked in the functions
-  `intersection_count` and `snap_to_boundary`.
-                                                                       
-  Parameters                                                           
-  ----------                                                           
-  vert : (M, D) array                                              
-    Vertices within the simplicial complex. `M` is the number of
-    vertices
-                                                                       
-  smp : (P, D) array                                             
-    Connectivity of the vertices. Each row contains the vertex indices
-    which form one simplex of the simplicial complex
-                                                                       
-  '''                                                                  
-  vert = np.asarray(vert, dtype=float)                         
-  smp = np.asarray(smp, dtype=int)                         
-  assert_shape(vert, (None, None), 'vert')
-  assert_shape(smp, (None, vert.shape[1]), 'smp')
-                                                                       
-  smp_min = vert[smp].min(axis=1)                            
-  smp_max = vert[smp].max(axis=1)                            
-  smp_bounds = np.hstack((smp_min, smp_max))                           
-                                                                       
-  p = Property()                                                       
-  p.dimension = vert.shape[1]                                      
-  tree = Index(properties=p)                                           
-  for i, b in enumerate(smp_bounds):                                   
-    tree.add(i, b)                                                     
-                                                                       
-  return tree      
-
-
-def intersection_count(pnt1, pnt2, vert, smp, tree=None):
-  '''
-  Same as `rbf.pde.geometry.intersection_count` except this has the
-  option to specify an R-Tree instance which is used to efficient
-  search for intersections.
-
-  Parameters
-  ----------
-  pnt1, pnt2 : (n, d) float array
-    The start and end points for N line segments
-
-  vert : (m, d) float array
-    Vertices of the boundary
-  
-  smp : (p, d) int array
-    Connectivity of the vertices.
-  
-  tree : rtre.index.Index, optional
-    An R-tree used to efficiently search for boundary intersections.
-    This should be the object returned by `build_rtree(vert, smp)`
-
-  Returns
-  -------
-  (N,) int array
-    The number of boundary intersections for each segment
-    
-  '''    
-  pnt1 = np.asarray(pnt1, dtype=float)
-  pnt2 = np.asarray(pnt2, dtype=float)
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int) 
-  assert_shape(pnt1, (None, None), 'pnt1')
-  n, dim = pnt1.shape
-  assert_shape(pnt2, (n, dim), 'pnt2')
-  assert_shape(vert, (None, dim), 'vert')
-  assert_shape(smp, (None, dim), 'smp')
-
-  if tree is None:
-    # search for intersection with brute force
-    return geo.intersection_count(pnt1, pnt2, vert, smp)
-  
-  else:
-    # efficiently search for intersections with an R-Tree
-    out = np.zeros(n, dtype=int)
-    # The bounding box around each of the segments
-    bounds = np.hstack((np.minimum(pnt1, pnt2),
-                        np.maximum(pnt1, pnt2)))
-    for i, bnd in enumerate(bounds):
-      # get a list of simplices which could potentially be intersected
-      # by segment i
-      potential_smpid = list(tree.intersection(bnd))
-      if not potential_smpid:
-        # no simplices are intersected by the segment
-        continue
-
-      out[[i]] = geo.intersection_count(pnt1[[i]],
-                                        pnt2[[i]],
-                                        vert,
-                                        smp[potential_smpid])
-
-    return out
-    
-
-def snap_to_boundary(nodes, vert, smp, delta=0.5, tree=None):
-  '''
-  Snaps `nodes` to the boundary defined by `vert` and `smp`. If a node
-  is sufficiently close to the boundary, then it will be snapped to
-  the closest point on the boundary. A node is sufficiently close if
-  the distance to the boundary is `delta` times the distance to its
-  nearest neighbor.
-
-  Parameters
-  ----------
-  nodes : (n, d) float array
-    Node positions
-  
-  vert : (p, d) float array
-    Domain vertices
-  
-  smp : (q, d) int array
-    Connectivity of the vertices to form the domain boundary
-  
-  delta : float, optional
-    Snapping distance factor. The snapping distance is `delta` times
-    the distance to the nearest neighbor.
-      
-  tree : rtre.index.Index, optional
-    An R-tree used to efficiently search for boundary intersections.
-    This should be the object returned by `build_rtree(vert, smp)`
-
-  Returns
-  -------
-  (n, d) float array
-    Node poistion    
-
-  (n, d) int array
-    Index of the simplex that each node snapped to. If a node did not
-    snap to the boundary then its value will be -1.
-
-  '''
-  nodes = np.asarray(nodes, dtype=float)
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int) 
-  assert_shape(nodes, (None, None), 'nodes')
-  n, dim = nodes.shape
-  assert_shape(vert, (None, dim), 'vert')
-  assert_shape(smp, (None, dim), 'smp')
-
-  # find the distance to the nearest node
-  out_smpid = np.full(n, -1, dtype=int)
-  out_nodes = np.array(nodes, copy=True)
-  nbr_dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
-  snap_dist = delta*nbr_dist
-
-  if tree is None:  
-    # search for simplices to snap to with brute force
-    nrst_pnt, nrst_smpid = geo.nearest_point(nodes, vert, smp)
-    nrst_dist = np.linalg.norm(nrst_pnt - nodes, axis=1)
-    snap = nrst_dist < snap_dist
-    out_nodes[snap] = nrst_pnt[snap]
-    out_smpid[snap] = nrst_smpid[snap]
-  
-  else:
-    # efficiently search for simplices to snap to with an R-Tree
-    bounds = np.hstack((nodes - snap_dist[:, None],                    
-                        nodes + snap_dist[:, None]))                   
-    for i, bnd in enumerate(bounds):                                   
-      # get a list of simplices which node i could potentially snap to
-      potential_smpid = list(tree.intersection(bnd))
-      if not potential_smpid:                                        
-        # no simplices are within the snapping distance
-        continue                                                   
-                                                                       
-      # get the nearest point to the potential simplices and the
-      # simplex containing that nearest point
-      nrst_pnt, nrst_smpid = geo.nearest_point(nodes[[i]],               
-                                               vert,                     
-                                               smp[potential_smpid])     
-      nrst_dist = np.linalg.norm(nodes[i] - nrst_pnt[0])
-      # if the nearest point is within the snapping distance then snap
-      if nrst_dist < snap_dist[i]:                                   
-        out_nodes[i] = nrst_pnt[0]                                 
-        out_smpid[i] = potential_smpid[nrst_smpid[0]]              
-      
-  return out_nodes, out_smpid
-
-
-def _disperse(nodes,
-              rho=None,
-              fixed_nodes=None,
-              neighbors=None,
-              delta=0.1,
-              vert=None,
-              smp=None):
+def _disperse(nodes, rho, fixed_nodes, neighbors, delta):
   '''
   Returns the new position of the free nodes after a dispersal step.
-  Nodes on opposite sides of the boundary defined by `vert` and `smp`
-  cannot repel eachother. This does not handle node intersections with
-  the boundary
+  This does not handle node intersections with the boundary.
   '''
-  if rho is None:
-    def rho(x): 
-        return np.ones(x.shape[0])
-
-  if fixed_nodes is None:
-    fixed_nodes = np.zeros((0, nodes.shape[1]), dtype=float)
-  else:
-    fixed_nodes = np.asarray(fixed_nodes)
-    assert_shape(fixed_nodes, (None, nodes.shape[1]), 'fixed_nodes')     
-    
-  if neighbors is None:
-    # the default number of neighboring nodes to use when computing
-    # the repulsion force is 7 for 2D and 13 for 3D
-    if nodes.shape[1] == 2:
-      neighbors = 4
-
-    elif nodes.shape[1] == 3:
-      neighbors = 5
-
-  # ensure that the number of nodes used to determine repulsion force
-  # is less than or equal to the total number of nodes
-  neighbors = min(neighbors, nodes.shape[0] + fixed_nodes.shape[0])
-  # if m is 0 or 1 then the nodes remain stationary
-  if neighbors <= 1:
-    return np.array(nodes, copy=True)
-
   # form collection of all nodes
   all_nodes = np.vstack((nodes, fixed_nodes))
   # find index and distance to nearest nodes
-  i, d = k_nearest_neighbors(nodes, all_nodes, neighbors, 
-                             vert=vert, smp=smp)
+  d, i = KDTree(all_nodes).query(nodes, neighbors)
   # dont consider a node to be one of its own nearest neighbors
-  i, d = i[:, 1:], d[:, 1:]
+  d, i = d[:, 1:], i[:, 1:]
   # compute the force proportionality constant between each node
   # based on their charges
   c = 1.0/(rho(all_nodes)[i, None]*rho(nodes)[:, None, None])
@@ -268,14 +49,11 @@ def _disperse(nodes,
 
 
 def disperse(nodes,
-             vert,
-             smp,
+             domain,
              rho=None,
              fixed_nodes=None,
              neighbors=None,
-             delta=0.1,
-             bound_force=False,
-             tree=None):
+             delta=0.1):
   '''
   Slightly disperses the nodes within the domain defined by `vert` and
   `smp`. The disperson is analogous to electrostatic repulsion, where
@@ -287,11 +65,8 @@ def disperse(nodes,
   nodes : (n, d) float array
     Initial node positions
 
-  vert : (p, d) float array
-    Domain vertices
-  
-  smp : (q, d) int array
-    Connectivity of the vertices to form the boundary
+  domain : (p, d) float array and (q, d) int array
+    Vertices of the domain and connectivity of the vertices
   
   rho : callable, optional
     Takes an (n, d) array as input and returns the repulsion force for
@@ -309,53 +84,60 @@ def disperse(nodes,
     force by a distance `delta` times the distance to the nearest
     neighbor.
 
-  bound_force : bool, optional
-    If True then nodes cannot repel eachother across the domain
-    boundaries.
-
-  tree : rtree.index.Index instance, optional
-    An R-tree used to efficiently check for boundary intersections.
-    This should be the output of `build_rtree(vert, smp)`
-
   Returns
   -------
   (n, d) float array
   
   '''
+  domain = as_domain(domain)
   nodes = np.asarray(nodes, dtype=float)
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int) 
-  assert_shape(nodes, (None, None), 'nodes')
-  dim = nodes.shape[1]
-  assert_shape(vert, (None, dim), 'vert')
-  assert_shape(smp, (None, dim), 'smp')
-  
-  if bound_force:
-    bound_vert, bound_smp = vert, smp
+  assert_shape(nodes, (None, domain.dim), 'nodes')
+
+  if rho is None:
+    def rho(x): 
+        return np.ones(x.shape[0])
+
+  if fixed_nodes is None:
+    fixed_nodes = np.zeros((0, domain.dim), dtype=float)
   else:
-    bound_vert, bound_smp = None, None
+    fixed_nodes = np.asarray(fixed_nodes)
+    assert_shape(fixed_nodes, (None, domain.dim), 'fixed_nodes')
+
+  if neighbors is None:
+    # the default number of neighboring nodes to use when computing
+    # the repulsion force is 7 for 2D and 13 for 3D
+    if domain.dim == 2:
+      neighbors = 4
+
+    elif domain.dim == 3:
+      neighbors = 5
+
+  # ensure that the number of neighboring nodes used for the repulsion
+  # force is less than or equal to the total number of nodes
+  neighbors = min(neighbors, nodes.shape[0] + fixed_nodes.shape[0])
+  # if m is 0 or 1 then the nodes remain stationary
+  if neighbors <= 1:
+    return np.array(nodes, copy=True)
 
   # node positions after repulsion
-  out = _disperse(nodes, rho=rho, fixed_nodes=fixed_nodes, 
-                  neighbors=neighbors, delta=delta, vert=bound_vert, 
-                  smp=bound_smp)
+  out = _disperse(nodes, rho, fixed_nodes, neighbors, delta)
   # indices of nodes which are now outside the domain
-  crossed = intersection_count(nodes, out, vert, smp, tree=tree) > 0
+  crossed = domain.intersection_count(nodes, out) > 0
   crossed, = crossed.nonzero()
   # points where nodes intersected the boundary and the simplex they
   # intersected at
-  intr_pnt, intr_idx = geo.intersection(nodes[crossed], out[crossed], 
-                                        vert, smp)
+  intr_pnt, intr_idx = domain.intersection_point(nodes[crossed], 
+                                                 out[crossed])
   # normal vector to intersection points
-  intr_norms = geo.simplex_normals(vert, smp[intr_idx])
+  intr_norms = domain.normals[intr_idx]
   # distance that the node wanted to travel beyond the boundary
   res = out[crossed] - intr_pnt
   # bounce node off the boundary
   out[crossed] -= 2*intr_norms*np.sum(res*intr_norms, 1)[:, None]
   # check to see if the bounced nodes still intersect the boundary. If
   # they do, then set them back to their original position
-  still_crossed = intersection_count(nodes[crossed], out[crossed], 
-                                     vert, smp, tree=tree) > 0
+  still_crossed = domain.intersection_count(nodes[crossed], 
+                                            out[crossed]) > 0
   out[crossed[still_crossed]] = nodes[crossed[still_crossed]]
   return out
 
@@ -399,7 +181,7 @@ def neighbor_argsort(nodes, m=None):
 
   m = min(m, nodes.shape[0])
   # find the indices of the nearest m nodes for each node
-  idx = k_nearest_neighbors(nodes, nodes, m)[0]
+  _, idx = KDTree(nodes).query(nodes, m)
   # efficiently form adjacency matrix
   col = idx.ravel()
   row = np.repeat(np.arange(nodes.shape[0]), m)
@@ -421,7 +203,7 @@ def _check_spacing(nodes, rho=None):
         return np.ones(x.shape[0])
 
   # distance to nearest neighbor
-  dist = k_nearest_neighbors(nodes, nodes, 2)[1][:, 1]
+  dist = KDTree(nodes).query(nodes, 2)[0][:, 1]
   if np.any(dist == 0.0):
     is_zero = (dist == 0.0)
     indices, = is_zero.nonzero()
@@ -444,7 +226,7 @@ def _check_spacing(nodes, rho=None):
         'node.' % (idx, nodes[idx]))
 
 
-def prepare_nodes(nodes, vert, smp,
+def prepare_nodes(nodes, domain,
                   rho=None,
                   iterations=20,
                   neighbors=None,
@@ -454,9 +236,7 @@ def prepare_nodes(nodes, vert, smp,
                   snap_delta=0.5,
                   boundary_groups=None,
                   boundary_groups_with_ghosts=None,
-                  include_vertices=False,
-                  use_tree=False,
-                  orient_simplices=True):
+                  include_vertices=False):
   '''
   Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
   method. This includes: dispersing the nodes away from eachother to
@@ -474,11 +254,8 @@ def prepare_nodes(nodes, vert, smp,
   nodes : (n, d) float arrary
     An initial sampling of nodes within the domain
 
-  vert : (p, d) float array
-    Vertices making up the domain boundary
-
-  smp : (q, d) array
-    Describes how the vertices are connected to form the boundary
+  domain : (p, d) float array and (q, d) int array
+    Vertices of the domain and connectivity of the vertices
 
   rho : function, optional 
     Node density function. Takes a (n, d) array of coordinates and
@@ -535,15 +312,6 @@ def prepare_nodes(nodes, vert, smp,
     groups, then the vertex will be assigned to the group containing
     the simplex that comes first in `smp`.
 
-  use_tree : bool, optional
-    Whether to use an R-tree to detect when a node collides with
-    the boundary during the dispersion phase.
-
-  orient_simplices : bool, optional
-    Orients the simplices to make sure their normal vectors point
-    outward. Set this to False if you are sure the simplices are
-    properly oriented.
-
   Returns
   -------
   (m, d) float array
@@ -565,67 +333,46 @@ def prepare_nodes(nodes, vert, smp,
     boundary then its corresponding row will contain NaNs.
 
   '''
+  domain = as_domain(domain)
   nodes = np.asarray(nodes, dtype=float)
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int)
-  assert_shape(nodes, (None, None), 'nodes')
-  dim = nodes.shape[1]
-  assert_shape(vert, (None, dim), 'vert')
-  assert_shape(smp, (None, dim), 'smp')    
+  assert_shape(nodes, (None, domain.dim), 'nodes')
 
   # the `fixed_nodes` are used to provide a repulsion force during
   # dispersion, but they do not move. TODO There is chance that one of
   # the points in `fixed_nodes` is equal to a point in `nodes`. This
   # situation should be handled
-  fixed_nodes = np.zeros((0, dim), dtype=float)     
+  fixed_nodes = np.zeros((0, domain.dim), dtype=float)     
   if pinned_nodes is not None:
     pinned_nodes = np.asarray(pinned_nodes, dtype=float)
-    assert_shape(pinned_nodes, (None, dim), 'pinned_nodes')
+    assert_shape(pinned_nodes, (None, domain.dim), 'pinned_nodes')
     fixed_nodes = np.vstack((fixed_nodes, pinned_nodes))
 
   if include_vertices:
-    fixed_nodes = np.vstack((fixed_nodes, vert))
+    fixed_nodes = np.vstack((fixed_nodes, domain.vertices))
 
-  if use_tree:
-    logger.debug('building R-tree ...')
-    tree = build_rtree(vert, smp)
-    logger.debug('done')
-    
-  else:
-    tree = None        
-    
   for i in range(iterations):
     logger.debug('starting node dispersion iterations %s of %s' 
                  % (i + 1, iterations))
-    nodes = disperse(nodes, vert, smp, 
+    nodes = disperse(nodes, domain,
                      rho=rho, 
                      fixed_nodes=fixed_nodes, 
                      neighbors=neighbors, 
                      delta=dispersion_delta, 
-                     bound_force=bound_force,
-                     tree=tree)
+                     bound_force=bound_force)
 
   # append the domain vertices to the collection of nodes if requested
   if include_vertices:
-    nodes = np.vstack((nodes, vert))
+    nodes = np.vstack((nodes, domain.vertices))
     
   # snap nodes to the boundary, identifying which simplex each node
   # was snapped to
   logger.debug('snapping nodes to boundary ...')
-  nodes, smpid = snap_to_boundary(nodes, vert, smp, 
-                                  delta=snap_delta, tree=tree)
+  nodes, smpid = domain.snap(nodes, delta=snap_delta)
   logger.debug('done')
 
-  # find the normal vectors for each node that snapped to the boundary
-  if orient_simplices:
-    logger.debug('orienting simplices and computing normals ...')
-    smp_normals = geo.simplex_outward_normals(vert, smp)
-    logger.debug('done')
-  else:
-    smp_normals = geo.simplex_normals(vert, smp)
-    
+  # get the normal vectors for the boundary nodes    
   normals = np.full_like(nodes, np.nan)
-  normals[smpid >= 0] = smp_normals[smpid[smpid >= 0]]
+  normals[smpid >= 0] = domain.normals[smpid[smpid >= 0]]
   
   # create a dictionary identifying which nodes belong to which group
   groups = {}
@@ -640,7 +387,7 @@ def prepare_nodes(nodes, vert, smp,
     groups['pinned'] = pinned_idx
     
   if boundary_groups is None:
-    boundary_groups = {'all': range(smp.shape[0])}
+    boundary_groups = {'all': range(len(domain.simplices))}
 
   if boundary_groups_with_ghosts is None:
     boundary_groups_with_ghosts = []    
@@ -655,7 +402,7 @@ def prepare_nodes(nodes, vert, smp,
     groups['boundary:' + k] = bnd_idx
     if k in boundary_groups_with_ghosts:
       # append ghost nodes if requested
-      dist = k_nearest_neighbors(nodes[bnd_idx], nodes, 2)[1][:, [1]]
+      dist = KDTree(nodes).query(nodes[bnd_idx], 2)[0][:, [1]]
       ghost_idx = np.arange(bnd_idx.shape[0]) + nodes.shape[0]         
       ghost_nodes = nodes[bnd_idx] + 0.5*dist*normals[bnd_idx]
       ghost_normals = np.full_like(ghost_nodes, np.nan)
@@ -681,7 +428,7 @@ def prepare_nodes(nodes, vert, smp,
   return nodes, groups, normals
 
   
-def min_energy_nodes(n, vert, smp, rho=None, iterations=100, **kwargs):
+def min_energy_nodes(n, domain, rho=None, iterations=100, **kwargs):
   '''
   Generates nodes within a two or three dimensional. This first
   generates nodes with a rejection sampling algorithm, and then the
@@ -693,11 +440,8 @@ def min_energy_nodes(n, vert, smp, rho=None, iterations=100, **kwargs):
     The number of nodes generated during rejection sampling. This is
     not necessarily equal to the number of nodes returned.
 
-  vert : (p, d) array
-    Vertices making up the boundary
-
-  smp : (q, d) array
-    Describes how the vertices are connected to form the boundary
+  domain : (p, d) float array and (q, d) int array
+    Vertices of the domain and connectivity of the vertices
 
   rho : function, optional
     Node density function. Takes a (n, d) array of coordinates and
@@ -776,23 +520,17 @@ def min_energy_nodes(n, vert, smp, rho=None, iterations=100, **kwargs):
          [ nan,  nan]])
     
   '''
-  vert = np.asarray(vert, dtype=float)
-  assert_shape(vert, (None, None), 'vert')
-  dim = vert.shape[1]
-  smp = np.asarray(smp, dtype=int)
-  assert_shape(smp, (None, dim), 'smp')
-  
   if rho is None:
     def rho(x): 
         return np.ones(x.shape[0])
 
-  nodes = rejection_sampling(n, rho, vert, smp)
-  out = prepare_nodes(nodes, vert, smp, rho=rho, 
+  nodes = rejection_sampling(n, rho, domain)
+  out = prepare_nodes(nodes, domain, rho=rho, 
                       iterations=iterations, **kwargs)
   return out                      
 
 
-def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5, 
+def poisson_disc_nodes(radius, domain, ntests=50, rmax_factor=1.5, 
                        iterations=20, **kwargs):
   '''
   Generates nodes within a two or three dimensional domain. This first
@@ -809,11 +547,8 @@ def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5,
     a float or a function that takes a (n, d) array of locations and
     returns an (n,) array of disc radii.
 
-  vert : (p, d) array
-    Vertices making up the boundary
-
-  smp : (q, d) array
-    Describes how the vertices are connected to form the boundary
+  domain : (p, d) float array and (q, d) int array
+    Vertices of the domain and connectivity of the vertices
 
   **kwargs
     Additional arguments passed to `prepare_nodes`    
@@ -833,7 +568,7 @@ def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5,
     `boundary_groups_with_ghosts` was specified then those groups of
     ghost nodes will be included in this dictionary and their names
     will be given a 'ghosts:' prefix.
-    
+
   (n, d) float array
     Outward normal vectors for each node. If a node is not on the
     boundary then its corresponding row will contain NaNs.
@@ -845,23 +580,17 @@ def poisson_disc_nodes(radius, vert, smp, ntests=50, rmax_factor=1.5,
   raised which says "ValueError: No intersection found for segment
     
   '''
-  vert = np.asarray(vert, dtype=float)
-  assert_shape(vert, (None, None), 'vert')
-  dim = vert.shape[1]
-  smp = np.asarray(smp, dtype=int)
-  assert_shape(smp, (None, dim), 'smp')
-  
   if np.isscalar(radius):
     scalar_radius = radius
     def radius(x): 
-        return np.full(x.shape[0], scalar_radius)
+      return np.full(x.shape[0], scalar_radius)
 
   def rho(x):
     # the density function corresponding to the radius function
-    return 1.0/(radius(x)**dim)
+    return 1.0/(radius(x)**x.shape[1])
         
-  nodes = poisson_discs(radius, vert, smp, ntests=ntests, 
+  nodes = poisson_discs(radius, domain, ntests=ntests, 
                         rmax_factor=rmax_factor)
-  out = prepare_nodes(nodes, vert, smp, rho=rho, 
+  out = prepare_nodes(nodes, domain, rho=rho, 
                       iterations=iterations, **kwargs)
   return out

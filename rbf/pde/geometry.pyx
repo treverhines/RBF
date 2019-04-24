@@ -28,18 +28,18 @@ of triangles:
                 [1.0, 0.0, 1.0],
                 [1.0, 1.0, 0.0],
                 [1.0, 1.0, 1.0]]
->>> simplices = [[0, 1, 4],
-                 [1, 5, 4],
-                 [1, 7, 5],
-                 [1, 3, 7],
+>>> simplices = [[1, 0, 4],
+                 [5, 1, 4],
+                 [7, 1, 5],
+                 [3, 1, 7],
                  [0, 1, 3],
-                 [0, 2, 3],
+                 [2, 0, 3],
                  [0, 2, 6],
-                 [0, 4, 6],
-                 [4, 5, 7],
+                 [4, 0, 6],
+                 [5, 4, 7],
                  [4, 6, 7],
                  [2, 3, 7],
-                 [2, 6, 7]]
+                 [6, 2, 7]]
  
 This module is primarily used to find whether and where line segments
 intersect a geometric object and whether points are contained within a
@@ -858,8 +858,8 @@ def _intersection_3d(double[:, :] start_pnts,
         proj2 = ((seg.b.x - tri.a.x)*norm.x + 
                  (seg.b.y - tri.a.y)*norm.y +
                  (seg.b.z - tri.a.z)*norm.z)
-        # t is a scalar between 0 and 1. If t=0 then the intersection is 
-        # at seg1.a and if t=1 then the intersection is at seg1.b
+        # t is a scalar between 0 and 1. If t=0 then the intersection
+        # is at seg1.a and if t=1 then the intersection is at seg1.b
         t = proj1/(proj1 - proj2)
         if t < tmin:
           tmin = t
@@ -879,7 +879,7 @@ def _intersection_3d(double[:, :] start_pnts,
 
 # end-user functions
 ####################################################################
-def intersection(start_points, end_points, vertices, simplices):
+def intersection_point(start_points, end_points, vertices, simplices):
   ''' 
   Returns the intersection between line segments and a simplicial
   complex.  The line segments are described by `start_points` and
@@ -947,10 +947,7 @@ def intersection(start_points, end_points, vertices, simplices):
   return out
 
 
-def intersection_count(start_points, 
-                       end_points, 
-                       vertices, 
-                       simplices):
+def intersection_count(start_points, end_points, vertices, simplices):
   ''' 
   Returns the number of simplices crossed by the line segments. The
   line segments are described by `start_points` and `end_points`. This
@@ -1016,13 +1013,13 @@ def contains(points, vertices, simplices):
 
   Parameters
   ----------
-  points : (N,D) array
+  points : (N, D) array
     Test points
 
-  vertices : (M,D) array
+  vertices : (M, D) array
     Vertices of the simplicial complex
 
-  simplices : (P,D) int array 
+  simplices : (P, D) int array 
     Connectivity of the vertices. Each row contains the vertex 
     indices which form one simplex of the simplicial complex
 
@@ -1055,9 +1052,9 @@ def contains(points, vertices, simplices):
   assert_shape(vertices, (None, dim), 'vertices')
   assert_shape(simplices, (None, dim), 'simplices')    
 
-  rnd = np.random.uniform(0.5, 2.0, (points.shape[1],))    
   # randomly generate a point that is known to be outside of the
   # domain
+  rnd = np.random.uniform(0.5, 2.0, (points.shape[1],))    
   outside_point = vertices.min(axis=0) - rnd*vertices.ptp(axis=0)
   outside_point = np.repeat([outside_point], points.shape[0], axis=0)
   count = intersection_count(points, 
@@ -1066,6 +1063,7 @@ def contains(points, vertices, simplices):
                              simplices)
   out = np.array(count % 2, dtype=bool)
   return out
+
 
 def nearest_point(points, vertices, simplices):
   '''
@@ -1115,7 +1113,7 @@ def nearest_point(points, vertices, simplices):
   return out
   
 
-def oriented_simplices(vert, smp):
+def oriented_simplices(vertices, simplices):
   ''' 
   Returns simplex indices that are ordered such that each simplex
   normal vector, as defined by the right hand rule, points outward
@@ -1142,31 +1140,31 @@ def oriented_simplices(vert, smp):
   This function does not ensure that the simplicial complex is
   closed.  If it is not then bogus results will be returned. 
   '''
-  vert = np.asarray(vert, dtype=float)
-  smp = np.array(smp, dtype=int, copy=True)
-  assert_shape(vert, (None, None), 'vert')
-  dim = vert.shape[1]
-  assert_shape(smp, (None, dim), 'smp')
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.array(simplices, dtype=int, copy=True)
+  assert_shape(vertices, (None, None), 'vertices')
+  dim = vertices.shape[1]
+  assert_shape(simplices, (None, dim), 'simplices')
 
   # length scale of the domain
-  scale = vert.ptp(axis=0).max()
+  scale = vertices.ptp(axis=0).max()
   dx = 1e-10*scale
   # find the normal for each simplex    
-  norms = simplex_normals(vert, smp)
+  norms = simplex_normals(vertices, simplices)
   # find the centroid for each simplex      
-  points = np.mean(vert[smp], axis=1)
+  points = np.mean(vertices[simplices], axis=1)
   # push points in the direction of the normals  
   points += dx*norms
   # find which simplices are oriented such that their normals point  
   # inside                           
-  faces_inside = contains(points, vert, smp)
-  flip_smp = smp[faces_inside]
+  faces_inside = contains(points, vertices, simplices)
+  flip_smp = simplices[faces_inside]
   flip_smp[:, [0, 1]] = flip_smp[:, [1, 0]]
-  smp[faces_inside] = flip_smp
-  return smp
+  simplices[faces_inside] = flip_smp
+  return simplices
 
 
-def simplex_normals(vert, smp):
+def simplex_normals(vertices, simplices):
   ''' 
   Returns the normal vectors for each simplex. Orientation is 
   determined by the right hand rule
@@ -1190,13 +1188,13 @@ def simplex_normals(vert, smp):
   This is only defined for two and three dimensional simplices
 
   '''
-  vert = np.asarray(vert, dtype=float)
-  smp = np.asarray(smp, dtype=int)
-  assert_shape(vert, (None, None), 'vert')
-  dim = vert.shape[1]
-  assert_shape(smp, (None, dim), 'smp')
+  vertices = np.asarray(vertices, dtype=float)
+  simplices = np.asarray(simplices, dtype=int)
+  assert_shape(vertices, (None, None), 'vertices')
+  dim = vertices.shape[1]
+  assert_shape(simplices, (None, dim), 'simplices')
 
-  M = vert[smp[:, 1:]] - vert[smp[:, [0]]]
+  M = vertices[simplices[:, 1:]] - vertices[simplices[:, [0]]]
   Msubs = [np.delete(M, i, -1) for i in range(dim)]
   out = np.linalg.det(Msubs)
   out[1::2] *= -1
@@ -1205,10 +1203,10 @@ def simplex_normals(vert, smp):
   return out
 
 
-def simplex_outward_normals(vert, smp):
+def simplex_outward_normals(vertices, simplices):
   ''' 
-  Returns the outward normal vectors for each simplex. The sign of the 
-  returned vectors are only meaningful if the simplices enclose an 
+  Returns the outward normal vectors for each simplex. The sign of the
+  returned vectors are only meaningful if the simplices enclose an
   area in two-dimensional space or a volume in three-dimensional space
 
   Parameters
@@ -1230,39 +1228,13 @@ def simplex_outward_normals(vert, smp):
   This is only defined for two and three dimensional simplices
 
   '''
-  smp = oriented_simplices(vert, smp)
-  return simplex_normals(vert, smp)
+  simplices = oriented_simplices(vertices, simplices)
+  return simplex_normals(vertices, simplices)
 
 
-def simplex_upward_normals(vert, smp):
+def volume(vert, smp, orient=True):
   ''' 
-  Returns the upward pointing normal vectors for each simplex. The up
-  direction is assumed to be the last coordinate axis.
-
-  Parameters
-  ----------
-  vertices : (M,D) array
-    Vertices within the simplicial complex
-
-  simplices : (P,D) int array 
-    Connectivity of the vertices. Each row contains the vertex 
-    indices which form one simplex of the simplicial complex
-
-  Returns
-  -------
-  out : (P,D) array
-    normals vectors
-
-  '''
-  out = simplex_normals(vert, smp)
-  out[out[:, -1] < 0] *= -1
-  return out
-
-
-def enclosure(vert, smp, orient=True):
-  ''' 
-  Returns the volume of a polyhedra, area of a polygon, or length of a
-  segment enclosed by the simplicial complex
+  Returns the volume of a polyhedra or area of a polygon
 
   Parameters
   ----------
@@ -1289,6 +1261,7 @@ def enclosure(vert, smp, orient=True):
   This function does not ensure that the simplicial complex is 
   closed and does not intersect itself. If it is not then bogus 
   results will be returned.
+
   '''
   vert = np.array(vert, dtype=float, copy=True)
   smp = np.asarray(smp, dtype=int)
@@ -1301,5 +1274,5 @@ def enclosure(vert, smp, orient=True):
   # center the vertices for the purpose of numerical stability
   vert -= np.mean(vert, axis=0)
   signed_volumes = (1.0/factorial(dim))*np.linalg.det(vert[smp])
-  volume = np.sum(signed_volumes)
-  return volume
+  out = np.sum(signed_volumes)
+  return out

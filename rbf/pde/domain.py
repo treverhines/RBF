@@ -5,307 +5,465 @@ commonly used domains.
 import logging
 
 import numpy as np
-from scipy.spatial import Delaunay
-from scipy.interpolate import LinearNDInterpolator
 
-from rbf.pde.geometry import oriented_simplices
+from rtree.index import Property, Index
 
-LOG = logging.getLogger(__name__)
+from rbf.utils import assert_shape, KDTree
+from rbf.pde import geometry as geo
 
-def save_as_polygon_file(filename, vert, smp):
+logger = logging.getLogger(__name__)
+
+
+def as_domain(obj):
     '''
-    Write the three-dimensional domain to a polygon file format. This
-    file format can be read in by Paraview.
+    Coerces the input to a `Domain` instance. The input can be a tuple
+    of vertices and simplices, or it can already be a `Domain`
+    instance. In the latter case, the object will be returned
+    unaltered.
+    '''
+    if issubclass(type(obj), Domain):
+        return obj
+    else:
+        return Domain(*obj)
+        
 
-    http://paulbourke.net/dataformats/ply/
+class Domain(object):
+    '''
+    A class used to facilitate computational geometry opperations on a
+    domain defined by a closed collection of simplices (e.g., line
+    segments or triangular facets).
 
     Parameters
-    -----------
-    filename : str
+    ----------
+    vertices : (n, d) float array
+        The vertices making up the domain
 
-    vert : (n, 3) float array
+    simplices : (m, d) int array
+        The connectivity of the vertices
 
-    smp : (m, 3) int array
-  
+    use_tree : bool, optional
+        If True, then an R-Tree will be built upon initialization.
+        This tree is used to speed up some of the operations.
+
+    orient_simplices : bool, optional
+        If True, then the simplices will be reoriented so that their
+        normal vectors point outward.
+        
     '''
-    with open(filename, 'w') as f:
-        f.write('ply\n')
-        f.write('format ascii 1.0\n')
-        f.write('element vertex %s\n' % len(vert))
-        f.write('property float x\n')
-        f.write('property float y\n')
-        f.write('property float z\n')
-        f.write('element face %s\n' % len(smp))
-        f.write('property list uchar int vertex_index\n')
-        f.write('end_header\n')
-        for v in vert:
-            f.write('%.4f %.4f %.4f\n' % (v[0], v[1], v[2]))
+    def __init__(self, vertices, simplices, 
+                 use_tree=False, 
+                 orient_simplices=False):
+        vertices = np.asarray(vertices, dtype=float)
+        simplices = np.asarray(simplices, dtype=int)
+        assert_shape(vertices, (None, None), 'vertices')
+        dim = vertices.shape[1]
+        assert_shape(simplices, (None, dim), 'simplices')
+        self.vertices = vertices
+        self.simplices = simplices
+        self.dim = dim     
+        self.tree = None            
 
-        for s in smp:
-            f.write('3 %s %s %s\n' % (s[0], s[1], s[2]))
+        if use_tree:
+            # this will modify the `tree` attribute
+            self._build_tree()
 
+        if orient_simplices:
+            # this will modify the `simplices` attribute. This should
+            # be run after the tree has been built, otherwise it will
+            # take a while
+            self._orient_simplices()
+            
+        self.normals = geo.simplex_normals(
+            self.vertices,
+            self.simplices)
+        
+    def __repr__(self):
+        return ('<Domain : '
+                'vertex count=%s, '
+                'simplex count=%s, '
+                'using tree=%s>' % 
+                (self.vertices.shape[0], 
+                 self.simplices.shape[0], 
+                 self.tree is not None))
+                
+    def _build_tree(self):
+        # create a bounding box for each simplex and add those
+        # bounding boxes to the R-Tree
+        logger.debug('building R-Tree ...')
+        smp_min = self.vertices[self.simplices].min(axis=1)
+        smp_max = self.vertices[self.simplices].max(axis=1)
+        bounds = np.hstack((smp_min, smp_max))
+        
+        p = Property()
+        p.dimension = self.dim
+        self.tree = Index(properties=p)
+        for i, bnd in enumerate(bounds):
+            self.tree.add(i, bnd)
+            
+        logger.debug('done')
 
+    def _orient_simplices(self):
+        logger.debug('orienting simplices ...')
+        # length scale of the domain
+        scale = self.vertices.ptp(axis=0).max()
+        dx = 1e-10*scale
+        # find the normal for each simplex
+        norms = geo.simplex_normals(self.vertices, self.simplices)
+        # find the centroid for each simplex
+        points = np.mean(self.vertices[self.simplices], axis=1)
+        # push points in the direction of the normals
+        points += dx*norms
+        # find which simplices are oriented such that their normals
+        # point inside
+        faces_inside = self.contains(points)
+        # make a copy of simplices because we are modifying it in
+        # place
+        new_smp = np.array(self.simplices, copy=True)
+        # flip the order of the simplices that are backwards
+        flip_smp = new_smp[faces_inside]
+        flip_smp[:, [0, 1]] = flip_smp[:, [1, 0]]
+        new_smp[faces_inside] = flip_smp
+        self.simplices = new_smp
+        logger.debug('done')
+
+    def intersection_count(self, start_points, end_points):
+        '''
+        Counts the number times the line segments intersect the
+        boundary.
+
+        Parameters
+        ----------
+        start_points, end_points : (n, d) float array
+            The ends of the line segments
+
+        Returns
+        -------
+        (n,) int array
+            The number of boundary intersection
+
+        '''
+        start_points = np.asarray(start_points, dtype=float)
+        end_points = np.asarray(end_points, dtype=float)
+        assert_shape(start_points, (None, self.dim), 'start_points')
+        assert_shape(end_points, start_points.shape, 'end_points')
+        n = start_points.shape[0]
+        
+        if self.tree is None:
+            return geo.intersection_count(
+                start_points,
+                end_points,
+                self.vertices,
+                self.simplices)
+
+        else:
+            out = np.zeros(n, dtype=int)
+            # get the bounding boxes around each segment
+            bounds = np.hstack((np.minimum(start_points, end_points),
+                                np.maximum(start_points, end_points)))   
+            for i, bnd in enumerate(bounds):
+                # get a list of simplices which could potentially be
+                # intersected by segment i
+                potential_smpid = list(self.tree.intersection(bnd))
+                if not potential_smpid:
+                    # if the segment bounding box does not intersect
+                    # and simplex bounding boxes, then there is no
+                    # intersection
+                    continue
+                
+                out[[i]] = geo.intersection_count(
+                    start_points[[i]],
+                    end_points[[i]],
+                    self.vertices,
+                    self.simplices[potential_smpid])
+
+            return out                    
+                    
+    def intersection_point(self, start_points, end_points):
+        '''
+        Finds the point on the boundary intersected by the line
+        segments. A `ValueError` is raised if no intersection is
+        found.
+
+        Parameters
+        ----------
+        start_points, end_points : (n, d) float array
+            The ends of the line segments
+
+        Returns
+        -------
+        (n, d) float array
+            The intersection point
+            
+        (n,) int array
+            The simplex containing the intersection point
+
+        '''        
+        # dont bother using the tree for this one
+        return geo.intersection_point(
+            start_points, 
+            end_points,        
+            self.vertices,
+            self.simplices)
+
+    def contains(self, points):
+        '''
+        Identifies whether the points are within the domain
+
+        Parameters
+        ----------
+        points : (n, d) float array
+
+        Returns
+        -------
+        (n,) bool array
+        
+        '''
+        points = np.asarray(points, dtype=float)
+        assert_shape(points, (None, self.dim), 'points')
+        # to find out if the points are inside the domain, we create
+        # another set of points which are definitively outside the
+        # domain, and then we count the number of boundary
+        # intersections between `points` and the new points.
+
+        # get the min value and width of the domain along axis 0
+        xwidth = self.vertices[:, 0].ptp()
+        xmin = self.vertices[:, 0].min()
+        # the outside points are directly to the left of `points` plus
+        # a small random perturbation. The subsequent bounding boxes
+        # are going to be very narrow, meaning that the R-Tree will
+        # efficiently winnow down the potential intersecting
+        # simplices.
+        outside_points = np.array(points, copy=True)
+        outside_points[:, 0] = xmin - xwidth
+        outside_points += np.random.uniform(
+            -0.001*xwidth, 
+            0.001*xwidth,
+            points.shape)
+        count = self.intersection_count(points, outside_points)            
+        # If the segment intersects the boundary an odd number of
+        # times, then the point is inside the domain, otherwise it is
+        # outside
+        out = np.array(count % 2, dtype=bool)
+        return out
+
+    def snap(self, points, delta=0.5):
+        '''
+        Snaps `points` to the nearest points on the boundary if they
+        are sufficiently close to the boundary. A point is
+        sufficiently close if the distance to the boundary is less
+        than `delta` times the distance to its nearest neighbor.
+
+        Parameters
+        ----------
+        points : (n, d) float array
+
+        delta : float, optional
+
+        Returns
+        -------
+        (n, d) float array
+            The new points after snapping to the boundary
+
+        (n,) int array
+            The simplex that the points are snapped to. If a point is
+            not snapped to the boundary then its corresponding value
+            will be -1.
+        
+        '''
+        points = np.asarray(points, dtype=float)
+        assert_shape(points, (None, self.dim), 'points')
+        n = points.shape[0]
+
+        out_smpid = np.full(n, -1, dtype=int)
+        out_points = np.array(points, copy=True)
+        nbr_dist = KDTree(points).query(points, 2)[0][:, 1]
+        snap_dist = delta*nbr_dist
+
+        if self.tree is None:
+            nrst_pnt, nrst_smpid = geo.nearest_point(
+                points,
+                self.vertices,
+                self.simplices)
+            nrst_dist = np.linalg.norm(nrst_pnt - points, axis=1)
+            snap = nrst_dist < snap_dist
+            out_points[snap] = nrst_pnt[snap]
+            out_smpid[snap] = nrst_smpid[snap]
+
+        else:
+            # creating bounding boxes around the snapping regions for
+            # each point
+            bounds = np.hstack((points - snap_dist[:, None],
+                                points + snap_dist[:, None]))
+            for i, bnd in enumerate(bounds):
+                # get a list of simplices which node i could
+                # potentially snap to
+                potential_smpid = list(self.tree.intersection(bnd))
+                # sort the list to ensure consistent output
+                potential_smpid.sort()
+                if not potential_smpid: 
+                    # no simplices are within the snapping distance
+                    continue
+                
+                # get the nearest point to the potential simplices and
+                # the simplex containing the nearest point
+                nrst_pnt, nrst_smpid = geo.nearest_point(
+                    points[[i]],
+                    self.vertices,
+                    self.simplices[potential_smpid])
+                nrst_dist = np.linalg.norm(points[i] - nrst_pnt[0])
+                # if the nearest point is within the snapping distance
+                # then snap
+                if nrst_dist < snap_dist[i]:
+                    out_points[i] = nrst_pnt[0]
+                    out_smpid[i] = potential_smpid[nrst_smpid[0]]
+
+        return out_points, out_smpid
+    
+        
 def _circle_refine(vert, smp):
-  V = vert.shape[0]
-  S = smp.shape[0]
-  new_vert = np.zeros((V+S, 2), dtype=float)
-  new_vert[:V, :] = vert
-  new_smp = np.zeros((2*S, 2), dtype=int)
-  for si, s in enumerate(smp):
-    a, b = vert[s]
-    i = V + si
-    new_vert[i] = a+b
-    new_smp[2*si]   = [s[0],    i]
-    new_smp[2*si+1] = [   i, s[1]]
+    V = vert.shape[0]
+    S = smp.shape[0]
+    new_vert = np.zeros((V+S, 2), dtype=float)
+    new_vert[:V, :] = vert
+    new_smp = np.zeros((2*S, 2), dtype=int)
+    for si, s in enumerate(smp):
+        a, b = vert[s]
+        i = V + si
+        new_vert[i] = a+b
+        new_smp[2*si]   = [s[0],    i]
+        new_smp[2*si+1] = [   i, s[1]]
 
-  new_vert = new_vert / np.linalg.norm(new_vert, axis=1)[:, None]
-  return new_vert, new_smp
+    new_vert = new_vert / np.linalg.norm(new_vert, axis=1)[:, None]
+    return new_vert, new_smp
 
 
 def circle(r=5):
-  ''' 
-  Returns the outwardly oriented simplices of a circle
-  
-  Parameters
-  ----------
-  r : int, optional
+    ''' 
+    Returns the outwardly oriented simplices of a circle
+
+    Parameters
+    ----------
+    r : int, optional
     refinement order
       
-  Returns
-  -------
-  vert : (N, 2) float array
-  smp : (M, 2) int array
-    
-  '''
-  vert = np.array([[ 1.0, 0.0],
-                   [ 0.0, 1.0],
-                   [-1.0, 0.0],
-                   [0.0, -1.0]])
-  smp = np.array([[0, 1],
-                  [1, 2],
-                  [2, 3],
-                  [3, 0]])
-  for i in range(r):
-    vert, smp = _circle_refine(vert, smp)
+    Returns
+    -------
+    vert : (N, 2) float array
+    smp : (M, 2) int array
 
-  return vert, smp  
+    '''
+    vert = np.array([[ 1.0, 0.0],
+                     [ 0.0, 1.0],
+                     [-1.0, 0.0],
+                     [0.0, -1.0]])
+    smp = np.array([[0, 1],
+                    [1, 2],
+                    [2, 3],
+                    [3, 0]])
+    for i in range(r):
+        vert, smp = _circle_refine(vert, smp)
+
+    return vert, smp
 
 
 def _sphere_refine(vert, smp):
-  V = vert.shape[0]
-  S = smp.shape[0]
-  new_vert = np.zeros((V+3*S, 3), dtype=float)
-  new_vert[:V, :] = vert
-  new_smp = np.zeros((4*S, 3), dtype=int)
-  for si, s in enumerate(smp):
-    a, b, c = vert[s]
-    i = V + 3*si
-    j = i + 1
-    k = i + 2
-    new_vert[i] = a+b
-    new_vert[j] = b+c
-    new_vert[k] = a+c
-    new_smp[4*si]   = [   i,    j,    k]
-    new_smp[4*si+1] = [s[0],    i,    k]
-    new_smp[4*si+2] = [   i, s[1],    j]
-    new_smp[4*si+3] = [   k,    j, s[2]]
+    V = vert.shape[0]
+    S = smp.shape[0]
+    new_vert = np.zeros((V+3*S, 3), dtype=float)
+    new_vert[:V, :] = vert
+    new_smp = np.zeros((4*S, 3), dtype=int)
+    for si, s in enumerate(smp):
+        a, b, c = vert[s]
+        i = V + 3*si
+        j = i + 1
+        k = i + 2
+        new_vert[i] = a+b
+        new_vert[j] = b+c
+        new_vert[k] = a+c
+        new_smp[4*si]   = [   i,    j,    k]
+        new_smp[4*si+1] = [s[0],    i,    k]
+        new_smp[4*si+2] = [   i, s[1],    j]
+        new_smp[4*si+3] = [   k,    j, s[2]]
 
-  new_vert = new_vert / np.linalg.norm(new_vert, axis=1)[:, None]
-  return new_vert, new_smp
+    new_vert = new_vert / np.linalg.norm(new_vert, axis=1)[:, None]
+    return new_vert, new_smp
 
 
 def sphere(r=5):
-  ''' 
-  returns the outwardly oriented simplices of a sphere
+    ''' 
+    Returns the outwardly oriented simplices of a sphere
 
-  Parameters
-  ----------
-  r : int, optional
+    Parameters
+    ----------
+    r : int, optional
     refinement order
       
-  Returns
-  -------
-  vert : (N,2) float array
+    Returns
+    -------
+    vert : (N,2) float array
 
-  smp : (M,2) int array
-  
-  '''
-  f = np.sqrt(2.0)/2.0
-  vert = np.array([[ 0.0, -1.0, 0.0],
-                   [  -f,  0.0,   f],
-                   [   f,  0.0,   f],
-                   [   f,  0.0,  -f],
-                   [  -f,  0.0,  -f],
-                   [ 0.0,  1.0, 0.0]])
-  smp = np.array([[0, 2, 1],
-                  [0, 3, 2],
-                  [0, 4, 3],
-                  [0, 1, 4],
-                  [5, 1, 2],
-                  [5, 2, 3],
-                  [5, 3, 4],
-                  [5, 4, 1]])
+    smp : (M,2) int array
 
-  for i in range(r):
-    vert, smp = _sphere_refine(vert, smp)
+    '''
+    f = np.sqrt(2.0)/2.0
+    vert = np.array([[ 0.0, -1.0, 0.0],
+                     [  -f,  0.0,   f],
+                     [   f,  0.0,   f],
+                     [   f,  0.0,  -f],
+                     [  -f,  0.0,  -f],
+                     [ 0.0,  1.0, 0.0]])
+    smp = np.array([[0, 2, 1],
+                    [0, 3, 2],
+                    [0, 4, 3],
+                    [0, 1, 4],
+                    [5, 1, 2],
+                    [5, 2, 3],
+                    [5, 3, 4],
+                    [5, 4, 1]])
 
-  return vert,smp
+    for i in range(r):
+        vert, smp = _sphere_refine(vert, smp)
 
-
-def _topography_surface(xbounds, 
-                        ybounds,
-                        topo_func,
-                        maxitr=10000,
-                        tol=0.01,
-                        fine_grid=1000,
-                        coarse_grid=10):
-  '''
-  Creates the surface vertices for the topography function
-  '''
-  # create a coarse and fine grid. The output vertices will contain
-  # the coarse grid plus whichever vertices are needed from the fine
-  # grid
-  xfine = np.linspace(*xbounds, fine_grid + 1)
-  yfine = np.linspace(*ybounds, fine_grid + 1)
-  xfine, yfine = np.meshgrid(xfine, yfine)
-  xfine, yfine = xfine.flatten(), yfine.flatten()
-  xyfine = np.array([xfine, yfine]).T
-
-  xcoarse = np.linspace(*xbounds, coarse_grid + 1)
-  ycoarse = np.linspace(*ybounds, coarse_grid + 1)
-  xcoarse, ycoarse = np.meshgrid(xcoarse, ycoarse)
-  xcoarse, ycoarse = xcoarse.flatten(), ycoarse.flatten()
-  xycoarse = np.array([xcoarse, ycoarse]).T
-
-  zfine = topo_func(xyfine)
-  zcoarse = topo_func(xycoarse)
-
-  # make sure the topography function is zero at the edges. This
-  # ensures that the domain will be closed
-  idx = ((xyfine[:, 0] == xbounds[0]) | 
-         (xyfine[:, 0] == xbounds[1]) |
-         (xyfine[:, 1] == ybounds[0]) | 
-         (xyfine[:, 1] == ybounds[1]))
-  zfine[idx] = 0.0    
-
-  idx = ((xycoarse[:, 0] == xbounds[0]) | 
-         (xycoarse[:, 0] == xbounds[1]) |
-         (xycoarse[:, 1] == ybounds[0]) | 
-         (xycoarse[:, 1] == ybounds[1]))
-  zcoarse[idx] = 0.0    
-  
-  xyout = np.copy(xycoarse)
-  zout = np.copy(zcoarse)
-  LOG.info('Generating the surface facets ...')
-  for itr in range(maxitr):
-    # find where the linear interpolant (created with a delaunay
-    # triangulation) has the greatest misfit with the true topography
-    # function and then add a vertex at that point
-    I = LinearNDInterpolator(xyout, zout)
-    zitp = I(xyfine)
-    err = np.abs(zitp - zfine)
-    if err.max() <= tol*zfine.ptp():
-      LOG.info(
-        'Finished generating the surface facets. The maximum '
-        'interpolation error is %s' % err.max())
-      break
-
-    idx = np.argmax(err)
-    zout = np.hstack((zout, zfine[idx]))
-    xyout = np.vstack((xyout, xyfine[idx]))
-    
-  if itr == (maxitr - 1):
-      LOG.warning(
-        'The maximum number of iterations was reached while '
-        'generating the surface facets. The maximum interpolation '
-        'error is %s'
-        % err.max())
-  
-  vert = np.hstack((xyout, zout[:, None]))
-  smp = Delaunay(xyout).simplices     
-  return vert, smp
+    return vert, smp
 
 
-def topography(topo_func,
-               xbounds,
-               ybounds,
-               depth,
-               tol=0.01,
-               maxitr=10000,
-               fine_grid=1000,
-               coarse_grid=10):
+def square():
+    '''
+    Return the simplices for a unit square
+    '''
+    vert = np.array([[0.0, 0.0],
+                     [1.0, 0.0],
+                     [1.0, 1.0],
+                     [0.0, 1.0]])
+    smp = np.array([[0, 1],
+                    [1, 2],
+                    [2, 3],
+                    [3, 0]])
+    return vert, smp
 
-  '''
-  Creates a three-dimensional cylindrical domain where the elevation
-  of the top of the cylinder is determined by `topo_func`.
 
-  Parameters
-  ----------
-  topo_func : function
-    This takes an (n, 2) array of (x, y) coordinates and returns the
-    elevation at that point. The elevation can be positive or negative
-    but it should taper to zero at the edges of the domain and it
-    should not go lower than -`depth`.
-
-  xbounds, ybounds : 2-tuple
-    Domain x and y bounds
-      
-  depth : float
-    Depth of the cylinder        
-
-  tol : float
-    The maximum error allowed when approximating the topography
-    function with triangular facets. This is a fraction of the
-    peak-to-peak for `topo_func`.
-
-  maxitr : int
-    Max number of vertices to add to the top of the domain
-
-  Returns
-  -------
-  vert : (P, 3) float array
-    vertices of the domain
-
-  smp : (Q, 3) int array
-    Indices of the vertices that make up each facet of the domain
-
-  boundary_groups : dict
-    Dictionary identifying which facets belong to which part of the
-    domain
-
-  '''
-  vert = np.array([[xbounds[0], ybounds[0], -depth],
-                   [xbounds[0], ybounds[0],    0.0],
-                   [xbounds[0], ybounds[1], -depth],
-                   [xbounds[0], ybounds[1],    0.0],
-                   [xbounds[1], ybounds[0], -depth],
-                   [xbounds[1], ybounds[0],    0.0],
-                   [xbounds[1], ybounds[1], -depth],
-                   [xbounds[1], ybounds[1],    0.0]])
-  smp = np.array([[0, 2, 6],
-                  [0, 4, 6],
-                  [0, 1, 3],
-                  [0, 2, 3],
-                  [0, 1, 4],
-                  [1, 5, 4],
-                  [4, 5, 7],
-                  [4, 6, 7],
-                  [2, 3, 7],
-                  [2, 6, 7]])
-  # build the top vertices
-  vert_surf, smp_surf = _topography_surface(xbounds, 
-                                            ybounds, 
-                                            topo_func, 
-                                            tol=tol, 
-                                            maxitr=maxitr,
-                                            fine_grid=fine_grid,
-                                            coarse_grid=coarse_grid)
-  vert = np.vstack((vert, vert_surf))
-  smp = np.vstack((smp, smp_surf + 8))    
-  smp = oriented_simplices(vert, smp)
-  boundary_groups = {
-    'bottom': np.array([0, 1]),
-    'sides': np.array([2, 3, 4, 5, 6, 7, 8, 9]),
-    'top': 10 + np.arange(smp_surf.shape[0])}
-
-  return vert, smp, boundary_groups
+def cube():
+    '''
+    Returns the simplices for a unit cube
+    '''
+    vert = np.array([[0.0, 0.0, 0.0],
+                     [0.0, 0.0, 1.0],
+                     [0.0, 1.0, 0.0],
+                     [0.0, 1.0, 1.0],
+                     [1.0, 0.0, 0.0],
+                     [1.0, 0.0, 1.0],
+                     [1.0, 1.0, 0.0],
+                     [1.0, 1.0, 1.0]])
+    smp = np.array([[1, 0, 4],
+                    [5, 1, 4],
+                    [7, 1, 5],
+                    [3, 1, 7],
+                    [0, 1, 3],
+                    [2, 0, 3],
+                    [0, 2, 6],
+                    [4, 0, 6],
+                    [5, 4, 7],
+                    [4, 6, 7],
+                    [2, 3, 7],
+                    [6, 2, 7]])
+    return vert, smp

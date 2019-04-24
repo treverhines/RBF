@@ -22,7 +22,7 @@ smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
 
 # generate the discs
 start = time.time()
-centers = poisson_discs(radius, vert, smp)
+centers = poisson_discs(radius, (vert, smp))
 runtime = time.time() - start
 print('generated %s samples in %s s' % (len(centers), runtime))
 

@@ -9,9 +9,8 @@ import scipy.sparse as sp
 
 from rbf.basis import phs3, get_rbf
 from rbf.poly import count, powers, mvmonos
-from rbf.utils import assert_shape, Memoize
+from rbf.utils import assert_shape, Memoize, KDTree
 from rbf.linalg import PartitionedSolver, as_array
-from rbf.pde.knn import k_nearest_neighbors
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +319,8 @@ def weight_matrix(x, p, diffs, coeffs=None,
       n = _default_stencil_size(diffs)
       n = min(n, p.shape[0])
 
-    stencils, _ = k_nearest_neighbors(x, p, n)
+    _, stencils = KDTree(p).query(x, n)
+    
   else:    
     stencils = np.asarray(stencils, dtype=int)
     assert_shape(stencils, (x.shape[0], None), 'stencils')
