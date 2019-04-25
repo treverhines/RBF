@@ -55,10 +55,10 @@ def disperse(nodes,
              neighbors=None,
              delta=0.1):
   '''
-  Slightly disperses the nodes within the domain defined by `vert` and
-  `smp`. The disperson is analogous to electrostatic repulsion, where
-  neighboring node exert a repulsive force on eachother. If a node is
-  repelled into a boundary then it bounces back in.
+  Slightly disperses the nodes within the domain. The disperson is
+  analogous to electrostatic repulsion, where neighboring node exert a
+  repulsive force on eachother. If a node is repelled into a boundary
+  then it bounces back in.
 
   Parameters
   ----------
@@ -66,7 +66,7 @@ def disperse(nodes,
     Initial node positions
 
   domain : (p, d) float array and (q, d) int array
-    Vertices of the domain and connectivity of the vertices
+    Vertices of the domain and connectivity of the vertices.
   
   rho : callable, optional
     Takes an (n, d) array as input and returns the repulsion force for
@@ -95,7 +95,7 @@ def disperse(nodes,
 
   if rho is None:
     def rho(x): 
-        return np.ones(x.shape[0])
+      return np.ones(x.shape[0])
 
   if fixed_nodes is None:
     fixed_nodes = np.zeros((0, domain.dim), dtype=float)
@@ -105,7 +105,7 @@ def disperse(nodes,
 
   if neighbors is None:
     # the default number of neighboring nodes to use when computing
-    # the repulsion force is 7 for 2D and 13 for 3D
+    # the repulsion force is 4 for 2D and 5 for 3D
     if domain.dim == 2:
       neighbors = 4
 
@@ -200,7 +200,7 @@ def _check_spacing(nodes, rho=None):
 
   if rho is None:
     def rho(x):
-        return np.ones(x.shape[0])
+      return np.ones(x.shape[0])
 
   # distance to nearest neighbor
   dist = KDTree(nodes).query(nodes, 2)[0][:, 1]
@@ -230,13 +230,14 @@ def prepare_nodes(nodes, domain,
                   rho=None,
                   iterations=20,
                   neighbors=None,
-                  dispersion_delta=0.05,
-                  bound_force=False,
+                  dispersion_delta=0.1,
                   pinned_nodes=None,
                   snap_delta=0.5,
                   boundary_groups=None,
                   boundary_groups_with_ghosts=None,
-                  include_vertices=False):
+                  include_vertices=False,
+                  orient_simplices=True,
+                  build_rtree=False):
   '''
   Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
   method. This includes: dispersing the nodes away from eachother to
@@ -267,20 +268,12 @@ def prepare_nodes(nodes, domain,
 
   neighbors : int, optional
     Number of neighboring nodes to use when calculating the repulsion
-    force. This defaults to 7 for 2D nodes and 13 for 3D nodes.
-    Deviating from these default values may yield a node distribution
-    that is not consistent with the node density function `rho`.
+    force. This defaults to 4 for 2D nodes and 5 for 3D nodes.
 
   dispersion_delta : float, optional
     Scaling factor for the node step size in each iteration. The step
     size is equal to `dispersion_delta` times the distance to the
     nearest neighbor.
-
-  bound_force : bool, optional
-    If `True`, then nodes cannot repel other nodes through the domain
-    boundary. Set this to `True` if the domain has edges that nearly
-    touch eachother. Setting this to `True` may significantly increase
-    computation time.
 
   pinned_nodes : (k, d) array, optional
     Nodes which do not move and only provide a repulsion force. These
@@ -312,6 +305,15 @@ def prepare_nodes(nodes, domain,
     groups, then the vertex will be assigned to the group containing
     the simplex that comes first in `smp`.
 
+  build_rtree : bool, optional
+    If `True`, then an R-Tree will be built to speed up computational
+    geometry operations. This should be set to `True` if there are
+    many (>10,000) simplices making up the domain
+
+  orient_simplices : bool, optional
+    If `False` then it is assumed that the simplices are already
+    oriented such that their normal vectors point outward.
+        
   Returns
   -------
   (m, d) float array
@@ -334,6 +336,11 @@ def prepare_nodes(nodes, domain,
 
   '''
   domain = as_domain(domain)
+  if build_rtree:
+    logger.debug('building R-tree ...')
+    domain.build_rtree()
+    logger.debug('done')
+    
   nodes = np.asarray(nodes, dtype=float)
   assert_shape(nodes, (None, domain.dim), 'nodes')
 
@@ -357,8 +364,7 @@ def prepare_nodes(nodes, domain,
                      rho=rho, 
                      fixed_nodes=fixed_nodes, 
                      neighbors=neighbors, 
-                     delta=dispersion_delta, 
-                     bound_force=bound_force)
+                     delta=dispersion_delta)
 
   # append the domain vertices to the collection of nodes if requested
   if include_vertices:
@@ -371,6 +377,11 @@ def prepare_nodes(nodes, domain,
   logger.debug('done')
 
   # get the normal vectors for the boundary nodes    
+  if orient_simplices:
+    logger.debug('orienting simplices ...')
+    domain.orient_simplices()
+    logger.debug('done')
+    
   normals = np.full_like(nodes, np.nan)
   normals[smpid >= 0] = domain.normals[smpid[smpid >= 0]]
   

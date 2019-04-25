@@ -45,65 +45,62 @@ class Domain(object):
         If True, then an R-Tree will be built upon initialization.
         This tree is used to speed up some of the operations.
 
-    orient_simplices : bool, optional
-        If True, then the simplices will be reoriented so that their
-        normal vectors point outward.
+    oriented : bool, optional
+        If True, then the simplices are already properly oriented,
+        where the normal vectors already point outward. As a result,
+        nothing will be done when the `orient_simplices` method is
+        called.
         
     '''
-    def __init__(self, vertices, simplices, 
-                 use_tree=False, 
-                 orient_simplices=False):
+    def __init__(self, vertices, simplices):
         vertices = np.asarray(vertices, dtype=float)
         simplices = np.asarray(simplices, dtype=int)
         assert_shape(vertices, (None, None), 'vertices')
         dim = vertices.shape[1]
         assert_shape(simplices, (None, dim), 'simplices')
+
         self.vertices = vertices
         self.simplices = simplices
         self.dim = dim     
-        self.tree = None            
-
-        if use_tree:
-            # this will modify the `tree` attribute
-            self._build_tree()
-
-        if orient_simplices:
-            # this will modify the `simplices` attribute. This should
-            # be run after the tree has been built, otherwise it will
-            # take a while
-            self._orient_simplices()
-            
-        self.normals = geo.simplex_normals(
-            self.vertices,
-            self.simplices)
+        self.rtree = None
+        self.normals = geo.simplex_normals(vertices, simplices)
         
     def __repr__(self):
         return ('<Domain : '
                 'vertex count=%s, '
                 'simplex count=%s, '
-                'using tree=%s>' % 
+                'using R-tree=%s>' % 
                 (self.vertices.shape[0], 
                  self.simplices.shape[0], 
-                 self.tree is not None))
+                 self.rtree is not None))
                 
-    def _build_tree(self):
+    def build_rtree(self):
+        '''
+        Construct an R-Tree for the domain. This may reduce the
+        computational complexity of the methods `intersection_count`,
+        `contains`, `orient_simplices`, and `snap`.
+        '''
         # create a bounding box for each simplex and add those
-        # bounding boxes to the R-Tree
-        logger.debug('building R-Tree ...')
+        # bounding boxes to the R-tree
+        if self.rtree is not None:
+            # do nothing because the R-tree already exists
+            logger.debug('R-tree already exists')
+            return
+            
         smp_min = self.vertices[self.simplices].min(axis=1)
         smp_max = self.vertices[self.simplices].max(axis=1)
         bounds = np.hstack((smp_min, smp_max))
         
         p = Property()
         p.dimension = self.dim
-        self.tree = Index(properties=p)
+        self.rtree = Index(properties=p)
         for i, bnd in enumerate(bounds):
-            self.tree.add(i, bnd)
+            self.rtree.add(i, bnd)
             
-        logger.debug('done')
-
-    def _orient_simplices(self):
-        logger.debug('orienting simplices ...')
+    def orient_simplices(self):
+        '''
+        Orient the simplices so that the normal vectors point outward.
+        '''
         # length scale of the domain
         scale = self.vertices.ptp(axis=0).max()
         dx = 1e-10*scale
@@ -123,8 +120,10 @@ class Domain(object):
         flip_smp = new_smp[faces_inside]
         flip_smp[:, [0, 1]] = flip_smp[:, [1, 0]]
         new_smp[faces_inside] = flip_smp
+
         self.simplices = new_smp
-        logger.debug('done')
+        # remake the normal vectors with the reoriented simplices
+        self.normals = geo.simplex_normals(self.vertices, new_smp)
 
     def intersection_count(self, start_points, end_points):
         '''
@@ -148,7 +147,7 @@ class Domain(object):
         assert_shape(end_points, start_points.shape, 'end_points')
         n = start_points.shape[0]
         
-        if self.tree is None:
+        if self.rtree is None:
             return geo.intersection_count(
                 start_points,
                 end_points,
@@ -163,7 +162,7 @@ class Domain(object):
             for i, bnd in enumerate(bounds):
                 # get a list of simplices which could potentially be
                 # intersected by segment i
-                potential_smpid = list(self.tree.intersection(bnd))
+                potential_smpid = list(self.rtree.intersection(bnd))
                 if not potential_smpid:
                     # if the segment bounding box does not intersect
                     # and simplex bounding boxes, then there is no
@@ -279,7 +278,7 @@ class Domain(object):
         nbr_dist = KDTree(points).query(points, 2)[0][:, 1]
         snap_dist = delta*nbr_dist
 
-        if self.tree is None:
+        if self.rtree is None:
             nrst_pnt, nrst_smpid = geo.nearest_point(
                 points,
                 self.vertices,
@@ -297,7 +296,7 @@ class Domain(object):
             for i, bnd in enumerate(bounds):
                 # get a list of simplices which node i could
                 # potentially snap to
-                potential_smpid = list(self.tree.intersection(bnd))
+                potential_smpid = list(self.rtree.intersection(bnd))
                 # sort the list to ensure consistent output
                 potential_smpid.sort()
                 if not potential_smpid: 
