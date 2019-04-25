@@ -236,8 +236,7 @@ def prepare_nodes(nodes, domain,
                   boundary_groups=None,
                   boundary_groups_with_ghosts=None,
                   include_vertices=False,
-                  orient_simplices=True,
-                  build_rtree=False):
+                  orient_simplices=True):
   '''
   Prepares a set of nodes for solving PDEs with the RBF and RBF-FD
   method. This includes: dispersing the nodes away from eachother to
@@ -305,11 +304,6 @@ def prepare_nodes(nodes, domain,
     groups, then the vertex will be assigned to the group containing
     the simplex that comes first in `smp`.
 
-  build_rtree : bool, optional
-    If `True`, then an R-Tree will be built to speed up computational
-    geometry operations. This should be set to `True` if there are
-    many (>10,000) simplices making up the domain
-
   orient_simplices : bool, optional
     If `False` then it is assumed that the simplices are already
     oriented such that their normal vectors point outward.
@@ -336,11 +330,6 @@ def prepare_nodes(nodes, domain,
 
   '''
   domain = as_domain(domain)
-  if build_rtree:
-    logger.debug('building R-tree ...')
-    domain.build_rtree()
-    logger.debug('done')
-    
   nodes = np.asarray(nodes, dtype=float)
   assert_shape(nodes, (None, domain.dim), 'nodes')
 
@@ -439,7 +428,8 @@ def prepare_nodes(nodes, domain,
   return nodes, groups, normals
 
   
-def min_energy_nodes(n, domain, rho=None, iterations=100, **kwargs):
+def min_energy_nodes(n, domain, rho=None, build_rtree=False, 
+                     **kwargs):
   '''
   Generates nodes within a two or three dimensional. This first
   generates nodes with a rejection sampling algorithm, and then the
@@ -459,6 +449,11 @@ def min_energy_nodes(n, domain, rho=None, iterations=100, **kwargs):
     returns an (n,) array of desired node densities at those
     coordinates. This function should be normalized to be between 0
     and 1.
+
+  build_rtree : bool, optional
+    If `True`, then an R-tree will be built to speed up computational
+    geometry operations. This should be set to `True` if there are
+    many (>10,000) simplices making up the domain.
 
   **kwargs
     Additional arguments passed to `prepare_nodes`    
@@ -531,18 +526,23 @@ def min_energy_nodes(n, domain, rho=None, iterations=100, **kwargs):
          [ nan,  nan]])
     
   '''
+  domain = as_domain(domain)
+  if build_rtree:
+    logger.debug('building R-tree ...')
+    domain.build_rtree()
+    logger.debug('done')
+    
   if rho is None:
     def rho(x): 
         return np.ones(x.shape[0])
 
   nodes = rejection_sampling(n, rho, domain)
-  out = prepare_nodes(nodes, domain, rho=rho, 
-                      iterations=iterations, **kwargs)
+  out = prepare_nodes(nodes, domain, rho=rho, **kwargs)
   return out                      
 
 
 def poisson_disc_nodes(radius, domain, ntests=50, rmax_factor=1.5, 
-                       iterations=20, **kwargs):
+                       build_rtree=False, **kwargs):
   '''
   Generates nodes within a two or three dimensional domain. This first
   generate nodes with Poisson disc sampling, and then the nodes are
@@ -560,6 +560,11 @@ def poisson_disc_nodes(radius, domain, ntests=50, rmax_factor=1.5,
 
   domain : (p, d) float array and (q, d) int array
     Vertices of the domain and connectivity of the vertices
+
+  build_rtree : bool, optional
+    If `True`, then an R-tree will be built to speed up computational
+    geometry operations. This should be set to `True` if there are
+    many (>10,000) simplices making up the domain
 
   **kwargs
     Additional arguments passed to `prepare_nodes`    
@@ -591,6 +596,12 @@ def poisson_disc_nodes(radius, domain, ntests=50, rmax_factor=1.5,
   raised which says "ValueError: No intersection found for segment
     
   '''
+  domain = as_domain(domain)
+  if build_rtree:
+    logger.debug('building R-tree ...')
+    domain.build_rtree()
+    logger.debug('done')
+
   if np.isscalar(radius):
     scalar_radius = radius
     def radius(x): 
@@ -602,6 +613,5 @@ def poisson_disc_nodes(radius, domain, ntests=50, rmax_factor=1.5,
         
   nodes = poisson_discs(radius, domain, ntests=ntests, 
                         rmax_factor=rmax_factor)
-  out = prepare_nodes(nodes, domain, rho=rho, 
-                      iterations=iterations, **kwargs)
+  out = prepare_nodes(nodes, domain, rho=rho, **kwargs)
   return out

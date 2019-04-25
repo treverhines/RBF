@@ -58,8 +58,7 @@ order = 2 # Order of the added polynomials. This should be at least as
 # generate nodes
 nodes, groups, normals = poisson_disc_nodes(
   spacing, 
-  vert, 
-  smp, 
+  (vert, smp), 
   boundary_groups=boundary_groups,
   boundary_groups_with_ghosts=['free'])
 

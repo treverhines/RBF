@@ -12,10 +12,9 @@ class Test(unittest.TestCase):
 
         out1 = geo.intersection_count(pnt1, pnt2, vert, smp)
 
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=False)
+        dom = Domain(vert, smp)
         out2 = dom.intersection_count(pnt1, pnt2)
-
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=True)
+        dom.build_rtree()
         out3 = dom.intersection_count(pnt1, pnt2)
 
         self.assertTrue(np.all(out1 == out2))
@@ -28,10 +27,9 @@ class Test(unittest.TestCase):
 
         out1 = geo.intersection_count(pnt1, pnt2, vert, smp)
 
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=False)
+        dom = Domain(vert, smp)
         out2 = dom.intersection_count(pnt1, pnt2)
-
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=True)
+        dom.build_rtree()
         out3 = dom.intersection_count(pnt1, pnt2)
 
         self.assertTrue(np.all(out1 == out2))
@@ -43,10 +41,9 @@ class Test(unittest.TestCase):
 
         out1 = geo.contains(pnt, vert, smp)
 
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=False)
+        dom = Domain(vert, smp)
         out2 = dom.contains(pnt)
-
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=True)
+        dom.build_rtree()
         out3 = dom.contains(pnt)
 
         self.assertTrue(np.all(out1 == out2))
@@ -58,10 +55,9 @@ class Test(unittest.TestCase):
 
         out1 = geo.contains(pnt, vert, smp)
 
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=False)
+        dom = Domain(vert, smp)
         out2 = dom.contains(pnt)
-
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=True)
+        dom.build_rtree()
         out3 = dom.contains(pnt)
 
         self.assertTrue(np.all(out1 == out2))
@@ -71,10 +67,9 @@ class Test(unittest.TestCase):
         vert, smp = circle()
         pnt = np.random.normal(0.0, 2.0, (1000, 2))
 
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=False)
+        dom = Domain(vert, smp)
         out1a,out1b = dom.snap(pnt)
-
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=True)
+        dom.build_rtree()
         out2a, out2b = dom.snap(pnt)
 
         self.assertTrue(np.all(out1a == out2a))
@@ -84,10 +79,9 @@ class Test(unittest.TestCase):
         vert, smp = sphere()
         pnt = np.random.normal(0.0, 2.0, (1000, 3))
 
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=False)
+        dom = Domain(vert, smp)
         out1a, out1b = dom.snap(pnt)
-
-        dom = Domain(vert, smp, orient_simplices=False, use_tree=True)
+        dom.build_rtree()
         out2a, out2b = dom.snap(pnt)
 
         self.assertTrue(np.all(out1a == out2a))
@@ -99,7 +93,9 @@ class Test(unittest.TestCase):
         smp = smp[:, ::-1]
 
         out1 = geo.oriented_simplices(vert, smp)
-        out2 = Domain(vert, smp, orient_simplices=True).simplices
+        dom = Domain(vert, smp)
+        dom.orient_simplices()
+        out2 = dom.simplices
         self.assertTrue(np.all(out1 == out2))
 
     def test_orient_simplices_3d(self):
@@ -108,5 +104,7 @@ class Test(unittest.TestCase):
         smp = smp[:, ::-1]
 
         out1 = geo.oriented_simplices(vert, smp)
-        out2 = Domain(vert, smp, orient_simplices=True).simplices
+        dom = Domain(vert, smp)
+        dom.orient_simplices()
+        out2 = dom.simplices
         self.assertTrue(np.all(out1 == out2))

@@ -44,7 +44,7 @@ body_force = 1.0
 boundary_groups = {'fixed':[0],
                    'free':[1, 2, 3]}
 nodes, groups, normals = min_energy_nodes(
-  N, vert, smp,
+  N, (vert, smp),
   boundary_groups=boundary_groups,
   boundary_groups_with_ghosts=['free'])
 # `nodes` : (N, 2) float array

@@ -51,7 +51,7 @@ vert = np.array([[0.0, 0.0],
                  [0.0, 1.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])                 
 
-nodes = min_energy_nodes(10000, vert, smp, rho=desired_rho)[0]
+nodes = min_energy_nodes(10000, (vert, smp), rho=desired_rho)[0]
 
 # plot the nodes
 fig, ax = plt.subplots()

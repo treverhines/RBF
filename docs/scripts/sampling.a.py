@@ -4,11 +4,11 @@ radii.
 '''
 import time
 import numpy as np
+from scipy.spatial import cKDTree
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
-from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.sampling import poisson_discs
 
 def radius(x):
@@ -43,7 +43,7 @@ plt.savefig('../figures/sampling.a.1.png')
 # plot the nearest neighbor distance divided by the disc radii. This
 # verifies that all nodes are spaced sufficiently far away
 fig, ax = plt.subplots()
-dist = k_nearest_neighbors(centers, centers, 2)[1][:, 1]
+dist = cKDTree(centers).query(centers, 2)[0][:, 1]
 ax.hist(dist/radius(centers), 20)
 ax.set_xlabel('(nearest neighbor distance) / (disc radius)')
 ax.set_ylabel('count')

@@ -39,7 +39,7 @@ order = 2 # Order of the added polynomials. This should be at least as
           # case). Larger values may improve accuracy
 
 # generate nodes
-nodes, groups, _ = poisson_disc_nodes(spacing, vert, smp) 
+nodes, groups, _ = poisson_disc_nodes(spacing, (vert, smp)) 
 N = nodes.shape[0]
 
 # create the "left hand side" matrix. 

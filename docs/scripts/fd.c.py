@@ -60,10 +60,10 @@ body_force = 1.0
 ## Build and solve for displacements and strain
 #####################################################################
 # generate nodes. Note that this may take a while
-boundary_groups = {'fix':[0,1],
-                   'free':range(2,12)}
+boundary_groups = {'fix':[0, 1],
+                   'free':range(2, 12)}
 nodes, idx, normals = min_energy_nodes(
-    N,vert,smp,
+    N, (vert, smp),
     boundary_groups=boundary_groups,
     boundary_groups_with_ghosts=['free'])
 N = nodes.shape[0]

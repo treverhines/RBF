@@ -25,9 +25,9 @@ def rho(x):
   r = np.sqrt((x[:, 0] - 1.0)**2 + (x[:, 1] - 1.0)**2)
   return 0.2 + 0.8/((r/0.3)**4 + 1.0)
 
-
 nodes, groups, normals = min_energy_nodes(
-    N, vert, smp,
+    N, 
+    (vert, smp),
     rho=rho,
     boundary_groups=boundary_groups,
     boundary_groups_with_ghosts=boundary_groups_with_ghosts,

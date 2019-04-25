@@ -3,11 +3,8 @@ import time
 import numpy as np
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
 
-from rbf.pde.knn import k_nearest_neighbors
 from rbf.pde.sampling import rejection_sampling
-from rbf.basis import se
 
 logging.basicConfig(level=logging.DEBUG)
 

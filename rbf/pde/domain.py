@@ -76,7 +76,7 @@ class Domain(object):
                 
     def build_rtree(self):
         '''
-        Construct an R-Tree for the domain. This may reduce the
+        Construct an R-tree for the domain. This may reduce the
         computational complexity of the methods `intersection_count`,
         `contains`, `orient_simplices`, and `snap`.
         '''
@@ -229,7 +229,7 @@ class Domain(object):
         xmin = self.vertices[:, 0].min()
         # the outside points are directly to the left of `points` plus
         # a small random perturbation. The subsequent bounding boxes
-        # are going to be very narrow, meaning that the R-Tree will
+        # are going to be very narrow, meaning that the R-tree will
         # efficiently winnow down the potential intersecting
         # simplices.
         outside_points = np.array(points, copy=True)

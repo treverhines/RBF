@@ -19,7 +19,7 @@ eps = 0.3/spacing  # shape parameter
 
 # generate the nodes. `nodes` is a (N, 2) float array, `groups` is a
 # dict identifying which group each node is in
-nodes, groups, _ = poisson_disc_nodes(spacing, vert, smp) 
+nodes, groups, _ = poisson_disc_nodes(spacing, (vert, smp)) 
 N = nodes.shape[0]
 
 # create "left hand side" matrix
