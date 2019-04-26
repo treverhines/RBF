@@ -150,9 +150,16 @@ def clear_memoize_caches():
 class KDTree(cKDTree):
     '''
     Same as `scipy.spatial.cKDTree`, except when calling `query` with
-    `k=1`, the output does not get squeezed to 1D.
+    `k=1`, the output does not get squeezed to 1D. Also, an error will
+    be raised if `query` is called with `k` larger than the number of
+    points in the tree.
     '''
     def query(self, x, k=1, **kwargs):
+        if k > self.n:
+            raise ValueError(
+                'Cannot find the %s nearest points among a set of %s '
+                'points' % (k, self.n))
+            
         dist, indices = super().query(x, k=k, **kwargs)
         if k == 1:
             dist = dist[..., None]

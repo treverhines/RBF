@@ -16,7 +16,7 @@ from matplotlib.colors import LogNorm
 
 from rbf.sputils import add_rows
 from rbf.linalg import GMRESSolver
-from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.nodes import poisson_disc_nodes
 from rbf.pde.fd import weight_matrix
 
 logging.basicConfig(level=logging.DEBUG)
@@ -27,14 +27,14 @@ logging.basicConfig(level=logging.DEBUG)
 # simplex will be fixed, and the others will be free
 vert = np.array([[0.0, 0.0], [0.0, 1.0], [2.0, 1.0], [2.0, 0.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
-# The number of nodes excluding ghost nodes
-N = 1000
+# The node spacing
+dx = 0.05
 # size of RBF-FD stencils
-n = 20
+n = 30
 # lame parameters
 lamb = 1.0
 mu = 1.0
-# z component of body force
+# z component of body for
 body_force = 1.0
 
 ## Build and solve for displacements and strain
@@ -43,8 +43,8 @@ body_force = 1.0
 # they lay on
 boundary_groups = {'fixed':[0],
                    'free':[1, 2, 3]}
-nodes, groups, normals = min_energy_nodes(
-  N, (vert, smp),
+nodes, groups, normals = poisson_disc_nodes(
+  dx, (vert, smp),
   boundary_groups=boundary_groups,
   boundary_groups_with_ghosts=['free'])
 # `nodes` : (N, 2) float array
@@ -53,10 +53,8 @@ nodes, groups, normals = min_energy_nodes(
 #            "ghosts:free".
 # `normals : (N, 2) float array
 
-# update `N` to include ghost nodes
-N = nodes.shape[0]
-
 ## Create the sparse submatrices for the system matrix 
+N = nodes.shape[0]
 G_xx = sp.coo_matrix((N, N))
 G_xy = sp.coo_matrix((N, N))
 G_yx = sp.coo_matrix((N, N))
@@ -77,20 +75,20 @@ coeffs_yy = [lamb+2*mu, mu]
 diffs_yy =  [(0, 2), (2, 0)]
 # make the differentiation matrices that enforce the PDE on the 
 # interior nodes.
-D_xx = weight_matrix(nodes[groups['interior']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-D_xy = weight_matrix(nodes[groups['interior']], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
-D_yx = weight_matrix(nodes[groups['interior']], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
-D_yy = weight_matrix(nodes[groups['interior']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+D_xx = weight_matrix(nodes[groups['interior']], nodes, n, diffs_xx, coeffs=coeffs_xx)
+D_xy = weight_matrix(nodes[groups['interior']], nodes, n, diffs_xy, coeffs=coeffs_xy)
+D_yx = weight_matrix(nodes[groups['interior']], nodes, n, diffs_yx, coeffs=coeffs_yx)
+D_yy = weight_matrix(nodes[groups['interior']], nodes, n, diffs_yy, coeffs=coeffs_yy)
 G_xx = add_rows(G_xx, D_xx, groups['interior'])
 G_xy = add_rows(G_xy, D_xy, groups['interior'])
 G_yx = add_rows(G_yx, D_yx, groups['interior'])
 G_yy = add_rows(G_yy, D_yy, groups['interior'])
 
 # use the ghost nodes to enforce the PDE on the boundary
-D_xx = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-D_xy = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
-D_yx = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
-D_yy = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+D_xx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xx, coeffs=coeffs_xx)
+D_xy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xy, coeffs=coeffs_xy)
+D_yx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yx, coeffs=coeffs_yx)
+D_yy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yy, coeffs=coeffs_yy)
 G_xx = add_rows(G_xx, D_xx, groups['ghosts:free'])
 G_xy = add_rows(G_xy, D_xy, groups['ghosts:free'])
 G_yx = add_rows(G_yx, D_yx, groups['ghosts:free'])
@@ -107,8 +105,8 @@ diffs_xx = [(0, 0)]
 coeffs_yy = [1.0]
 diffs_yy = [(0, 0)]
 
-dD_fix_xx = weight_matrix(nodes[groups['boundary:fixed']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-dD_fix_yy = weight_matrix(nodes[groups['boundary:fixed']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+dD_fix_xx = weight_matrix(nodes[groups['boundary:fixed']], nodes, n, diffs_xx, coeffs=coeffs_xx)
+dD_fix_yy = weight_matrix(nodes[groups['boundary:fixed']], nodes, n, diffs_yy, coeffs=coeffs_yy)
 G_xx = add_rows(G_xx, dD_fix_xx, groups['boundary:fixed'])
 G_yy = add_rows(G_yy, dD_fix_yy, groups['boundary:fixed'])
 
@@ -127,10 +125,10 @@ coeffs_yy = [normals[groups['boundary:free']][:, 1]*(lamb+2*mu), normals[groups[
 diffs_yy =  [(0, 1), (1, 0)]
 # make the differentiation matrices that enforce the free surface boundary 
 # conditions.
-dD_free_xx = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_xx, coeffs=coeffs_xx, n=n)
-dD_free_xy = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_xy, coeffs=coeffs_xy, n=n)
-dD_free_yx = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_yx, coeffs=coeffs_yx, n=n)
-dD_free_yy = weight_matrix(nodes[groups['boundary:free']], nodes, diffs_yy, coeffs=coeffs_yy, n=n)
+dD_free_xx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xx, coeffs=coeffs_xx)
+dD_free_xy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xy, coeffs=coeffs_xy)
+dD_free_yx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yx, coeffs=coeffs_yx)
+dD_free_yy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yy, coeffs=coeffs_yy)
 
 G_xx = add_rows(G_xx, dD_free_xx, groups['boundary:free'])
 G_xy = add_rows(G_xy, dD_free_xy, groups['boundary:free'])
@@ -164,9 +162,14 @@ u = GMRESSolver(G).solve(d)
 # reshape the solution
 u = np.reshape(u, (2, -1))
 u_x, u_y = u
-## Calculate strain from displacements
-D_x = weight_matrix(nodes, nodes, (1, 0), n=n)
-D_y = weight_matrix(nodes, nodes, (0, 1), n=n)
+
+## Calculate strain on a fine grid from displacements
+x, y = np.meshgrid(np.linspace(0.0, 2.0, 100), 
+                   np.linspace(0.0, 1.0, 50))
+points = np.array([x.flatten(), y.flatten()]).T
+
+D_x = weight_matrix(points, nodes, n, (1, 0))
+D_y = weight_matrix(points, nodes, n, (0, 1))
 e_xx = D_x.dot(u_x)
 e_yy = D_y.dot(u_y)
 e_xy = 0.5*(D_y.dot(u_x) + D_x.dot(u_y))
@@ -176,13 +179,12 @@ I2 = np.sqrt(e_xx**2 + e_yy**2 + 2*e_xy**2)
 ## Plot the results
 #####################################################################
 idx_no_ghosts = np.hstack((groups['interior'],
-                          groups['boundary:free'],
-                          groups['boundary:fixed']))
+                           groups['boundary:free'],
+                           groups['boundary:fixed']))
                           
 nodes = nodes[idx_no_ghosts]
 u_x = u_x[idx_no_ghosts]
 u_y = u_y[idx_no_ghosts]
-I2 = I2[idx_no_ghosts]
 
 fig, ax = plt.subplots(figsize=(7, 3.5))
 # plot the fixed boundary
@@ -193,7 +195,7 @@ for s in smp[2:]:
   ax.plot(vert[s, 0], vert[s, 1], 'r--', lw=2, zorder=1)
 
 # plot the second strain invariant
-p = ax.tripcolor(nodes[:, 0], nodes[:, 1], I2,
+p = ax.tripcolor(points[:, 0], points[:, 1], I2,
                  norm=LogNorm(vmin=0.1, vmax=3.2),
                  cmap='viridis', zorder=0)
 # plot the displacement vectors

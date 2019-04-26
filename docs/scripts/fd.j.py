@@ -9,7 +9,6 @@ from scipy.sparse.linalg import spsolve
 from scipy.interpolate import LinearNDInterpolator
 import matplotlib.pyplot as plt
 
-from rbf.basis import phs3
 from rbf.sputils import add_rows
 from rbf.pde.fd import weight_matrix
 from rbf.pde.geometry import contains
@@ -45,11 +44,11 @@ spacing = 0.1  # The approximate spacing between nodes
 
 n = 25 # stencil size. Increasing this will generally improve accuracy
 
-phi = phs3 # radial basis function used to compute the weights. Odd
-           # order polyharmonic splines (e.g., phs3) have always
-           # performed well for me and they do not require the user to
-           # tune a shape parameter. Use higher order polyharmonic
-           # splines for higher order PDEs.
+phi = 'phs3' # radial basis function used to compute the weights. Odd
+             # order polyharmonic splines (e.g., phs3) have always
+             # performed well for me and they do not require the user
+             # to tune a shape parameter. Use higher order
+             # polyharmonic splines for higher order PDEs.
 
 order = 2 # Order of the added polynomials. This should be at least as
           # large as the order of the PDE being solved (2 in this
@@ -62,43 +61,34 @@ nodes, groups, normals = poisson_disc_nodes(
   boundary_groups=boundary_groups,
   boundary_groups_with_ghosts=['free'])
 
-N = nodes.shape[0] 
-
 # create the "left hand side" matrix. 
 # create the component which evaluates the PDE
-A_interior = weight_matrix(nodes[groups['interior']], 
-                           nodes,
-                           n=n, 
+A_interior = weight_matrix(nodes[groups['interior']], nodes, n,
                            diffs=[[2, 0], [0, 2]], 
                            phi=phi, order=order)
 
 # use the ghost nodes to evaluate the PDE at the free boundary nodes
-A_ghost = weight_matrix(nodes[groups['boundary:free']], 
-                        nodes, 
-                        n=n,
+A_ghost = weight_matrix(nodes[groups['boundary:free']], nodes, n,
                         diffs=[[2, 0], [0, 2]],
                         phi=phi, order=order)
 
 # create the component for the fixed boundary conditions. This is
 # essentially an identity operation and so we only need a stencil size
 # of 1
-A_fixed = weight_matrix(nodes[groups['boundary:fixed']], 
-                        nodes, 
-                        n=1,
+A_fixed = weight_matrix(nodes[groups['boundary:fixed']], nodes, 1,
                         diffs=[0, 0]) 
 
 # create the component for the free boundary conditions. This dots the
 # derivative with respect to x and y with the x and y components of
 # normal vectors on the free surface (i.e., n_x * du/dx + n_y * du/dy)
-A_free = weight_matrix(nodes[groups['boundary:free']], 
-                       nodes, 
-                       n=n,
+A_free = weight_matrix(nodes[groups['boundary:free']], nodes, n,
                        diffs=[[1, 0], [0, 1]],
                        coeffs=[normals[groups['boundary:free'], 0],
                                normals[groups['boundary:free'], 1]],
                        phi=phi, order=order)
                            
 # Add the components to the corresponding rows of `A`
+N = nodes.shape[0] 
 A = coo_matrix((N, N))
 A = add_rows(A, A_interior, groups['interior'])
 A = add_rows(A, A_ghost, groups['ghosts:free'])

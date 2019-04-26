@@ -21,8 +21,7 @@ times = np.linspace(0.0, 2.0, 5) # output times
 N = 20000 # total number of nodes
 nodes, idx, _ = min_energy_nodes(N, (vert, smp)) # generate nodes
 # create differentiation matrices for the interior and boundary nodes
-D = weight_matrix(nodes[idx['interior']], nodes, [(2, 0), (0, 2)],
-                  n=30)
+D = weight_matrix(nodes[idx['interior']], nodes, 50, [(2, 0), (0, 2)])
 # create initial and boundary conditions
 r = np.sqrt((nodes[idx['interior'], 0] - 0.5)**2 + 
             (nodes[idx['interior'], 1] - 0.5)**2)

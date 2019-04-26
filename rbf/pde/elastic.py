@@ -4,7 +4,7 @@ weight matrices for linear elasticity problems.
 '''
 from rbf.pde.fd import weight_matrix
 
-def elastic2d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
+def elastic2d_body_force(x, p, n, lamb=1.0, mu=1.0, **kwargs):
   ''' 
   Returns weight matrices that map displacements at `p` to the body
   force at `x` in a two-dimensional (plane strain) homogeneous elastic
@@ -12,16 +12,19 @@ def elastic2d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
 
   Parameters
   ----------
-  x: (N, 2) array
+  x : (N, 2) array
     Target points.
   
-  p: (M, 2) array
+  p : (M, 2) array
     Observation points.  
   
-  lamb, mu: float, optional
+  n : int
+    stencil size    
+  
+  lamb, mu : float, optional
     Lame parameters
   
-  **kwargs:
+  **kwargs :
     additional arguments passed to `weight_matrix`
 
   Returns
@@ -45,14 +48,14 @@ def elastic2d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
   diffs_yy =  [(0, 2), (2, 0)]
   # make the differentiation matrices that enforce the PDE on the 
   # interior nodes.
-  D_xx = weight_matrix(x, p, diffs_xx, coeffs=coeffs_xx, **kwargs)
-  D_xy = weight_matrix(x, p, diffs_xy, coeffs=coeffs_xy, **kwargs)
-  D_yx = weight_matrix(x, p, diffs_yx, coeffs=coeffs_yx, **kwargs)
-  D_yy = weight_matrix(x, p, diffs_yy, coeffs=coeffs_yy, **kwargs)
+  D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
+  D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
+  D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
+  D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
   return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
 
 
-def elastic2d_surface_force(x, nrm, p, lamb=1.0, mu=1.0, **kwargs):
+def elastic2d_surface_force(x, nrm, p, n, lamb=1.0, mu=1.0, **kwargs):
   ''' 
   Returns weight matrices that map displacements at `p` to the surface
   traction force at `x` with normals `nrm` in a two-dimensional (plane
@@ -69,6 +72,9 @@ def elastic2d_surface_force(x, nrm, p, lamb=1.0, mu=1.0, **kwargs):
   p: (M, 2) array
     observation points.  
   
+  n : int
+    stencil size    
+
   lamb, mu: float
     Lame parameters
     
@@ -96,14 +102,14 @@ def elastic2d_surface_force(x, nrm, p, lamb=1.0, mu=1.0, **kwargs):
   diffs_yy =  [(1, 0), (0, 1)]
   # make the differentiation matrices that enforce the free surface boundary 
   # conditions.
-  D_xx = weight_matrix(x, p, diffs_xx, coeffs=coeffs_xx, **kwargs)
-  D_xy = weight_matrix(x, p, diffs_xy, coeffs=coeffs_xy, **kwargs)
-  D_yx = weight_matrix(x, p, diffs_yx, coeffs=coeffs_yx, **kwargs)
-  D_yy = weight_matrix(x, p, diffs_yy, coeffs=coeffs_yy, **kwargs)
+  D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
+  D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
+  D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
+  D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
   return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
 
 
-def elastic2d_displacement(x, p, **kwargs):
+def elastic2d_displacement(x, p, n, **kwargs):
   ''' 
   Returns weight matrices that map displacements at `p` to the
   displacements at `x`.
@@ -116,6 +122,9 @@ def elastic2d_displacement(x, p, **kwargs):
   p: (M, 2) array
     observation points.  
     
+  n : int
+    stencil size    
+
   **kwargs:
     additional arguments passed to `weight_matrix`
 
@@ -126,12 +135,12 @@ def elastic2d_displacement(x, p, **kwargs):
     weight matrices.
 
   '''
-  D_xx = weight_matrix(x, p, (0, 0), **kwargs)
-  D_yy = weight_matrix(x, p, (0, 0), **kwargs)
+  D_xx = weight_matrix(x, p, n, (0, 0), **kwargs)
+  D_yy = weight_matrix(x, p, n, (0, 0), **kwargs)
   return {'xx':D_xx, 'yy':D_yy}
 
 
-def elastic3d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
+def elastic3d_body_force(x, p, n, lamb=1.0, mu=1.0, **kwargs):
   ''' 
   Returns weight matrices that map displacements at `p` to the body
   force at `x` in a three-dimensional homogeneous elastic medium.
@@ -144,6 +153,9 @@ def elastic3d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
   p: (M, 3) array
     observation points.  
   
+  n : int
+    stencil size    
+
   lamb, mu: float
     first Lame parameter
     
@@ -175,21 +187,21 @@ def elastic3d_body_force(x, p, lamb=1.0, mu=1.0, **kwargs):
   diffs_zy =  [(0, 1, 1)]
   coeffs_zz = [mu, mu, lamb + 2*mu]
   diffs_zz =  [(2, 0, 0), (0, 2, 0), (0, 0, 2)]
-  D_xx = weight_matrix(x, p, diffs_xx, coeffs=coeffs_xx, **kwargs)
-  D_xy = weight_matrix(x, p, diffs_xy, coeffs=coeffs_xy, **kwargs)
-  D_xz = weight_matrix(x, p, diffs_xz, coeffs=coeffs_xz, **kwargs)
-  D_yx = weight_matrix(x, p, diffs_yx, coeffs=coeffs_yx, **kwargs)
-  D_yy = weight_matrix(x, p, diffs_yy, coeffs=coeffs_yy, **kwargs)
-  D_yz = weight_matrix(x, p, diffs_yz, coeffs=coeffs_yz, **kwargs)
-  D_zx = weight_matrix(x, p, diffs_zx, coeffs=coeffs_zx, **kwargs)
-  D_zy = weight_matrix(x, p, diffs_zy, coeffs=coeffs_zy, **kwargs)
-  D_zz = weight_matrix(x, p, diffs_zz, coeffs=coeffs_zz, **kwargs)
+  D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
+  D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
+  D_xz = weight_matrix(x, p, n, diffs_xz, coeffs=coeffs_xz, **kwargs)
+  D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
+  D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
+  D_yz = weight_matrix(x, p, n, diffs_yz, coeffs=coeffs_yz, **kwargs)
+  D_zx = weight_matrix(x, p, n, diffs_zx, coeffs=coeffs_zx, **kwargs)
+  D_zy = weight_matrix(x, p, n, diffs_zy, coeffs=coeffs_zy, **kwargs)
+  D_zz = weight_matrix(x, p, n, diffs_zz, coeffs=coeffs_zz, **kwargs)
   return {'xx':D_xx, 'xy':D_xy, 'xz':D_xz, 
           'yx':D_yx, 'yy':D_yy, 'yz':D_yz, 
           'zx':D_zx, 'zy':D_zy, 'zz':D_zz}
 
 
-def elastic3d_surface_force(x, nrm, p, lamb=1.0, mu=1.0, **kwargs):
+def elastic3d_surface_force(x, nrm, p, n, lamb=1.0, mu=1.0, **kwargs):
   ''' 
   Returns weight matrices that map displacements at `p` to the surface
   traction force at `x` with normals `nrm` in a three-dimensional
@@ -205,6 +217,9 @@ def elastic3d_surface_force(x, nrm, p, lamb=1.0, mu=1.0, **kwargs):
 
   p: (M, 3) array
     observation points.  
+
+  n : int
+    stencil size    
 
   lamb, mu: float
     Lame parameters
@@ -237,21 +252,21 @@ def elastic3d_surface_force(x, nrm, p, lamb=1.0, mu=1.0, **kwargs):
   diffs_zy =  [(0, 0, 1), (0, 1, 0)]
   coeffs_zz = [nrm[:, 0]*mu, nrm[:, 1]*mu, nrm[:, 2]*(lamb + 2*mu)]
   diffs_zz =  [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
-  D_xx = weight_matrix(x, p, diffs_xx, coeffs=coeffs_xx, **kwargs)
-  D_xy = weight_matrix(x, p, diffs_xy, coeffs=coeffs_xy, **kwargs)
-  D_xz = weight_matrix(x, p, diffs_xz, coeffs=coeffs_xz, **kwargs)
-  D_yx = weight_matrix(x, p, diffs_yx, coeffs=coeffs_yx, **kwargs)
-  D_yy = weight_matrix(x, p, diffs_yy, coeffs=coeffs_yy, **kwargs)
-  D_yz = weight_matrix(x, p, diffs_yz, coeffs=coeffs_yz, **kwargs)
-  D_zx = weight_matrix(x, p, diffs_zx, coeffs=coeffs_zx, **kwargs)
-  D_zy = weight_matrix(x, p, diffs_zy, coeffs=coeffs_zy, **kwargs)
-  D_zz = weight_matrix(x, p, diffs_zz, coeffs=coeffs_zz, **kwargs)
+  D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
+  D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
+  D_xz = weight_matrix(x, p, n, diffs_xz, coeffs=coeffs_xz, **kwargs)
+  D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
+  D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
+  D_yz = weight_matrix(x, p, n, diffs_yz, coeffs=coeffs_yz, **kwargs)
+  D_zx = weight_matrix(x, p, n, diffs_zx, coeffs=coeffs_zx, **kwargs)
+  D_zy = weight_matrix(x, p, n, diffs_zy, coeffs=coeffs_zy, **kwargs)
+  D_zz = weight_matrix(x, p, n, diffs_zz, coeffs=coeffs_zz, **kwargs)
   return {'xx':D_xx, 'xy':D_xy, 'xz':D_xz, 
           'yx':D_yx, 'yy':D_yy, 'yz':D_yz, 
           'zx':D_zx, 'zy':D_zy, 'zz':D_zz}
 
 
-def elastic3d_displacement(x, p, **kwargs):
+def elastic3d_displacement(x, p, n, **kwargs):
   ''' 
   Returns weight matrices that map displacements at `p` to the
   displacements at `x`.
@@ -264,6 +279,9 @@ def elastic3d_displacement(x, p, **kwargs):
   p: (M, 3) array
     observation points.  
     
+  n : int
+    stencil size    
+
   **kwargs:
     additional arguments passed to `weight_matrix`
 
@@ -274,7 +292,7 @@ def elastic3d_displacement(x, p, **kwargs):
     weight matrices.
 
   '''
-  D_xx = weight_matrix(x, p, (0, 0, 0), **kwargs)
-  D_yy = weight_matrix(x, p, (0, 0, 0), **kwargs)
-  D_zz = weight_matrix(x, p, (0, 0, 0), **kwargs)
+  D_xx = weight_matrix(x, p, n, (0, 0, 0), **kwargs)
+  D_yy = weight_matrix(x, p, n, (0, 0, 0), **kwargs)
+  D_zz = weight_matrix(x, p, n, (0, 0, 0), **kwargs)
   return {'xx':D_xx, 'yy':D_yy, 'zz':D_zz}

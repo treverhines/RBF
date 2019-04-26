@@ -79,7 +79,7 @@ def weights(x, s, diffs, coeffs=None,
 
   s : (N, D) array
     Stencil points. The derivative will be approximated with a
-    weighted sum of the function values at this point.
+    weighted sum of values at this point.
 
   diffs : (D,) int array or (K, D) int array 
     Derivative orders for each spatial dimension. For example `[2, 0]`
@@ -102,8 +102,8 @@ def weights(x, s, diffs, coeffs=None,
  
   order : int, optional
     Order of the added polynomial. This defaults to the highest
-    derivative order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then
-    order is set to 2.
+    derivative order. For example, if `diffs` is `[[2, 0], [0, 1]]`,
+    then order is set to 2.
 
   eps : float or (N,) array, optional
     Shape parameter for each RBF, which have centers `s`. This only 
@@ -126,7 +126,7 @@ def weights(x, s, diffs, coeffs=None,
   >>> weights(x, s, diff)
   array([ 1., -2., 1.])
     
-  Calculate the weights for estimating an x derivative from three 
+  Calculate the weights for estimating an x derivative from three
   points in a two-dimensional plane
 
   >>> x = np.array([0.25, 0.25])
@@ -210,23 +210,27 @@ def weights(x, s, diffs, coeffs=None,
       (x, phi, order, s))
 
 
-def weight_matrix(x, p, diffs, coeffs=None,
+def weight_matrix(x, p, n, diffs, coeffs=None,
                   phi=phs3, order=None,
-                  eps=1.0, n=None, stencils=None):
+                  eps=1.0, stencils=None):
   ''' 
   Returns a weight matrix which maps a functions values at `p` to an
   approximation of that functions derivative at `x`. This is a
-  convenience function which first creates a stencil network and then
-  computed the RBF-FD weights for each stencil.
+  convenience function which first creates stencils and then computes
+  the RBF-FD weights for each stencil.
   
   Parameters
   ----------
   x : (N, D) array
-    Target points. 
+    Target points where the derivatives will be approximated. 
 
   p : (M, D) array
-    Source points. The stencils will be made up of these points.
+    Source points. The derivatives will be approximated with a
+    weighted sum of values at these point.
 
+  n : int
+    The stencil size
+  
   diffs : (D,) int array or (K, D) int array 
     Derivative orders for each spatial dimension. For example `[2, 0]`
     indicates that the weights should approximate the second
@@ -249,8 +253,8 @@ def weight_matrix(x, p, diffs, coeffs=None,
 
   order : int, optional
     Order of the added polynomial. This defaults to the highest
-    derivative order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then
-    `order` is set to 2.
+    derivative order. For example, if `diffs` is `[[2, 0], [0, 1]]`,
+    then `order` is set to 2.
 
   eps : float or (M,) array, optional
     shape parameter for each RBF, which have centers `p`. This only 
@@ -258,17 +262,6 @@ def weight_matrix(x, p, diffs, coeffs=None,
     All the predefined RBFs except for the odd order polyharmonic 
     splines are not scale invariant.
 
-  n : int, optional
-    Stencil size. If this is not provided, then the stencil size will
-    be determined by the differentiation order and the number of
-    spatial dimensions.
-    
-  stencils : (N, n) int array, optional
-    The stencils for each node in `x`. This consists of indices of
-    nodes in `p` that make up each stencil. If this is given then the
-    value for `n` will be ignored. If this is not given then the
-    stencils will be created based on nearest neighbors.
-    
   Returns
   -------
   (N, M) coo sparse matrix          
@@ -279,7 +272,7 @@ def weight_matrix(x, p, diffs, coeffs=None,
   space
 
   >>> x = np.arange(4.0)[:, None]
-  >>> W = weight_matrix(x, x, (2,), n=3)
+  >>> W = weight_matrix(x, x, 3, (2,))
   >>> W.toarray()
   array([[ 1., -2.,  1.,  0.],
          [ 1., -2.,  1.,  0.],
@@ -308,23 +301,12 @@ def weight_matrix(x, p, diffs, coeffs=None,
   else:
     coeffs = np.asarray(coeffs, dtype=float)
     if coeffs.ndim == 1:
-      coeffs = np.repeat(coeffs[:, None], x.shape[0], axis=1) 
+      coeffs = np.repeat(coeffs[:, None], x.shape[0], axis=1)
 
-    assert_shape(coeffs, (diffs.shape[0], x.shape[0]), 'coeffs')      
-   
-  if stencils is None:
-    if n is None:
-      # if stencil size is not given then use the default stencil
-      # size. Make sure that this is no larger than `p`
-      n = _default_stencil_size(diffs)
-      n = min(n, p.shape[0])
+    assert_shape(coeffs, (diffs.shape[0], x.shape[0]), 'coeffs')
 
-    _, stencils = KDTree(p).query(x, n)
-    
-  else:    
-    stencils = np.asarray(stencils, dtype=int)
-    assert_shape(stencils, (x.shape[0], None), 'stencils')
-  
+  stencils = KDTree(p).query(x, n)[1]
+
   logger.debug(
     'building a (%s, %s) RBF-FD weight matrix with %s nonzeros...' 
     % (x.shape[0], p.shape[0], stencils.size))   

@@ -17,7 +17,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from rbf.sputils import add_rows
 from rbf.linalg import GMRESSolver
-from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.nodes import poisson_disc_nodes
 from rbf.pde.fd import weight_matrix
 from rbf.pde.elastic import (elastic3d_body_force,
                              elastic3d_surface_force,
@@ -49,28 +49,30 @@ smp = np.array([[0, 1, 3],
                 [4, 6, 7],
                 [2, 3, 7],
                 [2, 6, 7]])
-# number of nodes 
-N = 500
+# Node spacing
+dx = 0.15
 # lame parameters
 lamb = 1.0
 mu = 1.0
 # z component of body force
 body_force = 1.0
+# stencil size
+n = 50
 
 ## Build and solve for displacements and strain
 #####################################################################
 # generate nodes. Note that this may take a while
 boundary_groups = {'fix':[0, 1],
                    'free':range(2, 12)}
-nodes, idx, normals = min_energy_nodes(
-    N, (vert, smp),
+nodes, idx, normals = poisson_disc_nodes(
+    dx, (vert, smp),
     boundary_groups=boundary_groups,
     boundary_groups_with_ghosts=['free'])
-N = nodes.shape[0]
 
 # The "left hand side" matrices are built with the convenience
-# functions from *rbf.elastic*. Read the documentation for these
+# functions from `rbf.pde.elastic`. Read the documentation for these
 # functions to better understand this step.
+N = nodes.shape[0]
 G_xx = sp.coo_matrix((N, N))
 G_xy = sp.coo_matrix((N, N))
 G_xz = sp.coo_matrix((N, N))
@@ -83,7 +85,7 @@ G_zx = sp.coo_matrix((N, N))
 G_zy = sp.coo_matrix((N, N))
 G_zz = sp.coo_matrix((N, N))
 
-out = elastic3d_body_force(nodes[idx['interior']], nodes, 
+out = elastic3d_body_force(nodes[idx['interior']], nodes, n,
                            lamb=lamb, mu=mu)
 G_xx = add_rows(G_xx, out['xx'], idx['interior'])
 G_xy = add_rows(G_xy, out['xy'], idx['interior'])
@@ -95,7 +97,7 @@ G_zx = add_rows(G_zx, out['zx'], idx['interior'])
 G_zy = add_rows(G_zy, out['zy'], idx['interior'])
 G_zz = add_rows(G_zz, out['zz'], idx['interior'])
 
-out = elastic3d_body_force(nodes[idx['boundary:free']], nodes, 
+out = elastic3d_body_force(nodes[idx['boundary:free']], nodes, n,
                            lamb=lamb, mu=mu)
 G_xx = add_rows(G_xx, out['xx'], idx['ghosts:free'])
 G_xy = add_rows(G_xy, out['xy'], idx['ghosts:free'])
@@ -109,7 +111,7 @@ G_zz = add_rows(G_zz, out['zz'], idx['ghosts:free'])
 
 out = elastic3d_surface_force(nodes[idx['boundary:free']], 
                               normals[idx['boundary:free']], 
-                              nodes, lamb=lamb, mu=mu)
+                              nodes, n, lamb=lamb, mu=mu)
 G_xx = add_rows(G_xx, out['xx'], idx['boundary:free'])
 G_xy = add_rows(G_xy, out['xy'], idx['boundary:free'])
 G_xz = add_rows(G_xz, out['xz'], idx['boundary:free'])
@@ -120,7 +122,7 @@ G_zx = add_rows(G_zx, out['zx'], idx['boundary:free'])
 G_zy = add_rows(G_zy, out['zy'], idx['boundary:free'])
 G_zz = add_rows(G_zz, out['zz'], idx['boundary:free'])
 
-out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes)
+out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes, 1)
 G_xx = add_rows(G_xx, out['xx'], idx['boundary:fix'])
 G_yy = add_rows(G_yy, out['yy'], idx['boundary:fix'])
 G_zz = add_rows(G_zz, out['zz'], idx['boundary:fix'])
@@ -169,12 +171,12 @@ u_x,u_y,u_z = (u_x[idx_int_and_bnd],
                u_z[idx_int_and_bnd])
 
 fig = plt.figure()
-ax = fig.add_subplot(111,projection='3d')
+ax = fig.add_subplot(111, projection='3d')
 ax.set_aspect('equal')
 
-ax.plot_trisurf(vert[:,0],vert[:,1],vert[:,2],triangles=smp,
-                color=(0.1,0.1,0.1),  
-                shade=False,alpha=0.2)
+ax.plot_trisurf(vert[:,0], vert[:,1], vert[:,2], triangles=smp,
+                color=(0.1, 0.1, 0.1),  
+                shade=False, alpha=0.2)
 ax.quiver(nodes[:,0], nodes[:,1], nodes[:,2], u_x, u_y, u_z,
           length=0.01, color='k')
           
