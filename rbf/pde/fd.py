@@ -27,16 +27,6 @@ def _reshape_diffs(diffs):
   return out
   
 
-def _default_stencil_size(diffs):
-  ''' 
-  returns a heuristic estimate of the number of nodes needed to do a
-  decent job at approximating the given derivative
-  '''
-  order = max(sum(d) for d in diffs)
-  dim = len(diffs[0])
-  return (order*2 + 1)**dim
-
-
 def _default_poly_order(diffs):
   ''' 
   This sets the polynomial order equal to the largest derivative 
