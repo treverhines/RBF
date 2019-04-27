@@ -31,7 +31,9 @@ class Domain(object):
     '''
     A class used to facilitate computational geometry opperations on a
     domain defined by a closed collection of simplices (e.g., line
-    segments or triangular facets).
+    segments or triangular facets). This class can optionally also
+    make use of an R-tree which can substantially reduce the
+    computational complexity of some operations.
 
     Parameters
     ----------
@@ -40,16 +42,6 @@ class Domain(object):
 
     simplices : (m, d) int array
         The connectivity of the vertices
-
-    use_tree : bool, optional
-        If True, then an R-Tree will be built upon initialization.
-        This tree is used to speed up some of the operations.
-
-    oriented : bool, optional
-        If True, then the simplices are already properly oriented,
-        where the normal vectors already point outward. As a result,
-        nothing will be done when the `orient_simplices` method is
-        called.
         
     '''
     def __init__(self, vertices, simplices):
@@ -74,6 +66,33 @@ class Domain(object):
                  self.simplices.shape[0], 
                  self.rtree is not None))
                 
+    def __getstate__(self):
+        # Define how pickling behaves for this class. The __getstate__
+        # and __setstate__ methods are required because `rtree` does
+        # not properly pickle. So we instead save a flag indicating
+        # whether we need to rebuild `rtree` upon unpickling.
+
+        # create a shallow copy of the instances dict so that we do
+        # not mess with its attributes
+        state = dict(self.__dict__)
+        rtree = state.pop('rtree')
+        if rtree is None:
+            state['has_rtree'] = False
+        else:
+            logger.debug(
+                'the R-tree cannot be pickled and it will be rebuilt '
+                'upon unpickling')
+            state['has_rtree'] = True
+
+        return state
+
+    def __setstate__(self, state):
+        has_rtree = state.pop('has_rtree')
+        self.__dict__ = state
+        self.rtree = None
+        if has_rtree:
+            self.build_rtree()
+    
     def build_rtree(self):
         '''
         Construct an R-tree for the domain. This may reduce the
