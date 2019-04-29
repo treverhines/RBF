@@ -164,7 +164,7 @@ class RBF(object):
   
   '''
   _INSTANCES = []
-  
+
   @property
   def expr(self):
     # `expr` is read-only. 
@@ -180,6 +180,12 @@ class RBF(object):
     # `limits` is read-only
     return self._limits
 
+  def __new__(cls, *args, **kwargs):
+    # this keeps track of RBF and RBF subclass instances 
+    instance = object.__new__(cls)    
+    cls._INSTANCES += [weakref.ref(instance)]
+    return instance
+       
   def __init__(self, expr, tol=None, limits=None):
     ## SANITIZE `EXPR`
     # make sure `expr` is a sympy expression
@@ -215,10 +221,6 @@ class RBF(object):
         raise ValueError(
           '`tol` cannot contain any symbols other than `eps`')
   
-      # replace any numbers in `tol` with high precision floats
-      mapping = {n : sympy.Float(n, 50) for n in tol.atoms(sympy.Number)}
-      tol = tol.xreplace(mapping)
-      
     self._tol = tol
 
     ## SANITIZE `LIMITS`
@@ -230,7 +232,6 @@ class RBF(object):
     ## create the cache for numerical functions    
     self._cache = {}
 
-    RBF._INSTANCES += [weakref.ref(self)]
 
   def __call__(self, x, c, eps=1.0, diff=None):
     ''' 
@@ -341,14 +342,18 @@ class RBF(object):
 
       else: 
         logger.debug('Approximating the value at the RBF center ...')
+        # replace any numbers in `tol` with high precision floats
+        mapping = {n : sympy.Float(n, 50) 
+                   for n in self.tol.atoms(sympy.Number)}
+        tol = self.tol.xreplace(mapping)
         # evaluate the RBF at the point (x0=tol+c0, x1=c1, x2=c2, ...)
-        subs_list  = [(x_sym[0], self.tol + c_sym[0])]
+        subs_list  = [(x_sym[0], tol + c_sym[0])]
         subs_list += zip(x_sym[1:], c_sym[1:])
         # evaluate the RBF and its derivative w.r.t. x0 at that point
         a = expr.subs(subs_list) 
         b = expr.diff(x_sym[0]).subs(subs_list)
         # form a linear polynomial and evaluate it at x=c
-        lim = a - self.tol*b
+        lim = a - tol*b
         # try to simplify the expression to reduce numerical rounding
         # error. Note that this should only be a function of `eps` now
         # and the simplification should not take long
@@ -365,7 +370,9 @@ class RBF(object):
     if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':      
       func = ufuncify(x_sym + c_sym + (_EPS,), expr, backend='numpy')
     elif _SYMBOLIC_TO_NUMERIC_METHOD == 'lambdify':
-      func = lambdify(x_sym + c_sym + (_EPS,), expr, modules=['numpy'])
+      func = lambdify(x_sym + c_sym + (_EPS,), 
+                      expr, 
+                      modules=['numpy'])
     else:
       raise ValueError()          
         
@@ -379,6 +386,17 @@ class RBF(object):
     '''
     self._cache = {}
     
+  def __getstate__(self):
+    # This method is needed for RBF instances to be picklable. The
+    # cached numerical functions are not picklable and so we need to
+    # remove them from the state dictionary. 
+
+    # make a shallow copy of the instances __dict__ so that we do not
+    # mess with it
+    state = dict(self.__dict__)
+    state['_cache'] = {}
+    return state
+  
 
 class SparseRBF(RBF):
   ''' 

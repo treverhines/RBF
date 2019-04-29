@@ -78,11 +78,16 @@ class Memoize(object):
   # collection of weak references to all instances
   _INSTANCES = []
 
+  def __new__(cls, *args, **kwargs):
+    # this keeps track of Memoize and Memoize subclass instances
+    instance = object.__new__(cls)
+    cls._INSTANCES += [weakref.ref(instance)]
+    return instance
+  
   def __init__(self, fin):
     self.fin = fin
     # the cache will be ordered from least to most recently used
     self.cache = OrderedDict()
-    Memoize._INSTANCES += [weakref.ref(self)]
     
   @staticmethod    
   def _as_key(args):
@@ -105,9 +110,8 @@ class Memoize(object):
       except AttributeError:
         self.cache[key] = self.cache.pop(key)  
         
-                
     except KeyError:
-      if len(self.cache) == Memoize._MAXSIZE:
+      if len(self.cache) == self._MAXSIZE:
         # remove the first item which is the least recently used item
         self.cache.popitem(0)
             
