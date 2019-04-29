@@ -1,0 +1,11 @@
+name: rbf
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - numpy 
+  - scipy
+  - sympy
+  - cython
+  - rtree
+  - scikit-sparse
