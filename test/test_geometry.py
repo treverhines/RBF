@@ -4,7 +4,6 @@ import rbf.pde.geometry
 import rbf.pde.halton
 import rbf.pde.domain
 import unittest
-import matplotlib.pyplot as plt
 
 class Test(unittest.TestCase):
   def test_intersection_count_2d(self):
