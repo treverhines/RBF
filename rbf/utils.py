@@ -165,7 +165,7 @@ class KDTree(cKDTree):
                 'Cannot find the %s nearest points among a set of %s '
                 'points' % (k, self.n))
             
-        dist, indices = super().query(x, k=k, **kwargs)
+        dist, indices = cKDTree.query(self, x, k=k, **kwargs)
         if k == 1:
             dist = dist[..., None]
             indices = indices[..., None]
