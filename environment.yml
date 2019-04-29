@@ -3,7 +3,8 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - numpy 
+  - numpy
+  - numpydoc 
   - scipy
   - sympy
   - cython
