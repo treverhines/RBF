@@ -1,7 +1,8 @@
-numpy
-numpydoc
-scipy
-sympy
-cython
-rtree
-libspatialindex
+- numpy
+- numpydoc
+- scipy
+- sympy
+- cython
+- rtree
+- libspatialindex C library 1.7.0+: 
+  http://libspatialindex.github.com
