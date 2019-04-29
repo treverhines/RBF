@@ -159,6 +159,7 @@ class KDTree(cKDTree):
     points in the tree.
     '''
     def query(self, x, k=1, **kwargs):
+        '''query the KD-tree for nearest neighbors'''
         if k > self.n:
             raise ValueError(
                 'Cannot find the %s nearest points among a set of %s '
