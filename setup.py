@@ -24,7 +24,7 @@ if __name__ == '__main__':
                     sources=['rbf/misc/bspline.pyx'],
                     include_dirs=[np.get_include()])]
   setup(name='RBF',
-        version='2019.03.17',
+        version='2019.04.28',
         description='Package containing the tools necessary for radial basis function (RBF) applications',
         author='Trever Hines',
         author_email='treverhines@gmail.com',

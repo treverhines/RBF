@@ -490,7 +490,7 @@ def min_energy_nodes(n, domain, rho=None, build_rtree=False,
 
   >>> vert = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])  
   >>> smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
-  >>> out = min_energy_nodes(9, vert, smp)  
+  >>> out = min_energy_nodes(9, (vert, smp))
 
   view the nodes
 
