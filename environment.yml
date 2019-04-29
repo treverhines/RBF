@@ -10,3 +10,5 @@ dependencies:
   - cython
   - rtree
   - scikit-sparse
+  - sphinx
+  - sphinx_rtd_theme

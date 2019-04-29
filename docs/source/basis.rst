@@ -2,7 +2,7 @@ basis
 =====
 .. automodule:: rbf.basis
   :members:
-  :special-members:
+  :special-members: __call__
   
 Examples
 --------
