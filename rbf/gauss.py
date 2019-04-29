@@ -2061,4 +2061,3 @@ def gpgibbs(ls, sigma, delta=1e-4):
 
   out = GaussianProcess(_zero_mean, covariance)
   return out
-
