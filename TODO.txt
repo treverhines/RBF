@@ -1,2 +1,3 @@
-* Change "basis" key word arguments to "phi". This is more consistent
-  with the RBF literature
+* Replace my homegrown computational geometry operations with CGAL. In
+  particular the AABB Tree algorithm does everything I need in 3D,
+  except it is better.
