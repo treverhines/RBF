@@ -144,7 +144,8 @@ class RBFInterpolant(object):
     points.
 
   order : int, optional
-    Order of added polynomial terms.
+    Order of added polynomial terms. Set this to -1 for no added
+    polynomial terms.
 
   Notes
   -----

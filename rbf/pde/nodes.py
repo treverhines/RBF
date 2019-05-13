@@ -389,6 +389,8 @@ def prepare_nodes(nodes, domain,
   if boundary_groups is None:
     boundary_groups = {'all': range(len(domain.simplices))}
 
+  # TODO: There should be a test to make sure each simplex belongs to
+  # at most one group.
   if boundary_groups_with_ghosts is None:
     boundary_groups_with_ghosts = []    
 
