@@ -430,7 +430,7 @@ def prepare_nodes(nodes, domain,
   return nodes, groups, normals
 
   
-def min_energy_nodes(n, domain, rho=None, build_rtree=False, 
+def min_energy_nodes(n, domain, rho=None, build_rtree=False, start=0,
                      **kwargs):
   '''
   Generates nodes within a two or three dimensional. This first
@@ -456,6 +456,11 @@ def min_energy_nodes(n, domain, rho=None, build_rtree=False,
     If `True`, then an R-tree will be built to speed up computational
     geometry operations. This should be set to `True` if there are
     many (>10,000) simplices making up the domain.
+
+  start : int, optional
+    The starting index for the Halton sequence, which is used to
+    propose new points. Setting this value is akin to setting the seed
+    for a random number generator.
 
   **kwargs
     Additional arguments passed to `prepare_nodes`    
@@ -538,7 +543,7 @@ def min_energy_nodes(n, domain, rho=None, build_rtree=False,
     def rho(x): 
         return np.ones(x.shape[0])
 
-  nodes = rejection_sampling(n, rho, domain)
+  nodes = rejection_sampling(n, rho, domain, start=start)
   out = prepare_nodes(nodes, domain, rho=rho, **kwargs)
   return out                      
 
