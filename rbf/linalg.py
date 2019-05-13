@@ -683,18 +683,29 @@ class GMRESSolver(object):
   ----------
   A : (n, n) CSC sparse matrix
 
-  drop_tol : float (optional)
-    this controls the sparsity of the ILU decomposition used for the
-    preconditioner. It should be between 0 and 1. smaller values make
-    the decomposition denser but better approximates the LU
-    decomposition. If the value is too large then you may get a
-    "Factor is exactly singular" error.
+  drop_tol : float, optional
+    Passed to `scipy.sparse.linalg.spilu`. This controls the sparsity
+    of the ILU decomposition used for the preconditioner. It should be
+    between 0 and 1. smaller values make the decomposition denser but
+    better approximates the LU decomposition. If the value is too
+    large then you may get a "Factor is exactly singular" error.
+
+  fill_factor : float, optional
+    Passed to `scipy.sparse.linalg.spilu`. I believe this controls the
+    memory allocated for the ILU decomposition. If this value is too
+    small then memory will be allocated dynamically for the
+    decomposition. If this is too large then you may get a memory
+    error.
 
   normalize_inplace : bool
     If True and `A` is a csc matrix, then `A` is normalized in place.
         
   '''
-  def __init__(self, A, drop_tol=0.005, normalize_inplace=False):
+  def __init__(self, 
+               A, 
+               drop_tol=0.005, 
+               fill_factor=2.0, 
+               normalize_inplace=False):
     # the spilu and gmres functions are most efficient with csc
     # sparse. If the matrix is already csc then this will do nothing
     A = sp.csc_matrix(A)
@@ -707,7 +718,11 @@ class GMRESSolver(object):
     LOGGER.debug('computing the ILU decomposition of a %s by %s '
                  'sparse matrix with %s nonzeros ' % 
                  (A.shape + (A.nnz,)))
-    ilu = spla.spilu(A, drop_rule='basic', drop_tol=drop_tol)
+    ilu = spla.spilu(
+        A, 
+        drop_rule='basic', 
+        drop_tol=drop_tol,
+        fill_factor=fill_factor)
     LOGGER.debug('done')
     M = spla.LinearOperator(A.shape, ilu.solve)
     self.A = A
