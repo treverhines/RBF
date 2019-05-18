@@ -96,14 +96,14 @@ def divide_rows(A, x, inplace=False):
                         sp.isspmatrix_bsr(A) |
                         sp.isspmatrix_coo(A)):
         logger.warning(
-            'The data for the sparse matrix will not being modified '
-            'in place. To do so, the sparse matrix should be CSC, '
-            'CSR, BSR, or COO.')
+            'The data for the sparse matrix will not be modified in '
+            'place. To do so, the sparse matrix should be CSC, CSR, '
+            'BSR, or COO.')
 
     assert_shape(x, (A.shape[0],), 'x')
-    Acoo = A.tocoo(copy=not inplace)
-    Acoo.data /= x[Acoo.row]
-    return Acoo
+    out = A.tocoo(copy=not inplace)
+    out.data /= x[out.row]
+    return out
     
 
 def add_rows(A, B, idx):
@@ -136,11 +136,12 @@ def add_rows(A, B, idx):
 
     assert_shape(B, (None, A.shape[1]), 'B')
     assert_shape(idx, (B.shape[0],), 'idx')
-    # coerce `A` to coo to ensure coo output
+
     A = A.tocoo(copy=False)
-    # coerce `B` to coo to expand out its rows
     B = B.tocoo(copy=False)
-    B = sp.coo_matrix((B.data, (idx[B.row], B.col)), shape=A.shape)
-    # Now add the expanded `B` to `A`
-    out = A + B
+
+    data = np.hstack((A.data, B.data))
+    row = np.hstack((A.row, idx[B.row]))
+    col = np.hstack((A.col, B.col))
+    out = sp.coo_matrix((data, (row, col)), shape=A.shape)
     return out
