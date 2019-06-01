@@ -1,32 +1,30 @@
 ''' 
-This module defines a class, `GaussianProcess`, which is an 
-abstraction that allows one to easily work with Gaussian processes. 
-One main use for the `GaussianProcess` class is Gaussian process 
-regression (GPR). GPR is also known as Kriging or Least Squares 
-Collocation.  It is a technique for constructing a continuous function 
-from discrete observations by incorporating a stochastic prior model 
-for the underlying function.  GPR is performed with the `condition` 
-method of a `GaussianProcess` instance. In addition to GPR, the 
-`GaussianProcess` class can be used for basic arithmetic with Gaussian 
+This module defines a class, `GaussianProcess`, which is an
+abstraction that allows one to easily work with Gaussian processes.
+One main use for the `GaussianProcess` class is Gaussian process
+regression (GPR). GPR is also known as Kriging or Least Squares
+Collocation.  It is a technique for constructing a continuous function
+from discrete observations by incorporating a stochastic prior model
+for the underlying function.  GPR is performed with the `condition`
+method of a `GaussianProcess` instance. In addition to GPR, the
+`GaussianProcess` class can be used for basic arithmetic with Gaussian
 processes and for generating random samples of a Gaussian process.
 
 There are several existing python packages for Gaussian processes (See
 www.gaussianprocess.org for an updated list of packages). This module
-was written because existing software lacked the ability to 1) create
-partially improper Gaussian processes 2) compute analytical
-derivatives of a Gaussian process and 3) condition a Gaussian process
-with derivative constraints. Other software packages have a strong
-focus on optimizing hyperparameters based on data likelihood. This
-module does not include any optimization routines and hyperparameters
-are always explicitly specified by the user. However, the
-`GaussianProcess` class contains the `likelihood` method which can be
-used with functions from `scipy.optimize` to construct a
-hyperparameter optimization routine.
+was written because existing software lacked support for 1) Gaussian
+processes with added basis functions 2) analytical differentiation of
+Gaussian processes and 3) conditioning a Gaussian process with
+derivative constraints. Other software packages have a strong focus on
+optimizing hyperparameters based on data likelihood. This module does
+not include any optimization routines and hyperparameters are always
+explicitly specified by the user. However, the `GaussianProcess` class
+contains the `likelihood` method which can be used with functions from
+`scipy.optimize` to construct a hyperparameter optimization routine.
 
 
 Gaussian Processes
 ==================
-
 To understand what a Gaussian process is, let's first consider a
 random vector :math:`\mathbf{u}` which has a multivariate normal
 distribution with mean :math:`\\bar{\mathbf{u}}` and covariance matrix
@@ -50,22 +48,28 @@ Gaussian process at :math:`x`, denoted as :math:`u_o(x)`, is a
 normally distributed random variable with mean :math:`\\bar{u}(x)` and
 covariance :math:`C_u(x, x')` with :math:`u_o(x')`.
 
-In this module, we adopt a more general definition of a Gaussian by
-incorporating what we refer to as "improper basis function". These
-improper basis functions are added to Gaussian processes to account for
-arbitrary shifts or trends in the data that we are trying to model. To
-be more precise, we consider a Gaussian process :math:`u(x)` to be the
-combination of :math:`u_o(x)`, a *proper* Gaussian process, and a set
-of :math:`m` improper basis functions, :math:`\mathbf{p}_u(x) =
-\{p_i(x)\}_{i=1}^m`, whose coefficients, :math:`\{c_i\}_{i=1}^m`, have
-infinite variance. We then express :math:`u(x)` as
+In this module, we adopt a more general definition of a Gaussian
+process by incorporating basis functions. These basis functions are
+added to Gaussian processes to account for arbitrary shifts or trends
+in the data that we are trying to model. To be more precise, we
+consider a Gaussian process :math:`u(x)` to be the combination of
+:math:`u_o(x)`, a *proper* Gaussian process, and a set of :math:`m`
+basis functions, :math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`, whose
+coefficients, :math:`\{c_i\}_{i=1}^m`, have infinite variance. We then
+express :math:`u(x)` as
 
 .. math::
   u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
 
+When we include these basis functions, the Gaussian process
+:math:`u(x)` becomes improper because it has infinite variance. So
+when we refer to the covariance function for a Gaussian process
+:math:`u(x)`, we are actually referring to the covariance function for
+its proper component :math:`u_o(x)`.
+
 Throughout this module we will define a Gaussian process `u(x)` in
 terms of its mean function :math:`\\bar{u}(x)`, its covariance
-function :math:`C_u(x, x')`, as well as its improper basis functions
+function :math:`C_u(x, x')`, as well as its basis functions
 :math:`\mathbf{p}_u(x)`.
 
 We consider five operations on Gaussian processes: addition,
@@ -85,8 +89,7 @@ added as
 .. math::
   u(x) + v(x) = z(x)
 
-where the mean, covariance, and improper basis functions for 
-:math:`z` are
+where the mean, covariance, and basis functions for :math:`z` are
 
 .. math::
   \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
@@ -232,10 +235,10 @@ We define the residual vector as
   \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
   
 and :math:`\mathbf{r}^*` is the residual vector which has been
-suitably padded with zeros. Note that there are no improper basis 
-functions in :math:`z` because it is assumed that there is enough data
-in :math:`\mathbf{d}` to constrain the basis functions in :math:`u`.
-If :math:`\mathbf{d}` is not sufficiently informative then
+suitably padded with zeros. Note that there are no basis functions in 
+:math:`z` because it is assumed that there is enough data in 
+:math:`\mathbf{d}` to constrain the basis functions in :math:`u`. If 
+:math:`\mathbf{d}` is not sufficiently informative then 
 :math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but 
 not sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be 
 invertible is that :math:`q \geq m`.
@@ -287,9 +290,9 @@ where :math:`\mathbf{a} = \{a_i\}_{i=1}^m` and
 .. math::
   \mathbf{a} \\sim \mathcal{N}(\mathbf{\\bar{a}},\mathbf{C_a}). 
   
-If the variance of :math:`\mathbf{a}` is infinite, then :math:`u(x)` 
-can be viewed as a Gaussian process with zero mean, zero covariance, 
-and :math:`\mathbf{f}(x)` are the improper basis functions. If
+If the variance of :math:`\mathbf{a}` is infinite, then :math:`u(x)`
+can be viewed as a Gaussian process with zero mean, zero covariance,
+and :math:`\mathbf{f}(x)` are the basis functions. If
 :math:`\mathbf{a}` has a finite variance, then the mean and covariance 
 for :math:`u(x)` are described as
 
@@ -350,9 +353,9 @@ contains the function `gpse` for generating a squared exponential
 >>> gp = gpse((0.0, 1.0, 2.0))
 
 The function `gpbfci` is used for generating `GaussianProcess`
-instances with improper basis functions. It requires the user to
-specify a function which returns a set of basis functions evaluted at
-`x`. For example,
+instances with basis functions. It requires the user to specify a
+function which returns a set of basis functions evaluted at `x`. For
+example,
 
 >>> from rbf.gauss import gpbfc, gpbfci
 >>> def basis(x): return np.array([np.sin(x[:, 0]), np.cos(x[:, 0])]).T
@@ -366,9 +369,9 @@ which has coefficients with finite variance.
 >>> gp = gpbfc(basis, mean, sigma)
 
 The function `gppoly` is a helper function for creating a Gaussian
-process which has monomials for the improper basis functions. The
-monomials span the space of all polynomials with some order. This just
-requires the user to specify the polynomial order.
+process which has monomials for its basis functions. The monomials
+span the space of all polynomials with some order. This just requires
+the user to specify the polynomial order.
 
 >>> from rbf.gauss import gppoly
 >>> gp = gppoly(1)
@@ -764,8 +767,8 @@ def likelihood(d, mu, sigma, p=None):
     the covariances.
   
   p : (N, P) array, optional 
-    Improper basis vectors. If specified, then `d` is assumed to
-    contain some unknown linear combination of the columns of `p`.
+    Basis vectors. If specified, then `d` is assumed to contain some
+    unknown linear combination of the columns of `p`.
 
   Notes
   -----
@@ -854,7 +857,7 @@ def outliers(d, s, mu=None, sigma=None, p=None, tol=4.0, maxitr=50):
     Defaults to zeros.
   
   p : (N, P) float array, optional
-    Improper basis vectors for the Gaussian process evaluated at the
+    Basis vectors for the Gaussian process evaluated at the
     observation points. Defaults to an (N, 0) array.
   
   tol : float, optional
@@ -1069,10 +1072,9 @@ class GaussianProcess(object):
   ''' 
   A `GaussianProcess` instance represents a stochastic process which
   is defined in terms of a mean function, a covariance function, and
-  (optionally) a set of improper basis functions. This class is used
-  to perform basic operations on Gaussian processes which include
-  addition, subtraction, scaling, differentiation, sampling, and
-  conditioning.
+  (optionally) a set of basis functions. This class is used to perform
+  basic operations on Gaussian processes which include addition,
+  subtraction, scaling, differentiation, sampling, and conditioning.
     
   Parameters
   ----------
@@ -1115,9 +1117,9 @@ class GaussianProcess(object):
     will return an error.
 
   basis : function, optional
-    Function which returns either the improper basis functions
-    evaluated at `x` or the specified derivative of the improper basis
-    functions evaluated at `x`. This has the call signature
+    Function which returns either the basis functions evaluated at `x`
+    or the specified derivative of the basis functions evaluated at
+    `x`. This has the call signature
 
     `out = basis(x)`
 
@@ -1128,9 +1130,9 @@ class GaussianProcess(object):
     `x` is an (N, D) array of positions. `diff` is a (D,) int array
     derivative specification. `out` is an (N, P) array where each
     column corresponds to a basis function. By default, a
-    `GaussianProcess` instance contains no improper basis functions.
-    If this function only takes one argument, then it is assumed to
-    not be differentiable and the `differentiate` method for the
+    `GaussianProcess` instance contains no basis functions. If this
+    function only takes one argument, then it is assumed to not be
+    differentiable and the `differentiate` method for the
     `GaussianProcess` instance will return an error.
         
   dim : int, optional  
@@ -1306,9 +1308,8 @@ class GaussianProcess(object):
       calculations for large N.
 
     p : (N, P) array, optional  
-      Improper basis vectors for the noise. The data noise is assumed
-      to contain some unknown linear combination of the columns of
-      `p`.
+      Basis vectors for the noise. The data noise is assumed to
+      contain some unknown linear combination of the columns of `p`.
 
     obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the 
@@ -1357,10 +1358,10 @@ class GaussianProcess(object):
     Returns the log likelihood of drawing the observations `d` from
     this `GaussianProcess`. The observations could potentially have
     noise which is described by `sigma` and `p`. If the Gaussian
-    process contains any improper basis functions or if `p` is
-    specified, then the restricted likelihood is returned. For more
-    information, see the documentation for `rbf.gauss.likelihood` and
-    references therein.
+    process contains any basis functions or if `p` is specified, then
+    the restricted likelihood is returned. For more information, see
+    the documentation for `rbf.gauss.likelihood` and references
+    therein.
 
     Parameters
     ----------
@@ -1379,9 +1380,8 @@ class GaussianProcess(object):
       calculations for large N.
    
     p : (N, P) float array, optional 
-      Improper basis vectors for the noise. The data noise is assumed
-      to contain some unknown linear combination of the columns of
-      `p`. 
+      Basis vectors for the noise. The data noise is assumed to
+      contain some unknown linear combination of the columns of `p`.
       
     Returns
     -------
@@ -1412,8 +1412,8 @@ class GaussianProcess(object):
 
     obs_diff = np.zeros(dim, dtype=int)
 
-    # find the mean, covariance, and improper basis for the
-    # combination of the Gaussian process and the noise.
+    # find the mean, covariance, and basis for the combination of the
+    # Gaussian process and the noise.
     mu = self._mean(y, obs_diff)
 
     gp_sigma = self._covariance(y, y, obs_diff, obs_diff)
@@ -1475,8 +1475,8 @@ class GaussianProcess(object):
     
     obs_diff = np.zeros(dim, dtype=int)
    
-    # find the mean, covariance, and improper basis for the
-    # combination of the Gaussian process and the noise.
+    # find the mean, covariance, and basis for the combination of the
+    # Gaussian process and the noise.
     gp_mu = self._mean(y, obs_diff)
     gp_sigma = self._covariance(y, y, obs_diff, obs_diff)
     gp_p = self._basis(y, obs_diff)
@@ -1487,7 +1487,7 @@ class GaussianProcess(object):
     
   def basis(self, x, diff=None):
     ''' 
-    Returns the improper basis functions evaluated at `x`.
+    Returns the basis functions evaluated at `x`.
     
     Parameters
     ----------
@@ -1671,8 +1671,8 @@ class GaussianProcess(object):
       Evaluation points.
     
     c : (P,) array, optional
-      Coefficients for the improper basis functions. If this is not
-      specified then they are set to zero.
+      Coefficients for the basis functions. If this is not specified
+      then they are set to zero.
     
     use_cholesky : bool, optional
       Indicates whether to use the Cholesky decomposition to create
@@ -1949,7 +1949,7 @@ def gpbfc(basis, mu, sigma, dim=None):
 
 def gpbfci(basis, dim=None):
   ''' 
-  Creates an `GaussianProcess` consisting of improper basis functions.
+  Creates an `GaussianProcess` consisting of basis functions.
 
   Parameters
   ----------
@@ -1977,11 +1977,11 @@ def gpbfci(basis, dim=None):
 
 def gppoly(order, dim=None):
   ''' 
-  Returns a `GaussianProcess` consisting of monomial improper basis
-  functions. The monomials span the space of all polynomials with a
-  user-specified order. If `order` = 0, then the improper basis
-  functions consists of a constant term, if `order` = 1 then the basis
-  functions consists of a constant and linear term, etc.
+  Returns a `GaussianProcess` consisting of monomial basis functions.
+  The monomials span the space of all polynomials with a
+  user-specified order. If `order` = 0, then the basis functions
+  consists of a constant term, if `order` = 1 then the basis functions
+  consists of a constant and linear term, etc.
   
   Parameters
   ----------
