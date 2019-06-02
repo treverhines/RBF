@@ -23,7 +23,7 @@ contains the `likelihood` method which can be used with functions from
 `scipy.optimize` to construct a hyperparameter optimization routine.
 
 
-Gaussian Processes
+Gaussian processes
 ==================
 To understand what a Gaussian process is, let's first consider a
 random vector :math:`\mathbf{u}` which has a multivariate normal
@@ -78,7 +78,7 @@ operation produces another Gaussian process which possesses the same
 five operations. These operations are described below.
 
 
-Operations on Gaussian Processes
+Operations on Gaussian processes
 ================================
 
 Addition
@@ -147,30 +147,26 @@ and
 
 Differentiation
 ---------------
-A Gaussian process can be differentiated along the direction
-:math:`x_i` with the differential operator
-
-.. math::
-  D_x = \\frac{\partial}{\partial x_i}
-
+A Gaussian process can be differentiated with respect to :math:`x_i` 
 as
 
 .. math::
-  D_xu(x) = z(x), 
+  \\frac{\partial}{\partial x_i} u(x) = z(x), 
 
 where 
 
 .. math::
-  \\bar{z}(x) = D_x\\bar{u}(x),
+  \\bar{z}(x) = \\frac{\partial}{\partial x_i}\\bar{u}(x),
   
 .. math::
-  C_z(x,x') = D_xD_{x'}C_u(x,x'),
+  C_z(x,x') = \\frac{\partial^2}{\partial x_i \partial x_i'}
+              C_u(x,x'),
   
 and 
 
 .. math::
-  \mathbf{p}_z(x) = \\left\{D_x p_i(x) \mid p_i(x) \in 
-                            \mathbf{p}_u(x)\\right\}
+  \mathbf{p}_z(x) = \\left\{\\frac{\partial}{\partial x_i} p_k(x) 
+                    \mid p_k(x) \in \mathbf{p}_u(x)\\right\}
 
 
 Conditioning
@@ -244,82 +240,85 @@ not sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be
 invertible is that :math:`q \geq m`.
 
 
-Special Classes of Gaussian Processes
+Some commonly used Gaussian processes
 =====================================
+The `GaussianProcess` class is quite general as it can be instantiated
+with any user-specified mean function, covariance function, or set of
+basis functions. However, supplying these requisite functions can be
+laborious. This module contains several constructors to simplify
+instantiating some commonly used types of Gaussian processes. The
+types of Gaussian processes which have constructors are listed below.
+
 
 Isotropic Gaussian Processes
 ----------------------------
-An isotropic Gaussian process has a constant mean and a covariance 
-function that can be written as a function of :math:`||x - x'||_2`. We 
-describe the mean and covariance for an isotropic Gaussian processes, 
-:math:`u(x)`, as
+An isotropic Gaussian process has a constant mean and a covariance
+function which can be written as a function of
+:math:`r = ||x - x'||_2`. To put more explicitly, an isotropic
+Gaussian processes has the mean function
 
 .. math::
-  \\bar{u}(x) = a,
+  \\bar{u}(x) = \mu,
   
-and
+and the covariance function
 
 .. math::
-  C_u(x,x') = b\phi\\left(||x - x'||_2\ ; c\\right), 
+  C_u(x,x') = \sigma^2 \phi(r\ ; \epsilon), 
 
-Where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis 
-function with shape parameter :math:`\epsilon`, and :math:`a`,
-:math:`b`, and :math:`c` are distribution parameters. One common 
-choice for :math:`\phi` is the squared exponential function,
+Where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis
+function with shape parameter :math:`\epsilon`. One common choice for
+:math:`\phi` is the squared exponential function,
 
 .. math::
   \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),
 
-which has the useful property of being infinitely differentiable. An 
-instance of an isotropic `GaussianProcess` can be created with the 
-function `gpiso`.
+which has the useful property of being infinitely differentiable. An
+instance of an isotropic `GaussianProcess` can be created with the
+function `gpiso`. A `GaussianProcess` with a squared exponential
+covariance function can be created with the function `gpse`.
 
 
-Basis Function-Constrained Gaussian Processes
----------------------------------------------
-A basis function-constrained Gaussian process, :math:`u(x)`, has
-realizations that are limited to the space spanned by a set of
-basis functions, :math:`\mathbf{f}(x) = \{f_i(x)\}_{i=1}^m`. That is
-to say
-
-.. math::
-  u(x) = \sum_{i=1}^m a_i f_i(x),
-
-where :math:`\mathbf{a} = \{a_i\}_{i=1}^m` and 
+Gaussian Process with a Gibbs covariance function
+-------------------------------------------------
+A Gaussian process with a Gibbs covariance function is useful because,
+unlike for isotropic Gaussian processes, it can have a spatially
+variable lengthscale. Given some user-specified lengthscale function
+:math:`\ell_d(x)`, which gives the lengthscale at :math:`x \in
+\mathbb{R}^D` along dimension :math:`d`, the Gibbs covariance function
+is
 
 .. math::
-  \mathbf{a} \\sim \mathcal{N}(\mathbf{\\bar{a}},\mathbf{C_a}). 
-  
-If the variance of :math:`\mathbf{a}` is infinite, then :math:`u(x)`
-can be viewed as a Gaussian process with zero mean, zero covariance,
-and :math:`\mathbf{f}(x)` are the basis functions. If
-:math:`\mathbf{a}` has a finite variance, then the mean and covariance 
-for :math:`u(x)` are described as
+    C_u(x, x') = 
+    \sigma^2    
+    \prod_{d=1}^D \\left(
+    \\frac{2 \ell_d(x) \ell_d(x')}{\ell_d(x)^2 + \ell_d(x')^2}
+    \\right)^{1/2}
+    \exp\\left(-\sum_{d=1}^D
+    \\frac{(x_d - x_d')^2}{\ell_d(x)^2 + \ell_d(x')^2}
+    \\right).
 
-.. math::
-  \\bar{u}(x) = \mathbf{f}(x)\mathbf{\\bar{a}}^T,
-  
-and
+An instance of a `GaussianProcess` with a Gibbs covariance function
+can be created with the function `gpgibbs`.
 
-.. math::
-  C_u(x,x') = \mathbf{f}(x)\mathbf{C_a}\mathbf{f}(x')^T.
-
-The basis functions are commonly chosen to be the set of monomials 
-that span the space of all polynomials with some degree, :math:`d`. 
-For example, if :math:`x \in \mathbb{R}^2` and
-:math:`d=1`, then the polynomial basis functions would be
+Gaussian Process with mononomial basis functions
+------------------------------------------------
+Polynomials are often added to Gaussian processes to improve their
+ability to describe offsets and trends in data. The function `gppoly`
+is used to create a `GaussianProcess` with zero mean, zero covariance,
+and a set of monomial basis function that span the space of all
+polynomials with some degree, :math:`d`. For example, if :math:`x \in
+\mathbb{R}^2` and :math:`d=1`, then the monomial basis functions would
+be
 
 .. math::
   \mathbf{f}(x) = \{1,x,y\}.
 
-An instance of a basis function-constrained `GaussianProcess` can be
-created with the functions `gpbfc` and `gpbfci`. If the basis
-functions are monomials, then the the `GaussianProcess` can be created
-with the function `gppoly`.
+The function `gpbasis` can be used to create a `GaussianProcess` with
+any other type of basis functions.
 
 
-Instantiating a `GaussianProcesses`
-===================================
+Usage example
+=============
 This module provides multiple ways to instantiate a `GaussianProcess` 
 instance. The most general way, but also the most error-prone, is to 
 instantiate a `GaussianProcess` directly with its `__init__` method. 
@@ -333,12 +332,13 @@ For example, the below code block demonstrates how to create a
 >>> def cov(x1, x2): return np.min(np.meshgrid(x1[:, 0], x2[:, 0], indexing='ij'), axis=0)
 >>> gp = GaussianProcess(mean, cov, dim=1) # Brownian motion is 1D
 
-This module contains a helper function for generating isotropic
-`GaussianProcess` instances, which is named `gpiso`. It requires the
-user to specify a positive-definite `RBF` instance and the three
-distribution parameters mentioned above. For example, the below code
-generates a squared exponential Gaussian process with a=0.0, b=1.0,
-and c=2.0.
+We could also create a `GaussianProcess` using one of the constructor
+functions mentioned above. For example, we can use `gpiso` to generate
+an isotropic `GaussianProcess` instances. The function requires the
+user to specify a positive-definite `RBF` instance and three
+distribution parameters.  The below code generates a squared
+exponential Gaussian process with :math:`\mu=0.0`,
+:math:`\sigma^2=1.0`, and :math:`\epsilon=2.0`.
 
 >>> from rbf.basis import se
 >>> from rbf.gauss import gpiso
@@ -352,38 +352,42 @@ contains the function `gpse` for generating a squared exponential
 >>> from rbf.gauss import gpse
 >>> gp = gpse((0.0, 1.0, 2.0))
 
-The function `gpbfci` is used for generating `GaussianProcess`
-instances with basis functions. It requires the user to specify a
-function which returns a set of basis functions evaluted at `x`. For
-example,
+To get a better feel for the `GaussianProcess` that we just created,
+we can view its mean and standard deviation at `x` with the method
+`meansd`
 
->>> from rbf.gauss import gpbfc, gpbfci
->>> def basis(x): return np.array([np.sin(x[:, 0]), np.cos(x[:, 0])]).T
->>> gp = gpbfci(basis)
+>>> x = np.linspace(0.0, 10.0, 100)[:, None]
+>>> m, s = gp.meansd(x)
 
-Use `gpbfc` to make a basis function-constrained `GaussianProcess`
-which has coefficients with finite variance.
+We can also draw samples from the `GaussianProcess` with the command
 
->>> mean = [0.0, 0.0] # mean basis function coefficients
->>> sigma = [1.0, 1.0] # uncertainty of basis function coefficients
->>> gp = gpbfc(basis, mean, sigma)
+>>> smp = gp.sample(x)
 
-The function `gppoly` is a helper function for creating a Gaussian
-process which has monomials for its basis functions. The monomials
-span the space of all polynomials with some order. This just requires
-the user to specify the polynomial order.
+We can condition the `GaussianProcess` on observations using the
+`condition` method which returns another `GaussianProcess`
+
+>>> x_obs = [[1.0], [2.0]] # observation location
+>>> d_obs = [0.5, 0.2] # observed value at `x_obs`
+>>> gp = gp.condition(x_obs, d_obs)
+
+We can also add `GaussianProcesses` together, which is useful when we
+want to include monomial basis functions in our prior. For example, we
+can add a constant and linear term to a `GaussianProcess` with the
+command
 
 >>> from rbf.gauss import gppoly
->>> gp = gppoly(1)
+>>> gp = gp + gppoly(1)
 
-Lastly, a `GaussianProcess` can be created by adding, subtracting, 
-scaling, differentiating, or conditioning existing `GaussianProcess` 
-instances. For example,
+It is also possible to differentiate a `GaussianProcess` instance with
+the `differentate` method. The method requires the user to specify the
+differentiation order for each spatial dimension. For example, the
+below command will compute the second derivative of a
+`GaussianProcess`
 
->>> gp  = gpse((0.0, 1.0, 2.0))
->>> gp += gppoly(2) # add second order polynomial basis 
->>> gp *= 2.0 # scale by 2
->>> gp  = gp.differentiate((2,)) # compute second derivative
+>>> gp  = gp.differentiate((2,))
+
+There is much more functionality than what is demonstrated here. See
+the documentation for `GaussianProcess` for more information.
 
 
 References
@@ -1875,81 +1879,9 @@ def gpexp(params, dim=None):
   return out
 
 
-def gpbfc(basis, mu, sigma, dim=None):
+def gpbasis(basis, dim=None):
   ''' 
-  Creates a basis function-constrained `GaussianProcess` instance.
-  Realizations of the `GaussianProcess` are linear combinations of the
-  basis functions and the basis function coefficients have a
-  distribution described by `mu` and `sigma`.
-  
-  Parameters
-  ----------
-  basis : function
-    Function that takes either one argument, `x`, or two arguments,
-    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is
-    a (D,) array specifying the derivative. This function returns an
-    (N, P) array, where each column is a basis function evaluated at
-    `x`.
-  
-  mu : (P,) array
-    Expected value of the basis function coefficients.
-  
-  sigma : (P,) array or (P, P) array 
-    If this is a (P,) array then it indicates the standard deviation 
-    of the basis function coefficients. If it is a (P, P) array then it 
-    indicates the covariances. 
-
-  dim : int, optional
-    Fixes the spatial dimensions of the `GaussianProcess` domain. An 
-    error will be raised if method arguments have a conflicting number 
-    of spatial dimensions.
-
-  Returns
-  -------
-  out : GaussianProcess
-    
-  '''
-  # make sure basis can take two arguments
-  if get_arg_count(basis) == 1:
-    # if the basis function only takes one argument then make a 
-    # wrapper for it which takes two arguments.
-    def basis_with_diff(x, diff):
-      if sum(diff) != 0: 
-        raise ValueError(
-          'The basis functions for the `GaussianProcess` instance '
-          'are not differentiable.')
-          
-      return basis(x)
-    
-  else:
-    # otherwise, assume that the function can take two arguments
-    basis_with_diff = basis
-      
-  mu = as_array(mu, dtype=float)
-  sigma = as_array(sigma, dtype=float)
-  if sigma.ndim == 1:
-      # if `sigma` is one dimensional then it contains standard
-      # deviations. These are converted to a DENSE covariance matrix.
-      sigma = np.diag(sigma**2)
-  
-  def mean(x, diff):
-    G = basis_with_diff(x, diff)
-    out = G.dot(mu)
-    return out
-    
-  def covariance(x1, x2, diff1, diff2):
-    G1 = basis_with_diff(x1, diff1)
-    G2 = basis_with_diff(x2, diff2)
-    out = G1.dot(sigma).dot(G2.T)
-    return out
-    
-  out = GaussianProcess(mean, covariance, dim=dim)
-  return out  
-
-
-def gpbfci(basis, dim=None):
-  ''' 
-  Creates an `GaussianProcess` consisting of basis functions.
+  Creates an `GaussianProcess` consisting only of basis functions.
 
   Parameters
   ----------
@@ -2003,7 +1935,7 @@ def gppoly(order, dim=None):
     out = rbf.poly.mvmonos(x, powers, diff)
     return out
   
-  out = gpbfci(basis, dim=dim)  
+  out = gpbasis(basis, dim=dim)  
   return out
 
 
