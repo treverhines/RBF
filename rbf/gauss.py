@@ -102,6 +102,9 @@ and
 .. math::
   \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
 
+Two `GaussianProcess` instances can be added with the `add` method or
+the `+` operator.
+
 Subtraction
 -----------
 A Gaussian process can be subtracted from another Gaussian processes 
@@ -123,6 +126,8 @@ and
 .. math::
   \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
 
+Two `GaussianProcess` instances can be subtracted with the `subtract`
+method or the `-` operator.
 
 Scaling
 -------
@@ -144,6 +149,8 @@ and
 .. math::
   \mathbf{p}_z(x) = \mathbf{p}_u(x).
 
+A `GaussianProcess` instance can be scaled with the `scale` method or
+the `*` operator.
 
 Differentiation
 ---------------
@@ -168,6 +175,8 @@ and
   \mathbf{p}_z(x) = \\left\{\\frac{\partial}{\partial x_i} p_k(x) 
                     \mid p_k(x) \in \mathbf{p}_u(x)\\right\}
 
+A `GaussianProcess` instance can be differentiated with the
+`differentiate` method.
 
 Conditioning
 ------------
@@ -239,6 +248,8 @@ suitably padded with zeros. Note that there are no basis functions in
 not sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be 
 invertible is that :math:`q \geq m`.
 
+A `GaussianProcess` instance can be conditioned with the `condition`
+method.
 
 Some commonly used Gaussian processes
 =====================================
@@ -300,6 +311,7 @@ is
 An instance of a `GaussianProcess` with a Gibbs covariance function
 can be created with the function `gpgibbs`.
 
+
 Gaussian Process with mononomial basis functions
 ------------------------------------------------
 Polynomials are often added to Gaussian processes to improve their
@@ -311,83 +323,46 @@ polynomials with some degree, :math:`d`. For example, if :math:`x \in
 be
 
 .. math::
-  \mathbf{f}(x) = \{1,x,y\}.
+  \mathbf{p}_u(x) = \{1,x_1,x_2\}.
 
 The function `gpbasis` can be used to create a `GaussianProcess` with
 any other type of basis functions.
 
 
-Usage example
-=============
-This module provides multiple ways to instantiate a `GaussianProcess` 
-instance. The most general way, but also the most error-prone, is to 
-instantiate a `GaussianProcess` directly with its `__init__` method. 
-This requires the user to supply a valid mean and covariance function.  
-For example, the below code block demonstrates how to create a 
-`GaussianProcess` representing Brownian motion.
+Examples
+========
+Here we provide a basic example that demonstrates creating a
+`GaussianProcess` and performing GPR. Suppose we have 5 scalar valued
+observations `d` that were made at locations `x`, and we want
+interpolate these observations with GPR
 
->>> import numpy as np
->>> from rbf.gauss import GaussianProcess
->>> def mean(x): return np.zeros(x.shape[0]) 
->>> def cov(x1, x2): return np.min(np.meshgrid(x1[:, 0], x2[:, 0], indexing='ij'), axis=0)
->>> gp = GaussianProcess(mean, cov, dim=1) # Brownian motion is 1D
+>>> x = [[0.0], [1.0], [2.0], [3.0], [4.0]]
+>>> d = [2.3, 2.2, 1.7, 1.8, 2.4]
 
-We could also create a `GaussianProcess` using one of the constructor
-functions mentioned above. For example, we can use `gpiso` to generate
-an isotropic `GaussianProcess` instances. The function requires the
-user to specify a positive-definite `RBF` instance and three
-distribution parameters.  The below code generates a squared
-exponential Gaussian process with :math:`\mu=0.0`,
-:math:`\sigma^2=1.0`, and :math:`\epsilon=2.0`.
+First we define our prior for the underlying function that we want to
+interpolate. We assume an isotropic `GaussianProcess` with a squared
+exponential covariance function and the parameter :math:`\mu=0.0`,
+:math:`\sigma^2=1.0` and :math:`\epsilon=0.5`.
 
 >>> from rbf.basis import se
 >>> from rbf.gauss import gpiso
->>> gp = gpiso(se, (0.0, 1.0, 2.0))
+>>> gp_prior = gpiso(se, (0.0, 1.0, 0.5))
 
-Since the squared exponential is so commonly used, this module 
-contains the function `gpse` for generating a squared exponential 
-`GaussianProcess` instances. The below code block produces a 
-`GaussianProcess` that is equivalent to the one generated above.
-
->>> from rbf.gauss import gpse
->>> gp = gpse((0.0, 1.0, 2.0))
-
-To get a better feel for the `GaussianProcess` that we just created,
-we can view its mean and standard deviation at `x` with the method
-`meansd`
-
->>> x = np.linspace(0.0, 10.0, 100)[:, None]
->>> m, s = gp.meansd(x)
-
-We can also draw samples from the `GaussianProcess` with the command
-
->>> smp = gp.sample(x)
-
-We can condition the `GaussianProcess` on observations using the
-`condition` method which returns another `GaussianProcess`
-
->>> x_obs = [[1.0], [2.0]] # observation location
->>> d_obs = [0.5, 0.2] # observed value at `x_obs`
->>> gp = gp.condition(x_obs, d_obs)
-
-We can also add `GaussianProcesses` together, which is useful when we
-want to include monomial basis functions in our prior. For example, we
-can add a constant and linear term to a `GaussianProcess` with the
-command
+We also want to include an unknown constant offset to our prior model,
+which is done with the command
 
 >>> from rbf.gauss import gppoly
->>> gp = gp + gppoly(1)
+>>> gp_prior += gppoly(0)
 
-It is also possible to differentiate a `GaussianProcess` instance with
-the `differentate` method. The method requires the user to specify the
-differentiation order for each spatial dimension. For example, the
-below command will compute the second derivative of a
-`GaussianProcess`
+Now we condition the prior with the observations to form the posterior
 
->>> gp  = gp.differentiate((2,))
+>>> gp_post = gp_prior.condition(x, d)
 
-There is much more functionality than what is demonstrated here. See
-the documentation for `GaussianProcess` for more information.
+We can now evaluate the mean and covariance of the posterior anywhere
+using the `mean` or `covariance` method. We can also evaluate just the
+mean and standard deviation with the `meansd` method.
+
+>>> m, s = gp_post.meansd([[0.5], [1.5], [2.5], [3.5]])
 
 
 References
@@ -1095,10 +1070,11 @@ class GaussianProcess(object):
     
     `x` is an (N, D) array of positions. `diff` is a (D,) int array
     derivative specification (e.g. [0, 1] indicates to return the
-    derivative along the second basis direction). `out` must be an
-    (N,) array. If this function only takes one argument then it is
-    assumed to not be differentiable and the `differentiate` method
-    for the `GaussianProcess` instance will return an error.
+    derivative with respect to the second spatial dimension). `out`
+    must be an (N,) array. If this function only takes one argument
+    then it is assumed to not be differentiable and the
+    `differentiate` method for the `GaussianProcess` instance will
+    return an error.
 
   covariance : function
     Function which returns either the covariance of the Gaussian
@@ -1152,12 +1128,24 @@ class GaussianProcess(object):
   to create a `GaussianProcess` with one of the constructor functions
   (e.g., `gpse` or `gppoly`).
   
-  2. A `GaussianProcess` returned by `add`, `subtract`, `scale`, 
-  `differentiate`, and `condition` has `mean`, `covariance`, and 
-  `basis` function which calls the `mean`, `covariance`, and `basis` 
-  functions of its parents. Due to this recursive implementation, the 
-  number of generations of children (for lack of a better term) is 
-  limited by the maximum recursion depth.
+  2. A `GaussianProcess` returned by `add`, `subtract`, `scale`,
+  `differentiate`, and `condition` has `mean`, `covariance`, and
+  `basis` function which calls the `mean`, `covariance`, and `basis`
+  functions of its parents. Due to this recursive implementation, the
+  number of generations of children is limited by the maximum
+  recursion depth.
+
+  Examples
+  --------    
+  Create a `GaussianProcess` describing Brownian motion
+
+  >>> import numpy as np
+  >>> from rbf.gauss import GaussianProcess
+  >>> def mean(x): return np.zeros(x.shape[0]) 
+  >>> def cov(x1, x2): return np.min(np.meshgrid(x1[:, 0], x2[:, 0], indexing='ij'), axis=0)
+  >>> gp = GaussianProcess(mean, cov, dim=1) # Brownian motion is 1D
+
+
   '''
   def __init__(self, mean, covariance, basis=None, dim=None):
     self._mean = _mean_io_check(mean)
@@ -1764,14 +1752,11 @@ def gpiso(phi, params, dim=None):
   phi : RBF instance
     Radial basis function describing the covariance function. For 
     example, use `rbf.basis.se` for a squared exponential covariance 
-    function.
+    function. This must be positive definite.
 
   params : 3-tuple  
-    Tuple of three parameters, `a`, `b`, and `c`, describing the
-    probability distribution. `a` is the mean, `b` scales the
-    covariance function, and `c` is the shape parameter. When `phi` is
-    set to `rbf.basis.se`, `b` and `c` describe the variance and the
-    characteristic length-scale, respectively.
+    Tuple containing the mean, the variance, and the shape parameter
+    for the Gaussian process, respectively. 
   
   dim : int, optional
     Fixes the spatial dimensions of the `GaussianProcess` domain. An 
@@ -1828,9 +1813,8 @@ def gpse(params, dim=None):
   Parameters
   ----------
   params : 3-tuple  
-    Tuple of three distribution parameters, `a`, `b`, and `c`. They
-    describe the mean, variance, and the characteristic length-scale,
-    respectively.
+    Tuple containing the mean, the variance, and the shape parameter
+    for the Gaussian process, respectively. 
   
   dim : int, optional
     Fixes the spatial dimensions of the `GaussianProcess` domain. An 
@@ -1862,9 +1846,8 @@ def gpexp(params, dim=None):
   Parameters
   ----------
   params : 3-tuple  
-    Tuple of three distribution parameters, `a`, `b`, and `c`. They 
-    describe the mean, variance, and the characteristic length-scale, 
-    respectively.
+    Tuple containing the mean, the variance, and the shape parameter
+    for the Gaussian process, respectively. 
   
   dim : int, optional
     Fixes the spatial dimensions of the `GaussianProcess` domain. An 
@@ -1886,10 +1869,10 @@ def gpbasis(basis, dim=None):
   Parameters
   ----------
   basis : function
-    Function that takes either one argument, `x`, or two arguments, 
-    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is a 
-    (D,) array specifying the derivative. This function returns an 
-    (N, P) array, where each column is a basis function evaluated at 
+    Function that takes either one argument, `x`, or two arguments,
+    `x` and `diff`. `x` is an (N, D) array of positions and `diff` is
+    a (D,) array specifying the derivative. This function returns an
+    (N, P) array, where each column is a basis function evaluated at
     `x`.
 
   dim : int, optional
@@ -1946,7 +1929,7 @@ def gpgibbs(ls, sigma, delta=1e-4):
 
   Parameters
   ----------
-  ls: func
+  ls: function
     Function that takes an (N, D) array of positions and returns an
     (N, D) array indicating the lengthscale along each dimension at
     those positions.
