@@ -28,9 +28,9 @@ Features
 
 Installation
 ============
-RBF requires the following python packages: numpy, scipy, sympy, and
-cython.  These dependencies should be satisfied with just the base
-Anaconda python package (https://www.continuum.io/downloads)
+RBF requires the following python packages: numpy, scipy, sympy,
+cython, and rtree. These dependencies should be satisfied with just
+the base Anaconda python package (https://www.continuum.io/downloads)
 
 download the RBF package
 
