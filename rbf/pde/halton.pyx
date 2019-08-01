@@ -192,4 +192,27 @@ class HaltonSequence(object):
     return out
   
 
+class GlobalHaltonSequence(HaltonSequence):
+    '''
+    A Halton sequence whose `count` attribute is an alias for the class-level
+    variable `COUNT`. This ensures that two instances of a GlobalHaltonSequence
+    will produce different sequences.
+    '''
+    # this variable is shared among 
+    COUNT = 0
+    
+    @property
+    def count(self):
+        return GlobalHaltonSequence.COUNT
 
+    @count.setter
+    def count(self, val):
+        GlobalHaltonSequence.COUNT = val
+        
+    def __init__(self, dim=1, skip=1, prime_index=0):
+        HaltonSequence.__init__(
+            self, 
+            dim=dim, 
+            start=GlobalHaltonSequence.COUNT, 
+            skip=skip, 
+            prime_index=prime_index)
