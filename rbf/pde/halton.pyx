@@ -45,7 +45,7 @@ cdef double halton_n(long n,
 @wraparound(False)
 def halton_sequence(long size,
                     long dim=1,
-                    long start=0,
+                    long start=100,
                     long skip=1,
                     long prime_index=0):   
   ''' 
@@ -60,7 +60,7 @@ def halton_sequence(long size,
     Number of dimensions. defaults to 1
 
   start : int, optional
-    Starting index for the Halton sequence. defaults to 0
+    Starting index for the Halton sequence. defaults to 100
       
   skip : int, optional
     Increment by this amount. defaults to 1
@@ -98,7 +98,7 @@ class HaltonSequence(object):
     Dimensions, defaults to 1    
 
   start : int, optional
-    Starting index in the Halton sequence, defaults to 0 
+    Starting index in the Halton sequence, defaults to 100 
         
   skip : int, optional
     Increment by this amount, defaults to 1
@@ -108,7 +108,7 @@ class HaltonSequence(object):
     starting prime number)
         
   '''
-  def __init__(self, dim=1, start=0, skip=1, prime_index=0):
+  def __init__(self, dim=1, start=100, skip=1, prime_index=0):
     self.count = start
     self.skip = skip
     self.dim = dim
@@ -199,7 +199,7 @@ class GlobalHaltonSequence(HaltonSequence):
     will produce different sequences.
     '''
     # this variable is shared among 
-    COUNT = 0
+    COUNT = 100
     
     @property
     def count(self):
