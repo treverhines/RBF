@@ -124,42 +124,39 @@ class RBFInterpolant(object):
     Observed values at `y`.
 
   sigma : float or (N,) array, optional
-    One standard deviation uncertainty for the observations. This
-    defaults to zeros (i.e., the observations are perfectly known).
-    Increasing this values will decrease the size of the RBF
-    coefficients and leave the polynomial terms undamped. 
+    One standard deviation uncertainty for the observations. This defaults to
+    zeros (i.e., the observations are perfectly known). Increasing this values
+    will decrease the size of the RBF coefficients and leave the polynomial
+    terms undamped.
         
   eps : float or (N,) array, optional
-    Shape parameters for each RBF. This has no effect for odd
-    order polyharmonic splines. Defaults to 1.0.
+    Shape parameters for each RBF. This has no effect for odd order
+    polyharmonic splines. Defaults to 1.0.
 
   phi : rbf.basis.RBF instance or str, optional
     Radial basis function to use. This can be an RBF instance (e.g,
-    `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3').
-    See `rbf.basis` for all the available options.
+    `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3'). See
+    `rbf.basis` for all the available options.
  
   extrapolate : bool, optional
-    Whether to allows points to be extrapolated outside of a convex 
-    hull formed by `y`. If False, then np.nan is returned for outside 
-    points.
+    Whether to allows points to be extrapolated outside of a convex hull formed
+    by `y`. If False, then np.nan is returned for outside points.
 
   order : int, optional
-    Order of added polynomial terms. Set this to -1 for no added
-    polynomial terms.
+    Order of added polynomial terms. Set this to -1 for no added polynomial
+    terms.
 
   Notes
   -----
-  This function does not make any estimates of the uncertainties on
-  the interpolated values.  See `rbf.gauss` for interpolation with
-  uncertainties.
+  This function does not make any estimates of the uncertainties on the
+  interpolated values.  See `rbf.gauss` for interpolation with uncertainties.
     
   With certain choices of basis functions and polynomial orders this
-  interpolant is equivalent to a thin-plate spline.  For example, if
-  the observation space is one-dimensional then a thin-plate spline
-  can be obtained with the arguments `phi` = `rbf.basis.phs3` and
-  `order` = 1.  For two-dimensional observation space a thin-plate
-  spline can be obtained with the arguments `phi` = `rbf.basis.phs2`
-  and `order` = 1. 
+  interpolant is equivalent to a thin-plate spline.  For example, if the
+  observation space is one-dimensional then a thin-plate spline can be obtained
+  with the arguments `phi` = `rbf.basis.phs3` and `order` = 1.  For
+  two-dimensional observation space a thin-plate spline can be obtained with
+  the arguments `phi` = `rbf.basis.phs2` and `order` = 1.
 
   References
   ----------
@@ -173,30 +170,28 @@ class RBFInterpolant(object):
                phi=phs3,
                order=1,
                extrapolate=True):
-    y = np.asarray(y) 
+    y = np.asarray(y, dtype=float) 
     assert_shape(y, (None, None), 'y')
     nobs, dim = y.shape
     
-    d = np.asarray(d)
+    d = np.asarray(d, dtype=float)
     assert_shape(d, (nobs,), 'd')
     
     if sigma is None:
       # if sigma is not specified then it is zeros
-      sigma = np.zeros(nobs)
+      sigma = np.zeros(nobs, dtype=float)
 
     elif np.isscalar(sigma):
-      # if a float is specified then use it as the uncertainties for
-      # all observations
-      sigma = np.repeat(sigma, nobs)  
+      # if a float is specified then use it as the uncertainties for all
+      # observations
+      sigma = np.repeat(float(sigma), nobs)  
 
     else:
-      sigma = np.asarray(sigma)
+      sigma = np.asarray(sigma, dtype=float)
       assert_shape(sigma, (nobs,), 'sigma')
       
     phi = get_rbf(phi)
-    
-    # form block consisting of the RBF and uncertainties on the
-    # diagonal
+    # form block consisting of the RBF and uncertainties on the diagonal
     K = phi(y, y, eps=eps) 
     Cd = scipy.sparse.diags(sigma**2)
     # form the block consisting of the monomials
@@ -229,9 +224,9 @@ class RBFInterpolant(object):
       Derivative order for each spatial dimension.
         
     chunk_size : int, optional  
-      Break `x` into chunks with this size and evaluate the
-      interpolant for each chunk.  Smaller values result in decreased
-      memory usage but also decreased speed.
+      Break `x` into chunks with this size and evaluate the interpolant for
+      each chunk.  Smaller values result in decreased memory usage but also
+      decreased speed.
 
     Returns
     -------
@@ -248,17 +243,9 @@ class RBFInterpolant(object):
     count = 0
     while count < xlen:
       start, stop = count, count + chunk_size
-      K = self._phi(
-        x[start:stop], 
-        self._y, 
-        eps=self._eps, 
-        diff=diff)
-      P = mvmonos(
-        x[start:stop], 
-        self._pwr, 
-        diff=diff)
-      out[start:stop] = (K.dot(self._phi_coeff) + 
-                         P.dot(self._poly_coeff))
+      K = self._phi(x[start:stop], self._y, eps=self._eps, diff=diff)
+      P = mvmonos(x[start:stop], self._pwr, diff=diff)
+      out[start:stop] = K.dot(self._phi_coeff) + P.dot(self._poly_coeff)
       count += chunk_size
 
     # return zero for points outside of the convex hull if 

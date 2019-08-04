@@ -29,10 +29,10 @@ def _reshape_diffs(diffs):
 
 def _default_poly_order(diffs):
   ''' 
-  This sets the polynomial order equal to the largest derivative 
-  order. So a constant and linear term (order=1) will be used when 
-  approximating a first derivative. This is the smallest polynomial 
-  order needed to overcome PHS stagnation error
+  This sets the polynomial order equal to the largest derivative order. So a
+  constant and linear term (order=1) will be used when approximating a first
+  derivative. This is the smallest polynomial order needed to overcome PHS
+  stagnation error
   '''
   P = max(sum(d) for d in diffs)
   return P
@@ -41,8 +41,8 @@ def _default_poly_order(diffs):
 @Memoize
 def _max_poly_order(size, dim):
   ''' 
-  Returns the maximum polynomial order allowed for the given stencil 
-  size and number of dimensions
+  Returns the maximum polynomial order allowed for the given stencil size and
+  number of dimensions
   '''
   order = -1
   while (count(order+1, dim) <= size):
@@ -51,55 +51,52 @@ def _max_poly_order(size, dim):
   return order
 
 
-def weights(x, s, diffs, coeffs=None,
-            phi=phs3, order=None,
+def weights(x, s, diffs, 
+            coeffs=None,
+            phi=phs3, 
+            order=None,
             eps=1.0):
   ''' 
-  Returns the weights which map a functions values at `s` to an
-  approximation of that functions derivative at `x`. The weights are
-  computed using the RBF-FD method described in [1]. In this function
-  `x` is a single point in D-dimensional space. Use `weight_matrix` to
-  compute the weights for multiple point.
+  Returns the weights which map a functions values at `s` to an approximation
+  of that functions derivative at `x`. The weights are computed using the
+  RBF-FD method described in [1]. In this function `x` is a single point in
+  D-dimensional space. Use `weight_matrix` to compute the weights for multiple
+  point.
 
   Parameters
   ----------
   x : (D,) array
-    Target point. The weights will approximate the derivative at this
-    point.
+    Target point. The weights will approximate the derivative at this point.
 
   s : (N, D) array
-    Stencil points. The derivative will be approximated with a
-    weighted sum of values at this point.
+    Stencil points. The derivative will be approximated with a weighted sum of
+    values at this point.
 
   diffs : (D,) int array or (K, D) int array 
     Derivative orders for each spatial dimension. For example `[2, 0]`
-    indicates that the weights should approximate the second
-    derivative with respect to the first spatial dimension in
-    two-dimensional space.  diffs can also be a (K, D) array, where
-    each (D,) sub-array is a term in a differential operator. For
-    example the two-dimensional Laplacian can be represented as
-    `[[2, 0], [0, 2]]`.
+    indicates that the weights should approximate the second derivative with
+    respect to the first spatial dimension in two-dimensional space.  diffs can
+    also be a (K, D) array, where each (D,) sub-array is a term in a
+    differential operator. For example the two-dimensional Laplacian can be
+    represented as `[[2, 0], [0, 2]]`.
 
   coeffs : (K,) array, optional 
-    Coefficients for each term in the differential operator specified
-    with `diffs`.  Defaults to an array of ones. If `diffs` was
-    specified as a (D,) array then `coeffs` should be a length 1
-    array.
+    Coefficients for each term in the differential operator specified with
+    `diffs`.  Defaults to an array of ones. If `diffs` was specified as a (D,)
+    array then `coeffs` should be a length 1 array.
 
   phi : rbf.basis.RBF instance or str, optional
-    Type of RBF. Select from those available in `rbf.basis` or create
-    your own.
+    Type of RBF. Select from those available in `rbf.basis` or create your own.
  
   order : int, optional
-    Order of the added polynomial. This defaults to the highest
-    derivative order. For example, if `diffs` is `[[2, 0], [0, 1]]`,
-    then order is set to 2.
+    Order of the added polynomial. This defaults to the highest derivative
+    order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then order is set to
+    2.
 
   eps : float or (N,) array, optional
-    Shape parameter for each RBF, which have centers `s`. This only 
-    makes a difference when using RBFs that are not scale invariant. 
-    All the predefined RBFs except for the odd order polyharmonic 
-    splines are not scale invariant.
+    Shape parameter for each RBF, which have centers `s`. This only makes a
+    difference when using RBFs that are not scale invariant. All the predefined
+    RBFs except for the odd order polyharmonic splines are not scale invariant.
 
   Returns
   -------
@@ -116,8 +113,8 @@ def weights(x, s, diffs, coeffs=None,
   >>> weights(x, s, diff)
   array([ 1., -2., 1.])
     
-  Calculate the weights for estimating an x derivative from three
-  points in a two-dimensional plane
+  Calculate the weights for estimating an x derivative from three points in a
+  two-dimensional plane
 
   >>> x = np.array([0.25, 0.25])
   >>> s = np.array([[0.0, 0.0],
@@ -129,9 +126,9 @@ def weights(x, s, diffs, coeffs=None,
     
   Notes
   -----
-  This function may become unstable with high order polynomials (i.e.,
-  `order` is high). This can be somewhat remedied by shifting the
-  coordinate system so that x is zero
+  This function may become unstable with high order polynomials (i.e., `order`
+  is high). This can be somewhat remedied by shifting the coordinate system so
+  that x is zero
 
   References
   ----------
@@ -193,21 +190,23 @@ def weights(x, s, diffs, coeffs=None,
 
   except np.linalg.LinAlgError:
     raise np.linalg.LinAlgError(
-      'An error was raised while computing the RBF-FD weights at '
-      'point %s with the RBF %s and the polynomial order %s. This '
-      'may be due to a stencil with duplicate or collinear points. '
-      'The stencil contains the following points:\n%s' % 
-      (x, phi, order, s))
+      'An error was raised while computing the RBF-FD weights at point %s '
+      'with the RBF %s and the polynomial order %s. This may be due to a '
+      'stencil with duplicate or collinear points. The stencil contains the '
+      'following points:\n%s' % (x, phi, order, s))
 
 
-def weight_matrix(x, p, n, diffs, coeffs=None,
-                  phi=phs3, order=None,
-                  eps=1.0, stencils=None):
+def weight_matrix(x, p, n, diffs, 
+                  coeffs=None,
+                  phi=phs3, 
+                  order=None,
+                  eps=1.0, 
+                  stencils=None):
   ''' 
   Returns a weight matrix which maps a functions values at `p` to an
-  approximation of that functions derivative at `x`. This is a
-  convenience function which first creates stencils and then computes
-  the RBF-FD weights for each stencil.
+  approximation of that functions derivative at `x`. This is a convenience
+  function which first creates stencils and then computes the RBF-FD weights
+  for each stencil.
   
   Parameters
   ----------
@@ -215,42 +214,40 @@ def weight_matrix(x, p, n, diffs, coeffs=None,
     Target points where the derivatives will be approximated. 
 
   p : (M, D) array
-    Source points. The derivatives will be approximated with a
-    weighted sum of values at these point.
+    Source points. The derivatives will be approximated with a weighted sum of
+    values at these point.
 
   n : int
     The stencil size
   
   diffs : (D,) int array or (K, D) int array 
     Derivative orders for each spatial dimension. For example `[2, 0]`
-    indicates that the weights should approximate the second
-    derivative with respect to the first spatial dimension in
-    two-dimensional space.  diffs can also be a (K, D) array, where
-    each (D,) sub-array is a term in a differential operator. For
-    example the two-dimensional Laplacian can be represented as 
-    `[[2, 0], [0, 2]]`.
+    indicates that the weights should approximate the second derivative with
+    respect to the first spatial dimension in two-dimensional space.  diffs can
+    also be a (K, D) array, where each (D,) sub-array is a term in a
+    differential operator. For example the two-dimensional Laplacian can be
+    represented as `[[2, 0], [0, 2]]`.
 
   coeffs : (K,) float array or (K, N) float, optional 
-    Coefficients for each term in the differential operator specified
-    with `diffs`. Defaults to an array of ones. If `diffs` was
-    specified as a (D,) array then `coeffs` should be a length 1
-    array. If the coefficients for the differential operator vary with
-    `x` then `coeffs` can be specified as a (K, N) array.
+    Coefficients for each term in the differential operator specified with
+    `diffs`. Defaults to an array of ones. If `diffs` was specified as a (D,)
+    array then `coeffs` should be a length 1 array. If the coefficients for the
+    differential operator vary with `x` then `coeffs` can be specified as a (K,
+    N) array.
 
   phi : rbf.basis.RBF, optional
-    Type of RBF. Select from those available in `rbf.basis` or create 
-    your own.
+    Type of RBF. Select from those available in `rbf.basis` or create your own.
 
   order : int, optional
-    Order of the added polynomial. This defaults to the highest
-    derivative order. For example, if `diffs` is `[[2, 0], [0, 1]]`,
-    then `order` is set to 2.
+    Order of the added polynomial. This defaults to the highest derivative
+    order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then `order` is set
+    to 2.
 
   eps : float or (M,) array, optional
-    shape parameter for each RBF, which have centers `p`. This only 
-    makes a difference when using RBFs that are not scale invariant.  
-    All the predefined RBFs except for the odd order polyharmonic 
-    splines are not scale invariant.
+    shape parameter for each RBF, which have centers `p`. This only makes a
+    difference when using RBFs that are not scale invariant.  All the
+    predefined RBFs except for the odd order polyharmonic splines are not scale
+    invariant.
 
   Returns
   -------
@@ -258,8 +255,7 @@ def weight_matrix(x, p, n, diffs, coeffs=None,
       
   Examples
   --------
-  Create a second order differentiation matrix in one-dimensional 
-  space
+  Create a second order differentiation matrix in one-dimensional space
 
   >>> x = np.arange(4.0)[:, None]
   >>> W = weight_matrix(x, x, 3, (2,))

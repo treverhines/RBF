@@ -38,9 +38,8 @@ def _coo_row_norms(double[:] data,
     
 def row_norms(A, order=2):
     '''
-    Computes the norm of each row in `A`. This is more memory
-    efficient than scipy.sparse.linalg.norm because it does not make a
-    full copy of the matrix
+    Computes the norm of each row in `A`. This is more memory efficient than
+    scipy.sparse.linalg.norm because it does not make a full copy of the matrix
 
     Parameters
     ----------
@@ -57,9 +56,9 @@ def row_norms(A, order=2):
     if not sp.isspmatrix(A):
         raise ValueError('`A` must be a sparse matrix')
     
-    # If A is csr, bsr, csc, or coo then the data will not be copied
-    # when converting to coo. Otherwise, my request to not make a copy
-    # of the data will be silently ignored.
+    # If A is csr, bsr, csc, or coo then the data will not be copied when
+    # converting to coo. Otherwise, my request to not make a copy of the data
+    # will be silently ignored.
     A = A.tocoo(copy=False)
     out = _coo_row_norms(A.data, A.row, A.shape[0], order)
     return out    
@@ -67,9 +66,8 @@ def row_norms(A, order=2):
     
 def divide_rows(A, x, inplace=False):
     '''
-    Divide the rows of the sparse matrix `A` by `x`. If `inplace` is
-    `True` and `A` is CSC, CSR, BSR, or COO, then the operation is
-    done in place.
+    Divide the rows of the sparse matrix `A` by `x`. If `inplace` is `True` and
+    `A` is CSC, CSR, BSR, or COO, then the operation is done in place.
 
     Parameters
     ----------
@@ -79,8 +77,8 @@ def divide_rows(A, x, inplace=False):
     x: (n,) float array    
 
     inplace: bool
-        Whether to modify the data in `A` inplace. This is only
-        possible if `A` is CSC, CSR, BSR, or COO. 
+        Whether to modify the data in `A` inplace. This is only possible if `A`
+        is CSC, CSR, BSR, or COO.
 
     Returns
     -------
@@ -96,9 +94,8 @@ def divide_rows(A, x, inplace=False):
                         sp.isspmatrix_bsr(A) |
                         sp.isspmatrix_coo(A)):
         logger.warning(
-            'The data for the sparse matrix will not be modified in '
-            'place. To do so, the sparse matrix should be CSC, CSR, '
-            'BSR, or COO.')
+            'The data for the sparse matrix will not be modified in place. To '
+            'do so, the sparse matrix should be CSC, CSR, BSR, or COO.')
 
     assert_shape(x, (A.shape[0],), 'x')
     out = A.tocoo(copy=not inplace)
@@ -108,8 +105,7 @@ def divide_rows(A, x, inplace=False):
 
 def add_rows(A, B, idx):
     '''
-    This adds the sparse matrix `B` to rows `idx` of the sparse matrix
-    `A`
+    This adds the sparse matrix `B` to rows `idx` of the sparse matrix `A`
 
     Parameters
     ----------

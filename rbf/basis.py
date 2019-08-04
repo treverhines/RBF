@@ -296,7 +296,7 @@ class RBF(object):
     x = x.T[:, :, None] 
     c = c.T[:, None, :]
     args = (tuple(x) + tuple(c) + (eps,))
-    # evaluate the cached function for the given `x`, `c`, and `eps
+    # evaluate the cached function for the given `x`, `c`, and `eps`
     out = self._cache[diff](*args)
     return out
 
@@ -310,7 +310,7 @@ class RBF(object):
     function which can be evaluated numerically.
     '''   
     logger.debug('Creating a numerical function for the RBF %s with '
-                 'the derivative %s ...' % (self,str(diff)))
+                 'the derivative %s ...' % (self, str(diff)))
     dim = len(diff)
     c_sym = sympy.symbols('c:%s' % dim)
     x_sym = sympy.symbols('x:%s' % dim)    
@@ -517,8 +517,7 @@ class SparseRBF(RBF):
     return out
 
   def __repr__(self):
-    out = ('<SparseRBF : %s (support = %s)>' % 
-           (str(self.expr), str(self.supp)))
+    out = '<SparseRBF : %s (support = %s)>' % (str(self.expr), str(self.supp))
     return out
 
   

@@ -891,8 +891,8 @@ def outliers(d, s, mu=None, sigma=None, p=None, tol=4.0, maxitr=50):
   # boolean array indicating outliers
   out = np.zeros(n, dtype=bool)
   while True:
-    LOGGER.debug('Starting iteration %s of outlier detection routine' 
-                 % (itr+1))
+    LOGGER.debug(
+      'Starting iteration %s of outlier detection routine' % (itr+1))
     # remove rows and cols where `out` is True
     sigma_i = sigma[:, ~out][~out, :]
     p_i = p[~out]
@@ -923,8 +923,8 @@ def outliers(d, s, mu=None, sigma=None, p=None, tol=4.0, maxitr=50):
         warnings.warn('Reached the maximum number of iterations')
         break
 
-  LOGGER.debug('Detected %s outliers out of %s observations' %
-               (sum(out), len(out)))
+  LOGGER.debug(
+    'Detected %s outliers out of %s observations' % (sum(out), len(out)))
 
   return out
 

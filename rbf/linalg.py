@@ -21,12 +21,11 @@ try:
 except ImportError:
   HAS_CHOLMOD = False
   CHOLMOD_MSG = (
-    'Could not import CHOLMOD. Sparse matrices will be converted to '
-    'dense for all Cholesky decompositions. To install CHOLMOD and its '
-    'python wrapper, follow the instructions at '
-    'https://scikit-sparse.readthedocs.io. Anaconda users can install '
-    'CHOLMOD with the command `conda install -c conda-forge '
-    'scikit-sparse`')
+    'Could not import CHOLMOD. Sparse matrices will be converted to dense for '
+    'all Cholesky decompositions. To install CHOLMOD and its python wrapper, '
+    'follow the instructions at https://scikit-sparse.readthedocs.io. '
+    'Anaconda users can install CHOLMOD with the command `conda install -c '
+    'conda-forge scikit-sparse`')
   LOGGER.debug(CHOLMOD_MSG)
 
 
@@ -57,23 +56,21 @@ def _lu(A):
   # get the LU factorization  
   fac, piv, info = dgetrf(A)
   if info < 0:
-    raise ValueError(
-      'the %s-th argument had an illegal value' % -info)
+    raise ValueError('the %s-th argument had an illegal value' % -info)
 
   elif info > 0:
     raise np.linalg.LinAlgError(
-      'U(%s, %s) is exactly zero. The factorization '
-      'has been completed, but the factor U is exactly '
-      'singular, and division by zero will occur if it is used '
-      'to solve a system of equations. ' % (info, info))
+      'U(%s, %s) is exactly zero. The factorization has been completed, but '
+      'the factor U is exactly singular, and division by zero will occur if '
+      'it is used to solve a system of equations. ' % (info, info))
 
   return fac, piv
 
 
 def _solve_lu(fac, piv, b):
   '''
-  Solves the system of equations `Ax = b` given the LU factorization
-  of `A`. Uses the `dgetrs` routine.
+  Solves the system of equations `Ax = b` given the LU factorization of `A`.
+  Uses the `dgetrs` routine.
 
   Parameters
   ----------
@@ -94,16 +91,14 @@ def _solve_lu(fac, piv, b):
 
   x, info = dgetrs(fac, piv, b)
   if info != 0:
-    raise ValueError(
-      'the %s-th argument had an illegal value' % -info)
+    raise ValueError('the %s-th argument had an illegal value' % -info)
 
   return x
 
 
 def _cholesky(A, lower=True):
   ''' 
-  Computes the Cholesky decomposition of `A` using the routine
-  `dpotrf`.
+  Computes the Cholesky decomposition of `A` using the routine `dpotrf`.
 
   Parameters
   ----------
@@ -123,20 +118,19 @@ def _cholesky(A, lower=True):
   L, info = dpotrf(A, lower=lower)
   if info > 0:
     raise np.linalg.LinAlgError(
-      'The leading minor of order %s is not positive definite, and '
-      'the factorization could not be completed. ' % info)
+      'The leading minor of order %s is not positive definite, and the '
+      'factorization could not be completed. ' % info)
 
   elif info < 0:
-    raise ValueError(
-      'The %s-th argument has an illegal value.' % -info)
+    raise ValueError('The %s-th argument has an illegal value.' % -info)
 
   return L
 
 
 def _solve_cholesky(L, b, lower=True):
   ''' 
-  Solves the system of equations `Ax = b` given the Cholesky
-  decomposition of `A`. Uses the routine `dpotrs`.
+  Solves the system of equations `Ax = b` given the Cholesky decomposition of
+  `A`. Uses the routine `dpotrs`.
 
   Parameters
   ----------
@@ -154,8 +148,7 @@ def _solve_cholesky(L, b, lower=True):
 
   x, info = dpotrs(L, b, lower=lower)
   if info < 0:
-    raise ValueError(
-      'The %s-th argument has an illegal value.' % -info)
+    raise ValueError('The %s-th argument has an illegal value.' % -info)
   
   return x
   
@@ -180,14 +173,12 @@ def _solve_triangular(L, b, lower=True):
 
   x, info = dtrtrs(L, b, lower=lower)
   if info < 0:
-    raise ValueError(
-      'The %s-th argument had an illegal value' % (-info))
+    raise ValueError('The %s-th argument had an illegal value' % (-info))
 
   elif info > 0:
     raise np.linalg.LinAlgError(
-      'The %s-th diagonal element of A is zero, indicating that '
-      'the matrix is singular and the solutions X have not been '
-      'computed.' % info)
+      'The %s-th diagonal element of A is zero, indicating that the matrix is '
+      'singular and the solutions X have not been computed.' % info)
 
   return x
 
@@ -195,12 +186,12 @@ def _solve_triangular(L, b, lower=True):
 #####################################################################
 def as_sparse_or_array(A, dtype=None, copy=False):
   ''' 
-  If `A` is a scipy sparse matrix then return it as a csc matrix.
-  Otherwise, return it as an array.
+  If `A` is a scipy sparse matrix then return it as a csc matrix. Otherwise,
+  return it as an array.
   '''
   if sp.issparse(A):
-    # This does not make a copy if A is csc, has the same dtype and
-    # copy is false.
+    # This does not make a copy if A is csc, has the same dtype and copy is
+    # false.
     A = sp.csc_matrix(A, dtype=dtype, copy=copy)
 
   else:
@@ -211,8 +202,8 @@ def as_sparse_or_array(A, dtype=None, copy=False):
 
 def as_array(A, dtype=None, copy=False):
   ''' 
-  Return `A` as an array if it is not already. This properly handles
-  when `A` is sparse.
+  Return `A` as an array if it is not already. This properly handles when `A`
+  is sparse.
   '''
   if sp.issparse(A):
     A = A.toarray()
@@ -226,9 +217,9 @@ class _SparseSolver(object):
   computes the LU factorization of the sparse matrix `A` with SuperLU.
   '''
   def __init__(self, A):
-    LOGGER.debug('computing the LU decomposition of a %s by %s '
-                 'sparse matrix with %s nonzeros ' % 
-                 (A.shape + (A.nnz,)))
+    LOGGER.debug(
+      'computing the LU decomposition of a %s by %s sparse matrix with %s '
+      'nonzeros ' % (A.shape + (A.nnz,)))
     self.factor = spla.splu(A)
 
   def solve(self, b):
@@ -256,8 +247,8 @@ class _DenseSolver(object):
 
 class Solver(object):
   '''
-  Computes an LU factorization of `A` and provides a method to solve
-  `Ax = b` for `x`. `A` can be a scipy sparse matrix or a numpy array.
+  Computes an LU factorization of `A` and provides a method to solve `Ax = b`
+  for `x`. `A` can be a scipy sparse matrix or a numpy array.
 
   Parameters
   ----------
@@ -291,23 +282,23 @@ class Solver(object):
     
 class _SparsePosDefSolver(object):
   ''' 
-  Factors the sparse positive definite matrix `A` as `LL^T = A`. Note
-  that `L` is NOT necessarily the lower triangular matrix from a
-  Cholesky decomposition. Instead, it is structured to be maximally
-  sparse. This class requires CHOLMOD.
+  Factors the sparse positive definite matrix `A` as `LL^T = A`. Note that `L`
+  is NOT necessarily the lower triangular matrix from a Cholesky decomposition.
+  Instead, it is structured to be maximally sparse. This class requires
+  CHOLMOD.
   '''
   def __init__(self, A):
-    LOGGER.debug('computing the Cholesky decomposition of a %s by %s '
-                 'sparse matrix with %s nonzeros ' % 
-                 (A.shape + (A.nnz,)))
-    self.factor = cholmod.cholesky(A,
-                                   use_long=False,
-                                   ordering_method='default')
-    # store the squared diagonal components of the cholesky
-    # factorization
+    LOGGER.debug(
+      'computing the Cholesky decomposition of a %s by %s sparse matrix with '
+      '%s nonzeros ' % (A.shape + (A.nnz,)))
+    self.factor = cholmod.cholesky(
+      A, 
+      use_long=False, 
+      ordering_method='default')
+    # store the squared diagonal components of the cholesky factorization
     self.d = self.factor.D() 
-    # store the permutation array, which permutes `A` such that its
-    # cholesky factorization is maximally sparse
+    # store the permutation array, which permutes `A` such that its cholesky
+    # factorization is maximally sparse
     self.p = self.factor.P()
 
   def solve(self, b):
@@ -348,8 +339,8 @@ class _SparsePosDefSolver(object):
 
 class _DensePosDefSolver(object):
   ''' 
-  Computes to Cholesky factorization of the dense positive definite
-  matrix `A`. This uses low level LAPACK functions
+  Computes to Cholesky factorization of the dense positive definite matrix `A`.
+  This uses low level LAPACK functions
   '''
   def __init__(self, A):
     self.chol = _cholesky(A, lower=True)
@@ -379,10 +370,10 @@ class _DensePosDefSolver(object):
 
 class PosDefSolver(object):
   '''
-  Factors the positive definite matrix `A` as `LL^T = A` and provides
-  an efficient method for solving `Ax = b` for `x`. Additionally
-  provides a method to solve `Lx = b`, get the log determinant of `A`,
-  and get `L`. `A` can be a scipy sparse matrix or a numpy array.
+  Factors the positive definite matrix `A` as `LL^T = A` and provides an
+  efficient method for solving `Ax = b` for `x`. Additionally provides a method
+  to solve `Lx = b`, get the log determinant of `A`, and get `L`. `A` can be a
+  scipy sparse matrix or a numpy array.
 
   Parameters
   ----------
@@ -459,15 +450,14 @@ class PosDefSolver(object):
 
 def is_positive_definite(A):
   ''' 
-  Tests if `A` is positive definite. This is done by testing whether
-  the Cholesky decomposition finishes successfully. `A` can be a scipy
-  sparse matrix or a numpy array.
+  Tests if `A` is positive definite. This is done by testing whether the
+  Cholesky decomposition finishes successfully. `A` can be a scipy sparse
+  matrix or a numpy array.
   '''
   try:
     PosDefSolver(A).L()
 
-  except (np.linalg.LinAlgError,
-          cholmod.CholmodNotPositiveDefiniteError):
+  except (np.linalg.LinAlgError, cholmod.CholmodNotPositiveDefiniteError):
     return False
   
   return True
@@ -498,11 +488,11 @@ class PartitionedSolver(object):
     \\end{array}
     \\right] 
       
-  for `x` and `y`. This class builds the system and then factors it
-  with an LU decomposition. As opposed to `PartitionedPosDefSolver`,
-  `A` is not assumed to be positive definite. `A` can be a scipy
-  sparse matrix or a numpy array. `B` can also be a scipy sparse
-  matrix or a numpy array but it will be converted to a numpy array.
+  for `x` and `y`. This class builds the system and then factors it with an LU
+  decomposition. As opposed to `PartitionedPosDefSolver`, `A` is not assumed to
+  be positive definite. `A` can be a scipy sparse matrix or a numpy array. `B`
+  can also be a scipy sparse matrix or a numpy array but it will be converted
+  to a numpy array.
 
   Parameters
   ----------
@@ -519,18 +509,16 @@ class PartitionedSolver(object):
     n, p = B.shape
     if n < p:
       raise np.linalg.LinAlgError(
-        'There are fewer rows than columns in `B`. This makes the '
-        'block matrix singular, and its inverse cannot be computed.')
+        'There are fewer rows than columns in `B`. This makes the block '
+        'matrix singular, and its inverse cannot be computed.')
 
     # concatenate the A and B matrices 
     if sp.issparse(A):
         Z = sp.csc_matrix((p, p), dtype=float)
-        C = sp.vstack((sp.hstack((A, B)),
-                       sp.hstack((B.T, Z))))
+        C = sp.vstack((sp.hstack((A, B)), sp.hstack((B.T, Z))))
     else:
         Z = np.zeros((p, p), dtype=float)
-        C = np.vstack((np.hstack((A, B)),
-                       np.hstack((B.T, Z))))
+        C = np.vstack((np.hstack((A, B)), np.hstack((B.T, Z))))
           
     self._solver = Solver(C)
     self.n = n
@@ -585,9 +573,8 @@ class PartitionedPosDefSolver(object):
     \\end{array}
     \\right] 
 
-  for `x` and `y`, where `A` is a positive definite matrix. Rather
-  than naively building and solving the system, this class partitions
-  the inverse as
+  for `x` and `y`, where `A` is a positive definite matrix. Rather than naively
+  building and solving the system, this class partitions the inverse as
   
   .. math::
     \\left[
@@ -608,11 +595,10 @@ class PartitionedPosDefSolver(object):
   .. math::
     E = - (B^T A^{-1} B)^{-1}
   
-  The inverse of `A` is not computed, but instead its action is
-  performed by solving the Cholesky decomposition of `A`. `A` can be a
-  scipy sparse matrix or a numpy array. `B` can also be either a scipy
-  sparse matrix or a numpy array but it will be converted to a numpy
-  array.
+  The inverse of `A` is not computed, but instead its action is performed by
+  solving the Cholesky decomposition of `A`. `A` can be a scipy sparse matrix
+  or a numpy array. `B` can also be either a scipy sparse matrix or a numpy
+  array but it will be converted to a numpy array.
    
   Parameters
   ----------
@@ -622,10 +608,9 @@ class PartitionedPosDefSolver(object):
 
   Note
   ----
-  This class stores the factorization of `A`, which may be sparse, the
-  dense matrix `A^-1 B`, and the dense factorization of `B^T A^-1 B`.
-  If the number of columns in `B` is large then this may take up too
-  much memory.
+  This class stores the factorization of `A`, which may be sparse, the dense
+  matrix `A^-1 B`, and the dense factorization of `B^T A^-1 B`. If the number
+  of columns in `B` is large then this may take up too much memory.
   
   '''
   def __init__(self, A, B):
@@ -636,8 +621,8 @@ class PartitionedPosDefSolver(object):
     n, p = B.shape
     if n < p:
       raise np.linalg.LinAlgError(
-        'There are fewer rows than columns in `B`. This makes the '
-        'block matrix singular, and its inverse cannot be computed.')
+        'There are fewer rows than columns in `B`. This makes the block '
+        'matrix singular, and its inverse cannot be computed.')
     
     A_solver = PosDefSolver(A)
     AiB = A_solver.solve(B) 
@@ -676,26 +661,25 @@ class PartitionedPosDefSolver(object):
 
 class GMRESSolver(object):
   '''
-  Solves the system of equations `Ax = b` for `x` iteratively with
-  GMRES and an incomplete LU decomposition.
+  Solves the system of equations `Ax = b` for `x` iteratively with GMRES and an
+  incomplete LU decomposition.
 
   Parameters
   ----------
   A : (n, n) CSC sparse matrix
 
   drop_tol : float, optional
-    Passed to `scipy.sparse.linalg.spilu`. This controls the sparsity
-    of the ILU decomposition used for the preconditioner. It should be
-    between 0 and 1. smaller values make the decomposition denser but
-    better approximates the LU decomposition. If the value is too
-    large then you may get a "Factor is exactly singular" error.
+    Passed to `scipy.sparse.linalg.spilu`. This controls the sparsity of the
+    ILU decomposition used for the preconditioner. It should be between 0 and
+    1. smaller values make the decomposition denser but better approximates the
+    LU decomposition. If the value is too large then you may get a "Factor is
+    exactly singular" error.
 
   fill_factor : float, optional
-    Passed to `scipy.sparse.linalg.spilu`. I believe this controls the
-    memory allocated for the ILU decomposition. If this value is too
-    small then memory will be allocated dynamically for the
-    decomposition. If this is too large then you may get a memory
-    error.
+    Passed to `scipy.sparse.linalg.spilu`. I believe this controls the memory
+    allocated for the ILU decomposition. If this value is too small then memory
+    will be allocated dynamically for the decomposition. If this is too large
+    then you may get a memory error.
 
   normalize_inplace : bool
     If True and `A` is a csc matrix, then `A` is normalized in place.
@@ -706,23 +690,23 @@ class GMRESSolver(object):
                drop_tol=0.005, 
                fill_factor=2.0, 
                normalize_inplace=False):
-    # the spilu and gmres functions are most efficient with csc
-    # sparse. If the matrix is already csc then this will do nothing
+    # the spilu and gmres functions are most efficient with csc sparse. If the
+    # matrix is already csc then this will do nothing
     A = sp.csc_matrix(A)
     n = row_norms(A)
     if normalize_inplace:
-        divide_rows(A, n, inplace=True)
+      divide_rows(A, n, inplace=True)
     else:
-        A = divide_rows(A, n, inplace=False).tocsc()
+      A = divide_rows(A, n, inplace=False).tocsc()
     
-    LOGGER.debug('computing the ILU decomposition of a %s by %s '
-                 'sparse matrix with %s nonzeros ' % 
-                 (A.shape + (A.nnz,)))
+    LOGGER.debug(
+      'computing the ILU decomposition of a %s by %s sparse matrix with %s '
+      'nonzeros ' % (A.shape + (A.nnz,)))
     ilu = spla.spilu(
-        A, 
-        drop_rule='basic', 
-        drop_tol=drop_tol,
-        fill_factor=fill_factor)
+      A, 
+      drop_rule='basic', 
+      drop_tol=drop_tol,
+      fill_factor=fill_factor)
     LOGGER.debug('done')
     M = spla.LinearOperator(A.shape, ilu.solve)
     self.A = A
@@ -752,10 +736,11 @@ class GMRESSolver(object):
       _itr[0] += 1
 
     LOGGER.debug('solving the system with GMRES')
-    x, info = spla.gmres(self.A, 
-                         b/self.n, 
-                         tol=tol,
-                         M=self.M, 
-                         callback=callback)
+    x, info = spla.gmres(
+      self.A, 
+      b/self.n, 
+      tol=tol,
+      M=self.M, 
+      callback=callback)
     LOGGER.debug('finished GMRES with info %s' % info)
     return x

@@ -1,6 +1,6 @@
 ''' 
-This module is used for evaluating the monomial basis functions which 
-are commonly added to RBF interpolants
+This module is used for evaluating the monomial basis functions which are
+commonly added to RBF interpolants
 '''
 from __future__ import division
 from itertools import combinations_with_replacement as cr
@@ -24,9 +24,8 @@ def mvmonos(x, powers, diff=None):
     positions where the monomials will be evaluated
 
   powers : (M, D) int array 
-    Defines each monomial basis function using multi-index notation.  
-    Each row contains the exponents for the spatial variables in a 
-    monomial.
+    Defines each monomial basis function using multi-index notation.  Each row
+    contains the exponents for the spatial variables in a monomial.
 
   diff : (D,) int array, optional
     derivative order for each variable
@@ -118,10 +117,10 @@ cpdef np.ndarray _mvmonos(double[:, :] x,
 @Memoize
 def powers(order, dim):
   ''' 
-  Returns an array describing the powers in all the monomial basis
-  functions in a polymonial with the given order and number of
-  dimensions. Calling this function with -1 for the order will return
-  an empty list (no terms in the polynomial)
+  Returns an array describing the powers in all the monomial basis functions in
+  a polymonial with the given order and number of dimensions. Calling this
+  function with -1 for the order will return an empty list (no terms in the
+  polynomial)
 
   Parameters
   ----------
@@ -133,8 +132,8 @@ def powers(order, dim):
 
   Example
   -------
-  This will return the powers of x and y for each monomial term in a 
-  two dimensional polynomial with order 1
+  This will return the powers of x and y for each monomial term in a two
+  dimensional polynomial with order 1
   
   >>> monomial_powers(1, 2) 
   >>> array([[0, 0],
@@ -165,8 +164,8 @@ def powers(order, dim):
 @Memoize
 def count(order, dim):
   ''' 
-  Returns the number of monomial basis functions in a polynomial with 
-  the given order and number of dimensions
+  Returns the number of monomial basis functions in a polynomial with the given
+  order and number of dimensions
 
   Parameters
   ----------
