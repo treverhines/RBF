@@ -1722,7 +1722,7 @@ class GaussianProcess(object):
     self._basis = MemoizeArrayInput(self._basis)
 
 
-def gpiso(phi, params, dim=None):
+def gpiso(phi, params, dim=None, check_finite=True):
   ''' 
   Creates an isotropic `GaussianProcess` instance which has a constant mean and
   a covariance function that is described by a radial basis function.
@@ -1742,6 +1742,11 @@ def gpiso(phi, params, dim=None):
     Fixes the spatial dimensions of the `GaussianProcess` domain. An error will
     be raised if method arguments have a conflicting number of spatial
     dimensions.
+
+  check_finite : bool, optional
+    Indicates whether to check if the output for `phi` is finite. NaNs or Infs
+    may be encountered if the `RBF` instance is not sufficiently
+    differentiable.
       
   Returns
   -------
@@ -1773,11 +1778,11 @@ def gpiso(phi, params, dim=None):
     a, b, c = params  
     diff = diff1 + diff2
     out = b*(-1)**sum(diff2)*phi(x1, x2, eps=c, diff=diff)
-    if not _all_is_finite(out):
-      raise ValueError(
-        'Encountered a non-finite RBF covariance. This may be '
-        'because the basis function is not sufficiently '
-        'differentiable.')
+    if check_finite:
+      if not _all_is_finite(out):
+        raise ValueError(
+          'Encountered a non-finite RBF covariance. This may be because the '
+          'basis function is not sufficiently differentiable.')
 
     return out
 
@@ -1814,11 +1819,11 @@ def gpse(params, dim=None):
   exponential `GaussianProcess` with noise-free data.
 
   '''
-  out = gpiso(rbf.basis.se, params, dim=dim)
+  out = gpiso(rbf.basis.se, params, dim=dim, check_finite=False)
   return out
 
 
-def gpexp(params, dim=None):
+def gpexp(params, dim=None, check_finite=True):
   ''' 
   Creates an isotropic `GaussianProcess` with an exponential covariance
   function.
@@ -1839,7 +1844,7 @@ def gpexp(params, dim=None):
   out : GaussianProcess
 
   '''
-  out = gpiso(rbf.basis.exp, params, dim=dim)
+  out = gpiso(rbf.basis.exp, params, dim=dim, check_finite=check_finite)
   return out
 
 
