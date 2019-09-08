@@ -315,3 +315,167 @@ def weight_matrix(x, p, n, diffs,
   L = sp.coo_matrix((data, (rows, cols)), shape)
   logger.debug('  done')
   return L
+
+
+def _tiled_point_cloud(bbox,p):
+    """Returns a periodic tiling of points"""
+
+    from itertools import product
+    directions = (-1,0,1)
+
+    bbox = np.asarray(bbox,dtype=float)
+    p = np.asarray(p, dtype=float)
+    
+    dp = bbox[1,:] - bbox[0,:]
+
+    tiles = []
+    for i, d in enumerate(dp):
+      if np.isfinite(d):
+        tiles.append(directions)
+
+    tiles = list(product(*tiles))
+
+    size, dim = p.shape
+        
+    tiled_p = np.tile(p,(len(tiles),1))
+    
+    for i,tile in enumerate(tiles):
+      for di, (ti, delta) in enumerate(zip(tile,dp)):
+        if np.isfinite(delta):
+            tiled_p[i*size:i*size+size,di] += delta*ti 
+
+    return tiled_p, len(tiles)
+
+def periodic_weight_matrix(bbox,x, p, n, diffs, 
+                  coeffs=None,
+                  phi=phs3, 
+                  order=None,
+                  eps=1.0, 
+                  stencils=None):
+  ''' 
+  Returns a periodic weight matrix which maps a functions values at `p` to an
+  approximation of that functions derivative at `x` and the function is 
+  periodic over the length of `bbox`. This is a convenience
+  function which first creates stencils and then computes the RBF-FD weights
+  for each stencil.
+  
+  Parameters
+  ----------
+  bbox : (2,D) array
+    Bounding box of the target points. Only for those spatial dimensions where 
+    the bounding box has finite length will the returned weight matrix have
+    periodic stencils.
+
+  x : (N, D) array
+    Target points where the derivatives will be approximated. 
+
+  p : (M, D) array
+    Source points. The derivatives will be approximated with a weighted sum of
+    values at these point.
+
+  n : int
+    The stencil size
+  
+  diffs : (D,) int array or (K, D) int array 
+    Derivative orders for each spatial dimension. For example `[2, 0]`
+    indicates that the weights should approximate the second derivative with
+    respect to the first spatial dimension in two-dimensional space.  diffs can
+    also be a (K, D) array, where each (D,) sub-array is a term in a
+    differential operator. For example the two-dimensional Laplacian can be
+    represented as `[[2, 0], [0, 2]]`.
+
+  coeffs : (K,) float array or (K, N) float, optional 
+    Coefficients for each term in the differential operator specified with
+    `diffs`. Defaults to an array of ones. If `diffs` was specified as a (D,)
+    array then `coeffs` should be a length 1 array. If the coefficients for the
+    differential operator vary with `x` then `coeffs` can be specified as a (K,
+    N) array.
+
+  phi : rbf.basis.RBF, optional
+    Type of RBF. Select from those available in `rbf.basis` or create your own.
+
+  order : int, optional
+    Order of the added polynomial. This defaults to the highest derivative
+    order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then `order` is set
+    to 2.
+
+  eps : float or (M,) array, optional
+    shape parameter for each RBF, which have centers `p`. This only makes a
+    difference when using RBFs that are not scale invariant.  All the
+    predefined RBFs except for the odd order polyharmonic splines are not scale
+    invariant.
+
+  Returns
+  -------
+  (N, M) coo sparse matrix          
+      
+  Examples
+  --------
+  Create a periodic second order differentiation matrix in one-dimensional space
+
+  >>> x = np.arange(4.0)[:, None]
+  >>> bbox = np.array([[0.0],[4.0]])
+  >>> W = periodic_weight_matrix(bbox,x, x, 3, (2,))
+  >>> W.toarray()
+  array([[ 1., -2.,  0.,  1.],
+         [ 1., -2.,  1.,  0.],
+         [ 0.,  1., -2.,  1.],
+         [ 1.,  0., -2.,  1.]])
+                         
+  '''
+
+  bbox = np.asarray(bbox,dtype=float)
+  assert_shape(bbox, (2, None), 'bbox')
+  
+  x = np.asarray(x, dtype=float)
+  assert_shape(x, (None, bbox.shape[1]), 'x')
+  
+  p = np.asarray(p, dtype=float)
+  assert_shape(p, (None, x.shape[1]), 'p')
+  
+  tp, nt = _tiled_point_cloud(bbox,p)
+
+  diffs = np.asarray(diffs, dtype=int)
+  diffs = _reshape_diffs(diffs)
+
+  if np.isscalar(eps):
+    eps = np.full(tp.shape[0], eps, dtype=float)
+  else:
+    eps = np.tile(np.asarray(eps, dtype=float),(nt,1))  
+    assert_shape(eps, (tp.shape[0],), 'eps')
+    
+  # make `coeffs` a (K, N) array
+  if coeffs is None:
+    coeffs = np.ones((diffs.shape[0], tp.shape[0]), dtype=float)
+  else:
+    coeffs = np.asarray(coeffs, dtype=float)
+    if coeffs.ndim == 1:
+      coeffs = np.repeat(coeffs[:, None], tp.shape[0], axis=1)
+
+    assert_shape(coeffs, (diffs.shape[0], tp.shape[0]), 'coeffs')
+
+  stencils = KDTree(tp).query(x, n)[1][0:x.shape[0]]
+
+  logger.debug(
+    'building a (%s, %s) RBF-FD weight matrix with %s nonzeros...' 
+    % (x.shape[0], p.shape[0], stencils.size))   
+
+  # values that will be put into the sparse matrix
+  data = np.zeros((x.shape[0],stencils.shape[1]), dtype=float)
+  for i, si in enumerate(stencils):
+    # intermittently log the progress 
+    if i % max(x.shape[0] // 10, 1) == 0:
+      logger.debug('  %d%% complete' % (100*i / x.shape[0]))
+
+    data[i, :] = weights(x[i], tp[si], diffs,
+                         coeffs=coeffs[:, i], eps=eps[si],
+                         phi=phi, order=order)
+
+  rows = np.repeat(range(data.shape[0]), data.shape[1])
+  # using the remainder we recover the indexes of the stencils in the original domain
+  cols = np.remainder(stencils,x.shape[0]).ravel()
+  data = data.ravel()
+  shape = x.shape[0], p.shape[0]
+  L = sp.coo_matrix((data, (rows, cols)), shape)
+  logger.debug('  done')
+  return L
