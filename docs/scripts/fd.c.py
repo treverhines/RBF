@@ -172,7 +172,7 @@ u_x,u_y,u_z = (u_x[idx_int_and_bnd],
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.set_aspect('equal')
+#ax.set_aspect('equal')
 
 ax.plot_trisurf(vert[:,0], vert[:,1], vert[:,2], triangles=smp,
                 color=(0.1, 0.1, 0.1),  

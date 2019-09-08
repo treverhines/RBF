@@ -1,4 +1,4 @@
-''' 
+'''
 This module provides functions for generating RBF-FD weights
 '''
 from __future__ import division
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _reshape_diffs(diffs):
-  ''' 
+  '''
   turns diffs into a 2D array
   '''
   if diffs.ndim > 2:
@@ -25,10 +25,10 @@ def _reshape_diffs(diffs):
   D = diffs.shape[-1]
   out = diffs.reshape((-1, D))
   return out
-  
+
 
 def _default_poly_order(diffs):
-  ''' 
+  '''
   This sets the polynomial order equal to the largest derivative order. So a
   constant and linear term (order=1) will be used when approximating a first
   derivative. This is the smallest polynomial order needed to overcome PHS
@@ -40,7 +40,7 @@ def _default_poly_order(diffs):
 
 @Memoize
 def _max_poly_order(size, dim):
-  ''' 
+  '''
   Returns the maximum polynomial order allowed for the given stencil size and
   number of dimensions
   '''
@@ -51,12 +51,12 @@ def _max_poly_order(size, dim):
   return order
 
 
-def weights(x, s, diffs, 
+def weights(x, s, diffs,
             coeffs=None,
-            phi=phs3, 
+            phi=phs3,
             order=None,
             eps=1.0):
-  ''' 
+  '''
   Returns the weights which map a functions values at `s` to an approximation
   of that functions derivative at `x`. The weights are computed using the
   RBF-FD method described in [1]. In this function `x` is a single point in
@@ -72,7 +72,7 @@ def weights(x, s, diffs,
     Stencil points. The derivative will be approximated with a weighted sum of
     values at this point.
 
-  diffs : (D,) int array or (K, D) int array 
+  diffs : (D,) int array or (K, D) int array
     Derivative orders for each spatial dimension. For example `[2, 0]`
     indicates that the weights should approximate the second derivative with
     respect to the first spatial dimension in two-dimensional space.  diffs can
@@ -80,14 +80,14 @@ def weights(x, s, diffs,
     differential operator. For example the two-dimensional Laplacian can be
     represented as `[[2, 0], [0, 2]]`.
 
-  coeffs : (K,) array, optional 
+  coeffs : (K,) array, optional
     Coefficients for each term in the differential operator specified with
     `diffs`.  Defaults to an array of ones. If `diffs` was specified as a (D,)
     array then `coeffs` should be a length 1 array.
 
   phi : rbf.basis.RBF instance or str, optional
     Type of RBF. Select from those available in `rbf.basis` or create your own.
- 
+
   order : int, optional
     Order of the added polynomial. This defaults to the highest derivative
     order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then order is set to
@@ -102,17 +102,17 @@ def weights(x, s, diffs,
   -------
   out : (N,) array
     RBF-FD weights
-    
+
   Examples
   --------
   Calculate the weights for a one-dimensional second order derivative.
 
-  >>> x = np.array([1.0]) 
-  >>> s = np.array([[0.0], [1.0], [2.0]]) 
-  >>> diff = (2,) 
+  >>> x = np.array([1.0])
+  >>> s = np.array([[0.0], [1.0], [2.0]])
+  >>> diff = (2,)
   >>> weights(x, s, diff)
   array([ 1., -2., 1.])
-    
+
   Calculate the weights for estimating an x derivative from three points in a
   two-dimensional plane
 
@@ -123,30 +123,22 @@ def weights(x, s, diffs,
   >>> diff = (1, 0)
   >>> weights(x, s, diff)
   array([ -1., 1., 0.])
-    
-  Notes
-  -----
-  This function may become unstable with high order polynomials (i.e., `order`
-  is high). This can be somewhat remedied by shifting the coordinate system so
-  that x is zero
 
   References
   ----------
-  [1] Fornberg, B. and N. Flyer. A Primer on Radial Basis 
+  [1] Fornberg, B. and N. Flyer. A Primer on Radial Basis
   Functions with Applications to the Geosciences. SIAM, 2015.
-    
+
   '''
   x = np.asarray(x, dtype=float)
   assert_shape(x, (None,), 'x')
-  
+
   s = np.asarray(s, dtype=float)
   assert_shape(s, (None, x.shape[0]), 's')
-  
+
   diffs = np.asarray(diffs, dtype=int)
   diffs = _reshape_diffs(diffs)
-  
-  # stencil size and number of dimensions
-  size, dim = s.shape
+
   if coeffs is None:
     coeffs = np.ones(diffs.shape[0], dtype=float)
   else:
@@ -154,38 +146,45 @@ def weights(x, s, diffs,
     assert_shape(coeffs, (diffs.shape[0],), 'coeffs')
 
   phi = get_rbf(phi)
-
+  # stencil size and number of dimensions
+  size, dim = s.shape
+  # get the maximum polynomial order allowed for this stencil size
   max_order = _max_poly_order(size, dim)
   if order is None:
+    # If the polynomial order is not specified, make it equal to the derivative
+    # order, provided that the stencil size is large enough.
     order = _default_poly_order(diffs)
     order = min(order, max_order)
 
   if order > max_order:
     raise ValueError(
       'Polynomial order is too high for the stencil size')
-    
+
+  # center the stencil on `x` for improved numerical stability
+  s = s - x
+  x = np.zeros_like(x)
   # get the powers for the added monomials
   pwr = powers(order, dim)
-  # evaluate the RBF and monomials at each point in the stencil. This
-  # becomes the left-hand-side
+  # evaluate the RBF and monomials at each point in the stencil. This becomes
+  # the left-hand-side
   A = phi(s, s, eps=eps)
   P = mvmonos(s, pwr)
-  # Evaluate the RBF and monomials for each term in the differential
-  # operator. This becomes the right-hand-side.
-  a = coeffs[0]*phi(x[None, :], s, eps=eps, diff=diffs[0])
-  p = coeffs[0]*mvmonos(x[None, :], pwr, diff=diffs[0])
-  for c, d in zip(coeffs[1:], diffs[1:]):
+  # Evaluate the RBF and monomials for each term in the differential operator.
+  # This becomes the right-hand-side.
+  a = np.zeros((1, size), dtype=float)
+  p = np.zeros((1, pwr.shape[0]), dtype=float)
+  for c, d in zip(coeffs, diffs):
     a += c*phi(x[None, :], s, eps=eps, diff=d)
     p += c*mvmonos(x[None, :], pwr, diff=d)
-
-  # squeeze `a` and `p` into 1d arrays. `a` is ran through as_array
-  # because it may be sparse.
+  
+  # squeeze `a` and `p` into 1d arrays. `a` is ran through as_array because it
+  # may be sparse.
   a = as_array(a)[0]
   p = p[0]
 
   # attempt to compute the RBF-FD weights
   try:
-    w = PartitionedSolver(A, P).solve(a, p)[0]  
+    w = PartitionedSolver(A, P).solve(a, p)[0]
     return w
 
   except np.linalg.LinAlgError:
@@ -196,22 +195,22 @@ def weights(x, s, diffs,
       'following points:\n%s' % (x, phi, order, s))
 
 
-def weight_matrix(x, p, n, diffs, 
+def weight_matrix(x, p, n, diffs,
                   coeffs=None,
-                  phi=phs3, 
+                  phi=phs3,
                   order=None,
-                  eps=1.0, 
+                  eps=1.0,
                   stencils=None):
-  ''' 
+  '''
   Returns a weight matrix which maps a functions values at `p` to an
   approximation of that functions derivative at `x`. This is a convenience
   function which first creates stencils and then computes the RBF-FD weights
   for each stencil.
-  
+
   Parameters
   ----------
   x : (N, D) array
-    Target points where the derivatives will be approximated. 
+    Target points where the derivatives will be approximated.
 
   p : (M, D) array
     Source points. The derivatives will be approximated with a weighted sum of
@@ -219,8 +218,8 @@ def weight_matrix(x, p, n, diffs,
 
   n : int
     The stencil size
-  
-  diffs : (D,) int array or (K, D) int array 
+
+  diffs : (D,) int array or (K, D) int array
     Derivative orders for each spatial dimension. For example `[2, 0]`
     indicates that the weights should approximate the second derivative with
     respect to the first spatial dimension in two-dimensional space.  diffs can
@@ -228,7 +227,7 @@ def weight_matrix(x, p, n, diffs,
     differential operator. For example the two-dimensional Laplacian can be
     represented as `[[2, 0], [0, 2]]`.
 
-  coeffs : (K,) float array or (K, N) float, optional 
+  coeffs : (K,) float array or (K, N) float, optional
     Coefficients for each term in the differential operator specified with
     `diffs`. Defaults to an array of ones. If `diffs` was specified as a (D,)
     array then `coeffs` should be a length 1 array. If the coefficients for the
@@ -251,8 +250,8 @@ def weight_matrix(x, p, n, diffs,
 
   Returns
   -------
-  (N, M) coo sparse matrix          
-      
+  (N, M) coo sparse matrix
+
   Examples
   --------
   Create a second order differentiation matrix in one-dimensional space
@@ -264,23 +263,23 @@ def weight_matrix(x, p, n, diffs,
          [ 1., -2.,  1.,  0.],
          [ 0.,  1., -2.,  1.],
          [ 0.,  1., -2.,  1.]])
-                         
+
   '''
   x = np.asarray(x, dtype=float)
   assert_shape(x, (None, None), 'x')
-  
+
   p = np.asarray(p, dtype=float)
   assert_shape(p, (None, x.shape[1]), 'p')
-  
+
   diffs = np.asarray(diffs, dtype=int)
   diffs = _reshape_diffs(diffs)
 
   if np.isscalar(eps):
     eps = np.full(p.shape[0], eps, dtype=float)
   else:
-    eps = np.asarray(eps, dtype=float)  
+    eps = np.asarray(eps, dtype=float)
     assert_shape(eps, (p.shape[0],), 'eps')
-    
+
   # make `coeffs` a (K, N) array
   if coeffs is None:
     coeffs = np.ones((diffs.shape[0], x.shape[0]), dtype=float)
@@ -294,13 +293,13 @@ def weight_matrix(x, p, n, diffs,
   stencils = KDTree(p).query(x, n)[1]
 
   logger.debug(
-    'building a (%s, %s) RBF-FD weight matrix with %s nonzeros...' 
-    % (x.shape[0], p.shape[0], stencils.size))   
+    'building a (%s, %s) RBF-FD weight matrix with %s nonzeros...'
+    % (x.shape[0], p.shape[0], stencils.size))
 
   # values that will be put into the sparse matrix
   data = np.zeros(stencils.shape, dtype=float)
   for i, si in enumerate(stencils):
-    # intermittently log the progress 
+    # intermittently log the progress
     if i % max(stencils.shape[0] // 10, 1) == 0:
       logger.debug('  %d%% complete' % (100*i / stencils.shape[0]))
 
@@ -308,7 +307,7 @@ def weight_matrix(x, p, n, diffs,
                          coeffs=coeffs[:, i], eps=eps[si],
                          phi=phi, order=order)
 
-    
+
   rows = np.repeat(range(data.shape[0]), data.shape[1])
   cols = stencils.ravel()
   data = data.ravel()

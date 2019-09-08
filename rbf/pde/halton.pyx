@@ -1,6 +1,5 @@
 ''' 
-This module defines a function and class for generating halton 
-sequences
+This module defines a function and class for generating halton sequences
 '''
 from __future__ import division
 import numpy as np
@@ -45,7 +44,7 @@ cdef double halton_n(long n,
 @wraparound(False)
 def halton_sequence(long size,
                     long dim=1,
-                    long start=100,
+                    long start=0,
                     long skip=1,
                     long prime_index=0):   
   ''' 
@@ -66,8 +65,8 @@ def halton_sequence(long size,
     Increment by this amount. defaults to 1
       
   prime_index : int, optional
-    Index of the starting prime number, defaults to 0 (i.e. 2 is the
-    starting prime number).
+    Index of the starting prime number, defaults to 0 (i.e. 2 is the starting
+    prime number).
       
   Returns
   -------
@@ -88,9 +87,8 @@ def halton_sequence(long size,
 
 class HaltonSequence(object):
   ''' 
-  Produces a Halton sequence when called and remembers the state of
-  the sequence so that repeated calls produce the next items in the
-  sequence
+  Produces a Halton sequence when called and remembers the state of the
+  sequence so that repeated calls produce the next items in the sequence
 
   Parameters             
   ----------         
@@ -98,17 +96,17 @@ class HaltonSequence(object):
     Dimensions, defaults to 1    
 
   start : int, optional
-    Starting index in the Halton sequence, defaults to 100 
+    Starting index in the Halton sequence, defaults to 0 
         
   skip : int, optional
     Increment by this amount, defaults to 1
 
   prime_index : int, optional
-    Index of the starting prime number, defaults to 0 (i.e. 2 is the 
-    starting prime number)
+    Index of the starting prime number, defaults to 0 (i.e. 2 is the starting
+    prime number)
         
   '''
-  def __init__(self, dim=1, start=100, skip=1, prime_index=0):
+  def __init__(self, dim=1, start=0, skip=1, prime_index=0):
     self.count = start
     self.skip = skip
     self.dim = dim
@@ -124,8 +122,8 @@ class HaltonSequence(object):
     Parameters         
     ----------               
     size : int, optional
-      Number of elements to return. If this is not given, then a
-      single element will be returned as a (dim,) array.
+      Number of elements to return. If this is not given, then a single element
+      will be returned as a (dim,) array.
                         
     Returns       
     -------        
@@ -153,9 +151,9 @@ class HaltonSequence(object):
   
   def randint(self, a, b=None, size=None):
     '''
-    Returns elements of the Halton sequence that have been mapped to
-    integers between `a` and `b`. If `b` is not given, then the
-    returned values are between 0 and `a`.
+    Returns elements of the Halton sequence that have been mapped to integers
+    between `a` and `b`. If `b` is not given, then the returned values are
+    between 0 and `a`.
 
     Parameters
     ----------
@@ -175,8 +173,8 @@ class HaltonSequence(object):
         
   def uniform(self, low=0.0, high=1.0, size=None):
     '''
-    Returns elements of the Halton sequence that have been linearly
-    mapped to floats between `low` and `high`.
+    Returns elements of the Halton sequence that have been linearly mapped to
+    floats between `low` and `high`.
 
     Parameters
     ----------
