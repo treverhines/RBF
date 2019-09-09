@@ -417,10 +417,10 @@ def periodic_weight_matrix(bbox,x, p, n, diffs,
   >>> bbox = np.array([[0.0],[4.0]])
   >>> W = periodic_weight_matrix(bbox,x, x, 3, (2,))
   >>> W.toarray()
-  array([[ 1., -2.,  0.,  1.],
+  array([[-2.,  1.,  0.,  1.],
          [ 1., -2.,  1.,  0.],
          [ 0.,  1., -2.,  1.],
-         [ 1.,  0., -2.,  1.]])
+         [ 1.,  0.,  1., -2.]])
                          
   '''
 
