@@ -141,3 +141,78 @@ def add_rows(A, B, idx):
     col = np.hstack((A.col, B.col))
     out = sp.coo_matrix((data, (row, col)), shape=A.shape)
     return out
+
+
+def expand_rows(A, rows, rout, copy=False):
+    '''
+    expand `A` along the rows.
+
+    Parameters
+    ----------
+    A : (rin, cin) sparse matrix
+        CSC, CSR, BSR, or COO matrix for best efficiency
+
+    rows : (rin,) int array
+        The row in the output matrix that each row in `A` will be assigned to
+
+    rout : int
+        The number of rows in the output matrix
+
+    copy : bool, 
+        Whether the data in the output matrix should be a copy of the data in
+        `A`
+
+    Returns
+    -------
+    (rout, cin) COO sparse matrix
+    
+    '''        
+    if not sp.isspmatrix(A):
+        raise ValueError('`A` must be a sparse matrix')
+    
+    A = A.tocoo(copy=copy)
+    rin, cin = A.shape
+
+    rows = np.asarray(rows, dtype=int)
+    assert_shape(rows, (rin,), 'rows')
+
+    out = sp.coo_matrix((A.data, (rows[A.row], A.col)), shape=(rout, cin))
+    return out
+
+
+def expand_cols(A, cols, cout, copy=False):
+    '''
+    expand `A` along the columns.
+
+    Parameters
+    ----------
+    A : (rin, cin) sparse matrix
+        CSC, CSR, BSR, or COO matrix for best efficiency
+
+    cols : (rin,) int array
+        The column in the output matrix that each column in `A` will be
+        assigned to
+
+    cout : int
+        The number of columns in the output matrix
+
+    copy : bool, 
+        Whether the data in the output matrix should be a copy of the data in
+        `A`
+
+    Returns
+    -------
+    (rin, cout) COO sparse matrix
+    
+    '''        
+    if not sp.isspmatrix(A):
+        raise ValueError('`A` must be a sparse matrix')
+    
+    A = A.tocoo(copy=copy)
+    rin, cin = A.shape
+
+    cols = np.asarray(cols, dtype=int)
+    assert_shape(cols, (cin,), 'cols')
+
+    out = sp.coo_matrix((A.data, (A.row, cols[A.col])), shape=(rin, cout))
+    return out
