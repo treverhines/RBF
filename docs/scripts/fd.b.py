@@ -1,11 +1,10 @@
 ''' 
-This script demonstrates using the RBF-FD method to calculate static 
-deformation of a two-dimensional elastic material subject to a uniform 
-body force such as gravity. The elastic material has a fixed boundary 
-condition on one side and the remaining sides have a free surface 
-boundary condition.  This script also demonstrates using ghost nodes 
-which, for all intents and purposes, are necessary when dealing with 
-Neumann boundary conditions.
+This script demonstrates using the RBF-FD method to calculate static
+deformation of a two-dimensional elastic material subject to a uniform body
+force such as gravity. The elastic material has a fixed boundary condition on
+one side and the remaining sides have a free surface boundary condition.  This
+script also demonstrates using ghost nodes which, for all intents and purposes,
+are necessary when dealing with Neumann boundary conditions.
 '''
 import logging
 
@@ -14,17 +13,17 @@ import scipy.sparse as sp
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-from rbf.sputils import add_rows
+from rbf.sputils import expand_rows
 from rbf.linalg import GMRESSolver
-from rbf.pde.nodes import poisson_disc_nodes
 from rbf.pde.fd import weight_matrix
+from rbf.pde.nodes import poisson_disc_nodes
 
 logging.basicConfig(level=logging.DEBUG)
 
 ## User defined parameters
 #####################################################################
-# define the vertices of the problem domain. Note that the first 
-# simplex will be fixed, and the others will be free
+# define the vertices of the problem domain. Note that the first simplex will
+# be fixed, and the others will be free
 vert = np.array([[0.0, 0.0], [0.0, 1.0], [2.0, 1.0], [2.0, 0.0]])
 smp = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
 # The node spacing
@@ -39,26 +38,20 @@ body_force = 1.0
 
 ## Build and solve for displacements and strain
 #####################################################################
-# generate nodes. The nodes are assigned groups based on which simplex
-# they lay on
-boundary_groups = {'fixed':[0],
-                   'free':[1, 2, 3]}
+# generate nodes. The nodes are assigned groups based on which simplex they lay
+# on
+boundary_groups = {'fixed':[0], 'free':[1, 2, 3]}
 nodes, groups, normals = poisson_disc_nodes(
-  dx, (vert, smp),
-  boundary_groups=boundary_groups,
-  boundary_groups_with_ghosts=['free'])
+    dx, 
+    (vert, smp),
+    boundary_groups=boundary_groups,
+    boundary_groups_with_ghosts=['free'])
+N = nodes.shape[0]
 # `nodes` : (N, 2) float array
 # `groups` : dictionary containing index sets. It has the keys
 #            "interior", "boundary:free", "boundary:fixed",
 #            "ghosts:free".
 # `normals : (N, 2) float array
-
-## Create the sparse submatrices for the system matrix 
-N = nodes.shape[0]
-G_xx = sp.coo_matrix((N, N))
-G_xy = sp.coo_matrix((N, N))
-G_yx = sp.coo_matrix((N, N))
-G_yy = sp.coo_matrix((N, N))
 
 ## Enforce the PDE on interior nodes AND the free surface nodes 
 # x component of force resulting from displacement in the x direction.
@@ -73,33 +66,32 @@ diffs_yx = [(1, 1), (1, 1)]
 # y component of force resulting from displacement in the y direction.
 coeffs_yy = [lamb+2*mu, mu]
 diffs_yy =  [(0, 2), (2, 0)]
-# make the differentiation matrices that enforce the PDE on the 
-# interior nodes.
+# make the differentiation matrices that enforce the PDE on the interior nodes.
 D_xx = weight_matrix(nodes[groups['interior']], nodes, n, diffs_xx, coeffs=coeffs_xx)
 D_xy = weight_matrix(nodes[groups['interior']], nodes, n, diffs_xy, coeffs=coeffs_xy)
 D_yx = weight_matrix(nodes[groups['interior']], nodes, n, diffs_yx, coeffs=coeffs_yx)
 D_yy = weight_matrix(nodes[groups['interior']], nodes, n, diffs_yy, coeffs=coeffs_yy)
-G_xx = add_rows(G_xx, D_xx, groups['interior'])
-G_xy = add_rows(G_xy, D_xy, groups['interior'])
-G_yx = add_rows(G_yx, D_yx, groups['interior'])
-G_yy = add_rows(G_yy, D_yy, groups['interior'])
+G_xx = expand_rows(D_xx, groups['interior'], N)
+G_xy = expand_rows(D_xy, groups['interior'], N)
+G_yx = expand_rows(D_yx, groups['interior'], N)
+G_yy = expand_rows(D_yy, groups['interior'], N)
 
 # use the ghost nodes to enforce the PDE on the boundary
 D_xx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xx, coeffs=coeffs_xx)
 D_xy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xy, coeffs=coeffs_xy)
 D_yx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yx, coeffs=coeffs_yx)
 D_yy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yy, coeffs=coeffs_yy)
-G_xx = add_rows(G_xx, D_xx, groups['ghosts:free'])
-G_xy = add_rows(G_xy, D_xy, groups['ghosts:free'])
-G_yx = add_rows(G_yx, D_yx, groups['ghosts:free'])
-G_yy = add_rows(G_yy, D_yy, groups['ghosts:free'])
+G_xx += expand_rows(D_xx, groups['ghosts:free'], N)
+G_xy += expand_rows(D_xy, groups['ghosts:free'], N)
+G_yx += expand_rows(D_yx, groups['ghosts:free'], N)
+G_yy += expand_rows(D_yy, groups['ghosts:free'], N)
 
 ## Enforce fixed boundary conditions
-# Enforce that x and y are as specified with the fixed boundary 
-# condition. These matrices turn out to be identity matrices, but I 
-# include this computation for consistency with the rest of the code. 
-# feel free to comment out the next couple lines and replace it with 
-# an appropriately sized sparse identity matrix.
+# Enforce that x and y are as specified with the fixed boundary condition.
+# These matrices turn out to be identity matrices, but I include this
+# computation for consistency with the rest of the code. feel free to comment
+# out the next couple lines and replace it with an appropriately sized sparse
+# identity matrix.
 coeffs_xx = [1.0]
 diffs_xx = [(0, 0)]
 coeffs_yy = [1.0]
@@ -107,21 +99,25 @@ diffs_yy = [(0, 0)]
 
 dD_fix_xx = weight_matrix(nodes[groups['boundary:fixed']], nodes, n, diffs_xx, coeffs=coeffs_xx)
 dD_fix_yy = weight_matrix(nodes[groups['boundary:fixed']], nodes, n, diffs_yy, coeffs=coeffs_yy)
-G_xx = add_rows(G_xx, dD_fix_xx, groups['boundary:fixed'])
-G_yy = add_rows(G_yy, dD_fix_yy, groups['boundary:fixed'])
+G_xx += expand_rows(dD_fix_xx, groups['boundary:fixed'], N)
+G_yy += expand_rows(dD_fix_yy, groups['boundary:fixed'], N)
 
 ## Enforce free surface boundary conditions
 # x component of traction force resulting from x displacement 
-coeffs_xx = [normals[groups['boundary:free']][:, 0]*(lamb+2*mu), normals[groups['boundary:free']][:, 1]*mu]
+coeffs_xx = [normals[groups['boundary:free']][:, 0]*(lamb+2*mu), 
+             normals[groups['boundary:free']][:, 1]*mu]
 diffs_xx = [(1, 0), (0, 1)]
 # x component of traction force resulting from y displacement
-coeffs_xy = [normals[groups['boundary:free']][:, 0]*lamb, normals[groups['boundary:free']][:, 1]*mu]
+coeffs_xy = [normals[groups['boundary:free']][:, 0]*lamb, 
+             normals[groups['boundary:free']][:, 1]*mu]
 diffs_xy = [(0, 1), (1, 0)]
 # y component of traction force resulting from x displacement
-coeffs_yx = [normals[groups['boundary:free']][:, 0]*mu, normals[groups['boundary:free']][:, 1]*lamb]
+coeffs_yx = [normals[groups['boundary:free']][:, 0]*mu, 
+             normals[groups['boundary:free']][:, 1]*lamb]
 diffs_yx = [(0, 1), (1, 0)]
 # y component of force resulting from displacement in the y direction
-coeffs_yy = [normals[groups['boundary:free']][:, 1]*(lamb+2*mu), normals[groups['boundary:free']][:, 0]*mu]
+coeffs_yy = [normals[groups['boundary:free']][:, 1]*(lamb+2*mu), 
+             normals[groups['boundary:free']][:, 0]*mu]
 diffs_yy =  [(0, 1), (1, 0)]
 # make the differentiation matrices that enforce the free surface boundary 
 # conditions.
@@ -130,10 +126,10 @@ dD_free_xy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_xy, c
 dD_free_yx = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yx, coeffs=coeffs_yx)
 dD_free_yy = weight_matrix(nodes[groups['boundary:free']], nodes, n, diffs_yy, coeffs=coeffs_yy)
 
-G_xx = add_rows(G_xx, dD_free_xx, groups['boundary:free'])
-G_xy = add_rows(G_xy, dD_free_xy, groups['boundary:free'])
-G_yx = add_rows(G_yx, dD_free_yx, groups['boundary:free'])
-G_yy = add_rows(G_yy, dD_free_yy, groups['boundary:free'])
+G_xx += expand_rows(dD_free_xx, groups['boundary:free'], N)
+G_xy += expand_rows(dD_free_xy, groups['boundary:free'], N)
+G_yx += expand_rows(dD_free_yx, groups['boundary:free'], N)
+G_yy += expand_rows(dD_free_yy, groups['boundary:free'], N)
 
 # stack the components together to form the left-hand-side matrix
 G_x = sp.hstack((G_xx, G_xy))
@@ -164,8 +160,7 @@ u = np.reshape(u, (2, -1))
 u_x, u_y = u
 
 ## Calculate strain on a fine grid from displacements
-x, y = np.meshgrid(np.linspace(0.0, 2.0, 100), 
-                   np.linspace(0.0, 1.0, 50))
+x, y = np.meshgrid(np.linspace(0.0, 2.0, 100), np.linspace(0.0, 1.0, 50))
 points = np.array([x.flatten(), y.flatten()]).T
 
 D_x = weight_matrix(points, nodes, n, (1, 0))

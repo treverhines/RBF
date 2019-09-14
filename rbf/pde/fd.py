@@ -175,7 +175,7 @@ def weights(x, s, diffs,
   p = np.zeros((1, pwr.shape[0]), dtype=float)
   for c, d in zip(coeffs, diffs):
     a += c*phi(x[None, :], s, eps=eps, diff=d)
-    p += c*mvmonos(x[None, :], pwr, diff=d)
+    p += c*mvmonos(x[None, :], pwr, diff=d) 
   
   # squeeze `a` and `p` into 1d arrays. `a` is ran through as_array because it
   # may be sparse.

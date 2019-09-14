@@ -28,22 +28,23 @@ smp = np.array([[0, 1],
                 [3, 4],
                 [4, 5],
                 [5, 0]])
-spacing = 0.05
+spacing = 0.03
 lamb = 1.0
 mu = 1.0
 rho = 1.0
 nu = 1e-5
 eval_times = [0.0, 0.25, 0.5, 1.0, 1.5, 2.0]
-plot_eigs = True
+plot_eigs = False
 stencil_size = 50
-order = 2
-basis = rbf.basis.phs3
+order = 4
+basis = rbf.basis.phs5
 
 nodes, groups, normals = poisson_disc_nodes(
     spacing,
     (vert, smp),
     boundary_groups={'all':range(len(smp))},
     boundary_groups_with_ghosts=['all'])
+print(nodes.shape)    
 # create a new node group for my convenience    
 groups['interior+boundary:all'] = np.hstack((groups['interior'], 
                                              groups['boundary:all']))
@@ -65,7 +66,7 @@ u_init = np.zeros_like(nodes.T)
 r = np.sqrt((nodes[groups['interior+boundary:all'], 0] - 0.5)**2 + 
             (nodes[groups['interior+boundary:all'], 1] - 0.5)**2)
 u_init[0, groups['interior+boundary:all']] = 1.0/(1 + (r/0.05)**4)
-u_init[1, groups['interior+boundary:all']] = 1.0/(1 + (r/0.05)**4)
+#u_init[1, groups['interior+boundary:all']] = 1.0/(1 + (r/0.05)**4)
 z_init = np.hstack((u_init.flatten(), v_init.flatten()))
 
 # construct a matrix that maps the displacements at `nodes` to `u`
@@ -129,7 +130,6 @@ H = weight_matrix(
 H = expand_rows(H, groups['interior+boundary:all'], n)     
 H = expand_cols(H, groups['interior+boundary:all'], n)     
 H = sp.block_diag((H, H)).tocsc()
-
 
 def state_derivative(t, z):
     u, v = z.reshape((2, -1))

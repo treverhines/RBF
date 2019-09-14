@@ -1,6 +1,6 @@
 ''' 
-In this example we solve the Poisson equation over an L-shaped domain 
-with fixed boundary conditions. We use the multiquadratic RBF (`mq`) 
+In this example we solve the Poisson equation over an L-shaped domain with
+fixed boundary conditions. We use the multiquadratic RBF (`mq`)
 '''
 import numpy as np
 from rbf.basis import mq
@@ -17,8 +17,8 @@ spacing = 0.07 # approximate spacing between nodes
 
 eps = 0.3/spacing  # shape parameter
 
-# generate the nodes. `nodes` is a (N, 2) float array, `groups` is a
-# dict identifying which group each node is in
+# generate the nodes. `nodes` is a (N, 2) float array, `groups` is a dict
+# identifying which group each node is in
 nodes, groups, _ = poisson_disc_nodes(spacing, (vert, smp)) 
 N = nodes.shape[0]
 

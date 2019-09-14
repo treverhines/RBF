@@ -1,24 +1,21 @@
 ''' 
 This script demonstrates using the RBF-FD method to calculate static
-deformation of a three-dimensional elastic material subject to a
-uniform body force such as gravity. The elastic material has a fixed
-boundary condition on one side and the remaining sides have a free
-surface boundary condition.  This script also demonstrates using ghost
-nodes which, for all intents and purposes, are necessary when dealing
-with Neumann boundary conditions.
+deformation of a three-dimensional elastic material subject to a uniform body
+force such as gravity. The elastic material has a fixed boundary condition on
+one side and the remaining sides have a free surface boundary condition.  This
+script also demonstrates using ghost nodes which, for all intents and purposes,
+are necessary when dealing with Neumann boundary conditions.
 '''
 import logging
 
 import numpy as np
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from rbf.sputils import add_rows
+from rbf.sputils import expand_rows
 from rbf.linalg import GMRESSolver
 from rbf.pde.nodes import poisson_disc_nodes
-from rbf.pde.fd import weight_matrix
 from rbf.pde.elastic import (elastic3d_body_force,
                              elastic3d_surface_force,
                              elastic3d_displacement) 
@@ -27,8 +24,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 ## User defined parameters
 #####################################################################
-# define the vertices of the problem domain. Note that the first two
-# simplices will be fixed, and the others will be free
+# define the vertices of the problem domain. Note that the first two simplices
+# will be fixed, and the others will be free
 vert = np.array([[0.0, 0.0, 0.0],
                  [0.0, 0.0, 1.0],
                  [0.0, 1.0, 0.0],
@@ -62,16 +59,16 @@ n = 50
 ## Build and solve for displacements and strain
 #####################################################################
 # generate nodes. Note that this may take a while
-boundary_groups = {'fix':[0, 1],
-                   'free':range(2, 12)}
+boundary_groups = {'fix':[0, 1], 'free':range(2, 12)}
 nodes, idx, normals = poisson_disc_nodes(
-    dx, (vert, smp),
+    dx, 
+    (vert, smp),
     boundary_groups=boundary_groups,
     boundary_groups_with_ghosts=['free'])
 
-# The "left hand side" matrices are built with the convenience
-# functions from `rbf.pde.elastic`. Read the documentation for these
-# functions to better understand this step.
+# The "left hand side" matrices are built with the convenience functions from
+# `rbf.pde.elastic`. Read the documentation for these functions to better
+# understand this step.
 N = nodes.shape[0]
 G_xx = sp.coo_matrix((N, N))
 G_xy = sp.coo_matrix((N, N))
@@ -87,45 +84,45 @@ G_zz = sp.coo_matrix((N, N))
 
 out = elastic3d_body_force(nodes[idx['interior']], nodes, n,
                            lamb=lamb, mu=mu)
-G_xx = add_rows(G_xx, out['xx'], idx['interior'])
-G_xy = add_rows(G_xy, out['xy'], idx['interior'])
-G_xz = add_rows(G_xz, out['xz'], idx['interior'])
-G_yx = add_rows(G_yx, out['yx'], idx['interior'])
-G_yy = add_rows(G_yy, out['yy'], idx['interior'])
-G_yz = add_rows(G_yz, out['yz'], idx['interior'])
-G_zx = add_rows(G_zx, out['zx'], idx['interior'])
-G_zy = add_rows(G_zy, out['zy'], idx['interior'])
-G_zz = add_rows(G_zz, out['zz'], idx['interior'])
+G_xx += expand_rows(out['xx'], idx['interior'], N)
+G_xy += expand_rows(out['xy'], idx['interior'], N)
+G_xz += expand_rows(out['xz'], idx['interior'], N)
+G_yx += expand_rows(out['yx'], idx['interior'], N)
+G_yy += expand_rows(out['yy'], idx['interior'], N)
+G_yz += expand_rows(out['yz'], idx['interior'], N)
+G_zx += expand_rows(out['zx'], idx['interior'], N)
+G_zy += expand_rows(out['zy'], idx['interior'], N)
+G_zz += expand_rows(out['zz'], idx['interior'], N)
 
 out = elastic3d_body_force(nodes[idx['boundary:free']], nodes, n,
                            lamb=lamb, mu=mu)
-G_xx = add_rows(G_xx, out['xx'], idx['ghosts:free'])
-G_xy = add_rows(G_xy, out['xy'], idx['ghosts:free'])
-G_xz = add_rows(G_xz, out['xz'], idx['ghosts:free'])
-G_yx = add_rows(G_yx, out['yx'], idx['ghosts:free'])
-G_yy = add_rows(G_yy, out['yy'], idx['ghosts:free'])
-G_yz = add_rows(G_yz, out['yz'], idx['ghosts:free'])
-G_zx = add_rows(G_zx, out['zx'], idx['ghosts:free'])
-G_zy = add_rows(G_zy, out['zy'], idx['ghosts:free'])
-G_zz = add_rows(G_zz, out['zz'], idx['ghosts:free'])
+G_xx += expand_rows(out['xx'], idx['ghosts:free'], N)
+G_xy += expand_rows(out['xy'], idx['ghosts:free'], N)
+G_xz += expand_rows(out['xz'], idx['ghosts:free'], N)
+G_yx += expand_rows(out['yx'], idx['ghosts:free'], N)
+G_yy += expand_rows(out['yy'], idx['ghosts:free'], N)
+G_yz += expand_rows(out['yz'], idx['ghosts:free'], N)
+G_zx += expand_rows(out['zx'], idx['ghosts:free'], N)
+G_zy += expand_rows(out['zy'], idx['ghosts:free'], N)
+G_zz += expand_rows(out['zz'], idx['ghosts:free'], N)
 
 out = elastic3d_surface_force(nodes[idx['boundary:free']], 
                               normals[idx['boundary:free']], 
                               nodes, n, lamb=lamb, mu=mu)
-G_xx = add_rows(G_xx, out['xx'], idx['boundary:free'])
-G_xy = add_rows(G_xy, out['xy'], idx['boundary:free'])
-G_xz = add_rows(G_xz, out['xz'], idx['boundary:free'])
-G_yx = add_rows(G_yx, out['yx'], idx['boundary:free'])
-G_yy = add_rows(G_yy, out['yy'], idx['boundary:free'])
-G_yz = add_rows(G_yz, out['yz'], idx['boundary:free'])
-G_zx = add_rows(G_zx, out['zx'], idx['boundary:free'])
-G_zy = add_rows(G_zy, out['zy'], idx['boundary:free'])
-G_zz = add_rows(G_zz, out['zz'], idx['boundary:free'])
+G_xx += expand_rows(out['xx'], idx['boundary:free'], N)
+G_xy += expand_rows(out['xy'], idx['boundary:free'], N)
+G_xz += expand_rows(out['xz'], idx['boundary:free'], N)
+G_yx += expand_rows(out['yx'], idx['boundary:free'], N)
+G_yy += expand_rows(out['yy'], idx['boundary:free'], N)
+G_yz += expand_rows(out['yz'], idx['boundary:free'], N)
+G_zx += expand_rows(out['zx'], idx['boundary:free'], N)
+G_zy += expand_rows(out['zy'], idx['boundary:free'], N)
+G_zz += expand_rows(out['zz'], idx['boundary:free'], N)
 
 out = elastic3d_displacement(nodes[idx['boundary:fix']], nodes, 1)
-G_xx = add_rows(G_xx, out['xx'], idx['boundary:fix'])
-G_yy = add_rows(G_yy, out['yy'], idx['boundary:fix'])
-G_zz = add_rows(G_zz, out['zz'], idx['boundary:fix'])
+G_xx += expand_rows(out['xx'], idx['boundary:fix'], N)
+G_yy += expand_rows(out['yy'], idx['boundary:fix'], N)
+G_zz += expand_rows(out['zz'], idx['boundary:fix'], N)
 
 G_x = sp.hstack((G_xx, G_xy, G_xz))
 G_y = sp.hstack((G_yx, G_yy, G_yz))
