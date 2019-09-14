@@ -107,6 +107,7 @@ the RBF-FD method should always be preferred over the spectral RBF method. An
 example of the two methods is provided below.
 
 .. code-block:: python
+
     ''' 
     In this example we solve the Poisson equation over an L-shaped domain with
     fixed boundary conditions. We use the multiquadratic RBF (`mq`)
@@ -171,6 +172,7 @@ example of the two methods is provided below.
 .. figure:: docs/figures/basis.a.png
 
 .. code-block:: python
+
     ''' 
     In this example we solve the Poisson equation over an L-shaped domain with
     fixed boundary conditions. We use the RBF-FD method. The RBF-FD method is
