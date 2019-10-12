@@ -33,7 +33,7 @@ lamb = 1.0
 mu = 1.0
 rho = 1.0
 nu = 1e-5
-eval_times = [0.0, 0.25, 0.5, 1.0, 1.5, 2.0]
+eval_times = np.linspace(0.0, 4.0, 41)
 plot_eigs = False
 stencil_size = 50
 order = 4
@@ -132,7 +132,11 @@ H = expand_cols(H, groups['interior+boundary:all'], n)
 H = sp.block_diag((H, H)).tocsc()
 
 def state_derivative(t, z):
-    u, v = z.reshape((2, -1))
+    u, v = z.reshape((2, 2, -1))
+    #u, v = z.reshape((2, -1))
+    u[:, groups['ghosts:all']] = -v[:, groups['boundary:all']]
+    u = u.flatten()
+    v = v.flatten()
     return np.hstack([v, rho*D.dot(Bsolver.solve(u)) + nu*H.dot(v)])
 
 
@@ -159,6 +163,9 @@ soln = solve_ivp(
 
 for ti, zi in zip(soln.t, soln.y.T):
     u, v = zi.reshape((2, 2, -1))
-    plt.quiver(nodes[:, 0], nodes[:, 1], u[0, :], u[1, :], scale=2.0)
+    plt.quiver(nodes[groups['interior+boundary:all'], 0], 
+               nodes[groups['interior+boundary:all'], 1], 
+               u[0, groups['interior+boundary:all']], 
+               u[1, groups['interior+boundary:all']], scale=2.0)
     plt.title('time: %.2f' % ti)
     plt.show()

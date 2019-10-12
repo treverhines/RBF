@@ -33,17 +33,17 @@ smp = np.array([[0, 1],
                 [4, 5],
                 [5, 0]])
 # the times where we will evaluate the solution (these are not the time steps)
-times = np.linspace(0.0, 4.0, 41)
+times = np.linspace(0.0, 4.0, 21)
 # the spacing between nodes
 spacing = 0.05
 # the wave speed
 rho = 1.0 
 # the hyperviscosity factor
-nu = 1e-6
+nu = 1e-3
 # whether to plot the eigenvalues for the state differentiation matrix. All the
 # eigenvalues must have a negative real component for the time stepping to be
 # stable
-plot_eigs = False
+plot_eigs = True
 # number of nodes used for each RBF-FD stencil
 stencil_size = 50
 # the polynomial order for generating the RBF-FD weights
@@ -57,7 +57,7 @@ nodes, groups, normals = poisson_disc_nodes(
     (vert, smp),
     boundary_groups={'all':range(len(smp))},
     boundary_groups_with_ghosts=['all'])
-n = nodes.shape[0]
+node_size = nodes.shape[0]
 
 # We will solve the wave equation by numerically integrating the state vector
 # `z`. The state vector is a concatenation of `u` and `v`. `u` is a (n,) array
@@ -78,42 +78,64 @@ groups['interior+boundary:all'] = np.hstack((groups['interior'],
 r = np.sqrt((nodes[groups['interior+boundary:all'], 0] - 0.5)**2 +
             (nodes[groups['interior+boundary:all'], 1] - 0.5)**2)
 
-u_init = np.zeros((n,))
-u_init[groups['interior+boundary:all']] = 1.0/(1 + (r/0.1)**4)
-v_init = np.zeros((n,))
-z_init = np.hstack((u_init, v_init))
+u_init = 1.0/(1 + (r/0.1)**4)
+v_init = np.zeros_like(u_init)
+b_init = np.zeros(len(groups['boundary:all']))
+z_init = np.hstack((u_init, v_init, b_init))
+u_size = u_init.shape[0]
+v_size = v_init.shape[0]
+b_size = b_init.shape[0]
+z_size = u_size + v_size + b_size
 
 # construct a matrix that maps the displacements at `nodes` to `u`
-B_disp = weight_matrix(
+U = weight_matrix(
     x=nodes[groups['interior+boundary:all']],
     p=nodes,
     n=1,
     diffs=(0, 0))
-B_free = weight_matrix(
+U = U.tocsc()    
+
+# construct a matrix that maps the displacements at `nodes` to `b`
+B = weight_matrix(
     x=nodes[groups['boundary:all']],
     p=nodes,
     n=stencil_size,
-    diffs=[(1, 0), (0, 1)],
-    coeffs=[normals[groups['boundary:all'], 0],
-            normals[groups['boundary:all'], 1]],
+    diffs=[(2, 0), (0, 2)],
+    coeffs=[-rho*(1 + 0.5*normals[groups['boundary:all'], 1]),
+            -rho*(1 - 0.5*normals[groups['boundary:all'], 0])],
     phi=phi,
     order=order)
-B  = expand_rows(B_disp, groups['interior+boundary:all'], n)
-B += expand_rows(B_free, groups['ghosts:all'], n)
 B = B.tocsc()
-Bsolver = splu(B)
+B1 = B[:, groups['interior+boundary:all']]    
+B2 = B[:, groups['ghosts:all']]    
+B2solver = splu(B2)
 
-# construct a matrix that maps the displacements at `nodes` to the acceleration
-# of `u` due to body forces.
-D = rho*weight_matrix(
+# construct a matrix that maps the displacements at `nodes` to the time
+# derivative of `v`
+D = rho**2*weight_matrix(
     x=nodes[groups['interior+boundary:all']],
     p=nodes,
     n=stencil_size,
     diffs=[(2, 0), (0, 2)],
     phi=phi,
     order=order)
-D = expand_rows(D, groups['interior+boundary:all'], n)
 D = D.tocsc()
+
+# construct a matrix that maps the displacements at `nodes` to the time
+# derivative of `b`
+C = weight_matrix(
+    x=nodes[groups['boundary:all']],
+    p=nodes,
+    n=stencil_size,
+    diffs=[(3, 0), (1, 2), (2, 1), (0, 3)],
+    coeffs=[-rho**2*normals[groups['boundary:all'], 0],
+            -rho**2*normals[groups['boundary:all'], 0],
+            -rho**2*normals[groups['boundary:all'], 1],
+            -rho**2*normals[groups['boundary:all'], 1]],
+    phi=phi,
+    order=order)
+C = C.tocsc()
+
 
 # construct a matrix that maps `v` to the acceleration of `u` due to
 # hyperviscosity.
@@ -124,20 +146,39 @@ H = -nu*weight_matrix(
     diffs=[(4, 0), (0, 4)],
     phi='phs5',
     order=4)
-H = expand_rows(H, groups['interior+boundary:all'], n)
-H = expand_cols(H, groups['interior+boundary:all'], n)
 H = H.tocsc()
+
+F = -nu*weight_matrix(
+    x=nodes[groups['boundary:all']],
+    p=nodes[groups['boundary:all']],
+    n=stencil_size,
+    diffs=[(4, 0), (0, 4)],
+    phi='phs5',
+    order=4)
+F = F.tocsc()
 
 # create a function used for time stepping. this returns the time derivative of
 # the state vector
 def state_derivative(t, z):
-    u, v = z.reshape((2, -1))
-    return np.hstack([v, D.dot(Bsolver.solve(u)) + H.dot(v)])
+    u = z[:u_size]
+    v = z[u_size:(u_size + v_size)]
+    b = z[(u_size + v_size):]
+
+    disp = np.zeros((node_size,))
+    disp[groups['interior+boundary:all']] = u
+    disp[groups['ghosts:all']] = B2solver.solve(b - B1.dot(u))
+    
+    dudt = v
+    dvdt = D.dot(disp) + H.dot(v)
+    dbdt = C.dot(disp) + F.dot(b)
+    
+    out = np.hstack((dudt, dvdt, dbdt))
+    return out
 
 if plot_eigs:
-    L = LinearOperator((2*n, 2*n), matvec=lambda x:state_derivative(0.0, x))
+    L = LinearOperator((z_size, z_size), matvec=lambda x:state_derivative(0.0, x))
     print('computing eigenvectors ...')
-    vals = eigs(L, 2*n - 2, return_eigenvectors=False)
+    vals = eigs(L, z_size - 2, return_eigenvectors=False)
     print('done')
     print('min real: %s' % np.min(vals.real))
     print('max real: %s' % np.max(vals.real))
@@ -149,7 +190,6 @@ if plot_eigs:
     ax.set_xlabel('real')
     ax.set_ylabel('imaginary')
     ax.grid(ls=':')
-    plt.savefig('../figures/fd.d.1.png')
 
 print('performing time integration ...')
 soln = solve_ivp(
@@ -159,6 +199,13 @@ soln = solve_ivp(
     method='RK45',
     t_eval=times)
 print('done')
+
+#u_point = soln.y[groups['boundary:all'][0], :]
+#fig, ax = plt.subplots()
+#ax.plot(times, u_point, 'k-')
+#ax.grid(ls=':')
+#ax.set_xlabel('time')
+#ax.set_ylabel('displacement')
 
 
 ## PLOTTING
@@ -175,7 +222,6 @@ I = weight_matrix(
     diffs=(0, 0), 
     phi=phi,
     order=order)
-I = expand_cols(I, groups['interior+boundary:all'], n)
 
 # create a mask for points in `xy` that are outside of the domain
 is_outside = ~contains(xy, vert, smp)
@@ -188,7 +234,11 @@ def update(index):
     fig.clear()
     ax = fig.add_subplot(111)
 
-    u, v = soln.y[:, index].reshape((2, -1))
+    z = soln.y[:, index]
+    u = z[:u_size]
+    v = z[u_size:(u_size + v_size)]
+    b = z[(u_size + v_size):]
+    
     u_xy = I.dot(u)
     u_xy[is_outside] = np.nan 
     u_xy = u_xy.reshape((100, 100))
@@ -203,6 +253,8 @@ def update(index):
         extend='both')
 
     ax.scatter(nodes[:, 0], nodes[:, 1], c='k', s=2)
+    ax.scatter(nodes[groups['boundary:all'][[0]], 0], 
+               nodes[groups['boundary:all'][[0]], 1], c='k', s=10)
     ax.set_title('time: %.2f' % times[index])
 
     ax.set_xlim(-0.05, 2.05)     
@@ -217,7 +269,7 @@ def update(index):
 ani = FuncAnimation(
     fig=fig, 
     func=update, 
-    frames=range(len(times)), 
+    frames=range(soln.y.shape[1]), 
     repeat=True,
     blit=False)
     
