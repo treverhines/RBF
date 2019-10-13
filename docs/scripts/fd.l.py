@@ -1,7 +1,6 @@
 '''
-This script solves the 2-D wave equation on an L-shaped domain with free
-boundary conditions. This also illustrates how to implement hyperviscosity to
-stabilize the time stepping.
+This script solves the 2-D wave equation on an L-shaped domain with absorbing
+boundary conditions.
 '''
 import logging
 
@@ -12,7 +11,6 @@ from matplotlib.animation import FuncAnimation
 from scipy.sparse.linalg import splu, LinearOperator, eigs
 from scipy.integrate import solve_ivp
 
-from rbf.sputils import expand_rows, expand_cols
 from rbf.pde.fd import weight_matrix
 from rbf.pde.nodes import poisson_disc_nodes
 from rbf.pde.geometry import contains
@@ -33,17 +31,17 @@ smp = np.array([[0, 1],
                 [4, 5],
                 [5, 0]])
 # the times where we will evaluate the solution (these are not the time steps)
-times = np.linspace(0.0, 4.0, 21)
+times = np.linspace(0.0, 4.0, 41)
 # the spacing between nodes
 spacing = 0.05
 # the wave speed
-rho = 1.0 
+rho = 1.0
 # the hyperviscosity factor
-nu = 1e-3
+nu = 1e-6
 # whether to plot the eigenvalues for the state differentiation matrix. All the
 # eigenvalues must have a negative real component for the time stepping to be
 # stable
-plot_eigs = True
+plot_eigs = False
 # number of nodes used for each RBF-FD stencil
 stencil_size = 50
 # the polynomial order for generating the RBF-FD weights
@@ -60,14 +58,9 @@ nodes, groups, normals = poisson_disc_nodes(
 node_size = nodes.shape[0]
 
 # We will solve the wave equation by numerically integrating the state vector
-# `z`. The state vector is a concatenation of `u` and `v`. `u` is a (n,) array
-# consisting of:
-#
-#     - the displacements at the interior at `u[groups['interior']]`
-#     - the displacements at the boundary at `u[groups['boundary:all']]`
-#     - the free boundary conditions at `u[groups['ghosts:all']]`
-#
-# `v` is a (n,) array and it is the time derivative of `u`
+# `z`. The state vector is a concatenation of `u`, `v`, and `b`. `u` are the
+# displacements at the interior and boundary; `v` are the velocities at the
+# interior and boundary; and `b` are the boundary conditions.
 
 # create a new node group for convenience
 groups['interior+boundary:all'] = np.hstack((groups['interior'],
@@ -100,9 +93,9 @@ B = weight_matrix(
     x=nodes[groups['boundary:all']],
     p=nodes,
     n=stencil_size,
-    diffs=[(2, 0), (0, 2)],
-    coeffs=[-rho*(1 + 0.5*normals[groups['boundary:all'], 1]),
-            -rho*(1 - 0.5*normals[groups['boundary:all'], 0])],
+    diffs=[(1, 0), (0, 1)],
+    coeffs=[normals[groups['boundary:all'], 0],
+            normals[groups['boundary:all'], 1]],
     phi=phi,
     order=order)
 B = B.tocsc()
@@ -112,7 +105,7 @@ B2solver = splu(B2)
 
 # construct a matrix that maps the displacements at `nodes` to the time
 # derivative of `v`
-D = rho**2*weight_matrix(
+D = rho**2 * weight_matrix(
     x=nodes[groups['interior+boundary:all']],
     p=nodes,
     n=stencil_size,
@@ -123,19 +116,14 @@ D = D.tocsc()
 
 # construct a matrix that maps the displacements at `nodes` to the time
 # derivative of `b`
-C = weight_matrix(
+C = -rho * weight_matrix(
     x=nodes[groups['boundary:all']],
     p=nodes,
     n=stencil_size,
-    diffs=[(3, 0), (1, 2), (2, 1), (0, 3)],
-    coeffs=[-rho**2*normals[groups['boundary:all'], 0],
-            -rho**2*normals[groups['boundary:all'], 0],
-            -rho**2*normals[groups['boundary:all'], 1],
-            -rho**2*normals[groups['boundary:all'], 1]],
+    diffs=[(2, 0), (0, 2)],
     phi=phi,
     order=order)
 C = C.tocsc()
-
 
 # construct a matrix that maps `v` to the acceleration of `u` due to
 # hyperviscosity.
@@ -147,15 +135,6 @@ H = -nu*weight_matrix(
     phi='phs5',
     order=4)
 H = H.tocsc()
-
-F = -nu*weight_matrix(
-    x=nodes[groups['boundary:all']],
-    p=nodes[groups['boundary:all']],
-    n=stencil_size,
-    diffs=[(4, 0), (0, 4)],
-    phi='phs5',
-    order=4)
-F = F.tocsc()
 
 # create a function used for time stepping. this returns the time derivative of
 # the state vector
@@ -170,8 +149,8 @@ def state_derivative(t, z):
     
     dudt = v
     dvdt = D.dot(disp) + H.dot(v)
-    dbdt = C.dot(disp) + F.dot(b)
-    
+    dbdt = C.dot(disp)
+
     out = np.hstack((dudt, dvdt, dbdt))
     return out
 
@@ -199,14 +178,6 @@ soln = solve_ivp(
     method='RK45',
     t_eval=times)
 print('done')
-
-#u_point = soln.y[groups['boundary:all'][0], :]
-#fig, ax = plt.subplots()
-#ax.plot(times, u_point, 'k-')
-#ax.grid(ls=':')
-#ax.set_xlabel('time')
-#ax.set_ylabel('displacement')
-
 
 ## PLOTTING
 # create the interpolation points
@@ -236,8 +207,6 @@ def update(index):
 
     z = soln.y[:, index]
     u = z[:u_size]
-    v = z[u_size:(u_size + v_size)]
-    b = z[(u_size + v_size):]
     
     u_xy = I.dot(u)
     u_xy[is_outside] = np.nan 
@@ -273,5 +242,4 @@ ani = FuncAnimation(
     repeat=True,
     blit=False)
     
-ani.save('../figures/fd.d.2.gif', writer='imagemagick', fps=3)
 plt.show()
