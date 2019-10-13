@@ -4,11 +4,11 @@ channels:
   - conda-forge
 dependencies:
   - numpy
-  - numpydoc 
+  - numpydoc
   - scipy
   - sympy
   - cython
   - rtree
   - scikit-sparse
-  - sphinx
+  - sphinx=1.8.5
   - sphinx_rtd_theme
