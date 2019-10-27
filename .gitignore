@@ -6,4 +6,5 @@ dist
 *.pyc
 rbf/*.html
 rbf/pde/*.html
+rbf/misc/*.html
 rbf/_version.py
