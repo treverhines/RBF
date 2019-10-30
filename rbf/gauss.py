@@ -495,7 +495,7 @@ def _max(a,b):
   everything.
   '''
   if (a is None) & (b is None):
-        return None
+    return None
     
   elif a is None:
     return b
@@ -581,8 +581,8 @@ def _add(gp1, gp2):
     return out       
 
   def covariance(x1, x2, diff1, diff2):
-    out = (gp1._covariance(x1, x2, diff1, diff2) + 
-           gp2._covariance(x1, x2, diff1, diff2))
+    out = as_sparse_or_array(gp1._covariance(x1, x2, diff1, diff2) + 
+                             gp2._covariance(x1, x2, diff1, diff2))
     return out
 
   def basis(x, diff):
@@ -590,6 +590,9 @@ def _add(gp1, gp2):
                      gp2._basis(x, diff)))
     return out                     
             
+  mean._io_is_checked = None
+  covariance._io_is_checked = None
+  basis._io_is_checked = None    
   dim = _max(gp1.dim, gp2.dim)
   out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
   return out
@@ -605,8 +608,8 @@ def _subtract(gp1, gp2):
     return out
       
   def covariance(x1, x2, diff1, diff2):
-    out = (gp1._covariance(x1, x2, diff1, diff2) + 
-           gp2._covariance(x1, x2, diff1, diff2))
+    out = as_sparse_or_array(gp1._covariance(x1, x2, diff1, diff2) + 
+                             gp2._covariance(x1, x2, diff1, diff2))
     return out       
             
   def basis(x, diff):
@@ -614,6 +617,9 @@ def _subtract(gp1, gp2):
                      gp2._basis(x, diff)))
     return out                     
 
+  mean._io_is_checked = None
+  covariance._io_is_checked = None
+  basis._io_is_checked = None    
   dim = _max(gp1.dim, gp2.dim)
   out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
   return out
@@ -632,6 +638,8 @@ def _scale(gp, c):
     return out
       
   # the basis functions are unchanged by scaling
+  mean._io_is_checked = None
+  covariance._io_is_checked = None
   out = GaussianProcess(mean, covariance, basis=gp._basis, dim=gp.dim)
   return out
 
@@ -652,6 +660,9 @@ def _differentiate(gp, d):
     out = gp._basis(x, diff + d)
     return out 
     
+  mean._io_is_checked = None
+  covariance._io_is_checked = None
+  basis._io_is_checked = None    
   dim = d.shape[0]
   out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
   return out
@@ -714,6 +725,9 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
     return out
   
+  mean._io_is_checked = None
+  covariance._io_is_checked = None
+  basis._io_is_checked = None    
   dim = y.shape[1]
   out = GaussianProcess(mean, covariance, dim=dim)
   return out
@@ -934,15 +948,27 @@ def _zero_mean(x, diff):
   return np.zeros((x.shape[0],), dtype=float)  
 
 
-def _zero_covariance(x1, x2, diff1, diff2):
-  '''covariance function that returns zeros'''
+def _zero_sparse_covariance(x1, x2, diff1, diff2):
+  '''covariance function that returns sparse zeros'''
   return sp.csc_matrix((x1.shape[0], x2.shape[0]), dtype=float)  
+
+
+def _zero_dense_covariance(x1, x2, diff1, diff2):
+  '''covariance function that returns dense zeros'''
+  return np.zeros((x1.shape[0], x2.shape[0]), dtype=float)  
 
 
 def _empty_basis(x, diff):
   '''empty set of basis functions'''
   return np.zeros((x.shape[0], 0), dtype=float)  
   
+# we know the input and output for the above functions are valid, so append a
+# tag to them indicating that they do not need to be checked
+_zero_mean._io_is_checked = None
+_zero_sparse_covariance._io_is_checked = None
+_zero_dense_covariance._io_is_checked = None
+_empty_basis._io_is_checked = None
+
 
 def _mean_io_check(fin):
   ''' 
@@ -1848,7 +1874,7 @@ def gpexp(params, dim=None, check_finite=True):
   return out
 
 
-def gpbasis(basis, dim=None):
+def gpbasis(basis, dim=None, dense=False):
   ''' 
   Creates an `GaussianProcess` consisting only of basis functions.
 
@@ -1865,17 +1891,27 @@ def gpbasis(basis, dim=None):
     be raised if method arguments have a conflicting number of spatial
     dimensions.
 
+  dense : bool, optional
+    If True, then the covariance function returns a dense, rather than sparse,
+    array of zeros. This is useful when the covariance matrices are relatively
+    small and we do not want to incur the overhead of sparse matrices.
+
   Returns
   -------
   out : GaussianProcess
     
   '''
-  out = GaussianProcess(_zero_mean, _zero_covariance,
-                        basis=basis, dim=dim)
+  if dense:
+    out = GaussianProcess(_zero_mean, _zero_dense_covariance,
+                          basis=basis, dim=dim)
+  else:
+    out = GaussianProcess(_zero_mean, _zero_sparse_covariance,
+                          basis=basis, dim=dim)
+
   return out
 
 
-def gppoly(order, dim=None):
+def gppoly(order, dim=None, dense=False):
   ''' 
   Returns a `GaussianProcess` consisting of monomial basis functions. The
   monomials span the space of all polynomials with a user-specified order. If
@@ -1892,6 +1928,11 @@ def gppoly(order, dim=None):
     be raised if method arguments have a conflicting number of spatial
     dimensions.
 
+  dense : bool, optional
+    If True, then the covariance function returns a dense, rather than sparse,
+    array of zeros. This is useful when the covariance matrices are relatively
+    small and we do not want to incur the overhead of sparse matrices.
+
   Returns
   -------
   out : GaussianProcess  
@@ -1902,7 +1943,7 @@ def gppoly(order, dim=None):
     out = rbf.poly.mvmonos(x, powers, diff)
     return out
   
-  out = gpbasis(basis, dim=dim)  
+  out = gpbasis(basis, dim=dim, dense=dense)
   return out
 
 
