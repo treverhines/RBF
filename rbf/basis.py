@@ -227,7 +227,7 @@ class RBF(object):
     self._cache = {}
 
 
-  def __call__(self, x, c, eps=1.0, diff=None):
+  def __call__(self, x, c, eps=1.0, diff=None, out=None):
     ''' 
     Numerically evaluates the RBF or its derivatives.
     
@@ -248,6 +248,9 @@ class RBF(object):
       cause this function to return the RBF after differentiating it twice
       along the first dimension and once along the third dimension.
 
+    out : (N, M) float array, optional
+      An array in which to put the results
+        
     Returns
     -------
     (N, M) float array
@@ -297,7 +300,7 @@ class RBF(object):
     c = c.T[:, None, :]
     args = (tuple(x) + tuple(c) + (eps,))
     # evaluate the cached function for the given `x`, `c`, and `eps`
-    out = self._cache[diff](*args)
+    out = self._cache[diff](*args, out=out)
     return out
 
   def __repr__(self):
