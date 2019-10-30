@@ -727,7 +727,6 @@ def _condition(gp, y, d, sigma, p, obs_diff):
   
   mean._io_is_checked = None
   covariance._io_is_checked = None
-  basis._io_is_checked = None    
   dim = y.shape[1]
   out = GaussianProcess(mean, covariance, dim=dim)
   return out
@@ -1812,6 +1811,8 @@ def gpiso(phi, params, dim=None, check_finite=True):
 
     return out
 
+  mean._io_is_checked = None
+  covariance._io_is_checked = None
   out = GaussianProcess(mean, covariance, dim=dim)
   return out
 
@@ -1943,6 +1944,7 @@ def gppoly(order, dim=None, dense=False):
     out = rbf.poly.mvmonos(x, powers, diff)
     return out
   
+  basis._io_is_checked = None
   out = gpbasis(basis, dim=dim, dense=dense)
   return out
 
@@ -1998,5 +2000,6 @@ def gpgibbs(ls, sigma, delta=1e-4):
     out = sigma**2*coeff*np.exp(exponent)
     return out
 
+  covariance._io_is_checked = None
   out = GaussianProcess(_zero_mean, covariance)
   return out
