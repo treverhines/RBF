@@ -14,7 +14,7 @@ cimport numpy as np
 from cython cimport boundscheck, wraparound
 
 
-def mvmonos(x, powers, diff=None):
+def mvmonos(x, powers, diff=None, out=None):
   ''' 
   Multivariate monomial basis functions
 
@@ -28,11 +28,15 @@ def mvmonos(x, powers, diff=None):
     contains the exponents for the spatial variables in a monomial.
 
   diff : (D,) int array, optional
-    derivative order for each variable
+    Derivative order for each variable
+
+  out : (N, M) float array, optional
+    An array in which to put the output. Since providing `out` is a means of
+    optimization, there are no checks on the shape of `out`.
 
   Returns
   -------
-  out : (N, M) array
+  (N, M) array
     Alternant matrix where x is evaluated for each monomial 
  
   Example
@@ -63,17 +67,20 @@ def mvmonos(x, powers, diff=None):
     diff = np.zeros(x.shape[1], dtype=int)
   else:
     diff = np.asarray(diff, dtype=int)
+    assert_shape(diff, (x.shape[1],), 'diff')
     
-  assert_shape(diff, (x.shape[1],), 'diff') 
+  if out is None:
+    out = np.empty((x.shape[0], powers.shape[0]), dtype=float)
     
-  return _mvmonos(x, powers, diff)
+  return _mvmonos(x, powers, diff, out)
 
 
 @boundscheck(False)
 @wraparound(False)
 cpdef np.ndarray _mvmonos(double[:, :] x, 
                           long[:, :] powers, 
-                          long[:] diff):
+                          long[:] diff,
+                          double[:, :] out):
   ''' 
   cython evaluation of mvmonos
   '''
@@ -85,7 +92,6 @@ cpdef np.ndarray _mvmonos(double[:, :] x,
     long M = powers.shape[0] 
     # number of positions where the monomials are evaluated
     long N = x.shape[0]
-    double[:, :] out = np.empty((N, M), dtype=float)
     long coeff, power
 
   # loop over dimensions
