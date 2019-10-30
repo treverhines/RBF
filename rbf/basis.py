@@ -469,9 +469,6 @@ class SparseRBF(RBF):
       raise NotImplementedError(
         '`eps` must be a scalar for `SparseRBF` instances')
 
-    # convert scalar to (1,) array
-    eps = np.array([eps], dtype=float)
-
     if diff is None:
       diff = (0,)*x.shape[1]
 
@@ -485,7 +482,7 @@ class SparseRBF(RBF):
       self._add_diff_to_cache(diff)
 
     # convert self.supp from a sympy expression to a float
-    supp = float(self.supp.subs(_EPS, eps[0]))
+    supp = float(self.supp.subs(_EPS, eps))
 
     # find the nonzero entries based on distances between `x` and `c`
     nx, nc = x.shape[0], c.shape[0]
@@ -504,13 +501,10 @@ class SparseRBF(RBF):
     # `n` is the total number of data entries thus far
     n = 0
     for i, idxi in enumerate(idx):
-      # `m` is the number of nodes in `x` close to `c[[i]]`
+      # `m` is the number of nodes in `x` close to `c[i]`
       m = len(idxi)
-      # properly shape `x` and `c` for broadcasting
-      xi = x.T[:, idxi, None]
-      ci = c.T[:, None, i][:, :, None]
-      args = (tuple(xi) + tuple(ci) + (eps,))
-      data[n:n + m] = self._cache[diff](*args)[:, 0]
+      args = (tuple(x[idxi].T) + tuple(c[i]) + (eps,))
+      self._cache[diff](*args, out=data[n:n + m])
       rows[n:n + m] = idxi
       cols[n:n + m] = i
       n += m
