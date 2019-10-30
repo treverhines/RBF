@@ -953,7 +953,7 @@ def _mean_io_check(fin):
     return fin
     
   arg_count = get_arg_count(fin)
-  def fout(x, diff):
+  def mean_checked(x, diff):
     if arg_count == 1:
       # `fin` only takes one argument and is assumed to not be differentiable
       if sum(diff) != 0: 
@@ -972,8 +972,8 @@ def _mean_io_check(fin):
           
   # add a tag to the function indicating that the output has been checked. This
   # prevents double wrapping
-  fout._io_is_checked = None
-  return fout
+  mean_checked._io_is_checked = None
+  return mean_checked
 
 
 def _covariance_io_check(fin):
@@ -986,7 +986,7 @@ def _covariance_io_check(fin):
     return fin
     
   arg_count = get_arg_count(fin)
-  def fout(x1, x2, diff1, diff2):
+  def covariance_checked(x1, x2, diff1, diff2):
     if arg_count == 2:
       # *fin* only takes two argument and is assumed to not be differentiable
       if (sum(diff1) != 0) | (sum(diff2) != 0): 
@@ -1006,8 +1006,8 @@ def _covariance_io_check(fin):
           
   # add a tag to the function indicating that the output has been checked. This
   # prevents double wrapping
-  fout._io_is_checked = None
-  return fout
+  covariance_checked._io_is_checked = None
+  return covariance_checked
 
 
 def _basis_io_check(fin):
@@ -1019,7 +1019,7 @@ def _basis_io_check(fin):
     return fin
     
   arg_count = get_arg_count(fin)
-  def fout(x, diff):
+  def basis_checked(x, diff):
     if arg_count == 1:
       # `fin` only takes two argument and is assumed to not be differentiable
       if sum(diff) != 0: 
@@ -1039,8 +1039,8 @@ def _basis_io_check(fin):
           
   # add a tag to the function indicating that the output has been checked. This
   # prevents double wrapping
-  fout._io_is_checked = None
-  return fout
+  basis_checked._io_is_checked = None
+  return basis_checked
 
 
 class GaussianProcess(object):

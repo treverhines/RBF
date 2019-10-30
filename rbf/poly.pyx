@@ -71,16 +71,17 @@ def mvmonos(x, powers, diff=None, out=None):
     
   if out is None:
     out = np.empty((x.shape[0], powers.shape[0]), dtype=float)
-    
-  return _mvmonos(x, powers, diff, out)
+
+  _mvmonos(x, powers, diff, out)    
+  return out
 
 
 @boundscheck(False)
 @wraparound(False)
-cpdef np.ndarray _mvmonos(double[:, :] x, 
-                          long[:, :] powers, 
-                          long[:] diff,
-                          double[:, :] out):
+cdef void _mvmonos(double[:, :] x, 
+                   long[:, :] powers, 
+                   long[:] diff,
+                   double[:, :] out):
   ''' 
   cython evaluation of mvmonos
   '''
@@ -117,7 +118,7 @@ cpdef np.ndarray _mvmonos(double[:, :] x,
         else:
           out[l, j] *= coeff*x[l, i]**power              
 
-  return np.asarray(out)
+  return
   
 
 @Memoize
