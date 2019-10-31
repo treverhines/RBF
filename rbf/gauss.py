@@ -798,6 +798,7 @@ def _io_is_checked(fin):
   fin._io_is_checked = None
   return fin
 
+
 def _is_null(fin):
   '''
   Decorator that indicates the mean function returns zeros, covariance function
@@ -812,6 +813,13 @@ def _is_null(fin):
 @_io_is_checked
 def zero_mean(x, diff):
   '''mean function that returns zeros'''
+  return np.zeros((x.shape[0],), dtype=float)
+
+
+@_is_null
+@_io_is_checked
+def zero_variance(x, diff):
+  '''variance function that returns zeros'''
   return np.zeros((x.shape[0],), dtype=float)
 
 
@@ -834,6 +842,19 @@ def zero_dense_covariance(x1, x2, diff1, diff2):
 def empty_basis(x, diff):
   '''empty set of basis functions'''
   return np.zeros((x.shape[0], 0), dtype=float)
+
+
+def _default_variance(covariance):
+  '''Converts a covariance function to a variance function'''
+  @_io_is_checked
+  def variance(x, diff):
+    cov = covariance(x, x, diff, diff)
+    # cov may be a CSC sparse matrix or an array. Either way, it has a
+    # diagonal method
+    out = cov.diagonal()
+    return out
+
+  return variance
 
 
 def _mean_io_check(fin):
@@ -865,6 +886,37 @@ def _mean_io_check(fin):
     return out
 
   return mean_checked
+
+
+def _variance_io_check(fin):
+  '''
+  Decorator that ensures the variance function takes two positional arguments
+  and returns an array with the appropriate shape.
+  '''
+  if hasattr(fin, '_io_is_checked'):
+    return fin
+
+  arg_count = get_arg_count(fin)
+
+  @_io_is_checked
+  def variance_checked(x, diff):
+    if arg_count == 1:
+      # `fin` only takes one argument and is assumed to not be differentiable
+      if any(diff):
+        raise ValueError(
+          'The variance of the `GaussianProcess` is not differentiable')
+
+      out = fin(x)
+
+    else:
+      # otherwise it is assumed that `fin` takes two arguments
+      out = fin(x, diff)
+
+    out = as_array(out)
+    assert_shape(out, (x.shape[0],), 'variance_output')
+    return out
+
+  return variance_checked
 
 
 def _covariance_io_check(fin):
@@ -948,6 +1000,18 @@ def _add(gp1, gp2):
       out = gp1._mean(x, diff) + gp2._mean(x, diff)
       return out
 
+  if hasattr(gp2._variance, '_is_null'):
+    variance = gp1._variance
+
+  elif hasattr(gp1._variance, '_is_null'):
+    variance = gp2._variance
+
+  else:
+    @_io_is_checked
+    def variance(x, diff):
+      out = gp1._variance(x, diff) + gp2._variance(x, diff)
+      return out
+
   if hasattr(gp2._covariance, '_is_null'):
     covariance = gp1._covariance
 
@@ -975,7 +1039,8 @@ def _add(gp1, gp2):
       return out
 
   dim = _combined_dim(gp1.dim, gp2.dim)
-  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
+  out = GaussianProcess(mean, covariance, basis=basis, variance=variance, 
+                        dim=dim)
   return out
 
 
@@ -999,6 +1064,18 @@ def _subtract(gp1, gp2):
       out = gp1._mean(x, diff) - gp2._mean(x, diff)
       return out
 
+  if hasattr(gp2._variance, '_is_null'):
+    variance = gp1._variance
+
+  elif hasattr(gp1._variance, '_is_null'):
+    variance = gp2._variance
+
+  else:
+    @_io_is_checked
+    def variance(x, diff):
+      out = gp1._variance(x, diff) + gp2._variance(x, diff)
+      return out
+
   if hasattr(gp2._covariance, '_is_null'):
     covariance = gp1._covariance
 
@@ -1026,7 +1103,8 @@ def _subtract(gp1, gp2):
       return out
 
   dim = _combined_dim(gp1.dim, gp2.dim)
-  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
+  out = GaussianProcess(mean, covariance, basis=basis, variance=variance, 
+                        dim=dim)
   return out
 
 
@@ -1043,6 +1121,15 @@ def _scale(gp, c):
       out = c*gp._mean(x, diff)
       return out
 
+  if hasattr(gp._variance, '_is_null'):
+    variance = gp._variance
+
+  else:
+    @_io_is_checked
+    def variance(x, diff):
+      out = c**2*gp._variance(x, diff)
+      return out
+
   if hasattr(gp._covariance, '_is_null'):
     covariance = gp._covariance
 
@@ -1052,7 +1139,8 @@ def _scale(gp, c):
       out = c**2*gp._covariance(x1, x2, diff1, diff2)
       return out
 
-  out = GaussianProcess(mean, covariance, basis=gp._basis, dim=gp.dim)
+  out = GaussianProcess(mean, covariance, basis=gp._basis, variance=variance, 
+                        dim=gp.dim)
   return out
 
 
@@ -1067,6 +1155,15 @@ def _differentiate(gp, d):
     @_io_is_checked
     def mean(x, diff):
       out = gp._mean(x, diff + d)
+      return out
+
+  if hasattr(gp._variance, '_is_null'):
+    variance = gp._variance
+
+  else:
+    @_io_is_checked
+    def variance(x, diff):
+      out = gp._variance(x, diff + d)
       return out
 
   if hasattr(gp._covariance, '_is_null'):
@@ -1088,7 +1185,8 @@ def _differentiate(gp, d):
       return out
 
   dim = d.shape[0]
-  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
+  out = GaussianProcess(mean, covariance, basis=basis, variance=variance, 
+                        dim=dim)
   return out
 
 
@@ -1155,10 +1253,31 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
     return out
 
-  dim = y.shape[1]
-  out = GaussianProcess(mean, covariance, dim=dim)
-  return out
+  @_io_is_checked
+  def variance(x, diff):
+    K_y_solver, _, _ = precompute()
+    var_x = gp._variance(x, diff)
+    C_xy = gp._covariance(x, y, diff, obs_diff)
 
+    p_x = gp._basis(x, diff)
+    p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
+    p_x = np.hstack((p_x, p_x_pad))
+
+    mat1, mat2 = K_y_solver.solve(C_xy.T, p_x.T)
+    # the method for elementwise multiplication is different depending on
+    # whether the arrays are sparse or dense
+    if sp.issparse(C_xy):
+      diag1 = np.sum(C_xy.multiply(mat1.T), axis=1)
+    else:
+      diag1 = np.sum(C_xy*mat1.T, axis=1)
+ 
+    diag2 = np.sum(p_x*mat2.T, axis=1)
+    out = var_x - diag1 - diag2
+    return out
+
+  dim = y.shape[1]
+  out = GaussianProcess(mean, covariance, variance=variance, dim=dim)
+  return out
 
 
 class GaussianProcess(object):
@@ -1225,6 +1344,19 @@ class GaussianProcess(object):
     not be differentiable and the `differentiate` method for the
     `GaussianProcess` instance will return an error.
 
+  variance : function, optional
+    A function that returns the variance of the Gaussian process or its
+    derivative at `x`. The has the call signature
+
+    `out = variance(x)`
+
+    or
+
+    `out = variance(x, diff)`
+
+    If this function is provided, it should be a more efficient alternative to
+    evaluating the covariance matrix at `(x, x)` and then taking the diagonals.
+
   dim : int, optional
     Fixes the spatial dimensions of the `GaussianProcess` instance. An error
     will be raised if method arguments have a conflicting number of spatial
@@ -1255,13 +1387,20 @@ class GaussianProcess(object):
 
 
   '''
-  def __init__(self, mean, covariance, basis=None, dim=None):
+  def __init__(self, mean, covariance, basis=None, variance=None, dim=None):
     self._mean = _mean_io_check(mean)
     self._covariance = _covariance_io_check(covariance)
+
     if basis is None:
       basis = empty_basis
 
     self._basis = _basis_io_check(basis)
+
+    if variance is None:
+      variance = _default_variance(self._covariance)
+
+    self._variance = _variance_io_check(variance)
+
     self.dim = dim
 
   def __call__(self, *args, **kwargs):
@@ -1722,9 +1861,7 @@ class GaussianProcess(object):
 
       start, stop = count, min(count+chunk_size, xlen)
       out_mean[start:stop] = self._mean(x[start:stop], diff)
-      cov = self._covariance(x[start:stop], x[start:stop], diff, diff)
-      var = cov.diagonal()
-      out_sd[start:stop] = np.sqrt(var)
+      out_sd[start:stop] = np.sqrt(self._variance(x[start:stop], diff))
       count = stop
       if count == xlen:
         # break out of loop if all the points have been evaluated
@@ -1823,6 +1960,7 @@ class GaussianProcess(object):
     '''
     self._mean = MemoizeArrayInput(self._mean)
     self._covariance = MemoizeArrayInput(self._covariance)
+    self._variance = MemoizeArrayInput(self._variance)
     self._basis = MemoizeArrayInput(self._basis)
 
 
@@ -1883,7 +2021,8 @@ def gpiso(phi, params, dim=None, check_finite=True):
   def covariance(x1, x2, diff1, diff2):
     a, b, c = params
     diff = diff1 + diff2
-    out = b*(-1)**sum(diff2)*phi(x1, x2, eps=c, diff=diff)
+    coeff = b*(-1)**sum(diff2)
+    out = coeff*phi(x1, x2, eps=c, diff=diff)
     if check_finite:
       if not _all_is_finite(out):
         raise ValueError(
@@ -1892,7 +2031,21 @@ def gpiso(phi, params, dim=None, check_finite=True):
 
     return out
 
-  out = GaussianProcess(mean, covariance, dim=dim)
+  @_io_is_checked
+  def variance(x, diff):
+    a, b, c = params
+    coeff = b*(-1)**sum(diff)
+    value = coeff*phi.center_value(eps=c, diff=2*diff)
+    if check_finite:
+      if not _all_is_finite(value):
+        raise ValueError(
+          'Encountered a non-finite RBF variance. This may be because the '
+          'basis function is not sufficiently differentiable.')
+
+    out = np.full(x.shape[0], value)
+    return out
+    
+  out = GaussianProcess(mean, covariance, variance=variance, dim=dim)
   return out
 
 
@@ -1982,11 +2135,11 @@ def gpbasis(basis, dim=None, dense=False):
 
   '''
   if dense:
-    out = GaussianProcess(zero_mean, zero_dense_covariance,
-                          basis=basis, dim=dim)
+    out = GaussianProcess(zero_mean, zero_dense_covariance, basis=basis, 
+                          variance=zero_variance, dim=dim)
   else:
-    out = GaussianProcess(zero_mean, zero_sparse_covariance,
-                          basis=basis, dim=dim)
+    out = GaussianProcess(zero_mean, zero_sparse_covariance, basis=basis, 
+                          variance=zero_variance, dim=dim)
 
   return out
 
@@ -2080,5 +2233,6 @@ def gpgibbs(ls, sigma, delta=1e-4):
     out = sigma**2*coeff*np.exp(exponent)
     return out
 
+  #TODO define the variance function    
   out = GaussianProcess(zero_mean, covariance)
   return out
