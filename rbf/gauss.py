@@ -404,7 +404,7 @@ def differentiator(delta):
     '''The actual decorator'''
     def fout(x, diff):
       '''The returned differentiable mean function'''
-      if sum(diff) == 0:
+      if not any(diff):
         # If no derivatives are specified then return the undifferentiated
         # mean. Make sure the output is a numpy array.
         out = as_array(fin(x))
@@ -448,12 +448,12 @@ def covariance_differentiator(delta):
     '''The actual decorator'''
     def fout(x1, x2, diff1, diff2):
       '''The returned differentiable mean function'''
-      if (sum(diff1) == 0) & (sum(diff2) == 0):
+      if (not any(diff1)) & (not any(diff2)):
         # If no derivatives are specified then return the undifferentiated
         # covariance.
         return as_sparse_or_array(fin(x1, x2))
                 
-      elif sum(diff1) != 0:
+      elif any(diff1):
         # get the axis we are differentiating with respect to
         diff1_axis = np.argmax(diff1)
         # make the perturbations    
@@ -469,7 +469,7 @@ def covariance_differentiator(delta):
         return out
 
       else:
-        # sum(diff2) != 0 
+        # any(diff2) == True
         # get the axis we are differentiating with respect to
         diff2_axis = np.argmax(diff2)
         # make the perturbations    
@@ -569,167 +569,6 @@ def _sample(mean, cov, use_cholesky=False, count=None):
       u = (mean[:, None] + vecs.dot(w)).T
      
   return u
-
-
-def _add(gp1, gp2):
-  '''   
-  Returns a `GaussianProcess` which is the sum of two `GaussianProcess`
-  instances.
-  '''
-  def mean(x, diff):
-    out = gp1._mean(x, diff) + gp2._mean(x, diff)
-    return out       
-
-  def covariance(x1, x2, diff1, diff2):
-    out = as_sparse_or_array(gp1._covariance(x1, x2, diff1, diff2) + 
-                             gp2._covariance(x1, x2, diff1, diff2))
-    return out
-
-  def basis(x, diff):
-    out = np.hstack((gp1._basis(x, diff),
-                     gp2._basis(x, diff)))
-    return out                     
-            
-  mean._io_is_checked = None
-  covariance._io_is_checked = None
-  basis._io_is_checked = None    
-  dim = _max(gp1.dim, gp2.dim)
-  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
-  return out
-  
-
-def _subtract(gp1, gp2):
-  '''   
-  Returns a `GaussianProcess` which is the difference of two `GaussianProcess`
-  instances.
-  '''
-  def mean(x, diff):
-    out = gp1._mean(x, diff) - gp2._mean(x, diff)
-    return out
-      
-  def covariance(x1, x2, diff1, diff2):
-    out = as_sparse_or_array(gp1._covariance(x1, x2, diff1, diff2) + 
-                             gp2._covariance(x1, x2, diff1, diff2))
-    return out       
-            
-  def basis(x, diff):
-    out = np.hstack((gp1._basis(x, diff),
-                     gp2._basis(x, diff)))
-    return out                     
-
-  mean._io_is_checked = None
-  covariance._io_is_checked = None
-  basis._io_is_checked = None    
-  dim = _max(gp1.dim, gp2.dim)
-  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
-  return out
-
-
-def _scale(gp, c):
-  '''   
-  Returns a scaled `GaussianProcess`.
-  '''
-  def mean(x, diff):
-    out = c*gp._mean(x, diff)
-    return out
-
-  def covariance(x1, x2, diff1, diff2):
-    out = c**2*gp._covariance(x1, x2, diff1, diff2)
-    return out
-      
-  # the basis functions are unchanged by scaling
-  mean._io_is_checked = None
-  covariance._io_is_checked = None
-  out = GaussianProcess(mean, covariance, basis=gp._basis, dim=gp.dim)
-  return out
-
-
-def _differentiate(gp, d):
-  '''   
-  Differentiates a `GaussianProcess`.
-  '''
-  def mean(x, diff):
-    out = gp._mean(x, diff + d)
-    return out 
-
-  def covariance(x1, x2, diff1, diff2):
-    out = gp._covariance(x1, x2, diff1 + d, diff2 + d)
-    return out
-      
-  def basis(x, diff):
-    out = gp._basis(x, diff + d)
-    return out 
-    
-  mean._io_is_checked = None
-  covariance._io_is_checked = None
-  basis._io_is_checked = None    
-  dim = d.shape[0]
-  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
-  return out
-
-
-def _condition(gp, y, d, sigma, p, obs_diff):
-  '''   
-  Returns a conditioned `GaussianProcess`.
-  '''
-  @MemoizeArrayInput
-  def precompute():
-    # do as many calculations as possible without yet knowning where the
-    # interpolation points will be. This function is memoized so that I can
-    # easily dereference the kernel inverse matrix with "clear_caches".
-    LOGGER.debug('Calculating and caching kernel inverse ...')
-    # GP mean at the observation points
-    mu_y = gp._mean(y, obs_diff)
-    # GP covariance at the observation points
-    C_y = gp._covariance(y, y, obs_diff, obs_diff)
-    # GP basis functions at the observation points
-    p_y = gp._basis(y, obs_diff)    
-    # add data noise to the covariance matrix
-    C_y = as_sparse_or_array(C_y + sigma)
-    # append the data noise basis vectors 
-    p_y = np.hstack((p_y, p)) 
-    K_y_solver = PartitionedPosDefSolver(C_y, p_y)
-    r  = d - mu_y
-    LOGGER.debug('Done')
-    return K_y_solver, r
-    
-  def mean(x, diff):
-    K_y_solver, r = precompute()
-    mu_x = gp._mean(x, diff)
-    C_xy = gp._covariance(x, y, diff, obs_diff)
-
-    # pad p_x with as many zero columns as there are noise basis vectors
-    p_x = gp._basis(x, diff)
-    p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
-    p_x = np.hstack((p_x, p_x_pad))
-
-    vec1, vec2 = K_y_solver.solve(r, np.zeros(p_x.shape[1]))
-    out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
-    return out
-
-  def covariance(x1, x2, diff1, diff2):
-    K_y_solver, r = precompute()
-    C_x1x2 = gp._covariance(x1, x2, diff1, diff2)
-    C_x1y = gp._covariance(x1, y, diff1, obs_diff)
-    C_x2y = gp._covariance(x2, y, diff2, obs_diff)
-
-    p_x1 = gp._basis(x1, diff1)
-    p_x1_pad = np.zeros((p_x1.shape[0], p.shape[1]), dtype=float)
-    p_x1 = np.hstack((p_x1, p_x1_pad))
-
-    p_x2 = gp._basis(x2, diff2)
-    p_x2_pad = np.zeros((p_x2.shape[0], p.shape[1]), dtype=float)
-    p_x2 = np.hstack((p_x2, p_x2_pad))
-
-    mat1, mat2 = K_y_solver.solve(C_x2y.T, p_x2.T)
-    out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
-    return out
-  
-  mean._io_is_checked = None
-  covariance._io_is_checked = None
-  dim = y.shape[1]
-  out = GaussianProcess(mean, covariance, dim=dim)
-  return out
 
 
 def likelihood(d, mu, sigma, p=None):
@@ -942,46 +781,30 @@ def outliers(d, s, mu=None, sigma=None, p=None, tol=4.0, maxitr=50):
   return out
 
 
-def _zero_mean(x, diff):
-  '''mean function that returns zeros'''
-  return np.zeros((x.shape[0],), dtype=float)  
-
-
-def _zero_sparse_covariance(x1, x2, diff1, diff2):
-  '''covariance function that returns sparse zeros'''
-  return sp.csc_matrix((x1.shape[0], x2.shape[0]), dtype=float)  
-
-
-def _zero_dense_covariance(x1, x2, diff1, diff2):
-  '''covariance function that returns dense zeros'''
-  return np.zeros((x1.shape[0], x2.shape[0]), dtype=float)  
-
-
-def _empty_basis(x, diff):
-  '''empty set of basis functions'''
-  return np.zeros((x.shape[0], 0), dtype=float)  
+def _io_is_checked(fin):
+  '''
+  Decorator that indicates the function has the appropriate input and output
+  and does not need to be wrapped with the io check functions.
+  '''
+  fin._io_is_checked = None
+  return fin
   
-# we know the input and output for the above functions are valid, so append a
-# tag to them indicating that they do not need to be checked
-_zero_mean._io_is_checked = None
-_zero_sparse_covariance._io_is_checked = None
-_zero_dense_covariance._io_is_checked = None
-_empty_basis._io_is_checked = None
-
 
 def _mean_io_check(fin):
   ''' 
-  Decorator which checks the number of input for a mean function, coerces the
-  output to an array, and makes sure the output has a valid shape.
+  Decorator that ensures the mean function takes two positional arguments and
+  returns an array with the appropriate shape.
   '''
   if hasattr(fin, '_io_is_checked'):
     return fin
     
   arg_count = get_arg_count(fin)
+
+  @_io_is_checked
   def mean_checked(x, diff):
     if arg_count == 1:
       # `fin` only takes one argument and is assumed to not be differentiable
-      if sum(diff) != 0: 
+      if any(diff): 
         raise ValueError(
           'The mean of the `GaussianProcess` is not differentiable')
         
@@ -992,32 +815,30 @@ def _mean_io_check(fin):
       out = fin(x, diff)  
       
     out = as_array(out)
-    assert_shape(out, (x.shape[0],), "mean_output")
+    assert_shape(out, (x.shape[0],), 'mean_output')
     return out
           
-  # add a tag to the function indicating that the output has been checked. This
-  # prevents double wrapping
-  mean_checked._io_is_checked = None
   return mean_checked
 
 
 def _covariance_io_check(fin):
   ''' 
-  Decorator which checks the number of input for a covariance function, coerces
-  the output to an array or a csc sparse matrix (if the output was already
-  sparse), and makes sure the output has a valid shape.
+  Decorator that ensures the covariance function takes four positional
+  arguments and returns either an array or csc sparse matrix with the
+  appropriate shape.
   '''
   if hasattr(fin, '_io_is_checked'):
     return fin
     
   arg_count = get_arg_count(fin)
+
+  @_io_is_checked
   def covariance_checked(x1, x2, diff1, diff2):
     if arg_count == 2:
       # *fin* only takes two argument and is assumed to not be differentiable
-      if (sum(diff1) != 0) | (sum(diff2) != 0): 
+      if any(diff1) | any(diff2): 
         raise ValueError(
-          'The covariance of the `GaussianProcess` is not '
-          'differentiable')
+          'The covariance of the `GaussianProcess` is not differentiable')
         
       out = fin(x1, x2)
     
@@ -1026,28 +847,27 @@ def _covariance_io_check(fin):
       out = fin(x1, x2, diff1, diff2)  
       
     out = as_sparse_or_array(out)
-    assert_shape(out, (x1.shape[0], x2.shape[0]), "covariance_output")
+    assert_shape(out, (x1.shape[0], x2.shape[0]), 'covariance_output')
     return out
           
-  # add a tag to the function indicating that the output has been checked. This
-  # prevents double wrapping
-  covariance_checked._io_is_checked = None
   return covariance_checked
 
 
 def _basis_io_check(fin):
   ''' 
-  Decorator which checks the number of input for a basis function, coerces the
-  output to an array, and makes sure the output has a valid shape.
+  Decorator that ensures the basis function takes two positional arguments and
+  returns an array with the appropriate shape
   '''
   if hasattr(fin, '_io_is_checked'):
     return fin
     
   arg_count = get_arg_count(fin)
+
+  @_io_is_checked
   def basis_checked(x, diff):
     if arg_count == 1:
       # `fin` only takes two argument and is assumed to not be differentiable
-      if sum(diff) != 0: 
+      if any(diff): 
         raise ValueError(
           'The basis functions for the `GaussianProcess` are not '
           'differentiable')
@@ -1059,14 +879,194 @@ def _basis_io_check(fin):
       out = fin(x, diff)  
       
     out = as_array(out)
-    assert_shape(out, (x.shape[0], None), "basis_output")
+    assert_shape(out, (x.shape[0], None), 'basis_output')
     return out
           
-  # add a tag to the function indicating that the output has been checked. This
-  # prevents double wrapping
-  basis_checked._io_is_checked = None
   return basis_checked
 
+
+def _add(gp1, gp2):
+  '''   
+  Returns a `GaussianProcess` which is the sum of two `GaussianProcess`
+  instances.
+  '''
+  @_io_is_checked
+  def mean(x, diff):
+    out = gp1._mean(x, diff) + gp2._mean(x, diff)
+    return out       
+
+  @_io_is_checked
+  def covariance(x1, x2, diff1, diff2):
+    out = as_sparse_or_array(gp1._covariance(x1, x2, diff1, diff2) + 
+                             gp2._covariance(x1, x2, diff1, diff2))
+    return out
+
+  @_io_is_checked
+  def basis(x, diff):
+    out = np.hstack((gp1._basis(x, diff),
+                     gp2._basis(x, diff)))
+    return out                     
+            
+  dim = _max(gp1.dim, gp2.dim)
+  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
+  return out
+  
+
+def _subtract(gp1, gp2):
+  '''   
+  Returns a `GaussianProcess` which is the difference of two `GaussianProcess`
+  instances.
+  '''
+  @_io_is_checked
+  def mean(x, diff):
+    out = gp1._mean(x, diff) - gp2._mean(x, diff)
+    return out
+      
+  @_io_is_checked
+  def covariance(x1, x2, diff1, diff2):
+    out = as_sparse_or_array(gp1._covariance(x1, x2, diff1, diff2) + 
+                             gp2._covariance(x1, x2, diff1, diff2))
+    return out       
+            
+  @_io_is_checked
+  def basis(x, diff):
+    out = np.hstack((gp1._basis(x, diff),
+                     gp2._basis(x, diff)))
+    return out                     
+
+  dim = _max(gp1.dim, gp2.dim)
+  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
+  return out
+
+
+def _scale(gp, c):
+  '''   
+  Returns a scaled `GaussianProcess`.
+  '''
+  @_io_is_checked
+  def mean(x, diff):
+    out = c*gp._mean(x, diff)
+    return out
+
+  @_io_is_checked
+  def covariance(x1, x2, diff1, diff2):
+    out = c**2*gp._covariance(x1, x2, diff1, diff2)
+    return out
+      
+  out = GaussianProcess(mean, covariance, basis=gp._basis, dim=gp.dim)
+  return out
+
+
+def _differentiate(gp, d):
+  '''   
+  Differentiates a `GaussianProcess`.
+  '''
+  @_io_is_checked
+  def mean(x, diff):
+    out = gp._mean(x, diff + d)
+    return out 
+
+  @_io_is_checked
+  def covariance(x1, x2, diff1, diff2):
+    out = gp._covariance(x1, x2, diff1 + d, diff2 + d)
+    return out
+      
+  @_io_is_checked
+  def basis(x, diff):
+    out = gp._basis(x, diff + d)
+    return out 
+    
+  dim = d.shape[0]
+  out = GaussianProcess(mean, covariance, basis=basis, dim=dim)
+  return out
+
+
+def _condition(gp, y, d, sigma, p, obs_diff):
+  '''   
+  Returns a conditioned `GaussianProcess`.
+  '''
+  @MemoizeArrayInput
+  def precompute():
+    # do as many calculations as possible without yet knowning where the
+    # interpolation points will be. This function is memoized so that I can
+    # easily dereference the kernel inverse matrix with "clear_caches".
+
+    # GP mean at the observation points
+    mu_y = gp._mean(y, obs_diff)
+    # GP covariance at the observation points
+    C_y = gp._covariance(y, y, obs_diff, obs_diff)
+    # GP basis functions at the observation points
+    p_y = gp._basis(y, obs_diff)    
+    # add data noise to the covariance matrix
+    C_y = as_sparse_or_array(C_y + sigma)
+    # append the data noise basis vectors 
+    p_y = np.hstack((p_y, p)) 
+    K_y_solver = PartitionedPosDefSolver(C_y, p_y)
+    r  = d - mu_y
+    return K_y_solver, r
+    
+  @_io_is_checked
+  def mean(x, diff):
+    K_y_solver, r = precompute()
+    mu_x = gp._mean(x, diff)
+    C_xy = gp._covariance(x, y, diff, obs_diff)
+
+    # pad p_x with as many zero columns as there are noise basis vectors
+    p_x = gp._basis(x, diff)
+    p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
+    p_x = np.hstack((p_x, p_x_pad))
+
+    vec1, vec2 = K_y_solver.solve(r, np.zeros(p_x.shape[1]))
+    out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
+    return out
+
+  @_io_is_checked
+  def covariance(x1, x2, diff1, diff2):
+    K_y_solver, r = precompute()
+    C_x1x2 = gp._covariance(x1, x2, diff1, diff2)
+    C_x1y = gp._covariance(x1, y, diff1, obs_diff)
+    C_x2y = gp._covariance(x2, y, diff2, obs_diff)
+
+    p_x1 = gp._basis(x1, diff1)
+    p_x1_pad = np.zeros((p_x1.shape[0], p.shape[1]), dtype=float)
+    p_x1 = np.hstack((p_x1, p_x1_pad))
+
+    p_x2 = gp._basis(x2, diff2)
+    p_x2_pad = np.zeros((p_x2.shape[0], p.shape[1]), dtype=float)
+    p_x2 = np.hstack((p_x2, p_x2_pad))
+
+    mat1, mat2 = K_y_solver.solve(C_x2y.T, p_x2.T)
+    out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
+    return out
+  
+  dim = y.shape[1]
+  out = GaussianProcess(mean, covariance, dim=dim)
+  return out
+
+
+@_io_is_checked
+def _zero_mean(x, diff):
+  '''mean function that returns zeros'''
+  return np.zeros((x.shape[0],), dtype=float)  
+
+
+@_io_is_checked
+def _zero_sparse_covariance(x1, x2, diff1, diff2):
+  '''covariance function that returns sparse zeros'''
+  return sp.csc_matrix((x1.shape[0], x2.shape[0]), dtype=float)  
+
+
+@_io_is_checked
+def _zero_dense_covariance(x1, x2, diff1, diff2):
+  '''covariance function that returns dense zeros'''
+  return np.zeros((x1.shape[0], x2.shape[0]), dtype=float)  
+
+
+@_io_is_checked
+def _empty_basis(x, diff):
+  '''empty set of basis functions'''
+  return np.zeros((x.shape[0], 0), dtype=float)  
+  
 
 class GaussianProcess(object):
   ''' 
@@ -1789,9 +1789,10 @@ def gpiso(phi, params, dim=None, check_finite=True):
   '''
   params = as_array(params, dtype=float)  
   
+  @_io_is_checked
   def mean(x, diff):
     a, b, c = params  
-    if sum(diff) == 0:
+    if not any(diff):
       out = np.full(x.shape[0], a, dtype=float)
     
     else:
@@ -1799,6 +1800,7 @@ def gpiso(phi, params, dim=None, check_finite=True):
 
     return out
       
+  @_io_is_checked
   def covariance(x1, x2, diff1, diff2):
     a, b, c = params  
     diff = diff1 + diff2
@@ -1811,8 +1813,6 @@ def gpiso(phi, params, dim=None, check_finite=True):
 
     return out
 
-  mean._io_is_checked = None
-  covariance._io_is_checked = None
   out = GaussianProcess(mean, covariance, dim=dim)
   return out
 
@@ -1939,12 +1939,12 @@ def gppoly(order, dim=None, dense=False):
   out : GaussianProcess  
     
   '''
+  @_io_is_checked
   def basis(x, diff):
     powers = rbf.poly.powers(order, x.shape[1])
     out = rbf.poly.mvmonos(x, powers, diff)
     return out
   
-  basis._io_is_checked = None
   out = gpbasis(basis, dim=dim, dense=dense)
   return out
 
@@ -1969,6 +1969,7 @@ def gpgibbs(ls, sigma, delta=1e-4):
     available because the derivative of the `ls` function is unknown.
 
   '''        
+  @_io_is_checked
   @covariance_differentiator(delta)
   def covariance(x1, x2):
     '''
@@ -2000,6 +2001,5 @@ def gpgibbs(ls, sigma, delta=1e-4):
     out = sigma**2*coeff*np.exp(exponent)
     return out
 
-  covariance._io_is_checked = None
   out = GaussianProcess(_zero_mean, covariance)
   return out
