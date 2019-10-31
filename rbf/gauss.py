@@ -997,32 +997,37 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     C_y = gp._covariance(y, y, obs_diff, obs_diff)
     # GP basis functions at the observation points
     p_y = gp._basis(y, obs_diff)    
-    # add data noise to the covariance matrix
-    C_y = as_sparse_or_array(C_y + sigma)
     # append the data noise basis vectors 
     p_y = np.hstack((p_y, p)) 
+    # add data noise to the covariance matrix
+    C_y = as_sparse_or_array(C_y + sigma)
+    # Create a factorization for the kernel, for rapid solving
     K_y_solver = PartitionedPosDefSolver(C_y, p_y)
-    r  = d - mu_y
-    return K_y_solver, r
+    # evaluate the right-most operations for computing the mean since they do
+    # not require knowledge of the interpolation points, store the intermediate
+    # results as vec1 and vec2
+    r = d - mu_y
+    z = np.zeros((p_y.shape[1],), dtype=float) 
+    vec1, vec2 = K_y_solver.solve(r, z)
+    return K_y_solver, vec1, vec2
     
   @_io_is_checked
   def mean(x, diff):
-    K_y_solver, r = precompute()
+    _, vec1, vec2 = precompute()
     mu_x = gp._mean(x, diff)
     C_xy = gp._covariance(x, y, diff, obs_diff)
 
-    # pad p_x with as many zero columns as there are noise basis vectors
     p_x = gp._basis(x, diff)
+    # pad p_x with as many zero columns as there are noise basis vectors
     p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
     p_x = np.hstack((p_x, p_x_pad))
 
-    vec1, vec2 = K_y_solver.solve(r, np.zeros(p_x.shape[1]))
     out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
     return out
 
   @_io_is_checked
   def covariance(x1, x2, diff1, diff2):
-    K_y_solver, r = precompute()
+    K_y_solver, _, _ = precompute()
     C_x1x2 = gp._covariance(x1, x2, diff1, diff2)
     C_x1y = gp._covariance(x1, y, diff1, obs_diff)
     C_x2y = gp._covariance(x2, y, diff2, obs_diff)
