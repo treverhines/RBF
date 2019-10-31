@@ -227,7 +227,7 @@ class RBF(object):
     self._cache = {}
 
 
-  def __call__(self, x, c, eps=1.0, diff=None, out=None):
+  def __call__(self, x, c, eps=1.0, diff=None):
     ''' 
     Numerically evaluates the RBF or its derivatives.
     
@@ -248,9 +248,6 @@ class RBF(object):
       cause this function to return the RBF after differentiating it twice
       along the first dimension and once along the third dimension.
 
-    out : (N, M) float array, optional
-      An array in which to put the results
-        
     Returns
     -------
     (N, M) float array
@@ -274,11 +271,9 @@ class RBF(object):
     c = np.asarray(c, dtype=float)
     assert_shape(c, (None, x.shape[1]), 'c')
 
-    # makes `eps` an array of constant values if it is a scalar
-    if np.isscalar(eps):
-      eps = np.full(c.shape[0], eps, dtype=float)
-
-    else:  
+    # If `eps` is not a scalar, then it should be an array with the same length
+    # as `c`.
+    if not np.isscalar(eps):
       eps = np.asarray(eps, dtype=float)
       assert_shape(eps, (c.shape[0],), 'eps')
 
@@ -300,9 +295,35 @@ class RBF(object):
     c = c.T[:, None, :]
     args = (tuple(x) + tuple(c) + (eps,))
     # evaluate the cached function for the given `x`, `c`, and `eps`
-    out = self._cache[diff](*args, out=out)
+    out = self._cache[diff](*args)
     return out
 
+  def center_value(self, eps=1.0, diff=(0,)):
+    '''
+    Returns the value at the center of the RBF for the given `eps` and `diff`.
+    This is a faster alternative to determining the center value with
+    `__call__`.
+
+    Parameters
+    ----------
+    eps : float, optional
+      Shape parameter
+    
+    diff : tuple, optional  
+      Derivative order for each spatial dimension
+      
+    Returns
+    -------
+    float
+
+    '''
+    diff = tuple(diff)
+    if diff not in self._cache:
+        self._add_diff_to_cache(diff)
+          
+    args = (0.0,)*(2*len(diff)) + (eps,)
+    return self._cache[diff](*args)
+  
   def __repr__(self):
     out = '<RBF : %s>' % str(self.expr)
     return out
@@ -504,7 +525,7 @@ class SparseRBF(RBF):
       # `m` is the number of nodes in `x` close to `c[i]`
       m = len(idxi)
       args = (tuple(x[idxi].T) + tuple(c[i]) + (eps,))
-      self._cache[diff](*args, out=data[n:n + m])
+      data[n:n + m] = self._cache[diff](*args)
       rows[n:n + m] = idxi
       cols[n:n + m] = i
       n += m

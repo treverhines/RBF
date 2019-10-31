@@ -1,4 +1,4 @@
-''' 
+'''
 This module is used for evaluating the monomial basis functions which are
 commonly added to RBF interpolants
 '''
@@ -14,86 +14,81 @@ cimport numpy as np
 from cython cimport boundscheck, wraparound
 
 
-def mvmonos(x, powers, diff=None, out=None):
-  ''' 
+def mvmonos(x, powers, diff=None):
+  '''
   Multivariate monomial basis functions
 
   Parameters
   ----------
-  x : (N, D) float array 
+  x : (N, D) float array
     positions where the monomials will be evaluated
 
-  powers : (M, D) int array 
+  powers : (M, D) int array
     Defines each monomial basis function using multi-index notation.  Each row
     contains the exponents for the spatial variables in a monomial.
 
   diff : (D,) int array, optional
     Derivative order for each variable
 
-  out : (N, M) float array, optional
-    An array in which to put the output. Since providing `out` is a means of
-    optimization, there are no checks on the shape of `out`.
-
   Returns
   -------
   (N, M) array
-    Alternant matrix where x is evaluated for each monomial 
- 
+    Alternant matrix where x is evaluated for each monomial
+
   Example
   -------
-  
+
   >>> pos = np.array([[1.0], [2.0], [3.0]])
   >>> pows = np.array([[0], [1], [2]])
   >>> mvmonos(pos,pows)
   array([[ 1.,  1.,  1.],
          [ 1.,  2.,  4.],
          [ 1.,  3.,  9.]])
-           
+
   >>> pos = np.array([[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]])
   >>> pows = np.array([[0, 0], [1, 0], [0, 1]])
   >>> mvmonos(pos, pows)
   array([[ 1.,  1.,  2.],
          [ 1.,  2.,  3.],
          [ 1.,  3.,  4.]])
-                  
+
   '''
   x = np.asarray(x, dtype=float)
   assert_shape(x, (None, None), 'x')
 
   powers = np.asarray(powers, dtype=int)
   assert_shape(powers, (None, x.shape[1]), 'powers')
-  
+
   if diff is None:
     diff = np.zeros(x.shape[1], dtype=int)
   else:
     diff = np.asarray(diff, dtype=int)
     assert_shape(diff, (x.shape[1],), 'diff')
-    
-  if out is None:
-    out = np.empty((x.shape[0], powers.shape[0]), dtype=float)
 
-  _mvmonos(x, powers, diff, out)    
+  out = _mvmonos(x, powers, diff)
   return out
 
 
 @boundscheck(False)
 @wraparound(False)
-cdef void _mvmonos(double[:, :] x, 
-                   long[:, :] powers, 
-                   long[:] diff,
-                   double[:, :] out):
-  ''' 
+def _mvmonos(double[:, :] x,
+             long[:, :] powers,
+             long[:] diff):
+  '''
   cython evaluation of mvmonos
   '''
+  out_array = np.empty((x.shape[0], powers.shape[0]), dtype=float)
   cdef:
     long i, j, k, l
     # number of spatial dimensions
     long D = x.shape[1]
     # number of monomials
-    long M = powers.shape[0] 
+    long M = powers.shape[0]
     # number of positions where the monomials are evaluated
     long N = x.shape[0]
     long coeff, power
+    # `out` is the memory view of the numpy array `out_array`
+    double[:, :] out = out_array 
 
   # loop over dimensions
   for i in range(D):
@@ -101,10 +96,10 @@ cdef void _mvmonos(double[:, :] x,
     for j in range(M):
       # find the monomial coefficients after differentiation
       coeff = 1
-      for k in range(diff[i]): 
+      for k in range(diff[i]):
         coeff *= powers[j, i] - k
 
-      # if the monomial coefficient is zero then make sure the power  
+      # if the monomial coefficient is zero then make sure the power
       # is also zero to prevent a zero division error
       if coeff == 0:
         power = 0
@@ -114,16 +109,16 @@ cdef void _mvmonos(double[:, :] x,
       # loop over evaluation points
       for l in range(N):
         if i == 0:
-          out[l, j] = coeff*x[l, i]**power              
+          out[l, j] = coeff*x[l, i]**power
         else:
-          out[l, j] *= coeff*x[l, i]**power              
+          out[l, j] *= coeff*x[l, i]**power
 
-  return
-  
+  return out_array
+
 
 @Memoize
 def powers(order, dim):
-  ''' 
+  '''
   Returns an array describing the powers in all the monomial basis functions in
   a polymonial with the given order and number of dimensions. Calling this
   function with -1 for the order will return an empty list (no terms in the
@@ -141,18 +136,18 @@ def powers(order, dim):
   -------
   This will return the powers of x and y for each monomial term in a two
   dimensional polynomial with order 1
-  
-  >>> monomial_powers(1, 2) 
+
+  >>> monomial_powers(1, 2)
   >>> array([[0, 0],
              [1, 0],
              [0, 1]])
   '''
   order = int(order)
   dim = int(dim)
-  
+
   if not (dim >= 1):
     raise ValueError('Number of dimensions must be 1 or greater')
-    
+
   if not (order >= -1):
     raise ValueError('Polynomial order number must be -1 or greater')
 
@@ -167,10 +162,10 @@ def powers(order, dim):
 
   return out
 
-  
+
 @Memoize
 def count(order, dim):
-  ''' 
+  '''
   Returns the number of monomial basis functions in a polynomial with the given
   order and number of dimensions
 
@@ -185,10 +180,10 @@ def count(order, dim):
   '''
   order = int(order)
   dim = int(dim)
-  
+
   if not (dim >= 1):
     raise ValueError('number of dimensions must be 1 or greater')
-    
+
   if not (order >= -1):
     raise ValueError('polynomial order number must be -1 or greater')
 
