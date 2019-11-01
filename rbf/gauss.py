@@ -1382,7 +1382,7 @@ class GaussianProcess(object):
   >>> import numpy as np
   >>> from rbf.gauss import GaussianProcess
   >>> def mean(x): return np.zeros(x.shape[0])
-  >>> def cov(x1, x2): return np.min(np.meshgrid(x1[:, 0], x2[:, 0], indexing='ij'), axis=0)
+  >>> def cov(x1, x2): return np.minimum(x1[:, None, 0], x2[None, :, 0])
   >>> gp = GaussianProcess(mean, cov, dim=1) # Brownian motion is 1D
 
 
@@ -2003,7 +2003,7 @@ def gpiso(phi, params, dim=None, check_finite=True):
 
   Parameters
   ----------
-  phi : RBF instance
+  phi : str or RBF instance
     Radial basis function describing the covariance function. For example, use
     `rbf.basis.se` for a squared exponential covariance function. This must be
     positive definite.
@@ -2036,6 +2036,7 @@ def gpiso(phi, params, dim=None, check_finite=True):
   `rbf.basis.iq`, `rbf.basis.imq`.
 
   '''
+  phi = rbf.basis.get_rbf(phi)
   params = as_array(params, dtype=float)
 
   @_io_is_checked
