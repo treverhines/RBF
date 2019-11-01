@@ -30,7 +30,6 @@ gpc = gp.condition(y[:,None], d, sigma)
 # trade off between speed and memory consumption. It should be tuned
 # by the user.
 u, us = gpc.meansd(x[:,None], chunk_size=1000)
-
 fig,ax = plt.subplots()
 ax.plot(x, u_true, 'k-', label='true signal')
 ax.plot(y, d, 'k.', alpha=0.1, mec='none', label='observations')

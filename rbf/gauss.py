@@ -1267,7 +1267,7 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     # the method for elementwise multiplication is different depending on
     # whether the arrays are sparse or dense
     if sp.issparse(C_xy):
-      diag1 = np.sum(C_xy.multiply(mat1.T), axis=1)
+      diag1 = np.sum(C_xy.multiply(mat1.T).A, axis=1)
     else:
       diag1 = np.sum(C_xy*mat1.T, axis=1)
  
@@ -1764,6 +1764,38 @@ class GaussianProcess(object):
       assert_shape(diff, (x.shape[1],), 'diff')
 
     out = self._mean(x, diff)
+    # return a dense copy of out
+    out = as_array(out, copy=True)
+    return out
+
+  def variance(self, x, diff=None):
+    '''
+    Returns the variance of the proper component of the `GaussianProcess`.
+
+    Parameters
+    ----------
+    x : (N, D) array
+      Evaluation points
+
+    diff : (D,) int array
+      Derivative specification
+
+    Returns
+    -------
+    out : (N,) array
+
+    '''
+    x = as_array(x, dtype=float)
+    assert_shape(x, (None, self.dim), 'x')
+
+    if diff is None:
+      diff = np.zeros(x.shape[1], dtype=int)
+
+    else:
+      diff = as_array(diff, dtype=int)
+      assert_shape(diff, (x.shape[1],), 'diff')
+
+    out = self._variance(x, diff)
     # return a dense copy of out
     out = as_array(out, copy=True)
     return out
