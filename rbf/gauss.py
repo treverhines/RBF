@@ -1264,14 +1264,13 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     p_x = np.hstack((p_x, p_x_pad))
 
     mat1, mat2 = K_y_solver.solve(C_xy.T, p_x.T)
-    # the method for elementwise multiplication is different depending on
-    # whether the arrays are sparse or dense
+    # Efficiently get the diagonals of C_xy.dot(mat1) and p_x.dot(mat2)
     if sp.issparse(C_xy):
-      diag1 = np.sum(C_xy.multiply(mat1.T).A, axis=1)
+      diag1 = C_xy.multiply(mat1.T).sum(axis=1).A[:, 0]
     else:
-      diag1 = np.sum(C_xy*mat1.T, axis=1)
+      diag1 = np.einsum('ij, ji->i', C_xy, mat1)
  
-    diag2 = np.sum(p_x*mat2.T, axis=1)
+    diag2 = np.einsum('ij, ji->i', p_x, mat2)
     out = var_x - diag1 - diag2
     return out
 
