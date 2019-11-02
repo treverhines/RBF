@@ -1190,7 +1190,7 @@ def _differentiate(gp, d):
   return out
 
 
-def _condition(gp, y, d, sigma, p, obs_diff):
+def _condition(gp, y, d, sigma, p, obs_diff, build_inverse):
   '''
   Returns a conditioned `GaussianProcess`.
   '''
@@ -1211,7 +1211,7 @@ def _condition(gp, y, d, sigma, p, obs_diff):
     # add data noise to the covariance matrix
     C_y = as_sparse_or_array(C_y + sigma)
     # Create a factorization for the kernel, for rapid solving
-    K_y_solver = PartitionedPosDefSolver(C_y, p_y)
+    K_y_solver = PartitionedPosDefSolver(C_y, p_y, build_inverse=build_inverse)
     # evaluate the right-most operations for computing the mean since they do
     # not require knowledge of the interpolation points, store the intermediate
     # results as vec1 and vec2
@@ -1507,7 +1507,8 @@ class GaussianProcess(object):
     out = _differentiate(self, d)
     return out
 
-  def condition(self, y, d, sigma=None, p=None, obs_diff=None):
+  def condition(self, y, d, sigma=None, p=None, obs_diff=None, 
+                build_inverse=False):
     '''
     Returns a conditional `GaussianProcess` which incorporates the observed
     data, `d`.
@@ -1534,6 +1535,9 @@ class GaussianProcess(object):
     obs_diff : (D,) int array, optional
       Derivative of the observations. For example, use (1,) if the observations
       constrain the slope of a 1-D Gaussian process.
+    
+    build_inverse : bool, optional
+      Whether to construct the inverse matrices rather than just the factors  
 
     Returns
     -------
@@ -1570,7 +1574,8 @@ class GaussianProcess(object):
       obs_diff = as_array(obs_diff, dtype=int)
       assert_shape(obs_diff, (dim,), 'obs_diff')
 
-    out = _condition(self, y, d, sigma, p, obs_diff)
+    out = _condition(self, y, d, sigma, p, obs_diff, 
+                     build_inverse=build_inverse)
     return out
 
   def likelihood(self, y, d, sigma=None, p=None):
