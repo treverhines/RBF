@@ -195,8 +195,8 @@ class Test(unittest.TestCase):
     self.assertTrue(np.allclose(dudy0,true_dudy0,atol=1e-4,rtol=1e-4))
 
   def test_covariance_differentiator_1(self):
-    '''make sure the covariance differentiator works for sparse
-       covariance functions'''
+    # make sure the covariance differentiator works for sparse covariance
+    # functions
     @rbf.gauss.covariance_differentiator(1e-5)
     def sparse_cov(x,y):
       gp = rbf.gauss.gpiso(rbf.basis.spwen12,(0.0,1.0,1.0))
@@ -218,3 +218,35 @@ class Test(unittest.TestCase):
     true_dudy0 = sparse_cov_dy0(x, y).A
     self.assertTrue(np.allclose(dudx0,true_dudx0,atol=1e-4,rtol=1e-4))
     self.assertTrue(np.allclose(dudy0,true_dudy0,atol=1e-4,rtol=1e-4))
+
+  def test_variance_0(self):
+    # make sure the variance is equal to the covariance diagonal for dense
+    # isotropic GPs
+    x = np.random.random((3, 1))
+    gp = rbf.gauss.gpiso(rbf.basis.se, (0.0, 1.0, 1.0))
+    var1 = gp.variance(x)
+    var2 = np.diagonal(gp.covariance(x, x))
+    self.assertTrue(np.allclose(var1, var2))
+
+  def test_variance_1(self):
+    # make sure the variance is equal to the covariance diagonal for sparse
+    # isotropic GPs
+    x = np.random.random((3, 1))
+    gp = rbf.gauss.gpiso(rbf.basis.spwen12, (0.0, 1.0, 1.0))
+    var1 = gp.variance(x)
+    var2 = np.diagonal(gp.covariance(x, x))
+    self.assertTrue(np.allclose(var1, var2))
+
+  def test_variance_2(self):
+    # make sure the variance is equal to the covariance diagonal for
+    # conditioned GPs
+    x = np.random.random((3, 1))
+    y = np.random.random((2, 1))
+    d = np.random.random((2,))
+    s = np.random.random((2,))
+    gp = rbf.gauss.gpiso(rbf.basis.se, (0.0, 1.0, 1.0))
+    gp = gp.condition(y, d, s)
+    var1 = gp.variance(x)
+    var2 = np.diagonal(gp.covariance(x, x))
+    self.assertTrue(np.allclose(var1, var2))
+  
