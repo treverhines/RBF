@@ -1,5 +1,5 @@
 import numpy as np
-import rbf
+import rbf.linalg
 import unittest
 import scipy.sparse as sp
 np.random.seed(1)
@@ -116,6 +116,25 @@ class Test(unittest.TestCase):
     x2 = np.log(np.linalg.det(A))
     self.assertTrue(np.isclose(x1,x2))
 
+  def test_solver_dense_build_inv(self):
+    A = np.random.random((4, 4))
+    d = np.random.random((4,))
+    solver1 = rbf.linalg.Solver(A, build_inverse=False)
+    solver2 = rbf.linalg.Solver(A, build_inverse=True)
+    soln1 = solver1.solve(d)
+    soln2 = solver2.solve(d)
+    self.assertTrue(np.allclose(soln1,soln2))
+
+  def test_pos_def_solver_dense_build_inv(self):
+    A = np.random.random((4, 4))
+    A = A.T.dot(A)
+    d = np.random.random((4,))
+    solver1 = rbf.linalg.PosDefSolver(A, build_inverse=False)
+    solver2 = rbf.linalg.PosDefSolver(A, build_inverse=True)
+    soln1 = solver1.solve(d)
+    soln2 = solver2.solve(d)
+    self.assertTrue(np.allclose(soln1,soln2))
+  
   def test_partitioned_solver_dense(self):    
     A = np.random.random((4,4))
     A = A.T + A # A is now symmetric
@@ -132,6 +151,22 @@ class Test(unittest.TestCase):
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))
 
+  def test_partitioned_solver_dense_build_inv(self):    
+    A = np.random.random((4,4))
+    A = A.T + A # A is now symmetric
+    B = np.random.random((4,2))
+    a = np.random.random((4,))
+    b = np.random.random((2,))
+    Cfact = rbf.linalg.PartitionedSolver(A,B, build_inverse=True)
+    soln1a,soln1b = Cfact.solve(a,b)
+    soln1 = np.hstack((soln1a,soln1b))
+    Cinv = np.linalg.inv(
+             np.vstack(
+               (np.hstack((A,B)),
+                np.hstack((B.T,np.zeros((2,2)))))))
+    soln2 = Cinv.dot(np.hstack((a,b)))
+    self.assertTrue(np.allclose(soln1,soln2))
+
   def test_partitioned_solver_dense_pos_def(self):    
     A = np.random.random((4,4))
     A = A.T.dot(A) # A is now P.D.
@@ -139,6 +174,22 @@ class Test(unittest.TestCase):
     a = np.random.random((4,))
     b = np.random.random((2,))
     Cfact = rbf.linalg.PartitionedPosDefSolver(A,B)
+    soln1a,soln1b = Cfact.solve(a,b)
+    soln1 = np.hstack((soln1a,soln1b))
+    Cinv = np.linalg.inv(
+             np.vstack(
+               (np.hstack((A,B)),
+                np.hstack((B.T,np.zeros((2,2)))))))
+    soln2 = Cinv.dot(np.hstack((a,b)))
+    self.assertTrue(np.allclose(soln1,soln2))
+
+  def test_partitioned_solver_dense_pos_def_build_inv(self):    
+    A = np.random.random((4,4))
+    A = A.T.dot(A) # A is now P.D.
+    B = np.random.random((4,2))
+    a = np.random.random((4,))
+    b = np.random.random((2,))
+    Cfact = rbf.linalg.PartitionedPosDefSolver(A,B, build_inverse=True)
     soln1a,soln1b = Cfact.solve(a,b)
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
@@ -165,6 +216,23 @@ class Test(unittest.TestCase):
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))
 
+  def test_partitioned_solver_sparse_build_inv(self):    
+    A = np.random.random((4,4))
+    A = A.T + A # A is now symmetric
+    A = sp.csc_matrix(A) # A is now sparse
+    B = np.random.random((4,2))
+    a = np.random.random((4,))
+    b = np.random.random((2,))
+    Cfact = rbf.linalg.PartitionedSolver(A,B, build_inverse=True)
+    soln1a,soln1b = Cfact.solve(a,b)
+    soln1 = np.hstack((soln1a,soln1b))
+    Cinv = np.linalg.inv(
+             np.vstack(
+               (np.hstack((A.A,B)),
+                np.hstack((B.T,np.zeros((2,2)))))))
+    soln2 = Cinv.dot(np.hstack((a,b)))
+    self.assertTrue(np.allclose(soln1,soln2))
+
   def test_partitioned_solver_sparse_pos_def(self):    
     A = np.random.random((4,4))
     A = A.T.dot(A) # A is now P.D.
@@ -173,6 +241,23 @@ class Test(unittest.TestCase):
     a = np.random.random((4,))
     b = np.random.random((2,))
     Cfact = rbf.linalg.PartitionedPosDefSolver(A,B)
+    soln1a,soln1b = Cfact.solve(a,b)
+    soln1 = np.hstack((soln1a,soln1b))
+    Cinv = np.linalg.inv(
+             np.vstack(
+               (np.hstack((A.A,B)),
+                np.hstack((B.T,np.zeros((2,2)))))))
+    soln2 = Cinv.dot(np.hstack((a,b)))
+    self.assertTrue(np.allclose(soln1,soln2))
+
+  def test_partitioned_solver_sparse_pos_def_build_inv(self):    
+    A = np.random.random((4,4))
+    A = A.T.dot(A) # A is now P.D.
+    A = sp.csc_matrix(A) # A is now sparse
+    B = np.random.random((4,2))
+    a = np.random.random((4,))
+    b = np.random.random((2,))
+    Cfact = rbf.linalg.PartitionedPosDefSolver(A,B, build_inverse=True)
     soln1a,soln1b = Cfact.solve(a,b)
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
