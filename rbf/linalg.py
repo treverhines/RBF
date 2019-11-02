@@ -261,14 +261,14 @@ class Solver(object):
   def __init__(self, A, build_inverse=False):
     A = as_sparse_or_array(A, dtype=float)
     if sp.issparse(A):
-      self._solver =  _SparseSolver(A)
+      self._solver = _SparseSolver(A)
     else:
       self._solver = _DenseSolver(A)
 
     if build_inverse:
-      self._Ainv = self._solver.solve(np.eye(A.shape[0]))
+      self._inverse = self._solver.solve(np.eye(A.shape[0]))
     else:
-      self._Ainv = None
+      self._inverse = None
     
   def solve(self, b):
     '''
@@ -284,8 +284,8 @@ class Solver(object):
 
     '''
     b = as_array(b, dtype=float)
-    if self._Ainv is not None:
-      return self._Ainv.dot(b)
+    if self._inverse is not None:
+      return self._inverse.dot(b)
     else:  
       return self._solver.solve(b)
 
@@ -401,14 +401,14 @@ class PosDefSolver(object):
       A = A.toarray()
 
     if sp.issparse(A):
-      self._solver =  _SparsePosDefSolver(A)
+      self._solver = _SparsePosDefSolver(A)
     else:
       self._solver = _DensePosDefSolver(A)
 
     if build_inverse:
-      self._Ainv = self._solver.solve(np.eye(A.shape[0]))
+      self._inverse = self._solver.solve(np.eye(A.shape[0]))
     else:
-      self._Ainv = None
+      self._inverse = None
 
   def solve(self, b):
     '''
@@ -424,8 +424,8 @@ class PosDefSolver(object):
 
     '''
     b = as_array(b, dtype=float)
-    if self._Ainv is not None:
-      return self._Ainv.dot(b)
+    if self._inverse is not None:
+      return self._inverse.dot(b)
     else:  
       return self._solver.solve(b)
 
@@ -651,12 +651,19 @@ class PartitionedPosDefSolver(object):
         'There are fewer rows than columns in `B`. This makes the block '
         'matrix singular, and its inverse cannot be computed.')
 
-    A_solver = PosDefSolver(A, build_inverse=build_inverse)
-    AiB = A_solver.solve(B)
-    BtAiB_solver = PosDefSolver(B.T.dot(AiB), build_inverse=build_inverse)
-    self._AiB = AiB
-    self._A_solver = A_solver
-    self._BtAiB_solver = BtAiB_solver
+    self.n = n
+    self._A_solver = PosDefSolver(A, build_inverse=build_inverse)
+    self._AiB = self._A_solver.solve(B)
+    self._BtAiB_solver = PosDefSolver(B.T.dot(self._AiB), 
+                                      build_inverse=build_inverse)
+
+    if build_inverse:
+      E = -self._BtAiB_solver._inverse
+      D = self._AiB.dot(self._BtAiB_solver._inverse)
+      C = self._A_solver._inverse - D.dot(self._AiB.T)
+      self._inverse = np.vstack((np.hstack((C, D)), np.hstack((D.T, E))))
+    else:
+      self._inverse = None
 
   def solve(self, a, b):
     '''
@@ -677,13 +684,20 @@ class PartitionedPosDefSolver(object):
     '''
     a = as_array(a, dtype=float)
     b = as_array(b, dtype=float)
-    Eb  = -self._BtAiB_solver.solve(b)
-    Db  = -self._AiB.dot(Eb)
-    Dta = self._BtAiB_solver.solve(self._AiB.T.dot(a))
-    Ca  = self._A_solver.solve(a) - self._AiB.dot(Dta)
-    x = Ca  + Db
-    y = Dta + Eb
-    return x, y
+    if self._inverse is not None:
+      c = np.concatenate((a, b), axis=0)
+      xy = self._inverse.dot(c)
+      x, y = xy[:self.n], xy[self.n:]
+      return x, y
+      
+    else:
+      Eb  = -self._BtAiB_solver.solve(b)
+      Db  = -self._AiB.dot(Eb)
+      Dta = self._BtAiB_solver.solve(self._AiB.T.dot(a))
+      Ca  = self._A_solver.solve(a) - self._AiB.dot(Dta)
+      x = Ca  + Db
+      y = Dta + Eb
+      return x, y
 
 
 class GMRESSolver(object):
