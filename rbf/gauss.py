@@ -1206,8 +1206,10 @@ def _condition(gp, y, d, sigma, p, obs_diff, build_inverse):
     C_y = gp._covariance(y, y, obs_diff, obs_diff)
     # GP basis functions at the observation points
     p_y = gp._basis(y, obs_diff)
-    # append the data noise basis vectors
-    p_y = np.hstack((p_y, p))
+    # Only if noise basis vectors exist, append them to the GP basis vectors
+    if p.shape[1] != 0:
+      p_y = np.hstack((p_y, p))
+      
     # add data noise to the covariance matrix
     C_y = as_sparse_or_array(C_y + sigma)
     # Create a factorization for the kernel, for rapid solving
@@ -1225,11 +1227,12 @@ def _condition(gp, y, d, sigma, p, obs_diff, build_inverse):
     _, vec1, vec2 = precompute()
     mu_x = gp._mean(x, diff)
     C_xy = gp._covariance(x, y, diff, obs_diff)
-
     p_x = gp._basis(x, diff)
-    # pad p_x with as many zero columns as there are noise basis vectors
-    p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
-    p_x = np.hstack((p_x, p_x_pad))
+    # Only if noise basis vectors exist, pad the GP basis vectors with that
+    # many zeros
+    if p.shape[1] != 0:
+      p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
+      p_x = np.hstack((p_x, p_x_pad))
 
     out = mu_x + C_xy.dot(vec1) + p_x.dot(vec2)
     return out
@@ -1240,14 +1243,15 @@ def _condition(gp, y, d, sigma, p, obs_diff, build_inverse):
     C_x1x2 = gp._covariance(x1, x2, diff1, diff2)
     C_x1y = gp._covariance(x1, y, diff1, obs_diff)
     C_x2y = gp._covariance(x2, y, diff2, obs_diff)
-
     p_x1 = gp._basis(x1, diff1)
-    p_x1_pad = np.zeros((p_x1.shape[0], p.shape[1]), dtype=float)
-    p_x1 = np.hstack((p_x1, p_x1_pad))
-
     p_x2 = gp._basis(x2, diff2)
-    p_x2_pad = np.zeros((p_x2.shape[0], p.shape[1]), dtype=float)
-    p_x2 = np.hstack((p_x2, p_x2_pad))
+    # Only if noise basis vectors exist, pad the GP basis vectors with that
+    # many zeros
+    if p.shape[1] != 0:
+      p_x1_pad = np.zeros((p_x1.shape[0], p.shape[1]), dtype=float)
+      p_x2_pad = np.zeros((p_x2.shape[0], p.shape[1]), dtype=float)
+      p_x1 = np.hstack((p_x1, p_x1_pad))
+      p_x2 = np.hstack((p_x2, p_x2_pad))
 
     mat1, mat2 = K_y_solver.solve(C_x2y.T, p_x2.T)
     out = C_x1x2 - C_x1y.dot(mat1) - p_x1.dot(mat2)
@@ -1258,10 +1262,12 @@ def _condition(gp, y, d, sigma, p, obs_diff, build_inverse):
     K_y_solver, _, _ = precompute()
     var_x = gp._variance(x, diff)
     C_xy = gp._covariance(x, y, diff, obs_diff)
-
     p_x = gp._basis(x, diff)
-    p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
-    p_x = np.hstack((p_x, p_x_pad))
+    # Only if noise basis vectors exist, pad the GP basis vectors with that
+    # many zeros
+    if p.shape[1] != 0:
+      p_x_pad = np.zeros((p_x.shape[0], p.shape[1]), dtype=float)
+      p_x = np.hstack((p_x, p_x_pad))
 
     mat1, mat2 = K_y_solver.solve(C_xy.T, p_x.T)
     # Efficiently get the diagonals of C_xy.dot(mat1) and p_x.dot(mat2)
