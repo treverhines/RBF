@@ -3,12 +3,13 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - numpy
+  - numpy >= 1.10
   - numpydoc
   - scipy
   - sympy
   - cython
   - rtree
-  - scikit-sparse
-  - sphinx=1.8.5
+  - scikit-sparse >= 0.4.2
+  - sphinx
+  - sphinxcontrib-napoleon
   - sphinx_rtd_theme

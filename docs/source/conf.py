@@ -33,8 +33,10 @@
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
-    'numpydoc'
+    'sphinxcontrib.napoleon'
 ]
+# do not separate the return type from the returned object
+napoleon_use_rtype = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
