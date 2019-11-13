@@ -4,11 +4,7 @@ if __name__ == '__main__':
   from setuptools.extension import Extension
   from Cython.Build import cythonize
   import numpy as np
-  import subprocess as sp
-
-  sp.call(['python', 'make_version.py'])
-  import rbf._version
-    
+  import versioneer
   ext = []
   ext += [Extension(name='rbf.poly',
                     sources=['rbf/poly.pyx'],
@@ -29,7 +25,8 @@ if __name__ == '__main__':
                     sources=['rbf/misc/bspline.pyx'],
                     include_dirs=[np.get_include()])]
   setup(name='RBF',
-        version=rbf._version.__version__,
+        version=versioneer.get_version(),
+        cmdclass=versioneer.get_cmdclass(),
         description='Package containing the tools necessary for radial basis '
                     'function (RBF) applications',
         author='Trever Hines',

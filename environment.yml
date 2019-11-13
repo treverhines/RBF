@@ -1,3 +1,4 @@
+# Conda environment used by Read the Docs
 name: rbf
 channels:
   - defaults
