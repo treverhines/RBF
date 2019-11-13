@@ -1,0 +1,25 @@
+package:
+  name: rbf
+  version: {{ GIT_DESCRIBE_TAG }}
+
+source:
+  git_url: ../
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - cython
+
+  run:
+    - python
+    - numpy>=1.10
+    - scipy
+    - sympy
+    - cython
+    - rtree
+    - scikit-sparse>=0.4.2
+    
+about:
+  home: http://www.github.com/treverhines/rbf
+  license: MIT

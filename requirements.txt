@@ -1,5 +1,6 @@
-numpy
+numpy>=1.10
 scipy
 sympy
 cython
 rtree
+scikit-sparse>=0.4.2
