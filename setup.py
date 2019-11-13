@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 if __name__ == '__main__':
-  from distutils.core import setup
-  from distutils.extension import Extension
+  from setuptools import setup
+  from setuptools.extension import Extension
   from Cython.Build import cythonize
   import numpy as np
   import subprocess as sp
