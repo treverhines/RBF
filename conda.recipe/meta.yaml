@@ -7,13 +7,13 @@ source:
 
 requirements:
   build:
-    - python x.x
+    - python {{ python }}
     - setuptools
     - cython
     - numpy >=1.10
 
   run:
-    - python x.x
+    - python
     - numpy >=1.10
     - scipy
     - sympy
