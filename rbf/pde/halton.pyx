@@ -4,7 +4,6 @@ This module defines a function and class for generating halton sequences
 from __future__ import division
 import numpy as np
 
-cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
 
 # first 100 prime numbers

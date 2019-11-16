@@ -21,9 +21,6 @@ if __name__ == '__main__':
   ext += [Extension(name='rbf.pde.sampling',
                     sources=['rbf/pde/sampling.pyx'],
                     include_dirs=[np.get_include()])]
-  ext += [Extension(name='rbf.misc.bspline',
-                    sources=['rbf/misc/bspline.pyx'],
-                    include_dirs=[np.get_include()])]
   setup(name='RBF',
         version=versioneer.get_version(),
         cmdclass=versioneer.get_cmdclass(),
@@ -32,7 +29,7 @@ if __name__ == '__main__':
         author='Trever Hines',
         author_email='treverhines@gmail.com',
         url='www.github.com/treverhines/RBF',
-        packages=['rbf', 'rbf.misc', 'rbf.pde'],
+        packages=['rbf', 'rbf.pde'],
         ext_modules=cythonize(ext),
         license='MIT')
 

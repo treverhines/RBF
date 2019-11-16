@@ -86,7 +86,6 @@ from scipy.special import factorial
 from rbf.utils import assert_shape
 
 # cython imports
-cimport numpy as np
 from cython cimport boundscheck, wraparound, cdivision
 from libc.math cimport fabs, sqrt, INFINITY
 

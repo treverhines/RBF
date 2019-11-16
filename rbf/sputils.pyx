@@ -8,7 +8,6 @@ import scipy.sparse as sp
 
 from rbf.utils import assert_shape
 
-cimport numpy as np
 from cython cimport boundscheck, wraparound
 
 logger = logging.getLogger(__name__)

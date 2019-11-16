@@ -10,7 +10,6 @@ from scipy.special import binom
 
 from rbf.utils import assert_shape, Memoize
 
-cimport numpy as np
 from cython cimport boundscheck, wraparound
 
 
