@@ -3,22 +3,23 @@ package:
   version: {{ GIT_DESCRIBE_TAG }}
 
 source:
-  git_url: ../
+  path: ../
 
 requirements:
   build:
-    - python
+    - python x.x
     - setuptools
     - cython
+    - numpy >=1.10
 
   run:
-    - python
-    - numpy>=1.10
+    - python x.x
+    - numpy >=1.10
     - scipy
     - sympy
     - cython
     - rtree
-    - scikit-sparse>=0.4.2
+    - scikit-sparse >=0.4.2
     
 about:
   home: http://www.github.com/treverhines/rbf
