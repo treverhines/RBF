@@ -11,7 +11,7 @@ requirements:
     - setuptools
     - cython
   run:
-    - python
+    - python {{ python }}
     - numpy >=1.10
     - scipy
     - sympy
