@@ -10,8 +10,6 @@ requirements:
     - python {{ python }}
     - setuptools
     - cython
-    - numpy >=1.10
-
   run:
     - python
     - numpy >=1.10
