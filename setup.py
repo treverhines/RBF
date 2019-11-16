@@ -26,5 +26,3 @@ if __name__ == '__main__':
         packages=['rbf', 'rbf.pde'],
         ext_modules=cythonize(ext),
         license='MIT')
-
-
