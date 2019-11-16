@@ -301,7 +301,7 @@ def weight_matrix(x, p, n, diffs,
   for i, si in enumerate(stencils):
     # intermittently log the progress
     if i % max(stencils.shape[0] // 10, 1) == 0:
-      logger.debug('  %d%% complete' % (100*i / stencils.shape[0]))
+      logger.debug('  %3d%% complete' % (100*i / stencils.shape[0]))
 
     data[i, :] = weights(x[i], p[si], diffs,
                          coeffs=coeffs[:, i], eps=eps[si],
@@ -313,5 +313,5 @@ def weight_matrix(x, p, n, diffs,
   data = data.ravel()
   shape = x.shape[0], p.shape[0]
   L = sp.coo_matrix((data, (rows, cols)), shape)
-  logger.debug('  done')
+  logger.debug('  100% complete')
   return L
