@@ -20,5 +20,7 @@ requirements:
     - scikit-sparse >=0.4.2
     
 about:
-  home: http://www.github.com/treverhines/rbf
+  home: https://www.github.com/treverhines/rbf
+  dev_url: https://www.github.com/treverhines/rbf
+  doc_url: https://rbf.readthedocs.io
   license: MIT
