@@ -1,26 +1,35 @@
 Installation
 ============
-`RBF` requires the following python packages: `numpy`, `scipy`,
-`sympy`, `cython`, and `rtree`.  It should be straight-forward to find
-and install these packages with either `pip` or `conda`.
+Using conda
+-----------
+If you are using a linux computer and you have conda. you can install RBF and
+its dependencies with the command
 
-download the RBF package
+.. code-block:: bash
+
+  $ conda install rbf -c treverhines -c conda-forge
+
+From source
+-----------
+RBF requires the following packages: numpy, scipy, sympy, cython, and rtree.
+These dependencies should all be installable with conda or pip.
+
+Download the RBF package
 
 .. code-block:: bash
 
   $ git clone http://github.com/treverhines/RBF.git
 
-compile and install
+Compile and install
 
 .. code-block:: bash
 
   $ cd RBF
   $ python setup.py install
-  
-test that everything works
+
+Test that everything works
 
 .. code-block:: bash
 
   $ cd test
   $ python -m unittest discover
-

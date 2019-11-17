@@ -38,7 +38,6 @@ its dependencies with the command
 
   $ conda install rbf -c treverhines -c conda-forge
 
-
 From source
 -----------
 RBF requires the following packages: numpy, scipy, sympy, cython, and rtree.
@@ -66,8 +65,8 @@ Test that everything works
 
 Demonstration
 =============
-Smoothing Scattered Data
-------------------------
+Interpolating scattered data
+----------------------------
 .. code-block:: python
 
   '''                                                                    
