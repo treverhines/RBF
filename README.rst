@@ -31,8 +31,8 @@ Installation
 ============
 Using conda
 -----------
-If you are using a linux computer and you have conda. you can install ``RBF``
-and its dependencies with the command
+If you are using a linux computer and you have conda. you can install RBF and
+its dependencies with the command
 
 .. code-block:: bash
 
@@ -41,11 +41,10 @@ and its dependencies with the command
 
 From source
 -----------
-``RBF`` requires the following packages: ``numpy``, ``scipy``, ``sympy``,
-``cython``, and ``rtree``. These dependencies should all be installable with
-conda or pip.
+RBF requires the following packages: numpy, scipy, sympy, cython, and rtree.
+These dependencies should all be installable with conda or pip.
 
-Download the ``RBF`` package
+Download the RBF package
 
 .. code-block:: bash
 
