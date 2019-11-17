@@ -11,19 +11,19 @@ documentation for this package can be found
 
 Features
 ========
-* The `RBF` class, which is used to evaluate RBFs and their exact derivatives
-* The `RBFInterpolant` class, which is used to interpolate scattered and
+* The ``RBF`` class, which is used to evaluate RBFs and their exact derivatives
+* The ``RBFInterpolant`` class, which is used to interpolate scattered and
   potentially noisy N-dimensional data. One can also evaluate the exact
   derivatives of the interpolant
-* The `weight_matrix` function, which generates radial basis function finite
+* The ``weight_matrix`` function, which generates radial basis function finite
   difference (RBF-FD) weights. This is used for solving large scale PDEs over
   irregular domains
-* Node generation functions, such as `min_energy_nodes` and
-  `poisson_disc_nodes`, which are used for solving PDEs with the spectral RBF
+* Node generation functions, such as ``min_energy_nodes`` and
+  ``poisson_disc_nodes``, which are used for solving PDEs with the spectral RBF
   method or the RBF-FD method
 * Computational geometry functions (e.g. point in polygon testing) for two and
   three spatial dimensions
-* The `GaussianProcess` class, which is used for Gaussian process regression
+* The ``GaussianProcess`` class, which is used for Gaussian process regression
   (GPR). GPR is similar to RBF interpolation, except it has a Bayesian
   statistical foundation
 
@@ -31,8 +31,8 @@ Installation
 ============
 Using conda
 -----------
-If you are using a linux computer and you have conda. you can install `RBF` and
-its dependencies with the command
+If you are using a linux computer and you have conda. you can install ``RBF``
+and its dependencies with the command
 
 .. code-block:: bash
 
@@ -41,10 +41,11 @@ its dependencies with the command
 
 From source
 -----------
-`RBF` requires the following packages: `numpy`, `scipy`, `sympy`, `cython`, and
-`rtree`. These dependencies should all be installable with conda or pip.
+``RBF`` requires the following packages: ``numpy``, ``scipy``, ``sympy``,
+``cython``, and ``rtree``. These dependencies should all be installable with
+conda or pip.
 
-Download the `RBF` package
+Download the ``RBF`` package
 
 .. code-block:: bash
 
