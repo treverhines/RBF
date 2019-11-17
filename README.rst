@@ -1,49 +1,63 @@
 RBF
 +++
 Python package containing tools for radial basis function (RBF) applications.
-Applications include interpolating/smoothing scattered data and solving PDEs
-over irregular domains.  This package was heavily influenced by the books
-"Meshfree Approximation Methods with Matlab" by Gregory Fasshauer and "A Primer
-on Radial Basis Functions with Applications to the Geosciences" by Bengt
-Fornberg and Natasha Flyer. The complete documentation for this package can be
-found `here <http://rbf.readthedocs.io>`_.
+Applications include interpolating scattered data and solving partial
+differential equations (PDEs) over irregular domains. Much of this package was
+inspired by the books "A Primer on Radial Basis Functions with Applications to
+the Geosciences" by Bengt Fornberg and Natasha Flyer and "Meshfree
+Approximation Methods with Matlab" by Gregory Fasshauer. The complete
+documentation for this package can be found 
+`here <http://rbf.readthedocs.io>`_.
 
 Features
 ========
-* Functions for evaluating RBFs and their exact derivatives.
-* A class for RBF interpolation, which is used for interpolating and smoothing
-  scattered, noisy, N-dimensional data.
-* An algorithm for generating Radial Basis Function Finite Difference (RBF-FD)
-  weights. This is used for solving large scale PDEs over irregular domains.
-* A node generation algorithm which can be used for solving PDEs with the
-  spectral RBF method or the RBF-FD method.
-* An abstraction for Gaussian processes. Gaussian processes are primarily used
-  here for Gaussian process regression (GPR), which is a nonparametric Bayesian
-  interpolation/smoothing method.
-* Halton sequence generator.
+* The `RBF` class, which is used to evaluate RBFs and their exact derivatives
+* The `RBFInterpolant` class, which is used to interpolate scattered and
+  potentially noisy N-dimensional data. One can also evaluate the exact
+  derivatives of the interpolant
+* The `weight_matrix` function, which generates radial basis function finite
+  difference (RBF-FD) weights. This is used for solving large scale PDEs over
+  irregular domains
+* Node generation functions, such as `min_energy_nodes` and
+  `poisson_disc_nodes`, which are used for solving PDEs with the spectral RBF
+  method or the RBF-FD method
 * Computational geometry functions (e.g. point in polygon testing) for two and
-  three spatial dimensions.
+  three spatial dimensions
+* The `GaussianProcess` class, which is used for Gaussian process regression
+  (GPR). GPR is similar to RBF interpolation, except it has a Bayesian
+  statistical foundation
 
 Installation
 ============
-RBF requires the following python packages: numpy, scipy, sympy, cython, and
-rtree. These dependencies should all be installable via `conda install`
-(https://www.continuum.io/downloads).
+Using conda
+-----------
+If you are using a linux computer and you have conda. you can install `RBF` and
+its dependencies with the command
 
-download the RBF package
+.. code-block:: bash
+
+  $ conda install rbf -c treverhines -c conda-forge
+
+
+From source
+-----------
+`RBF` requires the following packages: `numpy`, `scipy`, `sympy`, `cython`, and
+`rtree`. These dependencies should all be installable with conda or pip.
+
+Download the `RBF` package
 
 .. code-block:: bash
 
   $ git clone http://github.com/treverhines/RBF.git
 
-compile and install
+Compile and install
 
 .. code-block:: bash
 
   $ cd RBF
   $ python setup.py install
 
-test that everything works
+Test that everything works
 
 .. code-block:: bash
 
