@@ -1,2 +1,0 @@
-include versioneer.py
-include rbf/_version.py
