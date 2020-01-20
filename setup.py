@@ -3,7 +3,14 @@ if __name__ == '__main__':
   from setuptools import setup
   from setuptools.extension import Extension
   from Cython.Build import cythonize
-  import versioneer
+  import subprocess as sp
+
+  # this should create the file rbf/_version.py
+  sp.call(['python', 'make_version.py'])
+  version_info = {}
+  with open('rbf/_version.py', 'r') as fb:
+    exec(fb.read(), version_info)
+  
   ext = []
   ext += [Extension(name='rbf.poly',
                     sources=['rbf/poly.pyx'])]
@@ -16,8 +23,7 @@ if __name__ == '__main__':
   ext += [Extension(name='rbf.pde.sampling',
                     sources=['rbf/pde/sampling.pyx'])]
   setup(name='RBF',
-        version=versioneer.get_version(),
-        cmdclass=versioneer.get_cmdclass(),
+        version=version_info['__version__'],
         description='Package containing the tools necessary for radial basis '
                     'function (RBF) applications',
         author='Trever Hines',
