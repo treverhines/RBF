@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     except Exception:
         print('Unable to retrieve the current git hash')
-        pass                        
+        pass
 
     try:
         desc = sp.check_output(['git', 'describe', '--always', '--dirty'])
@@ -30,9 +30,9 @@ if __name__ == '__main__':
         private_version = '.'.join(desc_parts[1:])
         if private_version:
             version = public_version + '+' + private_version
-        else:            
+        else:
             version = public_version
-        
+
         version_info['__version__'] = version
 
     except Exception:
