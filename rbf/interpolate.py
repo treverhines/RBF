@@ -200,7 +200,8 @@ class RBFInterpolant(object):
     # create zeros vector for the right-hand-side
     z = np.zeros((pwr.shape[0],))
     # solve for the RBF and mononomial coefficients
-    phi_coeff, poly_coeff = PartitionedSolver(K + Cd, P).solve(d, z) 
+    self.solver = PartitionedSolver(K + Cd, P)
+    phi_coeff, poly_coeff = self.solver.solve(d, z) 
 
     self._y = y
     self._phi = phi
@@ -211,6 +212,10 @@ class RBFInterpolant(object):
     self._pwr = pwr
     self.extrapolate = extrapolate
 
+  def fit_to_new_data(self, d):
+    z = np.zeros((self._pwr.shape[0],))
+    self._phi_coeff, self._poly_coeff = self.solver.solve(d, z) 
+  
   def __call__(self, x, diff=None, chunk_size=1000):
     ''' 
     Evaluates the interpolant at `x`
