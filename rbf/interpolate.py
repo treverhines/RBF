@@ -1,7 +1,7 @@
 ''' 
-This module provides a class for RBF interpolation, `RBFInterpolant`.
-This function has numerous features that are lacking in
-`scipy.interpolate.rbf`. They include:
+This module provides a class for RBF interpolation, `RBFInterpolant`. This
+function has numerous features that are lacking in `scipy.interpolate.rbf`.
+They include:
   
 * variable weights on the data (when creating a smoothed interpolant)
 * more choices of basis functions (you can also easily make your own)
@@ -11,69 +11,67 @@ This function has numerous features that are lacking in
 RBF Interpolation
 -----------------
 Consider a vector of :math:`n` observations :math:`\mathbf{d}` made at
-locations :math:`\mathbf{y}`. These observations could potentially
-have normally distributed noise described by the covariance matrix
-:math:`\Sigma`. An RBF interpolant :math:`\mathbf{f(x)}` for these
-observations is parameterized as
+locations :math:`\mathbf{y}`. These observations could potentially have
+normally distributed noise described by the covariance matrix :math:`\Sigma`.
+An RBF interpolant :math:`\mathbf{f(x)}` for these observations is
+parameterized as
     
 .. math::
   \mathbf{f(x)} = \mathbf{K(x,y) a} + \mathbf{P(x) b}
   
-where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at 
-:math:`\mathbf{y}` evaluated at the interpolation points
-:math:`\mathbf{x}`. :math:`\mathbf{P(x)}` is a polynomial matrix
-containing :math:`m` monomial basis function evaluated at the
-interpolation points. The monomial basis functions span the space of
-all polynomials with a user specified order. The coefficients
-:math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to minimize the
-objective function
+where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at
+:math:`\mathbf{y}` evaluated at the interpolation points :math:`\mathbf{x}`.
+:math:`\mathbf{P(x)}` is a polynomial matrix containing :math:`m` monomial
+basis function evaluated at the interpolation points. The monomial basis
+functions span the space of all polynomials with a user specified order. The
+coefficients :math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to minimize
+the objective function
 
 .. math::
   \mathcal{L}(\mathbf{a, b}) = 
   \mathbf{a^T K(y,y) a} + 
-  \mathbf{(f(y; a, b) - d)^T \Sigma^{-1} (f(y; a, b) - d)}.
+  \lambda \mathbf{(f(y; a, b) - d)^T \Sigma^{-1} (f(y; a, b) - d)}.
 
-The second term on the right side of the above expression is a norm
-measuring the misfit between the interpolant and the observations. The
-first term on the right side is a norm that essentially penalizes the
-roughness of the interpolant (technically, it is the norm associated
-with the reproducing kernel Hilbert space for the chosen radial basis
-function). This problem formulation is inspired by the formulation
-used in section 19.2 and 6.3 of [1].
+In the above expression, the second term on the right side is a norm measuring
+the misfit between the interpolant and the observations. The first term on the
+right side is a norm that essentially penalizes the roughness of the
+interpolant (technically, it is the norm associated with the reproducing kernel
+Hilbert space for the chosen radial basis function). We have also introduced
+:math:`\lambda` which is a smoothing parameter that controls how well we want
+the interpolant to fit the data. This problem formulation is a combination of
+the formulations used in section 19.2 and 6.3 of [1].
 
-To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need
-:math:`n+m` linear constraints. We can differentiate
-:math:`\mathcal{L}` with respect to :math:`\mathbf{a}` and set it
-equal to zero to get :math:`n` constraints
+To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need :math:`n+m`
+linear constraints. We can differentiate :math:`\mathcal{L}` with respect to
+:math:`\mathbf{a}` and set it equal to zero to get :math:`n` constraints
 
 .. math::
-  (\mathbf{K(y,y)} + \mathbf{\Sigma}) \mathbf{a}  
+  (\mathbf{K(y,y)} + \lambda^{-1}\mathbf{\Sigma}) \mathbf{a}  
   + \mathbf{P(y) b} = \mathbf{d}.
 
 For the remaining :math:`m` constraints, we differentiate
-:math:`\mathcal{L}` with respect to :math:`\mathbf{b}` and
-substitute the above equation in for :math:`\mathbf{d}` to get
+:math:`\mathcal{L}` with respect to :math:`\mathbf{b}`, set it equal to zero,
+and substitute the above equation in for :math:`\mathbf{d}` to get
 
 .. math::
   \mathbf{P(y)^T a} = \mathbf{0}.
 
-For most purposes, the above two equations provide the linear
-constrains that are needed to solve for :math:`\mathbf{a}` and
-:math:`\mathbf{b}`. However, there are cases where the system cannot
-be solved due to, for example, too few data points or a polynomial
-order that is too high. There are also some radial basis functions
-which are conditionally positive definite, which means that the norm
-:math:`\mathbf{a^T K(y, y) a}` is only guaranteed to be positive when
-the order of the added polynomial is sufficiently high. The user is
-refered to [1] for details on when the interpolation problem is
-well-posed. For the default settings in `RBFInterpolant`, the
-interpolation problem is well-posed as long as :math:`n \geq D+1`,
-where `D` is the number of spatial dimensions.
+For most purposes, the above two equations provide the linear constrains that
+are needed to solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. However,
+there are cases where the system cannot be solved due to, for example, too few
+data points or a polynomial order that is too high. There are also some radial
+basis functions which are conditionally positive definite, which means that the
+norm :math:`\mathbf{a^T K(y, y) a}` is only guaranteed to be positive when the
+order of the added polynomial is sufficiently high. The user is refered to [1]
+for details on when the interpolation problem is well-posed. For the default
+settings in `RBFInterpolant`, the interpolation problem is well-posed as long
+as :math:`n \geq D+1`, where `D` is the number of spatial dimensions.
 
-If the data has no noise, :math:`\mathbf{\Sigma}=\mathbf{0}`, the
-observations are fit perfectly by the interpolant. Increasing the
-uncertainty degrades the fit while improving the smoothness of the
-interpolant.
+In our implementation, we have combined the effect of :math:`\Sigma` and
+:math:`\lambda` into one variable, `sigma`, which is a scalar or a vector that
+is *proportional* to the standard deviation of the noise. When `sigma` is `0`
+the observations are fit perfectly by the interpolant. Increasing `sigma`
+degrades the fit while improving the smoothness of the interpolant.
     
 References
 ----------
@@ -124,14 +122,16 @@ class RBFInterpolant(object):
     Observed values at `y`.
 
   sigma : float or (N,) array, optional
-    One standard deviation uncertainty for the observations. This defaults to
-    zeros (i.e., the observations are perfectly known). Increasing this values
-    will decrease the size of the RBF coefficients and leave the polynomial
-    terms undamped.
+    Smoothing parameter. Setting this to `0` causes the interpolant to
+    perfectly fit the data. Increasing the smoothing parameter degrades the fit
+    while improving the smoothness of the interpolant. If this is a vector, it
+    should be proportional to the one standard deviation uncertainties for the
+    observations. This defaults to zeros.
         
   eps : float or (N,) array, optional
-    Shape parameters for each RBF. This has no effect for odd order
-    polyharmonic splines. Defaults to 1.0.
+    Shape parameters for each RBF. For odd order polyharmonic splines,
+    increasing `eps` has the same effect as decreasing `sigma`. Defaults to
+    ones.
 
   phi : rbf.basis.RBF instance or str, optional
     Radial basis function to use. This can be an RBF instance (e.g,
@@ -143,7 +143,7 @@ class RBFInterpolant(object):
     by `y`. If False, then np.nan is returned for outside points.
 
   order : int, optional
-    Order of added polynomial terms. Set this to -1 for no added polynomial
+    Order of added polynomial terms. Set this to `-1` for no added polynomial
     terms.
 
   Notes
