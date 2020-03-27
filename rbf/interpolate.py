@@ -42,8 +42,11 @@ the interpolant to fit the data. This problem formulation is a combination of
 the formulations used in section 19.2 and 6.3 of [1].
 
 To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need :math:`n+m`
-linear constraints. We can differentiate :math:`\mathcal{L}` with respect to
-:math:`\mathbf{a}` and set it equal to zero to get :math:`n` constraints
+linear constraints. We can recognize that :math:`\mathcal{L}` is a convex
+function, and so it can be minimized by finding where its gradient is zero. We
+differentiate :math:`\mathcal{L}` with respect to :math:`\mathbf{a}` and set it
+equal to zero to get :math:`n` constraints
+
 
 .. math::
   (\mathbf{K(y,y)} + \lambda^{-1}\mathbf{\Sigma}) \mathbf{a}  
