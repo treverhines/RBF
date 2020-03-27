@@ -8,6 +8,9 @@ version: 2
 sphinx:
   configuration: docs/source/conf.py
 
+build:
+  image: stable
+  
 conda:
   environment: environment.yml
 

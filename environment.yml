@@ -4,7 +4,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - numpy =1.10
+  - numpy >=1.10
   - numpydoc
   - scipy
   - sympy
