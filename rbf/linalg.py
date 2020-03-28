@@ -1,5 +1,8 @@
 '''
-Module for linear algebra routines.
+Module that defines solvers for matrices that are frequently encountered in RBF
+applications. The classes in this module can take either scipy sparse matrices
+or numpy arrays as input. The underlying algorithms are from
+`scipy.linalg.lapack`, `scipy.sparse.linalg`, and `sksparse.cholmod`.
 '''
 import logging
 import warnings
