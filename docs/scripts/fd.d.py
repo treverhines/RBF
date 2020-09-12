@@ -43,7 +43,7 @@ nu = 1e-6
 # whether to plot the eigenvalues for the state differentiation matrix. All the
 # eigenvalues must have a negative real component for the time stepping to be
 # stable
-plot_eigs = False
+plot_eigs = True
 # number of nodes used for each RBF-FD stencil
 stencil_size = 50
 # the polynomial order for generating the RBF-FD weights
@@ -121,7 +121,8 @@ H = -nu*weight_matrix(
     x=nodes[groups['interior+boundary:all']],
     p=nodes[groups['interior+boundary:all']],
     n=stencil_size,
-    diffs=[(4, 0), (0, 4)],
+    diffs=[(4, 0), (2, 2), (0, 4)],
+    coeffs=[1.0, 2.0, 1.0],
     phi='phs5',
     order=4)
 H = expand_rows(H, groups['interior+boundary:all'], n)

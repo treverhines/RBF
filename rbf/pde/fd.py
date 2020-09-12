@@ -55,7 +55,8 @@ def weights(x, s, diffs,
             coeffs=None,
             phi=phs3,
             order=None,
-            eps=1.0):
+            eps=1.0,
+            use_pinv=False):
   '''
   Returns the weights which map a functions values at `s` to an approximation
   of that functions derivative at `x`. The weights are computed using the
@@ -97,6 +98,11 @@ def weights(x, s, diffs,
     Shape parameter for each RBF, which have centers `s`. This only makes a
     difference when using RBFs that are not scale invariant. All the predefined
     RBFs except for the odd order polyharmonic splines are not scale invariant.
+
+  use_pinv : bool, optional
+    If raised, the weights are computed with a Moore-Penrose inverse. This is
+    for when the stencil may have duplicate or collinear points that would
+    otherwise cause an error.
 
   Returns
   -------
@@ -175,32 +181,40 @@ def weights(x, s, diffs,
   p = np.zeros((1, pwr.shape[0]), dtype=float)
   for c, d in zip(coeffs, diffs):
     a += c*phi(x[None, :], s, eps=eps, diff=d)
-    p += c*mvmonos(x[None, :], pwr, diff=d) 
-  
+    p += c*mvmonos(x[None, :], pwr, diff=d)
+
   # squeeze `a` and `p` into 1d arrays. `a` is ran through as_array because it
   # may be sparse.
   a = as_array(a)[0]
   p = p[0]
 
   # attempt to compute the RBF-FD weights
-  try:
-    w = PartitionedSolver(A, P).solve(a, p)[0]
-    return w
+  if use_pinv:
+    Z = np.zeros((pwr.shape[0], pwr.shape[0]))
+    G = np.vstack((np.hstack((A, P)), np.hstack((P.T, Z))))
+    d = np.hstack((a, p))
+    w = np.linalg.lstsq(G, d, rcond=None)[0][:a.shape[0]]
 
-  except np.linalg.LinAlgError:
-    raise np.linalg.LinAlgError(
-      'An error was raised while computing the RBF-FD weights at point %s '
-      'with the RBF %s and the polynomial order %s. This may be due to a '
-      'stencil with duplicate or collinear points. The stencil contains the '
-      'following points:\n%s' % (x, phi, order, s))
+  else:
+    try:
+      w = PartitionedSolver(A, P).solve(a, p)[0]
 
+    except np.linalg.LinAlgError:
+      raise np.linalg.LinAlgError(
+        'An error was raised while computing the RBF-FD weights at point %s '
+        'with the RBF %s and the polynomial order %s. This may be due to a '
+        'stencil with duplicate or collinear points. The stencil contains the '
+        'following points:\n%s' % (x, phi, order, s))
+
+  return w
 
 def weight_matrix(x, p, n, diffs,
                   coeffs=None,
                   phi=phs3,
                   order=None,
                   eps=1.0,
-                  stencils=None):
+                  stencils=None,
+                  use_pinv=False):
   '''
   Returns a weight matrix which maps a functions values at `p` to an
   approximation of that functions derivative at `x`. This is a convenience
@@ -247,6 +261,11 @@ def weight_matrix(x, p, n, diffs,
     difference when using RBFs that are not scale invariant.  All the
     predefined RBFs except for the odd order polyharmonic splines are not scale
     invariant.
+
+  use_pinv : bool, optional
+    If raised, the weights are computed with a Moore-Penrose inverse. This is
+    for when the stencil may have duplicate or collinear points that would
+    otherwise cause an error.
 
   Returns
   -------
@@ -305,7 +324,7 @@ def weight_matrix(x, p, n, diffs,
 
     data[i, :] = weights(x[i], p[si], diffs,
                          coeffs=coeffs[:, i], eps=eps[si],
-                         phi=phi, order=order)
+                         phi=phi, order=order, use_pinv=use_pinv)
 
 
   rows = np.repeat(range(data.shape[0]), data.shape[1])
