@@ -11,32 +11,81 @@ from scipy.spatial import cKDTree
 _SHAPE_ASSERTIONS = True
 
 
-def assert_shape(arr, shape, label):
-  ''' 
-  Raises an error if `arr` does not have the specified shape. If an element in
-  `shape` is `None` then that axis can have any length.
+def assert_shape(arr, shape, label='array'):
+  '''
+  Raises a ValueError if `arr` does not have the specified shape
+
+  Parameters
+  ----------
+  arr : array-like
+
+  shape : tuple
+    The shape requirement for `arr`. This can have `None` to indicate that an
+    axis can have any length. This can also have an Ellipsis to only enforce
+    the shape for the first and/or last dimensions of `arr`
+
+  label : str
+    What to call `arr` in the error
+
   '''
   if not _SHAPE_ASSERTIONS:
     return
-        
+
   if hasattr(arr, 'shape'):
+    # if `arr` has a shape attribute then use it rather than finding the shape
+    # with np.shape, which converts `arr` to a numpy array
     arr_shape = arr.shape
   else:
     arr_shape = np.shape(arr)
-    
-  if len(arr_shape) != len(shape):
-    raise ValueError(
-      '`%s` is a %s dimensional array but it should be a %s dimensional array' 
-      % (label, len(arr_shape), len(shape)))
 
-  for axis, (i, j) in enumerate(zip(arr_shape, shape)):
-    if j is None:
-      continue
-
-    if i != j:
+  arr_ndim = len(arr_shape)
+  if Ellipsis in shape:
+    # If `shape` has an ellipsis then only the first and/or last dimensions
+    # will be checked
+    start_shape = shape[:shape.index(Ellipsis)]
+    end_shape = shape[shape.index(Ellipsis) + 1:]
+    start_ndim = len(start_shape)
+    end_ndim = len(end_shape)
+    if arr_ndim < (start_ndim + end_ndim):
       raise ValueError(
-        'Axis %s of `%s` has length %s but it should have length %s.' 
-        % (axis, label, i, j))
+        '%s is %d dimensional but it should have at least %d dimensions' %
+        (label, arr_ndim, start_ndim + end_ndim))
+
+    arr_start_shape = arr_shape[:start_ndim]
+    arr_end_shape = arr_shape[arr_ndim - end_ndim:]
+    for axis, (i, j) in enumerate(zip(arr_start_shape, start_shape)):
+      if j is None:
+        continue
+
+      if i != j:
+        raise ValueError(
+          'axis %d of %s has length %d but it should have length %d'
+          % (axis, label, i, j))
+
+    for axis, (i, j) in enumerate(zip(arr_end_shape, end_shape)):
+      if j is None:
+        continue
+
+      if i != j:
+        raise ValueError(
+          'axis %d of %s has length %d but it should have length %d'
+          % (arr_ndim - end_ndim + axis, label, i, j))
+
+  else:
+    ndim = len(shape)
+    if arr_ndim != ndim:
+      raise ValueError(
+        '%s is %d dimensional but it should have %d dimensions'
+        % (label, arr_ndim, ndim))
+
+    for axis, (i, j) in enumerate(zip(arr_shape, shape)):
+      if j is None:
+        continue
+
+      if i != j:
+        raise ValueError(
+          'axis %d of %s has length %d but it should have length %d'
+          % (axis, label, i, j))
 
   return
 
@@ -45,16 +94,16 @@ def assert_shape(arr, shape, label):
 def no_shape_assertions():
   '''
   Context manager that causes `assert_shape` to do nothing
-  '''     
+  '''
   global _SHAPE_ASSERTIONS
   enter_state = _SHAPE_ASSERTIONS
   _SHAPE_ASSERTIONS = False
   yield None
   _SHAPE_ASSERTIONS = enter_state
-      
+
 
 def get_arg_count(func):
-  ''' 
+  '''
   Returns the number of arguments that can be specified positionally for a
   function. If this cannot be inferred then -1 is returned.
   '''
@@ -69,8 +118,8 @@ def get_arg_count(func):
     # return the number of arguments that can be specified positionally
     out = len(argspec.args)
     return out
-  
-  else:  
+
+  else:
     params = inspect.signature(func).parameters
     # if a parameter has kind 2, then it is a variable positional argument
     if any(p.kind == 2 for p in params.values()):
@@ -98,19 +147,19 @@ class Memoize(object):
     instance = object.__new__(cls)
     cls._INSTANCES += [weakref.ref(instance)]
     return instance
-  
+
   def __init__(self, fin):
     self.fin = fin
     # the cache will be ordered from least to most recently used
     self.cache = OrderedDict()
-    
-  @staticmethod    
+
+  @staticmethod
   def _as_key(args):
     # convert the arguments to a hashable object. In this case, the argument
     # tuple is assumed to already be hashable
     return args
-    
-  def __call__(self, *args):        
+
+  def __call__(self, *args):
     key = self._as_key(args)
     try:
       value = self.cache[key]
@@ -122,26 +171,26 @@ class Memoize(object):
         self.cache.move_to_end(key)
 
       except AttributeError:
-        self.cache[key] = self.cache.pop(key)  
-        
+        self.cache[key] = self.cache.pop(key)
+
     except KeyError:
       if len(self.cache) == self._MAXSIZE:
         # remove the first item which is the least recently used item
         self.cache.popitem(0)
-            
+
       value = self.fin(*args)
       # add the function output to the end of the cache
       self.cache[key] = value
 
     return value
-             
+
   def __repr__(self):
     return self.fin.__repr__()
 
   def clear_cache(self):
     '''Clear the cached function output'''
     self.cache = OrderedDict()
-    
+
 
 class MemoizeArrayInput(Memoize):
   '''
@@ -159,7 +208,7 @@ class MemoizeArrayInput(Memoize):
 def clear_memoize_caches():
   '''
   Clear the caches for all instances of MemoizeArrayInput
-  ''' 
+  '''
   for inst in Memoize._INSTANCES:
     if inst() is not None:
       inst().clear_cache()
@@ -175,12 +224,12 @@ class KDTree(cKDTree):
     '''query the KD-tree for nearest neighbors'''
     if k > self.n:
       raise ValueError(
-        'Cannot find the %s nearest points among a set of %s points' 
+        'Cannot find the %s nearest points among a set of %s points'
         % (k, self.n))
-            
+
     dist, indices = cKDTree.query(self, x, k=k, **kwargs)
     if k == 1:
       dist = dist[..., None]
       indices = indices[..., None]
 
-    return dist, indices            
+    return dist, indices
