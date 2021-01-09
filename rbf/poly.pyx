@@ -19,19 +19,19 @@ def mvmonos(x, powers, diff=None):
 
   Parameters
   ----------
-  x : (N, D) float array
-    positions where the monomials will be evaluated
+  x : (..., D) float array
+    Positions where the monomials will be evaluated
 
   powers : (M, D) int array
-    Defines each monomial basis function using multi-index notation.  Each row
-    contains the exponents for the spatial variables in a monomial.
+    Defines each monomial basis function using multi-index notation. Each row
+    contains the exponents for the variables in a monomial.
 
   diff : (D,) int array, optional
     Derivative order for each variable
 
   Returns
   -------
-  (N, M) array
+  (..., M) array
     Alternant matrix where x is evaluated for each monomial
 
   Example
@@ -53,18 +53,21 @@ def mvmonos(x, powers, diff=None):
 
   '''
   x = np.asarray(x, dtype=float)
-  assert_shape(x, (None, None), 'x')
+  assert_shape(x, (..., None), 'x')
+  ndim = x.shape[-1]
 
   powers = np.asarray(powers, dtype=int)
-  assert_shape(powers, (None, x.shape[1]), 'powers')
+  assert_shape(powers, (None, ndim), 'powers')
 
   if diff is None:
-    diff = np.zeros(x.shape[1], dtype=int)
+    diff = np.zeros(ndim, dtype=int)
   else:
     diff = np.asarray(diff, dtype=int)
-    assert_shape(diff, (x.shape[1],), 'diff')
+    assert_shape(diff, (ndim,), 'diff')
 
-  out = _mvmonos(x, powers, diff)
+  x_flat = x.reshape((-1, ndim))
+  out_flat = _mvmonos(x_flat, powers, diff)
+  out = out_flat.reshape(x.shape[:-1] + (-1,))
   return out
 
 
@@ -87,7 +90,7 @@ def _mvmonos(double[:, :] x,
     long N = x.shape[0]
     long coeff, power
     # `out` is the memory view of the numpy array `out_array`
-    double[:, :] out = out_array 
+    double[:, :] out = out_array
 
   # loop over dimensions
   for i in range(D):
