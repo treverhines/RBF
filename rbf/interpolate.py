@@ -65,7 +65,7 @@ there are cases where the system cannot be solved due to, for example, too few
 data points or a polynomial order that is too high. There are also some radial
 basis functions which are conditionally positive definite, which means that the
 norm :math:`\mathbf{a^T K(y, y) a}` is only guaranteed to be positive when the
-order of the added polynomial is sufficiently high. The user is refered to [1]
+order of the added polynomial is sufficiently high. The user is referred to [1]
 for details on when the interpolation problem is well-posed. For the default
 settings in `RBFInterpolant`, the interpolation problem is well-posed as long
 as :math:`n \geq D+1`, where `D` is the number of spatial dimensions.

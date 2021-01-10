@@ -239,8 +239,8 @@ class RBF(object):
     c : (..., M, D) float array
       RBF centers
 
-    eps : float or (M,) float array, optional
-      Shape parameters for each RBF. Defaults to 1.0
+    eps : float or float array, optional
+      Shape parameter for each RBF
 
     diff : (D,) int array, optional
       Specifies the derivative order for each spatial dimension. For example,
@@ -267,31 +267,33 @@ class RBF(object):
     '''
     x = np.asarray(x, dtype=float)
     assert_shape(x, (..., None, None), 'x')
+    ndim = x.shape[-1]
 
     c = np.asarray(c, dtype=float)
-    assert_shape(c, (..., None, x.shape[-1]), 'c')
+    assert_shape(c, (..., None, ndim), 'c')
 
-    if not np.isscalar(eps):
-      eps = np.asarray(eps, dtype=float)
-      assert_shape(eps, (c.shape[-2],), 'eps')
+    eps = np.asarray(eps, dtype=float)
+    eps = np.broadcast_to(eps, c.shape[:-1])
 
     # if `diff` is not given then take no derivatives
     if diff is None:
-      diff = (0,)*x.shape[-1]
+      diff = (0,)*ndim
 
     else:
       # make sure diff is immutable
       diff = tuple(diff)
-      assert_shape(diff, (x.shape[-1],), 'diff')
+      assert_shape(diff, (ndim,), 'diff')
 
     # add numerical function to cache if not already
     if diff not in self._cache:
       self._add_diff_to_cache(diff)
 
     # reshape x from (..., n, d) to (d, ..., n, 1)
-    x = x.transpose(np.roll(range(x.ndim), 1))[..., None]
+    x = np.einsum('...ij->j...i', x)[..., None]
     # reshape c from (..., m, d) to (d, ..., 1, m)
-    c = c.transpose(np.roll(range(c.ndim), 1))[..., None, :]
+    c = np.einsum('...ij->j...i', c)[..., None, :]
+    # reshape eps from (..., m) to (..., 1, m)
+    eps = eps[..., None, :]
     args = (tuple(x) + tuple(c) + (eps,))
     # evaluate the cached function for the given `x`, `c`, and `eps`
     out = self._cache[diff](*args)
@@ -483,21 +485,21 @@ class SparseRBF(RBF):
     '''
     x = np.asarray(x, dtype=float)
     assert_shape(x, (None, None), 'x')
+    ndim = x.shape[1]
 
     c = np.asarray(c, dtype=float)
-    assert_shape(c, (None, x.shape[1]), 'c')
+    assert_shape(c, (None, ndim), 'c')
 
     if not np.isscalar(eps):
-      raise NotImplementedError(
-        '`eps` must be a scalar for `SparseRBF` instances')
+      raise NotImplementedError('`eps` must be a scalar')
 
     if diff is None:
-      diff = (0,)*x.shape[1]
+      diff = (0,)*ndim
 
     else:
       # make sure diff is immutable
       diff = tuple(diff)
-      assert_shape(diff, (x.shape[1],), 'diff')
+      assert_shape(diff, (ndim,), 'diff')
 
     # add numerical function to cache if not already
     if diff not in self._cache:
@@ -507,10 +509,9 @@ class SparseRBF(RBF):
     supp = float(self.supp.subs(_EPS, eps))
 
     # find the nonzero entries based on distances between `x` and `c`
-    nx, nc = x.shape[0], c.shape[0]
     xtree = cKDTree(x)
     ctree = cKDTree(c)
-    # `idx` contains the indices of `x` which are within `supp` of each node in
+    # `idx` contains the indices of `x` that are within `supp` of each point in
     # `c`
     idx = ctree.query_ball_tree(xtree, supp)
 
@@ -525,14 +526,14 @@ class SparseRBF(RBF):
     for i, idxi in enumerate(idx):
       # `m` is the number of nodes in `x` close to `c[i]`
       m = len(idxi)
-      args = (tuple(x[idxi].T) + tuple(c[i]) + (eps,))
+      args = tuple(x[idxi].T) + tuple(c[i]) + (eps,)
       data[n:n + m] = self._cache[diff](*args)
       rows[n:n + m] = idxi
       cols[n:n + m] = i
       n += m
 
     # convert to a csc_matrix
-    out = csc_matrix((data, (rows, cols)), (nx, nc))
+    out = csc_matrix((data, (rows, cols)), (len(x), len(c)))
     return out
 
   def __repr__(self):
