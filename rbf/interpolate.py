@@ -1,11 +1,11 @@
-''' 
+'''
 This module provides a class for RBF interpolation, `RBFInterpolant`. This
 function has numerous features that are lacking in `scipy.interpolate.rbf`.
 They include:
-  
+
 * variable weights on the data (when creating a smoothed interpolant)
 * more choices of basis functions (you can also easily make your own)
-* analytical differentiation of the interpolant 
+* analytical differentiation of the interpolant
 * added polynomial terms for improved accuracy
 
 RBF Interpolation
@@ -15,10 +15,10 @@ locations :math:`\mathbf{y}`. These observations could potentially have
 normally distributed noise described by the covariance matrix :math:`\Sigma`.
 An RBF interpolant :math:`\mathbf{f(x)}` for these observations is
 parameterized as
-    
+
 .. math::
   \mathbf{f(x)} = \mathbf{K(x,y) a} + \mathbf{P(x) b}
-  
+
 where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at
 :math:`\mathbf{y}` evaluated at the interpolation points :math:`\mathbf{x}`.
 :math:`\mathbf{P(x)}` is a polynomial matrix containing :math:`m` monomial
@@ -28,8 +28,8 @@ coefficients :math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to minimize
 the objective function
 
 .. math::
-  \mathcal{L}(\mathbf{a, b}) = 
-  \mathbf{a^T K(y,y) a} + 
+  \mathcal{L}(\mathbf{a, b}) =
+  \mathbf{a^T K(y,y) a} +
   \lambda \mathbf{(f(y; a, b) - d)^T \Sigma^{-1} (f(y; a, b) - d)}.
 
 In the above expression, the second term on the right side is a norm measuring
@@ -49,7 +49,7 @@ equal to zero to get :math:`n` constraints
 
 
 .. math::
-  (\mathbf{K(y,y)} + \lambda^{-1}\mathbf{\Sigma}) \mathbf{a}  
+  (\mathbf{K(y,y)} + \lambda^{-1}\mathbf{\Sigma}) \mathbf{a}
   + \mathbf{P(y) b} = \mathbf{d}.
 
 For the remaining :math:`m` constraints, we differentiate
@@ -75,33 +75,33 @@ In our implementation, we have combined the effect of :math:`\Sigma` and
 is *proportional* to the standard deviation of the noise. When `sigma` is `0`
 the observations are fit perfectly by the interpolant. Increasing `sigma`
 degrades the fit while improving the smoothness of the interpolant.
-    
+
 References
 ----------
-[1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World 
+[1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World
 Scientific Publishing Co, 2007.
-    
+
 '''
 import numpy as np
 import scipy.sparse
 import scipy.spatial
 
 from rbf.poly import powers, mvmonos
-from rbf.basis import phs3, get_rbf
-from rbf.utils import assert_shape
+from rbf.basis import get_rbf, SparseRBF
+from rbf.utils import assert_shape, KDTree
 from rbf.linalg import PartitionedSolver
 
 
 def _in_hull(p, hull):
-  ''' 
+  '''
   Tests if points in `p` are in the convex hull made up by `hull`
   '''
   dim = p.shape[1]
-  # if there are not enough points in `hull` to form a simplex then 
+  # if there are not enough points in `hull` to form a simplex then
   # return False for each point in `p`.
   if hull.shape[0] <= dim:
     return np.zeros(p.shape[0], dtype=bool)
-  
+
   if dim >= 2:
     hull = scipy.spatial.Delaunay(hull)
     return hull.find_simplex(p)>=0
@@ -113,47 +113,45 @@ def _in_hull(p, hull):
 
 
 class RBFInterpolant(object):
-  ''' 
-  Regularized radial basis function interpolant  
+  '''
+  Regularized radial basis function interpolant
 
-  Parameters 
-  ---------- 
+  Parameters
+  ----------
   y : (N, D) array
-    Observation points.
+    Observation points
 
   d : (N,) array
-    Observed values at `y`.
+    Observed values at `y`
 
   sigma : float or (N,) array, optional
-    Smoothing parameter. Setting this to `0` causes the interpolant to
-    perfectly fit the data. Increasing the smoothing parameter degrades the fit
-    while improving the smoothness of the interpolant. If this is a vector, it
-    should be proportional to the one standard deviation uncertainties for the
+    Smoothing parameter. Setting this to 0 causes the interpolant to perfectly
+    fit the data. Increasing the smoothing parameter degrades the fit while
+    improving the smoothness of the interpolant. If this is a vector, it should
+    be proportional to the one standard deviation uncertainties for the
     observations. This defaults to zeros.
-        
-  eps : float or (N,) array, optional
-    Shape parameters for each RBF. For odd order polyharmonic splines,
-    increasing `eps` has the same effect as decreasing `sigma`. Defaults to
-    ones.
+
+  eps : float or float array, optional
+    Shape parameter
 
   phi : rbf.basis.RBF instance or str, optional
-    Radial basis function to use. This can be an RBF instance (e.g,
+    Radial basis function. This can be an `RBF` instance (e.g,
     `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3'). See
     `rbf.basis` for all the available options.
- 
+
+  order : int, optional
+    Order of the added polynomial terms. Set this to `-1` for no added
+    polynomial terms.
+
   extrapolate : bool, optional
     Whether to allows points to be extrapolated outside of a convex hull formed
     by `y`. If False, then np.nan is returned for outside points.
-
-  order : int, optional
-    Order of added polynomial terms. Set this to `-1` for no added polynomial
-    terms.
 
   Notes
   -----
   This function does not make any estimates of the uncertainties on the
   interpolated values.  See `rbf.gauss` for interpolation with uncertainties.
-    
+
   With certain choices of basis functions and polynomial orders this
   interpolant is equivalent to a thin-plate spline.  For example, if the
   observation space is one-dimensional then a thin-plate spline can be obtained
@@ -163,99 +161,234 @@ class RBFInterpolant(object):
 
   References
   ----------
-  [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World 
+  [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World
   Scientific Publishing Co, 2007.
-    
+
   '''
   def __init__(self, y, d,
-               sigma=None,
+               sigma=0.0,
                eps=1.0,
-               phi=phs3,
+               phi='phs3',
                order=1,
                extrapolate=True):
-    y = np.asarray(y, dtype=float) 
+    y = np.asarray(y, dtype=float)
     assert_shape(y, (None, None), 'y')
-    nobs, dim = y.shape
-    
+
     d = np.asarray(d, dtype=float)
-    assert_shape(d, (nobs,), 'd')
-    
-    if sigma is None:
-      # if sigma is not specified then it is zeros
-      sigma = np.zeros(nobs, dtype=float)
+    assert_shape(d, (y.shape[0],), 'd')
 
-    elif np.isscalar(sigma):
-      # if a float is specified then use it as the uncertainties for all
-      # observations
-      sigma = np.repeat(float(sigma), nobs)  
-
+    if np.isscalar(sigma):
+      sigma = np.full((y.shape[0],), sigma, dtype=float)
     else:
       sigma = np.asarray(sigma, dtype=float)
-      assert_shape(sigma, (nobs,), 'sigma')
-      
+      assert_shape(sigma, (y.shape[0],), 'sigma')
+
     phi = get_rbf(phi)
     # form block consisting of the RBF and uncertainties on the diagonal
-    K = phi(y, y, eps=eps) 
-    Cd = scipy.sparse.diags(sigma**2)
+    K = phi(y, y, eps=eps)
+    K = K + scipy.sparse.diags(sigma**2)
     # form the block consisting of the monomials
-    pwr = powers(order, dim)
+    pwr = powers(order, y.shape[1])
+    if pwr.shape[0] > y.shape[0]:
+      raise ValueError(
+        'The polynomial order is too high for the number of observations')
+
     P = mvmonos(y, pwr)
     # create zeros vector for the right-hand-side
     z = np.zeros((pwr.shape[0],))
     # solve for the RBF and mononomial coefficients
-    phi_coeff, poly_coeff = PartitionedSolver(K + Cd, P).solve(d, z) 
+    phi_coeff, poly_coeff = PartitionedSolver(K, P).solve(d, z)
 
-    self._y = y
-    self._phi = phi
-    self._order = order 
-    self._eps = eps
-    self._phi_coeff = phi_coeff
-    self._poly_coeff = poly_coeff
-    self._pwr = pwr
+    self.y = y
+    self.phi = phi
+    self.order = order
+    self.eps = eps
+    self.phi_coeff = phi_coeff
+    self.poly_coeff = poly_coeff
+    self.pwr = pwr
     self.extrapolate = extrapolate
 
   def __call__(self, x, diff=None, chunk_size=1000):
-    ''' 
+    '''
     Evaluates the interpolant at `x`
 
-    Parameters 
-    ---------- 
-    x : (N, D) array
-      Target points.
+    Parameters
+    ----------
+    x : (N, D) float array
+      Target points
 
     diff : (D,) int array, optional
-      Derivative order for each spatial dimension.
-        
-    chunk_size : int, optional  
+      Derivative order for each spatial dimension
+
+    chunk_size : int, optional
       Break `x` into chunks with this size and evaluate the interpolant for
-      each chunk.  Smaller values result in decreased memory usage but also
-      decreased speed.
+      each chunk
 
     Returns
     -------
-    out : (N,) array
-      Values of the interpolant at `x`
-      
-    '''
-    x = np.asarray(x,dtype=float) 
-    assert_shape(x, (None, self._y.shape[1]), 'x')
-    
-    xlen = x.shape[0]
-    # allocate output array
-    out = np.zeros(xlen, dtype=float)
-    count = 0
-    while count < xlen:
-      start, stop = count, count + chunk_size
-      K = self._phi(x[start:stop], self._y, eps=self._eps, diff=diff)
-      P = mvmonos(x[start:stop], self._pwr, diff=diff)
-      out[start:stop] = K.dot(self._phi_coeff) + P.dot(self._poly_coeff)
-      count += chunk_size
+    (N,) float array
 
-    # return zero for points outside of the convex hull if 
-    # extrapolation is not allowed
+    '''
+    x = np.asarray(x,dtype=float)
+    assert_shape(x, (None, self.y.shape[1]), 'x')
+
+    if chunk_size is not None:
+      out = np.zeros((x.shape[0],), dtype=float)
+      for start in range(0, x.shape[0], chunk_size):
+        stop = start + chunk_size
+        out[start:stop] = self(x[start:stop], diff=diff, chunk_size=None)
+
+      return out
+
+    K = self.phi(x, self.y, eps=self.eps, diff=diff)
+    P = mvmonos(x, self.pwr, diff=diff)
+    out = K.dot(self.phi_coeff) + P.dot(self.poly_coeff)
+
+    # return nan for points outside of the convex hull if extrapolation is not
+    # allowed
     if not self.extrapolate:
-      out[~_in_hull(x, self._y)] = np.nan
+      out[~_in_hull(x, self.y)] = np.nan
 
     return out
 
 
+class NearestRBFInterpolant(object):
+  '''
+  Approximation to `RBFInterpolant` that only uses the k nearest observations
+  for each interpolation point. This requires significantly less memory than
+  `RBFInterpolant` when the number of observations is large.
+
+  Parameters
+  ----------
+  y : (N, D) array
+    Observation points
+
+  d : (N,) array
+    Observed values at `y`
+
+  sigma : float or (N,) array, optional
+    Smoothing parameter. Setting this to 0 causes the interpolant to perfectly
+    fit the data. Increasing the smoothing parameter degrades the fit while
+    improving the smoothness of the interpolant. If this is a vector, it should
+    be proportional to the one standard deviation uncertainties for the
+    observations. This defaults to zeros.
+
+  k : int, optional
+    Number of neighboring observations to use for each interpolation point
+
+  eps : float or float array, optional
+    Shape parameter
+
+  phi : rbf.basis.RBF instance or str, optional
+    Radial basis function. This can be an `RBF` instance (e.g,
+    `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3'). See
+    `rbf.basis` for all the available options. `SparseRBF` instances are not
+    supported.
+
+  order : int, optional
+    Order of the added polynomial terms. Set this to `-1` for no added
+    polynomial terms.
+
+  '''
+  def __init__(self, y, d,
+               sigma=0.0,
+               k=20,
+               eps=1.0,
+               phi='phs3',
+               order=1):
+    y = np.asarray(y, dtype=float)
+    assert_shape(y, (None, None), 'y')
+
+    d = np.asarray(d, dtype=float)
+    assert_shape(d, (y.shape[0],), 'd')
+
+    if np.isscalar(sigma):
+      sigma = np.full(y.shape[0], sigma, dtype=float)
+    else:
+      sigma = np.asarray(sigma, dtype=float)
+      assert_shape(sigma, (y.shape[0],), 'sigma')
+
+    phi = get_rbf(phi)
+    if isinstance(phi, SparseRBF):
+      raise ValueError('SparseRBF instances are not supported')
+
+    tree = KDTree(y)
+
+    self.y = y
+    self.d = d
+    self.sigma = sigma
+    self.k = k
+    self.eps = eps
+    self.phi = phi
+    self.order = order
+    self.tree = tree
+
+  def __call__(self, x, diff=None, chunk_size=100):
+    '''
+    Evaluates the interpolant at `x`
+
+    Parameters
+    ----------
+    x : (N, D) float array
+      Target points
+
+    diff : (D,) int array, optional
+      Derivative order for each spatial dimension
+
+    chunk_size : int, optional
+      Break `x` into chunks with this size and evaluate the interpolant for
+      each chunk
+
+    Returns
+    -------
+    (N,) float array
+
+    '''
+    x = np.asarray(x, dtype=float)
+    assert_shape(x, (None, self.y.shape[1]), 'x')
+
+    if chunk_size is not None:
+      out = np.zeros((x.shape[0],), dtype=float)
+      for start in range(0, x.shape[0], chunk_size):
+        stop = start + chunk_size
+        out[start:stop] = self(x[start:stop], diff=diff, chunk_size=None)
+
+      return out
+
+    pwr = powers(self.order, self.y.shape[1])
+    if pwr.shape[0] > self.k:
+      raise ValueError(
+        'The polynomial order is too high for the number of nearest neighbors')
+
+    # get the indices of the k nearest observations for each interpolation
+    # point
+    _, nbr = self.tree.query(x, self.k)
+
+    # build the left-hand-side interpolation matrix consisting of the RBF
+    # and polyomials evaluated at each neighborhood
+    K = self.phi(self.y[nbr], self.y[nbr], eps=self.eps)
+    # add the smoothing term to the diagonals of K
+    K[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
+    P = mvmonos(self.y[nbr], pwr)
+    Pt = np.einsum('ijk->ikj', P)
+    Z = np.zeros((x.shape[0], pwr.shape[0], pwr.shape[0]), dtype=float)
+    LHS = np.concatenate(
+      (np.concatenate((K, P), axis=2),
+       np.concatenate((Pt, Z), axis=2)),
+      axis=1)
+
+    # build the right-hand-side data vector consisting of the observations for
+    # each neighborhood and extra zeros
+    z = np.zeros((x.shape[0], pwr.shape[0]), dtype=float)
+    rhs = np.concatenate((self.d[nbr], z), axis=1)
+
+    # solve for the RBF and polynomial coefficients
+    coeff = np.linalg.solve(LHS, rhs)
+    phi_coeff = coeff[:, :self.k]
+    poly_coeff = coeff[:, self.k:]
+
+    # evaluate the interpolant at the interpolation points
+    K = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0]
+    P = mvmonos(x, pwr, diff=diff)
+    out = (K*phi_coeff).sum(axis=1) + (P*poly_coeff).sum(axis=1)
+    return out
