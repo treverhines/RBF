@@ -363,15 +363,19 @@ class NearestRBFInterpolant(object):
     # get the indices of the k nearest observations for each interpolation
     # point
     _, nbr = self.tree.query(x, self.k)
+    # multiple interpolation points may have the same neighborhood. Make the
+    # neighborhoods unique so that we only compute the interpolation
+    # coefficients once for each neighborhood
+    nbr, inv = np.unique(np.sort(nbr, axis=1), return_inverse=True, axis=0)
 
     # build the left-hand-side interpolation matrix consisting of the RBF
     # and polyomials evaluated at each neighborhood
-    K = self.phi(self.y[nbr], self.y[nbr], eps=self.eps)
+    K = self.phi(self.y[nbr], self.y[nbr], eps=self.eps) #TODO broadcast eps
     # add the smoothing term to the diagonals of K
     K[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
     P = mvmonos(self.y[nbr], pwr)
     Pt = np.einsum('ijk->ikj', P)
-    Z = np.zeros((x.shape[0], pwr.shape[0], pwr.shape[0]), dtype=float)
+    Z = np.zeros((nbr.shape[0], pwr.shape[0], pwr.shape[0]), dtype=float)
     LHS = np.concatenate(
       (np.concatenate((K, P), axis=2),
        np.concatenate((Pt, Z), axis=2)),
@@ -379,16 +383,20 @@ class NearestRBFInterpolant(object):
 
     # build the right-hand-side data vector consisting of the observations for
     # each neighborhood and extra zeros
-    z = np.zeros((x.shape[0], pwr.shape[0]), dtype=float)
+    z = np.zeros((nbr.shape[0], pwr.shape[0]), dtype=float)
     rhs = np.concatenate((self.d[nbr], z), axis=1)
 
     # solve for the RBF and polynomial coefficients
     coeff = np.linalg.solve(LHS, rhs)
-    phi_coeff = coeff[:, :self.k]
-    poly_coeff = coeff[:, self.k:]
+    # expand the coefficients and neighborhoods so that there is one set for
+    # each interpolation point
+    coeff = coeff[inv]
+    nbr = nbr[inv]
 
     # evaluate the interpolant at the interpolation points
-    K = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0]
+    phi_coeff = coeff[:, :self.k]
+    poly_coeff = coeff[:, self.k:]
+    K = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0] # TODO broadcast eps
     P = mvmonos(x, pwr, diff=diff)
     out = (K*phi_coeff).sum(axis=1) + (P*poly_coeff).sum(axis=1)
     return out
