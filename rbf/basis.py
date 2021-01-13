@@ -16,15 +16,15 @@ definite for the indicated number of spatial dimensions.
 =================================  ============  =====================  ======================================
 Name                               Abbreviation  Positive Definite      Expression
 =================================  ============  =====================  ======================================
-Eighth-order polyharmonic spline   phs8          Conditional (order 5)  :math:`(\epsilon r)^8\log(\epsilon r)`
+Eighth-order polyharmonic spline   phs8          Conditional (order 5)  :math:`-(\epsilon r)^8\log(\epsilon r)`
 Seventh-order polyharmonic spline  phs7          Conditional (order 4)  :math:`(\epsilon r)^7`
 Sixth-order polyharmonic spline    phs6          Conditional (order 4)  :math:`(\epsilon r)^6\log(\epsilon r)`
-Fifth-order polyharmonic spline    phs5          Conditional (order 3)  :math:`(\epsilon r)^5`
-Fourth-order polyharmonic spline   phs4          Conditional (order 3)  :math:`(\epsilon r)^4\log(\epsilon r)`
+Fifth-order polyharmonic spline    phs5          Conditional (order 3)  :math:`-(\epsilon r)^5`
+Fourth-order polyharmonic spline   phs4          Conditional (order 3)  :math:`-(\epsilon r)^4\log(\epsilon r)`
 Third-order polyharmonic spline    phs3          Conditional (order 2)  :math:`(\epsilon r)^3`
 Second-order polyharmonic spline   phs2          Conditional (order 2)  :math:`(\epsilon r)^2\log(\epsilon r)`
-First-order polyharmonic spline    phs1          Conditional (order 1)  :math:`\epsilon r`
-Multiquadratic                     mq            Conditional (order 1)  :math:`(1 + (\epsilon r)^2)^{1/2}`
+First-order polyharmonic spline    phs1          Conditional (order 1)  :math:`-\epsilon r`
+Multiquadratic                     mq            Conditional (order 1)  :math:`-(1 + (\epsilon r)^2)^{1/2}`
 Inverse multiquadratic             imq           Yes                    :math:`(1 + (\epsilon r)^2)^{-1/2}`
 Inverse quadratic                  iq            Yes                    :math:`(1 + (\epsilon r)^2)^{-1}`
 Gaussian                           ga            Yes                    :math:`\exp(-(\epsilon r)^2)`
@@ -592,7 +592,7 @@ _phs8_limits = {}
 _phs8_limits.update((tuple(i), 0.0) for i in powers(7, 1))
 _phs8_limits.update((tuple(i), 0.0) for i in powers(7, 2))
 _phs8_limits.update((tuple(i), 0.0) for i in powers(7, 3))
-phs8 = RBF((_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits)
+phs8 = RBF(-(_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits)
 
 _phs7_limits = {}
 _phs7_limits.update((tuple(i), 0.0) for i in powers(6, 1))
@@ -610,13 +610,13 @@ _phs5_limits = {}
 _phs5_limits.update((tuple(i), 0.0) for i in powers(4, 1))
 _phs5_limits.update((tuple(i), 0.0) for i in powers(4, 2))
 _phs5_limits.update((tuple(i), 0.0) for i in powers(4, 3))
-phs5 = RBF((_EPS*_R)**5, tol=1e-10, limits=_phs5_limits)
+phs5 = RBF(-(_EPS*_R)**5, tol=1e-10, limits=_phs5_limits)
 
 _phs4_limits = {}
 _phs4_limits.update((tuple(i), 0.0) for i in powers(3, 1))
 _phs4_limits.update((tuple(i), 0.0) for i in powers(3, 2))
 _phs4_limits.update((tuple(i), 0.0) for i in powers(3, 3))
-phs4 = RBF((_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits)
+phs4 = RBF(-(_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits)
 
 _phs3_limits = {}
 _phs3_limits.update((tuple(i), 0.0) for i in powers(2, 1))
@@ -634,7 +634,7 @@ _phs1_limits = {}
 _phs1_limits.update((tuple(i), 0.0) for i in powers(0, 1))
 _phs1_limits.update((tuple(i), 0.0) for i in powers(0, 2))
 _phs1_limits.update((tuple(i), 0.0) for i in powers(0, 3))
-phs1 = RBF(_EPS*_R, tol=1e-10, limits=_phs1_limits)
+phs1 = RBF(-_EPS*_R, tol=1e-10, limits=_phs1_limits)
 
 # inverse multiquadratic
 imq = RBF(1/sympy.sqrt(1 + (_EPS*_R)**2))
@@ -646,7 +646,7 @@ iq = RBF(1/(1 + (_EPS*_R)**2))
 ga = RBF(sympy.exp(-(_EPS*_R)**2))
 
 # multiquadratic
-mq = RBF(sympy.sqrt(1 + (_EPS*_R)**2))
+mq = RBF(-sympy.sqrt(1 + (_EPS*_R)**2))
 
 # exponential
 exp = RBF(sympy.exp(-_R/_EPS))
