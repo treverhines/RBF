@@ -152,10 +152,8 @@ def weights(x, s, diffs,
   Pt = np.einsum('...ij->...ji', P)
   Z = np.zeros(bcast + (len(pwr), len(pwr)), dtype=float)
   LHS = np.concatenate(
-    (
-      np.concatenate((A, P), axis=-1),
-      np.concatenate((Pt, Z), axis=-1)
-    ),
+    (np.concatenate((A, P), axis=-1),
+     np.concatenate((Pt, Z), axis=-1)),
     axis=-2)
 
   # Evaluate the RBF and monomials at the target points for each term in the
