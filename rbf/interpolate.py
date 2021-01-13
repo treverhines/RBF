@@ -63,12 +63,10 @@ For most purposes, the above two equations provide the linear constrains that
 are needed to solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. However,
 there are cases where the system cannot be solved due to, for example, too few
 data points or a polynomial order that is too high. There are also some radial
-basis functions which are conditionally positive definite, which means that the
+basis functions that are conditionally positive definite, which means that the
 norm :math:`\mathbf{a^T K(y, y) a}` is only guaranteed to be positive when the
 order of the added polynomial is sufficiently high. The user is referred to [1]
-for details on when the interpolation problem is well-posed. For the default
-settings in `RBFInterpolant`, the interpolation problem is well-posed as long
-as :math:`n \geq D+1`, where `D` is the number of spatial dimensions.
+for details on when the interpolation problem is well-posed.
 
 In our implementation, we have combined the effect of :math:`\Sigma` and
 :math:`\lambda` into one variable, `sigma`, which is a scalar or a vector that
@@ -149,15 +147,11 @@ class RBFInterpolant(object):
 
   Notes
   -----
-  This function does not make any estimates of the uncertainties on the
-  interpolated values.  See `rbf.gauss` for interpolation with uncertainties.
-
-  With certain choices of basis functions and polynomial orders this
-  interpolant is equivalent to a thin-plate spline.  For example, if the
-  observation space is one-dimensional then a thin-plate spline can be obtained
-  with the arguments `phi` = `rbf.basis.phs3` and `order` = 1.  For
-  two-dimensional observation space a thin-plate spline can be obtained with
-  the arguments `phi` = `rbf.basis.phs2` and `order` = 1.
+  * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
+    then the polynomial order should be at least `i - 1` to provide some
+    assurance that the interpolation problem is well posed (see section 7.1 of
+    [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
+    should be at least `0`, `1`, or `1`, respectively.
 
   References
   ----------
@@ -184,20 +178,21 @@ class RBFInterpolant(object):
       assert_shape(sigma, (y.shape[0],), 'sigma')
 
     phi = get_rbf(phi)
-    # form block consisting of the RBF and uncertainties on the diagonal
-    K = phi(y, y, eps=eps)
-    K = K + scipy.sparse.diags(sigma**2)
-    # form the block consisting of the monomials
+
+    # get the powers for each monomial in the added polynomial. Make sure there
+    # are not more monomials than observations
     pwr = powers(order, y.shape[1])
     if pwr.shape[0] > y.shape[0]:
       raise ValueError(
         'The polynomial order is too high for the number of observations')
 
-    P = mvmonos(y, pwr)
-    # create zeros vector for the right-hand-side
+    # Build the system of equations and solve for the RBF and mononomial
+    # coefficients
+    Kyy = phi(y, y, eps=eps)
+    S = scipy.sparse.diags(sigma**2)
+    Py = mvmonos(y, pwr)
     z = np.zeros((pwr.shape[0],))
-    # solve for the RBF and mononomial coefficients
-    phi_coeff, poly_coeff = PartitionedSolver(K, P).solve(d, z)
+    phi_coeff, poly_coeff = PartitionedSolver(Kyy + S, Py).solve(d, z)
 
     self.y = y
     self.phi = phi
@@ -240,9 +235,9 @@ class RBFInterpolant(object):
 
       return out
 
-    K = self.phi(x, self.y, eps=self.eps, diff=diff)
-    P = mvmonos(x, self.pwr, diff=diff)
-    out = K.dot(self.phi_coeff) + P.dot(self.poly_coeff)
+    Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
+    Px = mvmonos(x, self.pwr, diff=diff)
+    out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
 
     # return nan for points outside of the convex hull if extrapolation is not
     # allowed
@@ -255,8 +250,7 @@ class RBFInterpolant(object):
 class NearestRBFInterpolant(object):
   '''
   Approximation to `RBFInterpolant` that only uses the k nearest observations
-  for each interpolation point. This requires significantly less memory than
-  `RBFInterpolant` when the number of observations is large.
+  for each interpolation point.
 
   Parameters
   ----------
@@ -276,7 +270,7 @@ class NearestRBFInterpolant(object):
   k : int, optional
     Number of neighboring observations to use for each interpolation point
 
-  eps : float or float array, optional
+  eps : float or (N,) float array, optional
     Shape parameter
 
   phi : rbf.basis.RBF instance or str, optional
@@ -288,6 +282,19 @@ class NearestRBFInterpolant(object):
   order : int, optional
     Order of the added polynomial terms. Set this to `-1` for no added
     polynomial terms.
+
+  Notes
+  -----
+  * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
+    then the polynomial order should be at least `i - 1` to provide some
+    assurance that the interpolation problem is well posed (see section 7.1 of
+    [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
+    should be at least `0`, `1`, or `1`, respectively.
+
+  References
+  ----------
+  [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World
+  Scientific Publishing Co, 2007.
 
   '''
   def __init__(self, y, d,
@@ -307,6 +314,12 @@ class NearestRBFInterpolant(object):
     else:
       sigma = np.asarray(sigma, dtype=float)
       assert_shape(sigma, (y.shape[0],), 'sigma')
+
+    if np.isscalar(eps):
+      eps = np.full(y.shape[0], eps, dtype=float)
+    else:
+      eps = np.asarray(eps, dtype=float)
+      assert_shape(eps, (y.shape[0],), 'eps')
 
     phi = get_rbf(phi)
     if isinstance(phi, SparseRBF):
@@ -370,15 +383,15 @@ class NearestRBFInterpolant(object):
 
     # build the left-hand-side interpolation matrix consisting of the RBF
     # and polyomials evaluated at each neighborhood
-    K = self.phi(self.y[nbr], self.y[nbr], eps=self.eps) #TODO broadcast eps
-    # add the smoothing term to the diagonals of K
-    K[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
-    P = mvmonos(self.y[nbr], pwr)
-    Pt = np.einsum('ijk->ikj', P)
+    Kyy = self.phi(self.y[nbr], self.y[nbr], eps=self.eps[nbr])
+    # add the smoothing term to the diagonals of Kyy
+    Kyy[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
+    Py = mvmonos(self.y[nbr], pwr)
+    Pyt = np.einsum('ijk->ikj', Py)
     Z = np.zeros((nbr.shape[0], pwr.shape[0], pwr.shape[0]), dtype=float)
     LHS = np.concatenate(
-      (np.concatenate((K, P), axis=2),
-       np.concatenate((Pt, Z), axis=2)),
+      (np.concatenate((Kyy, Py), axis=2),
+       np.concatenate((Pyt, Z), axis=2)),
       axis=1)
 
     # build the right-hand-side data vector consisting of the observations for
@@ -396,7 +409,7 @@ class NearestRBFInterpolant(object):
     # evaluate the interpolant at the interpolation points
     phi_coeff = coeff[:, :self.k]
     poly_coeff = coeff[:, self.k:]
-    K = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0] # TODO broadcast eps
-    P = mvmonos(x, pwr, diff=diff)
-    out = (K*phi_coeff).sum(axis=1) + (P*poly_coeff).sum(axis=1)
+    Kxy = self.phi(x[:, None], self.y[nbr], eps=self.eps[nbr], diff=diff)[:, 0]
+    Px = mvmonos(x, pwr, diff=diff)
+    out = (Kxy*phi_coeff).sum(axis=1) + (Px*poly_coeff).sum(axis=1)
     return out

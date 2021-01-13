@@ -1,25 +1,27 @@
 import rbf.basis
+import rbf.poly
 import numpy as np
 import sympy
 import unittest
 
-def test_odd_phs(func):
-  ''' 
-  makes sure the function value is 1.0 at 1.0 radial distance
-  '''
-  x = np.array([[1.0,3.0]])
-  c = np.array([[1.0,2.0]])
-  u = func(x,c)
-  return u[0,0]==1.0
+def test_positive_definite(phi, order=None, dim=2, ntests=100):
+    # generate a random vector to test if the RBF is (conditionally) positive
+    # definite
+    for _ in range(ntests):
+        x = np.random.uniform(0.0, 1.0, (50, dim))
+        c = np.random.normal(0.0, 1.0, (50,))
+        if order is not None:
+            # modify the random vector c so that P^Tc = 0
+            M = np.eye(50)
+            P = rbf.poly.mvmonos(x, rbf.poly.powers(order - 1, dim))
+            M[:P.shape[1]] = P.T
+            c[:P.shape[1]] = 0.0
+            c = np.linalg.solve(M, c)
 
-def test_even_phs(func):
-  ''' 
-  makes sure the function value is 0.0 at 1.0 radial distance
-  '''
-  x = np.array([[1.0,3.0]])
-  c = np.array([[1.0,2.0]])
-  u = func(x,c)
-  return u[0,0]==0.0
+        if c.dot(phi(x, x)).dot(c) < 0.0:
+            return False
+
+    return True
 
 def test_x_derivative(func):
   dx = 1e-8
@@ -47,20 +49,44 @@ def test_y_derivative(func):
   return np.isclose(diff_num[0,0],diff_true[0,0])
 
 class Test(unittest.TestCase):
-  # test 1
-  def test_even_phs(self):
-    self.assertTrue(test_even_phs(rbf.basis.phs2))
-    self.assertTrue(test_even_phs(rbf.basis.phs4))
-    self.assertTrue(test_even_phs(rbf.basis.phs6))
-    self.assertTrue(test_even_phs(rbf.basis.phs8))
+  def test_conditional_positive_definite(self):
+    self.assertTrue(test_positive_definite(rbf.basis.phs1, order=1))
+    self.assertTrue(test_positive_definite(rbf.basis.phs2, order=2))
+    self.assertTrue(test_positive_definite(rbf.basis.phs3, order=2))
+    self.assertTrue(test_positive_definite(rbf.basis.phs4, order=3))
+    self.assertTrue(test_positive_definite(rbf.basis.phs5, order=3))
+    self.assertTrue(test_positive_definite(rbf.basis.phs6, order=4))
+    self.assertTrue(test_positive_definite(rbf.basis.phs7, order=4))
+    self.assertTrue(test_positive_definite(rbf.basis.phs8, order=5))
+    self.assertTrue(test_positive_definite(rbf.basis.mq, order=1))
 
-  def test_odd_phs(self):
-    self.assertTrue(test_odd_phs(rbf.basis.phs1))
-    self.assertTrue(test_odd_phs(rbf.basis.phs3))
-    self.assertTrue(test_odd_phs(rbf.basis.phs5))
-    self.assertTrue(test_odd_phs(rbf.basis.phs7))
-    
-  def test_x_derivative(self):  
+  def test_positive_definite(self):
+    self.assertTrue(test_positive_definite(rbf.basis.imq))
+    self.assertTrue(test_positive_definite(rbf.basis.iq))
+    self.assertTrue(test_positive_definite(rbf.basis.ga))
+    self.assertTrue(test_positive_definite(rbf.basis.exp))
+    self.assertTrue(test_positive_definite(rbf.basis.se))
+    self.assertTrue(test_positive_definite(rbf.basis.mat32))
+    self.assertTrue(test_positive_definite(rbf.basis.mat52))
+
+  def test_wendland_positive_definite(self):
+    self.assertTrue(test_positive_definite(rbf.basis.wen10, dim=1))
+    self.assertTrue(test_positive_definite(rbf.basis.wen11, dim=1))
+    self.assertTrue(test_positive_definite(rbf.basis.wen12, dim=1))
+
+    self.assertTrue(test_positive_definite(rbf.basis.wen30, dim=1))
+    self.assertTrue(test_positive_definite(rbf.basis.wen31, dim=1))
+    self.assertTrue(test_positive_definite(rbf.basis.wen32, dim=1))
+
+    self.assertTrue(test_positive_definite(rbf.basis.wen30, dim=2))
+    self.assertTrue(test_positive_definite(rbf.basis.wen31, dim=2))
+    self.assertTrue(test_positive_definite(rbf.basis.wen32, dim=2))
+
+    self.assertTrue(test_positive_definite(rbf.basis.wen30, dim=3))
+    self.assertTrue(test_positive_definite(rbf.basis.wen31, dim=3))
+    self.assertTrue(test_positive_definite(rbf.basis.wen32, dim=3))
+
+  def test_x_derivative(self):
     self.assertTrue(test_x_derivative(rbf.basis.phs2))
     self.assertTrue(test_x_derivative(rbf.basis.phs3))
     self.assertTrue(test_x_derivative(rbf.basis.phs4))
@@ -73,7 +99,7 @@ class Test(unittest.TestCase):
     self.assertTrue(test_x_derivative(rbf.basis.mq))
     self.assertTrue(test_x_derivative(rbf.basis.iq))
 
-  def test_y_derivative(self):  
+  def test_y_derivative(self):
     self.assertTrue(test_y_derivative(rbf.basis.phs2))
     self.assertTrue(test_y_derivative(rbf.basis.phs3))
     self.assertTrue(test_y_derivative(rbf.basis.phs4))
@@ -88,7 +114,7 @@ class Test(unittest.TestCase):
 
   def test_make_rbf(self):
     r = rbf.basis.get_r()
-    # define the imq function and make sure it is equal to 
+    # define the imq function and make sure it is equal to
     # rbf.basis.imq
     imq = rbf.basis.RBF(1/sympy.sqrt(1 + r**2))
     np.random.seed(1)

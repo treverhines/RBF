@@ -49,23 +49,8 @@ val_itp = I(cart_itp)
 
 ## PLOTTING
 
-# plot the true function in spherical coordinates
-val_true = true_function(theta_itp, phi_itp)
-plt.figure(1)
-plt.title('True function')
-p = plt.tripcolor(theta_itp, phi_itp, val_true,
-                  cmap='viridis')
-plt.colorbar(p)
-plt.xlabel('theta (azimuthal angle)')
-plt.ylabel('phi (polar angle)')
-plt.xlim(0, 2*np.pi)
-plt.ylim(0, np.pi)
-plt.grid(ls=':', color='k')
-plt.tight_layout()
-plt.savefig('../figures/interpolate.b.1.png')
-
 # plot the interpolant in spherical coordinates
-plt.figure(2)
+plt.figure(1)
 plt.title('RBF interpolant (points are observations)')
 # plot the interpolated function
 p = plt.tripcolor(theta_itp, phi_itp, val_itp,
@@ -80,6 +65,21 @@ plt.ylabel('phi (polar angle)')
 plt.xlim(0, 2*np.pi)
 plt.ylim(0, np.pi)
 plt.grid()
+plt.grid(ls=':', color='k')
+plt.tight_layout()
+plt.savefig('../figures/interpolate.b.1.png')
+
+# plot the true function in spherical coordinates
+val_true = true_function(theta_itp, phi_itp)
+plt.figure(2)
+plt.title('error')
+p = plt.tripcolor(theta_itp, phi_itp, val_itp - val_true,
+                  cmap='viridis')
+plt.colorbar(p)
+plt.xlabel('theta (azimuthal angle)')
+plt.ylabel('phi (polar angle)')
+plt.xlim(0, 2*np.pi)
+plt.ylim(0, np.pi)
 plt.grid(ls=':', color='k')
 plt.tight_layout()
 plt.savefig('../figures/interpolate.b.2.png')
