@@ -38,8 +38,7 @@ right side is a norm that essentially penalizes the roughness of the
 interpolant (technically, it is the norm associated with the reproducing kernel
 Hilbert space for the chosen radial basis function). We have also introduced
 :math:`\lambda` which is a smoothing parameter that controls how well we want
-the interpolant to fit the data. This problem formulation is a combination of
-the formulations used in section 19.2 and 6.3 of [1].
+the interpolant to fit the data.
 
 To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need :math:`n+m`
 linear constraints. We can recognize that :math:`\mathcal{L}` is a convex
@@ -74,10 +73,18 @@ is *proportional* to the standard deviation of the noise. When `sigma` is `0`
 the observations are fit perfectly by the interpolant. Increasing `sigma`
 degrades the fit while improving the smoothness of the interpolant.
 
+The above formulation for the RBF interpolant can be found in section 19.2 and
+6.3 of [1]. It can also be found in the context of thin-plate splines in
+section 2.4 of [2] and in the context of Kriging in section 3.4 of [3].
+
 References
 ----------
 [1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World
 Scientific Publishing Co, 2007.
+
+[2] Wahba, G., Spline Models for Observational Data. SIAM, 1990
+
+[3] Cressie, N., Statistics for Spatial Data. John Wiley & Sons, Inc, 1993
 
 '''
 import numpy as np
