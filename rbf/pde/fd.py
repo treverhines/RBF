@@ -172,7 +172,7 @@ def weights(x, s, diffs,
   return w
 
 
-def weight_matrix(x, p, n, diffs, *args, **kwargs):
+def weight_matrix(x, p, n, diffs, *args, chunk_size=1000, **kwargs):
   '''
   Returns a weight matrix which maps a function's values at `p` to an
   approximation of that function's derivative at `x`. This is a convenience
@@ -183,7 +183,7 @@ def weight_matrix(x, p, n, diffs, *args, **kwargs):
   ----------
   x : (N, D) float array
     Target points where the derivative is being approximated
-n
+
   p : (M, D) array
     Source points. The derivatives will be approximated with a weighted sum of
     values at these point.
@@ -217,6 +217,10 @@ n
     Shape parameter. This can be a float or an array that is broadcastable to
     `s`
 
+  chunk_size : int, optional
+    Break the target points into chunks with this size to reduce the memory
+    requirements
+
   Returns
   -------
   (N, M) coo sparse matrix
@@ -242,7 +246,18 @@ n
 
   _, stencils = KDTree(p).query(x, n)
 
-  data = weights(x, p[stencils], diffs, *args, **kwargs)
+  if chunk_size is None:
+    data = weights(x, p[stencils], diffs, *args, **kwargs)
+  else:
+    data = np.empty((x.shape[0], n), dtype=float)
+    for start in range(0, x.shape[0], chunk_size):
+      stop = start + chunk_size
+      data[start:stop] = weights(
+        x[start:stop],
+        p[stencils[start:stop]],
+        diffs,
+        *args, **kwargs)
+
   data = data.ravel()
   rows = np.repeat(range(len(x)), n)
   cols = stencils.ravel()
