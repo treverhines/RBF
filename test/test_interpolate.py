@@ -90,7 +90,7 @@ class Test(unittest.TestCase):
     # reproduce a zeroth order function despite the penalty parameter
     val = 4.0 + 0*obs[:,0]
     I = rbf.interpolate.RBFInterpolant(obs,val,sigma=10000.0,
-                                       phi=rbf.basis.phs3,order=0)
+                                       phi=rbf.basis.phs1,order=0)
     valitp_est = I(itp)
     valitp_true = 4.0 + 0.0*itp[:,1] 
     self.assertTrue(np.allclose(valitp_est,valitp_true))

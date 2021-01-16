@@ -87,14 +87,19 @@ Scientific Publishing Co, 2007.
 [3] Cressie, N., Statistics for Spatial Data. John Wiley & Sons, Inc, 1993
 
 '''
+import logging
+
 import numpy as np
 import scipy.sparse
 import scipy.spatial
 
+import rbf.basis
 from rbf.poly import powers, mvmonos
 from rbf.basis import get_rbf, SparseRBF
 from rbf.utils import assert_shape, KDTree
 from rbf.linalg import PartitionedSolver
+
+logger = logging.getLogger(__name__)
 
 
 def _in_hull(p, hull):
@@ -104,8 +109,8 @@ def _in_hull(p, hull):
   dim = p.shape[1]
   # if there are not enough points in `hull` to form a simplex then
   # return False for each point in `p`.
-  if hull.shape[0] <= dim:
-    return np.zeros(p.shape[0], dtype=bool)
+  if len(hull) <= dim:
+    return np.zeros(len(p), dtype=bool)
 
   if dim >= 2:
     hull = scipy.spatial.Delaunay(hull)
@@ -115,6 +120,23 @@ def _in_hull(p, hull):
     min = np.min(hull)
     max = np.max(hull)
     return (p[:, 0] >= min) & (p[:, 0] <= max)
+
+
+# Interpolation with conditionally positive definite RBFs has no assurances of
+# being well posed when the order of the added polynomial is not high enough.
+# Define that minimum polynomial order here. These values are from Chapter 8 of
+# Fasshauer's "Meshfree Approximation Methods with MATLAB"
+_RECOMMENDED_ORDER = {
+  rbf.basis.mq: 0,
+  rbf.basis.phs1: 0,
+  rbf.basis.phs2: 1,
+  rbf.basis.phs3: 1,
+  rbf.basis.phs4: 2,
+  rbf.basis.phs5: 2,
+  rbf.basis.phs6: 3,
+  rbf.basis.phs7: 3,
+  rbf.basis.phs8: 4
+  }
 
 
 class RBFInterpolant(object):
@@ -136,7 +158,7 @@ class RBFInterpolant(object):
     be proportional to the one standard deviation uncertainties for the
     observations. This defaults to zeros.
 
-  eps : float or float array, optional
+  eps : float, optional
     Shape parameter
 
   phi : rbf.basis.RBF instance or str, optional
@@ -156,8 +178,8 @@ class RBFInterpolant(object):
   -----
   * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
     then the polynomial order should be at least `i - 1` to provide some
-    assurance that the interpolation problem is well posed (see section 7.1 of
-    [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
+    assurance that the interpolation problem is well posed (see Chapters 7 and
+    8 of [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
     should be at least `0`, `1`, or `1`, respectively.
 
   References
@@ -170,26 +192,41 @@ class RBFInterpolant(object):
                sigma=0.0,
                eps=1.0,
                phi='phs3',
-               order=1,
+               order=None,
                extrapolate=True):
     y = np.asarray(y, dtype=float)
     assert_shape(y, (None, None), 'y')
 
     d = np.asarray(d, dtype=float)
-    assert_shape(d, (y.shape[0],), 'd')
+    assert_shape(d, (len(y),), 'd')
 
     if np.isscalar(sigma):
-      sigma = np.full((y.shape[0],), sigma, dtype=float)
+      sigma = np.full(len(y), sigma, dtype=float)
     else:
       sigma = np.asarray(sigma, dtype=float)
-      assert_shape(sigma, (y.shape[0],), 'sigma')
+      assert_shape(sigma, (len(y),), 'sigma')
+
+    if not np.isscalar(eps):
+      logger.warning(
+        'The shape parameter should be a float in order for the interpolant '
+        'to be well-posed')
 
     phi = get_rbf(phi)
+    # If the `phi` is not in `_RECOMMENDED_ORDER`, then the RBF is either
+    # positive definite (no minimum polynomial order) or user-defined
+    if order is None:
+      order = _RECOMMENDED_ORDER.get(phi, 0)
+
+    recommended_order = _RECOMMENDED_ORDER.get(phi, -1)
+    if order < recommended_order:
+      logger.warning(
+        'The polynomial order should not be below %d for %s in order for the '
+        'interpolant to be well-posed' % (recommended_order, phi))
 
     # get the powers for each monomial in the added polynomial. Make sure there
     # are not more monomials than observations
     pwr = powers(order, y.shape[1])
-    if pwr.shape[0] > y.shape[0]:
+    if len(pwr) > len(y):
       raise ValueError(
         'The polynomial order is too high for the number of observations')
 
@@ -198,7 +235,7 @@ class RBFInterpolant(object):
     Kyy = phi(y, y, eps=eps)
     S = scipy.sparse.diags(sigma**2)
     Py = mvmonos(y, pwr)
-    z = np.zeros((pwr.shape[0],))
+    z = np.zeros(len(pwr), dtype=float)
     phi_coeff, poly_coeff = PartitionedSolver(Kyy + S, Py).solve(d, z)
 
     self.y = y
@@ -235,8 +272,8 @@ class RBFInterpolant(object):
     assert_shape(x, (None, self.y.shape[1]), 'x')
 
     if chunk_size is not None:
-      out = np.zeros((x.shape[0],), dtype=float)
-      for start in range(0, x.shape[0], chunk_size):
+      out = np.zeros(len(x), dtype=float)
+      for start in range(0, len(x), chunk_size):
         stop = start + chunk_size
         out[start:stop] = self(x[start:stop], diff=diff, chunk_size=None)
 
@@ -277,7 +314,7 @@ class NearestRBFInterpolant(object):
   k : int, optional
     Number of neighboring observations to use for each interpolation point
 
-  eps : float or (N,) float array, optional
+  eps : float, optional
     Shape parameter
 
   phi : rbf.basis.RBF instance or str, optional
@@ -294,7 +331,7 @@ class NearestRBFInterpolant(object):
   -----
   * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
     then the polynomial order should be at least `i - 1` to provide some
-    assurance that the interpolation problem is well posed (see section 7.1 of
+    assurance that the interpolation problem is well-posed (see section 7.1 of
     [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
     should be at least `0`, `1`, or `1`, respectively.
 
@@ -309,28 +346,45 @@ class NearestRBFInterpolant(object):
                k=20,
                eps=1.0,
                phi='phs3',
-               order=1):
+               order=None):
     y = np.asarray(y, dtype=float)
     assert_shape(y, (None, None), 'y')
 
     d = np.asarray(d, dtype=float)
-    assert_shape(d, (y.shape[0],), 'd')
+    assert_shape(d, (len(y),), 'd')
 
     if np.isscalar(sigma):
-      sigma = np.full(y.shape[0], sigma, dtype=float)
+      sigma = np.full(len(y), sigma, dtype=float)
     else:
       sigma = np.asarray(sigma, dtype=float)
-      assert_shape(sigma, (y.shape[0],), 'sigma')
+      assert_shape(sigma, (len(y),), 'sigma')
 
-    if np.isscalar(eps):
-      eps = np.full(y.shape[0], eps, dtype=float)
-    else:
-      eps = np.asarray(eps, dtype=float)
-      assert_shape(eps, (y.shape[0],), 'eps')
+    # make sure the number of nearest neighbors used for interpolation does not
+    # exceed the number of observations
+    k = min(k, len(y))
+
+    if not np.isscalar(eps):
+      raise ValueError('The shape parameter should be a float')
 
     phi = get_rbf(phi)
     if isinstance(phi, SparseRBF):
       raise ValueError('SparseRBF instances are not supported')
+
+    # If the `phi` is not in `_RECOMMENDED_ORDER`, then the RBF is either
+    # positive definite (no minimum polynomial order) or user-defined
+    if order is None:
+      order = _RECOMMENDED_ORDER.get(phi, 0)
+
+    recommended_order = _RECOMMENDED_ORDER.get(phi, -1)
+    if order < recommended_order:
+      logger.warning(
+        'The polynomial order should not be below %d for %s in order for the '
+        'interpolant to be well-posed' % (recommended_order, phi))
+
+    pwr = powers(order, y.shape[1])
+    if len(pwr) > k:
+      raise ValueError(
+        'The polynomial order is too high for the number of nearest neighbors')
 
     tree = KDTree(y)
 
@@ -340,7 +394,7 @@ class NearestRBFInterpolant(object):
     self.k = k
     self.eps = eps
     self.phi = phi
-    self.order = order
+    self.pwr = pwr
     self.tree = tree
 
   def __call__(self, x, diff=None, chunk_size=100):
@@ -368,17 +422,12 @@ class NearestRBFInterpolant(object):
     assert_shape(x, (None, self.y.shape[1]), 'x')
 
     if chunk_size is not None:
-      out = np.zeros((x.shape[0],), dtype=float)
-      for start in range(0, x.shape[0], chunk_size):
+      out = np.zeros(len(x), dtype=float)
+      for start in range(0, len(x), chunk_size):
         stop = start + chunk_size
         out[start:stop] = self(x[start:stop], diff=diff, chunk_size=None)
 
       return out
-
-    pwr = powers(self.order, self.y.shape[1])
-    if pwr.shape[0] > self.k:
-      raise ValueError(
-        'The polynomial order is too high for the number of nearest neighbors')
 
     # get the indices of the k nearest observations for each interpolation
     # point
@@ -390,12 +439,12 @@ class NearestRBFInterpolant(object):
 
     # build the left-hand-side interpolation matrix consisting of the RBF
     # and polyomials evaluated at each neighborhood
-    Kyy = self.phi(self.y[nbr], self.y[nbr], eps=self.eps[nbr])
+    Kyy = self.phi(self.y[nbr], self.y[nbr], eps=self.eps)
     # add the smoothing term to the diagonals of Kyy
     Kyy[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
-    Py = mvmonos(self.y[nbr], pwr)
+    Py = mvmonos(self.y[nbr], self.pwr)
     Pyt = np.einsum('ijk->ikj', Py)
-    Z = np.zeros((nbr.shape[0], pwr.shape[0], pwr.shape[0]), dtype=float)
+    Z = np.zeros((len(nbr), len(self.pwr), len(self.pwr)), dtype=float)
     LHS = np.concatenate(
       (np.concatenate((Kyy, Py), axis=2),
        np.concatenate((Pyt, Z), axis=2)),
@@ -403,7 +452,7 @@ class NearestRBFInterpolant(object):
 
     # build the right-hand-side data vector consisting of the observations for
     # each neighborhood and extra zeros
-    z = np.zeros((nbr.shape[0], pwr.shape[0]), dtype=float)
+    z = np.zeros((len(nbr), len(self.pwr)), dtype=float)
     rhs = np.concatenate((self.d[nbr], z), axis=1)
 
     # solve for the RBF and polynomial coefficients
@@ -416,7 +465,7 @@ class NearestRBFInterpolant(object):
     # evaluate the interpolant at the interpolation points
     phi_coeff = coeff[:, :self.k]
     poly_coeff = coeff[:, self.k:]
-    Kxy = self.phi(x[:, None], self.y[nbr], eps=self.eps[nbr], diff=diff)[:, 0]
-    Px = mvmonos(x, pwr, diff=diff)
+    Kxy = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0]
+    Px = mvmonos(x, self.pwr, diff=diff)
     out = (Kxy*phi_coeff).sum(axis=1) + (Px*poly_coeff).sum(axis=1)
     return out
