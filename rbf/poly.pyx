@@ -122,7 +122,7 @@ def _mvmonos(double[:, :] x,
 def monomial_powers(order, dim):
   '''
   Returns an array containing the powers for the monomial basis functions in a
-  polymonial with the given order and number of dimensions. Calling this with
+  polynomial with the given order and number of dimensions. Calling this with
   an order of -1 will return an empty array (no monomial basis functions)
 
   Parameters
