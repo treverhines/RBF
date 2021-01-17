@@ -24,7 +24,7 @@ def mvmonos(x, powers, diff=None):
 
   powers : (M, D) int array
     Defines each monomial basis function using multi-index notation. Each row
-    contains the exponents for the variables in a monomial.
+    contains the powers for the variables in a monomial.
 
   diff : (D,) int array, optional
     Derivative order for each variable
@@ -119,12 +119,11 @@ def _mvmonos(double[:, :] x,
 
 
 @Memoize
-def powers(order, dim):
+def monomial_powers(order, dim):
   '''
-  Returns an array describing the powers in all the monomial basis functions in
-  a polymonial with the given order and number of dimensions. Calling this
-  function with -1 for the order will return an empty list (no terms in the
-  polynomial)
+  Returns an array containing the powers for the monomial basis functions in a
+  polymonial with the given order and number of dimensions. Calling this with
+  an order of -1 will return an empty array (no monomial basis functions)
 
   Parameters
   ----------
@@ -132,7 +131,7 @@ def powers(order, dim):
     Polynomial order
 
   dim : int
-    Polynomial dimension
+    Polynomial dimensions
 
   Example
   -------
@@ -144,29 +143,23 @@ def powers(order, dim):
              [1, 0],
              [0, 1]])
   '''
-  order = int(order)
-  dim = int(dim)
+  if dim < 1:
+    raise ValueError('The number of dimensions must be 1 or greater')
 
-  if not (dim >= 1):
-    raise ValueError('Number of dimensions must be 1 or greater')
+  if order < -1:
+    raise ValueError('The polynomial order number must be -1 or greater')
 
-  if not (order >= -1):
-    raise ValueError('Polynomial order number must be -1 or greater')
+  out = []
+  for ord in range(order + 1):
+    for itm in cr(np.eye(dim, dtype=int), ord):
+      out.append(sum(itm, np.zeros(dim, dtype=int)))
 
-  out = np.zeros((0, dim),dtype=int)
-  for p in xrange(order + 1):
-    if p == 0:
-      outi = np.zeros((1, dim), dtype=int)
-      out = np.vstack((out, outi))
-    else:
-      outi = np.array([sum(i) for i in cr(np.eye(dim, dtype=int), p)])
-      out = np.vstack((out, outi))
-
+  out = np.asarray(out, dtype=int).reshape(-1, dim)
   return out
 
 
 @Memoize
-def count(order, dim):
+def monomial_count(order, dim):
   '''
   Returns the number of monomial basis functions in a polynomial with the given
   order and number of dimensions
@@ -177,16 +170,13 @@ def count(order, dim):
     Polynomial order
 
   dim : int
-    Polynomial dimension
+    Polynomial dimensions
 
   '''
-  order = int(order)
-  dim = int(dim)
+  if dim < 1:
+    raise ValueError('The number of dimensions must be 1 or greater')
 
-  if not (dim >= 1):
-    raise ValueError('number of dimensions must be 1 or greater')
+  if order < -1:
+    raise ValueError('The polynomial order number must be -1 or greater')
 
-  if not (order >= -1):
-    raise ValueError('polynomial order number must be -1 or greater')
-
-  return int(binom(order+dim, dim))
+  return int(binom(order + dim, dim))

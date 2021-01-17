@@ -57,7 +57,7 @@ from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
 from sympy import lambdify
 
-from rbf.poly import powers
+from rbf.poly import monomial_powers
 from rbf.utils import assert_shape
 
 logger = logging.getLogger(__name__)
@@ -589,51 +589,51 @@ def set_symbolic_to_numeric_method(method):
 ## Instantiate some common RBFs
 #####################################################################
 _phs8_limits = {}
-_phs8_limits.update((tuple(i), 0.0) for i in powers(7, 1))
-_phs8_limits.update((tuple(i), 0.0) for i in powers(7, 2))
-_phs8_limits.update((tuple(i), 0.0) for i in powers(7, 3))
+_phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 1))
+_phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 2))
+_phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 3))
 phs8 = RBF(-(_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits)
 
 _phs7_limits = {}
-_phs7_limits.update((tuple(i), 0.0) for i in powers(6, 1))
-_phs7_limits.update((tuple(i), 0.0) for i in powers(6, 2))
-_phs7_limits.update((tuple(i), 0.0) for i in powers(6, 3))
+_phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 1))
+_phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 2))
+_phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 3))
 phs7 = RBF((_EPS*_R)**7, tol=1e-10, limits=_phs7_limits)
 
 _phs6_limits = {}
-_phs6_limits.update((tuple(i), 0.0) for i in powers(5, 1))
-_phs6_limits.update((tuple(i), 0.0) for i in powers(5, 2))
-_phs6_limits.update((tuple(i), 0.0) for i in powers(5, 3))
+_phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 1))
+_phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 2))
+_phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 3))
 phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R), tol=1e-10, limits=_phs6_limits)
 
 _phs5_limits = {}
-_phs5_limits.update((tuple(i), 0.0) for i in powers(4, 1))
-_phs5_limits.update((tuple(i), 0.0) for i in powers(4, 2))
-_phs5_limits.update((tuple(i), 0.0) for i in powers(4, 3))
+_phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 1))
+_phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 2))
+_phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 3))
 phs5 = RBF(-(_EPS*_R)**5, tol=1e-10, limits=_phs5_limits)
 
 _phs4_limits = {}
-_phs4_limits.update((tuple(i), 0.0) for i in powers(3, 1))
-_phs4_limits.update((tuple(i), 0.0) for i in powers(3, 2))
-_phs4_limits.update((tuple(i), 0.0) for i in powers(3, 3))
+_phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 1))
+_phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 2))
+_phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 3))
 phs4 = RBF(-(_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits)
 
 _phs3_limits = {}
-_phs3_limits.update((tuple(i), 0.0) for i in powers(2, 1))
-_phs3_limits.update((tuple(i), 0.0) for i in powers(2, 2))
-_phs3_limits.update((tuple(i), 0.0) for i in powers(2, 3))
+_phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 1))
+_phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 2))
+_phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 3))
 phs3 = RBF((_EPS*_R)**3, tol=1e-10, limits=_phs3_limits)
 
 _phs2_limits = {}
-_phs2_limits.update((tuple(i), 0.0) for i in powers(1, 1))
-_phs2_limits.update((tuple(i), 0.0) for i in powers(1, 2))
-_phs2_limits.update((tuple(i), 0.0) for i in powers(1, 3))
+_phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 1))
+_phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 2))
+_phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 3))
 phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R), tol=1e-10, limits=_phs2_limits)
 
 _phs1_limits = {}
-_phs1_limits.update((tuple(i), 0.0) for i in powers(0, 1))
-_phs1_limits.update((tuple(i), 0.0) for i in powers(0, 2))
-_phs1_limits.update((tuple(i), 0.0) for i in powers(0, 3))
+_phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 1))
+_phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 2))
+_phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 3))
 phs1 = RBF(-_EPS*_R, tol=1e-10, limits=_phs1_limits)
 
 # inverse multiquadratic

@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as sp
 
 from rbf.basis import phs3, get_rbf
-from rbf.poly import count, powers, mvmonos
+from rbf.poly import monomial_count, monomial_powers, mvmonos
 from rbf.utils import assert_shape, Memoize, KDTree
 from rbf.linalg import as_array
 
@@ -22,7 +22,7 @@ def _max_poly_order(size, dim):
   number of dimensions
   '''
   order = -1
-  while (count(order+1, dim) <= size):
+  while monomial_count(order + 1, dim) <= size:
     order += 1
 
   return order
@@ -144,7 +144,7 @@ def weights(x, s, diffs,
   s = s - x
   x = np.zeros_like(x)
   # get the powers for the added monomials
-  pwr = powers(order, ndim)
+  pwr = monomial_powers(order, ndim)
   # evaluate the RBF and monomials at each point in the stencil. This becomes
   # the left-hand-side
   A = phi(s, s, eps=eps)

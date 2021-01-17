@@ -13,7 +13,7 @@ def test_positive_definite(phi, order=None, dim=2, ntests=100):
         if order is not None:
             # modify the random vector c so that P^Tc = 0
             M = np.eye(50)
-            P = rbf.poly.mvmonos(x, rbf.poly.powers(order - 1, dim))
+            P = rbf.poly.mvmonos(x, rbf.poly.monomial_powers(order - 1, dim))
             M[:P.shape[1]] = P.T
             c[:P.shape[1]] = 0.0
             c = np.linalg.solve(M, c)

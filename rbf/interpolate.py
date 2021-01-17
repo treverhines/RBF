@@ -94,7 +94,7 @@ import scipy.sparse
 import scipy.spatial
 
 import rbf.basis
-from rbf.poly import powers, mvmonos
+from rbf.poly import monomial_powers, mvmonos
 from rbf.basis import get_rbf, SparseRBF
 from rbf.utils import assert_shape, KDTree
 from rbf.linalg import PartitionedSolver
@@ -225,7 +225,7 @@ class RBFInterpolant(object):
 
     # get the powers for each monomial in the added polynomial. Make sure there
     # are not more monomials than observations
-    pwr = powers(order, y.shape[1])
+    pwr = monomial_powers(order, y.shape[1])
     if len(pwr) > len(y):
       raise ValueError(
         'The polynomial order is too high for the number of observations')
@@ -381,7 +381,7 @@ class NearestRBFInterpolant(object):
         'The polynomial order should not be below %d for %s in order for the '
         'interpolant to be well-posed' % (recommended_order, phi))
 
-    pwr = powers(order, y.shape[1])
+    pwr = monomial_powers(order, y.shape[1])
     if len(pwr) > k:
       raise ValueError(
         'The polynomial order is too high for the number of nearest neighbors')

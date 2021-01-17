@@ -2216,7 +2216,7 @@ def gppoly(order, dim=None, dense=False):
   '''
   @_io_is_checked
   def basis(x, diff):
-    powers = rbf.poly.powers(order, x.shape[1])
+    powers = rbf.poly.monomial_powers(order, x.shape[1])
     out = rbf.poly.mvmonos(x, powers, diff)
     return out
 
