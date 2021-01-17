@@ -1,12 +1,8 @@
 '''
-This module provides a class for RBF interpolation, `RBFInterpolant`. This
-function has numerous features that are lacking in `scipy.interpolate.rbf`.
-They include:
-
-* variable weights on the data (when creating a smoothed interpolant)
-* more choices of basis functions (you can also easily make your own)
-* analytical differentiation of the interpolant
-* added polynomial terms for improved accuracy
+This module provides classes for RBF interpolation, `RBFInterpolant` and
+`NearestRBFInterpolant`. The latter is more suitable when there are a large
+number of observations because it performs RBF interpolation using only the k
+nearest observations to each interpolation point.
 
 RBF Interpolation
 -----------------
@@ -21,61 +17,73 @@ parameterized as
 
 where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at
 :math:`\mathbf{y}` evaluated at the interpolation points :math:`\mathbf{x}`.
-:math:`\mathbf{P(x)}` is a polynomial matrix containing :math:`m` monomial
-basis function evaluated at the interpolation points. The monomial basis
-functions span the space of all polynomials with a user specified order. The
-coefficients :math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to minimize
-the objective function
+:math:`\mathbf{P(x)}` is a Vandermonde matrix containing :math:`p` monomial
+basis functions evaluated at the interpolation points. The monomial basis
+functions span the space of all polynomials with a user specified degree.
+The coefficients :math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to
+minimize the objective function
 
 .. math::
   \mathcal{L}(\mathbf{a, b}) =
   \mathbf{a^T K(y,y) a} +
   \lambda \mathbf{(f(y; a, b) - d)^T \Sigma^{-1} (f(y; a, b) - d)}.
 
-In the above expression, the second term on the right side is a norm measuring
-the misfit between the interpolant and the observations. The first term on the
-right side is a norm that essentially penalizes the roughness of the
-interpolant (technically, it is the norm associated with the reproducing kernel
-Hilbert space for the chosen radial basis function). We have also introduced
-:math:`\lambda` which is a smoothing parameter that controls how well we want
-the interpolant to fit the data.
 
-To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need :math:`n+m`
-linear constraints. We can recognize that :math:`\mathcal{L}` is a convex
-function, and so it can be minimized by finding where its gradient is zero. We
-differentiate :math:`\mathcal{L}` with respect to :math:`\mathbf{a}` and set it
-equal to zero to get :math:`n` constraints
+For the minimization problem to be well-posed, we assume that the RBF is
+positive definite or conditionally positive definite of order :math:`m` (see
+Chapter 7 of [1]). If the RBF is conditionally positive definite of order
+:math:`m`, then we assume the degree of the added polynomial is
+:math:`\ge(m-1)`.
 
+The first term in the above objective function is the native space norm
+associated with the RBF (See Chapter 13 of [1]). Loosely speaking, it can be
+viewed as a measure of the roughness of the interpolant. The second term in the
+objective function measures the misfit between the interpolant and the
+observations. We have introduced the parameter :math:`\lambda` to control the
+trade-off between these two terms.
+
+To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need :math:`n+p`
+linear constraints. If we first assume that the RBF is positive definite (and
+therefore :math:`\mathbf{K(y, y)}` is positive definite), then we can recognize
+that :math:`\mathcal{L}` is a convex function, and so it can be minimized by
+finding where its gradient is zero. We differentiate :math:`\mathcal{L}` with
+respect to :math:`\mathbf{a}` and set it equal to zero to get :math:`n`
+constraints
 
 .. math::
   (\mathbf{K(y,y)} + \lambda^{-1}\mathbf{\Sigma}) \mathbf{a}
   + \mathbf{P(y) b} = \mathbf{d}.
 
-For the remaining :math:`m` constraints, we differentiate
+For the remaining :math:`p` constraints, we differentiate
 :math:`\mathcal{L}` with respect to :math:`\mathbf{b}`, set it equal to zero,
 and substitute the above equation in for :math:`\mathbf{d}` to get
 
 .. math::
   \mathbf{P(y)^T a} = \mathbf{0}.
 
-For most purposes, the above two equations provide the linear constrains that
-are needed to solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. However,
-there are cases where the system cannot be solved due to, for example, too few
-data points or a polynomial order that is too high. There are also some radial
-basis functions that are conditionally positive definite, which means that the
-norm :math:`\mathbf{a^T K(y, y) a}` is only guaranteed to be positive when the
-order of the added polynomial is sufficiently high. The user is referred to [1]
+
+The above two equations then provide us with the linear constraints needed to
+solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. In the case that the RBF
+is conditionally positive definite, we want to minimize the objective function
+subject to the imposed constraint that :math:`\mathbf{P(y)^T a} = \mathbf{0}`,
+which ensures that :math:`\mathbf{a^T K(y, y) a} \ge 0`. We then arrive at the
+same solution for :math:`\mathbf{a}` and :math:`\mathbf{b}`.
+
+There are circumstances when the above two equations are not sufficient to
+solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. For example, there may not
+be a unique solution if observations are colinear or coplanar. It is also
+necessary to have at least :math:`p` observations. The user is referred to [1]
 for details on when the interpolation problem is well-posed.
+
+The above formulation for the RBF interpolant can be found in section 19.2 and
+6.3 of [1]. It can also be found in the context of thin-plate splines in
+section 2.4 of [2] and in the context of Kriging in section 3.4 of [3].
 
 In our implementation, we have combined the effect of :math:`\Sigma` and
 :math:`\lambda` into one variable, `sigma`, which is a scalar or a vector that
 is *proportional* to the standard deviation of the noise. When `sigma` is `0`
 the observations are fit perfectly by the interpolant. Increasing `sigma`
 degrades the fit while improving the smoothness of the interpolant.
-
-The above formulation for the RBF interpolant can be found in section 19.2 and
-6.3 of [1]. It can also be found in the context of thin-plate splines in
-section 2.4 of [2] and in the context of Kriging in section 3.4 of [3].
 
 References
 ----------
