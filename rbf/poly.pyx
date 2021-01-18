@@ -13,7 +13,7 @@ from rbf.utils import assert_shape, Memoize
 from cython cimport boundscheck, wraparound
 
 
-def mvmonos(x, powers, diff=None):
+def mvmonos(x, degree, diff=None):
   '''
   Multivariate monomial basis functions
 
@@ -22,9 +22,10 @@ def mvmonos(x, powers, diff=None):
   x : (..., D) float array
     Positions where the monomials will be evaluated
 
-  powers : (M, D) int array
-    Defines each monomial basis function using multi-index notation. Each row
-    contains the powers for the variables in a monomial.
+  degree : int or (M, D) int array
+    If this is an int, it is the degree of polynomials spanned by the
+    monomials. If this is an array, it is the power for each variable in each
+    monomial
 
   diff : (D,) int array, optional
     Derivative order for each variable
@@ -32,14 +33,14 @@ def mvmonos(x, powers, diff=None):
   Returns
   -------
   (..., M) array
-    Alternant matrix where x is evaluated for each monomial
+    Alternant matrix where each monomial is evaluated at `x`
 
   Example
   -------
 
   >>> pos = np.array([[1.0], [2.0], [3.0]])
   >>> pows = np.array([[0], [1], [2]])
-  >>> mvmonos(pos,pows)
+  >>> mvmonos(pos, pows)
   array([[ 1.,  1.,  1.],
          [ 1.,  2.,  4.],
          [ 1.,  3.,  9.]])
@@ -56,8 +57,11 @@ def mvmonos(x, powers, diff=None):
   assert_shape(x, (..., None), 'x')
   ndim = x.shape[-1]
 
-  powers = np.asarray(powers, dtype=int)
-  assert_shape(powers, (None, ndim), 'powers')
+  if np.isscalar(degree):
+    powers = monomial_powers(degree, ndim)
+  else:
+    powers = np.asarray(degree, dtype=int)
+    assert_shape(powers, (None, ndim), 'powers')
 
   if diff is None:
     diff = np.zeros(ndim, dtype=int)
@@ -92,9 +96,7 @@ def _mvmonos(double[:, :] x,
     # `out` is the memory view of the numpy array `out_array`
     double[:, :] out = out_array
 
-  # loop over dimensions
   for i in range(D):
-    # loop over monomials
     for j in range(M):
       # find the monomial coefficients after differentiation
       coeff = 1
@@ -108,7 +110,6 @@ def _mvmonos(double[:, :] x,
       else:
         power = powers[j, i] - diff[i]
 
-      # loop over evaluation points
       for l in range(N):
         if i == 0:
           out[l, j] = coeff*x[l, i]**power
@@ -119,64 +120,63 @@ def _mvmonos(double[:, :] x,
 
 
 @Memoize
-def monomial_powers(order, dim):
+def monomial_powers(degree, ndim):
   '''
-  Returns an array containing the powers for the monomial basis functions in a
-  polynomial with the given order and number of dimensions. Calling this with
-  an order of -1 will return an empty array (no monomial basis functions)
+  Returns an array containing the powers for the monomial basis functions
+  spanning polynomials with the given degree and number of dimensions. Calling
+  this with a degree of -1 will return an empty array (no monomial basis
+  functions)
 
   Parameters
   ----------
-  order : int
-    Polynomial order
+  degree : int
 
-  dim : int
-    Polynomial dimensions
+  ndim : int
 
   Example
   -------
   This will return the powers of x and y for each monomial term in a two
-  dimensional polynomial with order 1
+  dimensional polynomial with degree 1
 
   >>> monomial_powers(1, 2)
   >>> array([[0, 0],
              [1, 0],
              [0, 1]])
   '''
-  if dim < 1:
+  degree, ndim = int(degree), int(ndim)
+  if ndim < 1:
     raise ValueError('The number of dimensions must be 1 or greater')
 
-  if order < -1:
-    raise ValueError('The polynomial order number must be -1 or greater')
+  if degree < -1:
+    raise ValueError('The polynomial degree number must be -1 or greater')
 
   out = []
-  for ord in range(order + 1):
-    for itm in cr(np.eye(dim, dtype=int), ord):
-      out.append(sum(itm, np.zeros(dim, dtype=int)))
+  for deg in range(degree + 1):
+    for itm in cr(np.eye(ndim, dtype=int), deg):
+      out.append(sum(itm, np.zeros(ndim, dtype=int)))
 
-  out = np.asarray(out, dtype=int).reshape(-1, dim)
+  out = np.asarray(out, dtype=int).reshape(-1, ndim)
   return out
 
 
 @Memoize
-def monomial_count(order, dim):
+def monomial_count(degree, ndim):
   '''
   Returns the number of monomial basis functions in a polynomial with the given
-  order and number of dimensions
+  degree and number of dimensions
 
   Parameters
   ----------
-  order : int
-    Polynomial order
+  degree : int
 
-  dim : int
-    Polynomial dimensions
+  ndim : int
 
   '''
-  if dim < 1:
+  degree, ndim = int(degree), int(ndim)
+  if ndim < 1:
     raise ValueError('The number of dimensions must be 1 or greater')
 
-  if order < -1:
-    raise ValueError('The polynomial order number must be -1 or greater')
+  if degree < -1:
+    raise ValueError('The polynomial degree number must be -1 or greater')
 
-  return int(binom(order + dim, dim))
+  return int(binom(degree + ndim, ndim))
