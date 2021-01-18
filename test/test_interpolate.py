@@ -129,23 +129,6 @@ class Test(unittest.TestCase):
     valitp_true = test_func2d(itp)
     self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-1))
     
-  def test_extrapolate(self):
-    # make sure that the extrapolate key word is working    
-    N = 1000
-    H = rbf.pde.halton.HaltonSequence(2)
-    obs = H(N)
-    val = test_func2d(obs)
-    itp = np.array([[0.5,0.5],
-                    [0.5,1.5],
-                    [0.5,-0.5],
-                    [1.5,0.5],
-                    [-0.5,0.5]])
-    I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=1,
-                                       extrapolate=False)
-    out = I(itp)
-    soln_true = np.array([False,True,True,True,True])
-    self.assertTrue(np.all(np.isnan(out) == soln_true))
-    
   def test_weight(self):
     # give an outlier zero weight and make sure the interpolant is not
     # affected.

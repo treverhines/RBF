@@ -102,7 +102,7 @@ import scipy.sparse
 import scipy.spatial
 
 import rbf.basis
-from rbf.poly import monomial_powers, mvmonos
+from rbf.poly import monomial_count, mvmonos
 from rbf.basis import get_rbf, SparseRBF
 from rbf.utils import assert_shape, KDTree
 from rbf.linalg import PartitionedSolver
@@ -110,31 +110,11 @@ from rbf.linalg import PartitionedSolver
 logger = logging.getLogger(__name__)
 
 
-def _in_hull(p, hull):
-  '''
-  Tests if points in `p` are in the convex hull made up by `hull`
-  '''
-  dim = p.shape[1]
-  # if there are not enough points in `hull` to form a simplex then
-  # return False for each point in `p`.
-  if len(hull) <= dim:
-    return np.zeros(len(p), dtype=bool)
-
-  if dim >= 2:
-    hull = scipy.spatial.Delaunay(hull)
-    return hull.find_simplex(p)>=0
-  else:
-    # one dimensional points
-    min = np.min(hull)
-    max = np.max(hull)
-    return (p[:, 0] >= min) & (p[:, 0] <= max)
-
-
 # Interpolation with conditionally positive definite RBFs has no assurances of
 # being well posed when the order of the added polynomial is not high enough.
 # Define that minimum polynomial order here. These values are from Chapter 8 of
 # Fasshauer's "Meshfree Approximation Methods with MATLAB"
-_RECOMMENDED_ORDER = {
+_MIN_ORDER = {
   rbf.basis.mq: 0,
   rbf.basis.phs1: 0,
   rbf.basis.phs2: 1,
@@ -178,10 +158,6 @@ class RBFInterpolant(object):
     Order of the added polynomial terms. Set this to `-1` for no added
     polynomial terms.
 
-  extrapolate : bool, optional
-    Whether to allows points to be extrapolated outside of a convex hull formed
-    by `y`. If False, then np.nan is returned for outside points.
-
   Notes
   -----
   * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
@@ -198,62 +174,59 @@ class RBFInterpolant(object):
   '''
   def __init__(self, y, d,
                sigma=0.0,
-               eps=1.0,
                phi='phs3',
-               order=None,
-               extrapolate=True):
+               eps=1.0,
+               order=None):
     y = np.asarray(y, dtype=float)
     assert_shape(y, (None, None), 'y')
+    ny, ndim = y.shape
 
     d = np.asarray(d, dtype=float)
-    assert_shape(d, (len(y),), 'd')
+    assert_shape(d, (ny,), 'd')
 
     if np.isscalar(sigma):
-      sigma = np.full(len(y), sigma, dtype=float)
+      sigma = np.full(ny, sigma, dtype=float)
     else:
       sigma = np.asarray(sigma, dtype=float)
-      assert_shape(sigma, (len(y),), 'sigma')
+      assert_shape(sigma, (ny,), 'sigma')
+
+    phi = get_rbf(phi)
 
     if not np.isscalar(eps):
       logger.warning(
         'The shape parameter should be a float in order for the interpolant '
         'to be well-posed')
 
-    phi = get_rbf(phi)
-    # If the `phi` is not in `_RECOMMENDED_ORDER`, then the RBF is either
+    # If the `phi` is not in `_MIN_ORDER`, then the RBF is either
     # positive definite (no minimum polynomial order) or user-defined
+    min_order = _MIN_ORDER.get(phi, -1)
     if order is None:
-      order = _RECOMMENDED_ORDER.get(phi, 0)
-
-    recommended_order = _RECOMMENDED_ORDER.get(phi, -1)
-    if order < recommended_order:
+      order = max(min_order, 0)
+    elif order < min_order:
       logger.warning(
         'The polynomial order should not be below %d for %s in order for the '
-        'interpolant to be well-posed' % (recommended_order, phi))
-
-    # get the powers for each monomial in the added polynomial. Make sure there
-    # are not more monomials than observations
-    pwr = monomial_powers(order, y.shape[1])
-    if len(pwr) > len(y):
-      raise ValueError(
-        'The polynomial order is too high for the number of observations')
+        'interpolant to be well-posed' % (min_order, phi))
 
     # Build the system of equations and solve for the RBF and mononomial
     # coefficients
     Kyy = phi(y, y, eps=eps)
     S = scipy.sparse.diags(sigma**2)
-    Py = mvmonos(y, pwr)
-    z = np.zeros(len(pwr), dtype=float)
+    Py = mvmonos(y, order)
+    nmonos = Py.shape[1]
+    if nmonos > ny:
+      raise ValueError(
+        'The polynomial order is too high. The number of monomials, %d, '
+        'exceeds the number of observations, %d' % (nmonos, ny))
+
+    z = np.zeros(nmonos, dtype=float)
     phi_coeff, poly_coeff = PartitionedSolver(Kyy + S, Py).solve(d, z)
 
     self.y = y
     self.phi = phi
-    self.order = order
     self.eps = eps
+    self.order = order
     self.phi_coeff = phi_coeff
     self.poly_coeff = poly_coeff
-    self.pwr = pwr
-    self.extrapolate = extrapolate
 
   def __call__(self, x, diff=None, chunk_size=1000):
     '''
@@ -278,24 +251,19 @@ class RBFInterpolant(object):
     '''
     x = np.asarray(x,dtype=float)
     assert_shape(x, (None, self.y.shape[1]), 'x')
+    nx = x.shape[0]
 
     if chunk_size is not None:
-      out = np.zeros(len(x), dtype=float)
-      for start in range(0, len(x), chunk_size):
+      out = np.zeros(nx, dtype=float)
+      for start in range(0, nx, chunk_size):
         stop = start + chunk_size
         out[start:stop] = self(x[start:stop], diff=diff, chunk_size=None)
 
       return out
 
     Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
-    Px = mvmonos(x, self.pwr, diff=diff)
+    Px = mvmonos(x, self.order, diff=diff)
     out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
-
-    # return nan for points outside of the convex hull if extrapolation is not
-    # allowed
-    if not self.extrapolate:
-      out[~_in_hull(x, self.y)] = np.nan
-
     return out
 
 
@@ -352,47 +320,47 @@ class NearestRBFInterpolant(object):
   def __init__(self, y, d,
                sigma=0.0,
                k=20,
-               eps=1.0,
                phi='phs3',
+               eps=1.0,
                order=None):
     y = np.asarray(y, dtype=float)
     assert_shape(y, (None, None), 'y')
+    ny, ndim = y.shape
 
     d = np.asarray(d, dtype=float)
-    assert_shape(d, (len(y),), 'd')
+    assert_shape(d, (ny,), 'd')
 
     if np.isscalar(sigma):
-      sigma = np.full(len(y), sigma, dtype=float)
+      sigma = np.full(ny, sigma, dtype=float)
     else:
       sigma = np.asarray(sigma, dtype=float)
-      assert_shape(sigma, (len(y),), 'sigma')
+      assert_shape(sigma, (ny,), 'sigma')
 
     # make sure the number of nearest neighbors used for interpolation does not
     # exceed the number of observations
-    k = min(k, len(y))
-
-    if not np.isscalar(eps):
-      raise ValueError('The shape parameter should be a float')
+    k = min(int(k), ny)
 
     phi = get_rbf(phi)
     if isinstance(phi, SparseRBF):
       raise ValueError('SparseRBF instances are not supported')
 
-    # If the `phi` is not in `_RECOMMENDED_ORDER`, then the RBF is either
-    # positive definite (no minimum polynomial order) or user-defined
-    if order is None:
-      order = _RECOMMENDED_ORDER.get(phi, 0)
+    if not np.isscalar(eps):
+      raise ValueError('The shape parameter should be a float')
 
-    recommended_order = _RECOMMENDED_ORDER.get(phi, -1)
-    if order < recommended_order:
+    min_order = _MIN_ORDER.get(phi, -1)
+    if order is None:
+      order = max(min_order, 0)
+    elif order < min_order:
       logger.warning(
         'The polynomial order should not be below %d for %s in order for the '
-        'interpolant to be well-posed' % (recommended_order, phi))
+        'interpolant to be well-posed' % (min_order, phi))
 
-    pwr = monomial_powers(order, y.shape[1])
-    if len(pwr) > k:
+    nmonos = monomial_count(order, ndim)
+    if nmonos > k:
       raise ValueError(
-        'The polynomial order is too high for the number of nearest neighbors')
+        'The polynomial order is too high. The number of monomials, %d, '
+        'exceeds the number of neighbors used for interpolation, %d' %
+        (nmonos, k))
 
     tree = KDTree(y)
 
@@ -402,7 +370,7 @@ class NearestRBFInterpolant(object):
     self.k = k
     self.eps = eps
     self.phi = phi
-    self.pwr = pwr
+    self.order = order
     self.tree = tree
 
   def __call__(self, x, diff=None, chunk_size=100):
@@ -428,10 +396,11 @@ class NearestRBFInterpolant(object):
     '''
     x = np.asarray(x, dtype=float)
     assert_shape(x, (None, self.y.shape[1]), 'x')
+    nx = x.shape[0]
 
     if chunk_size is not None:
-      out = np.zeros(len(x), dtype=float)
-      for start in range(0, len(x), chunk_size):
+      out = np.zeros(nx, dtype=float)
+      for start in range(0, nx, chunk_size):
         stop = start + chunk_size
         out[start:stop] = self(x[start:stop], diff=diff, chunk_size=None)
 
@@ -444,26 +413,24 @@ class NearestRBFInterpolant(object):
     # neighborhoods unique so that we only compute the interpolation
     # coefficients once for each neighborhood
     nbr, inv = np.unique(np.sort(nbr, axis=1), return_inverse=True, axis=0)
+    nnbr = nbr.shape[0]
 
     # build the left-hand-side interpolation matrix consisting of the RBF
     # and polyomials evaluated at each neighborhood
     Kyy = self.phi(self.y[nbr], self.y[nbr], eps=self.eps)
-    # add the smoothing term to the diagonals of Kyy
     Kyy[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
-    Py = mvmonos(self.y[nbr], self.pwr)
-    Pyt = np.einsum('ijk->ikj', Py)
-    Z = np.zeros((len(nbr), len(self.pwr), len(self.pwr)), dtype=float)
-    LHS = np.concatenate(
-      (np.concatenate((Kyy, Py), axis=2),
-       np.concatenate((Pyt, Z), axis=2)),
-      axis=1)
+    Py = mvmonos(self.y[nbr], self.order)
+    Pyt = np.transpose(Py, (0, 2, 1))
+    nmonos = Py.shape[2]
+    Z = np.zeros((nnbr, nmonos, nmonos), dtype=float)
+    LHS = np.block([[Kyy, Py], [Pyt, Z]])
 
     # build the right-hand-side data vector consisting of the observations for
     # each neighborhood and extra zeros
-    z = np.zeros((len(nbr), len(self.pwr)), dtype=float)
-    rhs = np.concatenate((self.d[nbr], z), axis=1)
+    z = np.zeros((nnbr, nmonos), dtype=float)
+    rhs = np.hstack((self.d[nbr], z))
 
-    # solve for the RBF and polynomial coefficients
+    # solve for the RBF and polynomial coefficients for each neighborhood
     coeff = np.linalg.solve(LHS, rhs)
     # expand the coefficients and neighborhoods so that there is one set for
     # each interpolation point
@@ -474,6 +441,6 @@ class NearestRBFInterpolant(object):
     phi_coeff = coeff[:, :self.k]
     poly_coeff = coeff[:, self.k:]
     Kxy = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0]
-    Px = mvmonos(x, self.pwr, diff=diff)
+    Px = mvmonos(x, self.order, diff=diff)
     out = (Kxy*phi_coeff).sum(axis=1) + (Px*poly_coeff).sum(axis=1)
     return out
