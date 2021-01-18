@@ -32,8 +32,9 @@ except ImportError:
   LOGGER.debug(CHOLMOD_MSG)
 
 
-## Wrappers for low level LAPACK functions
-#####################################################################
+## Wrappers for low level LAPACK functions. These are all a few microseconds
+## faster than their corresponding functions in scipy.linalg
+###############################################################################
 def _lu(A):
   '''
   Computes the LU factorization of `A` using the routine `dgetrf`
@@ -81,11 +82,11 @@ def _solve_lu(fac, piv, b):
 
   piv : (n,) int array
 
-  b : (n, *) float array
+  b : (n, ...) float array
 
   Returns
   -------
-  (n, *) float array
+  (n, ...) float array
 
   '''
   # handle the case of an array with zero-length for an axis.
@@ -139,11 +140,11 @@ def _solve_cholesky(L, b, lower=True):
   ----------
   L : (n, n) float array
 
-  b : (n, *) float array
+  b : (n, ...) float array
 
   Returns
   -------
-  (n, *) float array
+  (n, ...) float array
 
   '''
   if any(i == 0 for i in b.shape):
@@ -164,11 +165,11 @@ def _solve_triangular(L, b, lower=True):
   ----------
   L : (n, n) float array
 
-  b : (n, *) float array
+  b : (n, ...) float array
 
   Returns
   -------
-  (n, *) float array
+  (n, ...) float array
 
   '''
   if any(i == 0 for i in b.shape):
@@ -279,11 +280,11 @@ class Solver(object):
 
     Parameters
     ----------
-    b : (n, *) array or sparse matrix
+    b : (n, ...) array or sparse matrix
 
     Returns
     -------
-    (n, *) array
+    (n, ...) array
 
     '''
     b = as_array(b, dtype=float)
@@ -419,11 +420,11 @@ class PosDefSolver(object):
 
     Parameters
     ----------
-    b : (n, *) array or sparse matrix
+    b : (n, ...) array or sparse matrix
 
     Returns
     -------
-    (n, *) array
+    (n, ...) array
 
     '''
     b = as_array(b, dtype=float)
@@ -438,11 +439,11 @@ class PosDefSolver(object):
 
     Parameters
     ----------
-    b : (n, *) array or sparse matrix
+    b : (n, ...) array or sparse matrix
 
     Returns
     -------
-    (n, *) array
+    (n, ...) array
 
     '''
     b = as_array(b, dtype=float)
@@ -556,15 +557,15 @@ class PartitionedSolver(object):
 
     Parameters
     ----------
-    a : (n, *) array or sparse matrix
+    a : (n, ...) array or sparse matrix
 
-    b : (p, *) array or sparse matrix
+    b : (p, ...) array or sparse matrix
 
     Returns
     -------
-    (n, *) array
+    (n, ...) array
 
-    (p, *) array
+    (p, ...) array
 
     '''
     a = as_array(a, dtype=float)
@@ -674,15 +675,15 @@ class PartitionedPosDefSolver(object):
 
     Parameters
     ----------
-    a : (n, *) array or sparse matrix
+    a : (n, ...) array or sparse matrix
 
-    b : (p, *) array or sparse matrix
+    b : (p, ...) array or sparse matrix
 
     Returns
     -------
-    (n, *) array
+    (n, ...) array
 
-    (p, *) array
+    (p, ...) array
 
     '''
     a = as_array(a, dtype=float)
