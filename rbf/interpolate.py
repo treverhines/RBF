@@ -15,8 +15,8 @@ parameterized as
 .. math::
   \mathbf{f(x)} = \mathbf{K(x,y) a} + \mathbf{P(x) b}
 
-where :math:`\mathbf{K(x,y)}` consists of the RBFs with centers at
-:math:`\mathbf{y}` evaluated at the interpolation points :math:`\mathbf{x}`.
+where :math:`\mathbf{K(x,y)}` is a matrix consisting of the RBFs with centers
+at :math:`\mathbf{y}` evaluated at the interpolation points :math:`\mathbf{x}`.
 :math:`\mathbf{P(x)}` is a Vandermonde matrix containing :math:`p` monomial
 basis functions evaluated at the interpolation points. The monomial basis
 functions span the space of all polynomials with a user specified degree.
@@ -150,21 +150,13 @@ class RBFInterpolant(object):
     Shape parameter
 
   phi : rbf.basis.RBF instance or str, optional
-    Radial basis function. This can be an `RBF` instance (e.g,
-    `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3'). See
-    `rbf.basis` for all the available options.
+    The type of RBF. This can be an `rbf.basis.RBF` instance or the RBF
+    abbreviation as a string. See `rbf.basis` for the available options.
 
   order : int, optional
     Order of the added polynomial terms. Set this to `-1` for no added
-    polynomial terms.
-
-  Notes
-  -----
-  * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
-    then the polynomial order should be at least `i - 1` to provide some
-    assurance that the interpolation problem is well posed (see Chapters 7 and
-    8 of [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
-    should be at least `0`, `1`, or `1`, respectively.
+    polynomial terms. If `phi` is a conditionally positive definite RBF of
+    order `m`, then this value should be at least `m - 1`.
 
   References
   ----------
@@ -193,12 +185,10 @@ class RBFInterpolant(object):
     phi = get_rbf(phi)
 
     if not np.isscalar(eps):
-      logger.warning(
-        'The shape parameter should be a float in order for the interpolant '
-        'to be well-posed')
+      raise ValueError('The shape parameter should be a float')
 
-    # If the `phi` is not in `_MIN_ORDER`, then the RBF is either
-    # positive definite (no minimum polynomial order) or user-defined
+    # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive definite
+    # (no minimum polynomial order) or user-defined
     min_order = _MIN_ORDER.get(phi, -1)
     if order is None:
       order = max(min_order, 0)
@@ -207,6 +197,11 @@ class RBFInterpolant(object):
         'The polynomial order should not be below %d for %s in order for the '
         'interpolant to be well-posed' % (min_order, phi))
 
+    order = int(order)
+    # For improved numerical stability, shift the observations so that their
+    # centroid is at zero
+    center = y.mean(axis=0)
+    y = y - center
     # Build the system of equations and solve for the RBF and mononomial
     # coefficients
     Kyy = phi(y, y, eps=eps)
@@ -225,6 +220,7 @@ class RBFInterpolant(object):
     self.phi = phi
     self.eps = eps
     self.order = order
+    self.center = center
     self.phi_coeff = phi_coeff
     self.poly_coeff = poly_coeff
 
@@ -261,6 +257,7 @@ class RBFInterpolant(object):
 
       return out
 
+    x = x - self.center
     Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
     Px = mvmonos(x, self.order, diff=diff)
     out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
@@ -294,22 +291,13 @@ class NearestRBFInterpolant(object):
     Shape parameter
 
   phi : rbf.basis.RBF instance or str, optional
-    Radial basis function. This can be an `RBF` instance (e.g,
-    `rbf.basis.phs3`) or a string for a predefined RBF (e.g., 'phs3'). See
-    `rbf.basis` for all the available options. `SparseRBF` instances are not
-    supported.
+    The type of RBF. This can be an `rbf.basis.RBF` instance or the RBF
+    abbreviation as a string. See `rbf.basis` for the available options.
 
   order : int, optional
-    Order of the added polynomial terms. Set this to `-1` for no added
-    polynomial terms.
-
-  Notes
-  -----
-  * If `phi` is conditionally positive definite of order `i` (see `rbf.basis`),
-    then the polynomial order should be at least `i - 1` to provide some
-    assurance that the interpolation problem is well-posed (see section 7.1 of
-    [1]). For example, if `phi` is "phs1", "phs2", or "phs3", then `order`
-    should be at least `0`, `1`, or `1`, respectively.
+    Order of the added polynomial terms. Set this to -1 for no added polynomial
+    terms. If `phi` is a conditionally positive definite RBF of order `m`, then
+    this value should be at least `m - 1`.
 
   References
   ----------
@@ -355,6 +343,7 @@ class NearestRBFInterpolant(object):
         'The polynomial order should not be below %d for %s in order for the '
         'interpolant to be well-posed' % (min_order, phi))
 
+    order = int(order)
     nmonos = monomial_count(order, ndim)
     if nmonos > k:
       raise ValueError(
@@ -406,7 +395,7 @@ class NearestRBFInterpolant(object):
 
       return out
 
-    # get the indices of the k nearest observations for each interpolation
+    # get the indices of the k-nearest observations for each interpolation
     # point
     _, nbr = self.tree.query(x, self.k)
     # multiple interpolation points may have the same neighborhood. Make the
@@ -414,33 +403,36 @@ class NearestRBFInterpolant(object):
     # coefficients once for each neighborhood
     nbr, inv = np.unique(np.sort(nbr, axis=1), return_inverse=True, axis=0)
     nnbr = nbr.shape[0]
-
+    # Get the observation data for each neighborhood
+    y, d, sigma = self.y[nbr], self.d[nbr], self.sigma[nbr]
+    # shift the centers of each neighborhood to zero for numerical stability
+    centers = y.mean(axis=1)
+    y = y - centers[:, None]
     # build the left-hand-side interpolation matrix consisting of the RBF
-    # and polyomials evaluated at each neighborhood
-    Kyy = self.phi(self.y[nbr], self.y[nbr], eps=self.eps)
-    Kyy[:, range(self.k), range(self.k)] += self.sigma[nbr]**2
-    Py = mvmonos(self.y[nbr], self.order)
-    Pyt = np.transpose(Py, (0, 2, 1))
+    # and monomials evaluated at each neighborhood
+    Kyy = self.phi(y, y, eps=self.eps)
+    Kyy[:, range(self.k), range(self.k)] += sigma**2
+    Py = mvmonos(y, self.order)
+    PyT = np.transpose(Py, (0, 2, 1))
     nmonos = Py.shape[2]
     Z = np.zeros((nnbr, nmonos, nmonos), dtype=float)
-    LHS = np.block([[Kyy, Py], [Pyt, Z]])
-
+    LHS = np.block([[Kyy, Py], [PyT, Z]])
     # build the right-hand-side data vector consisting of the observations for
     # each neighborhood and extra zeros
     z = np.zeros((nnbr, nmonos), dtype=float)
-    rhs = np.hstack((self.d[nbr], z))
-
+    rhs = np.hstack((d, z))
     # solve for the RBF and polynomial coefficients for each neighborhood
     coeff = np.linalg.solve(LHS, rhs)
-    # expand the coefficients and neighborhoods so that there is one set for
-    # each interpolation point
+    # expand the arrays from having one entry per neighborhood to one entry per
+    # interpolation point
     coeff = coeff[inv]
-    nbr = nbr[inv]
-
-    # evaluate the interpolant at the interpolation points
+    y = y[inv]
+    centers = centers[inv]
+    # evaluate at the interpolation points
+    x = x - centers
     phi_coeff = coeff[:, :self.k]
     poly_coeff = coeff[:, self.k:]
-    Kxy = self.phi(x[:, None], self.y[nbr], eps=self.eps, diff=diff)[:, 0]
+    Kxy = self.phi(x[:, None], y, eps=self.eps, diff=diff)[:, 0]
     Px = mvmonos(x, self.order, diff=diff)
     out = (Kxy*phi_coeff).sum(axis=1) + (Px*poly_coeff).sum(axis=1)
     return out
