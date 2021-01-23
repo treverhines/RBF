@@ -1,98 +1,53 @@
 '''
 This module provides classes for RBF interpolation, `RBFInterpolant` and
 `NearestRBFInterpolant`. The latter is more suitable when there are a large
-number of observations because it performs RBF interpolation using only the k
+number of observations because it performs RBF interpolation using only the `k`
 nearest observations to each interpolation point.
 
 RBF Interpolation
 -----------------
-Consider a vector of :math:`n` observations :math:`\mathbf{d}` made at
-locations :math:`\mathbf{y}`. These observations could potentially have
-normally distributed noise described by the covariance matrix :math:`\Sigma`.
-An RBF interpolant :math:`\mathbf{f(x)}` for these observations is
-parameterized as
+An RBF interpolant fits scalar valued observations
+:math:`\mathbf{d}=[d_1,...,d_n]^T` made at the scattered locations
+:math:`y_1,...,y_n`. The RBF interpolant is parameterized as
 
 .. math::
-  \mathbf{f(x)} = \mathbf{K(x,y) a} + \mathbf{P(x) b}
+  f(x) = \sum_{i=1}^n a_i \phi(||x - y_i||_2) +
+         \sum_{j=1}^m b_j p_j(x)
 
-where :math:`\mathbf{K(x,y)}` is a matrix consisting of the RBFs with centers
-at :math:`\mathbf{y}` evaluated at the interpolation points :math:`\mathbf{x}`.
-:math:`\mathbf{P(x)}` is a Vandermonde matrix containing :math:`p` monomial
-basis functions evaluated at the interpolation points. The monomial basis
-functions span the space of all polynomials with a user specified degree.
-The coefficients :math:`\mathbf{a}` and :math:`\mathbf{b}` are chosen to
-minimize the objective function
+where :math:`\phi` is an RBF and :math:`p_1(x),...,p_m(x)` are monomials that
+span the space of polynomials with a specified degree. The coefficients
+:math:`\mathbf{a}=[a_1,...,a_n]^T` and :math:`\mathbf{b}=[b_1,...,b_m]^T`
+are the solutions to the linear equations
 
 .. math::
-  \mathcal{L}(\mathbf{a, b}) =
-  \mathbf{a^T K(y,y) a} +
-  \lambda \mathbf{(f(y; a, b) - d)^T \Sigma^{-1} (f(y; a, b) - d)}.
+    (\mathbf{K} + \sigma^2\mathbf{I})\mathbf{a} + \mathbf{P b} = \mathbf{d}
 
-
-For the minimization problem to be well-posed, we assume that the RBF is
-positive definite or conditionally positive definite of order :math:`m` (see
-Chapter 7 of [1]). If the RBF is conditionally positive definite of order
-:math:`m`, then we assume the degree of the added polynomial is
-:math:`\ge(m-1)`.
-
-The first term in the above objective function is the native space norm
-associated with the RBF (See Chapter 13 of [1]). Loosely speaking, it can be
-viewed as a measure of the roughness of the interpolant. The second term in the
-objective function measures the misfit between the interpolant and the
-observations. We have introduced the parameter :math:`\lambda` to control the
-trade-off between these two terms.
-
-To determine :math:`\mathbf{a}` and :math:`\mathbf{b}`, we need :math:`n+p`
-linear constraints. If we first assume that the RBF is positive definite (and
-therefore :math:`\mathbf{K(y, y)}` is positive definite), then we can recognize
-that :math:`\mathcal{L}` is a convex function, and so it can be minimized by
-finding where its gradient is zero. We differentiate :math:`\mathcal{L}` with
-respect to :math:`\mathbf{a}` and set it equal to zero to get :math:`n`
-constraints
+and
 
 .. math::
-  (\mathbf{K(y,y)} + \lambda^{-1}\mathbf{\Sigma}) \mathbf{a}
-  + \mathbf{P(y) b} = \mathbf{d}.
+    \mathbf{P^T a} = \mathbf{0},
 
-For the remaining :math:`p` constraints, we differentiate
-:math:`\mathcal{L}` with respect to :math:`\mathbf{b}`, set it equal to zero,
-and substitute the above equation in for :math:`\mathbf{d}` to get
+where :math:`K_{ij} = \phi(||y_i - y_j||_2)`, :math:`P_{ij}=p_j(y_i)`, and
+:math:`\sigma` is a smoothing parameter that controls how well we want to fit
+the observations. The observations are fit exactly when :math:`\sigma` is
+zero.
 
-.. math::
-  \mathbf{P(y)^T a} = \mathbf{0}.
-
-
-The above two equations then provide us with the linear constraints needed to
-solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. In the case that the RBF
-is conditionally positive definite, we want to minimize the objective function
-subject to the imposed constraint that :math:`\mathbf{P(y)^T a} = \mathbf{0}`,
-which ensures that :math:`\mathbf{a^T K(y, y) a} \ge 0`. We then arrive at the
-same solution for :math:`\mathbf{a}` and :math:`\mathbf{b}`.
-
-There are circumstances when the above two equations are not sufficient to
-solve for :math:`\mathbf{a}` and :math:`\mathbf{b}`. For example, there may not
-be a unique solution if observations are colinear or coplanar. It is also
-necessary to have at least :math:`p` observations. The user is referred to [1]
-for details on when the interpolation problem is well-posed.
-
-The above formulation for the RBF interpolant can be found in section 19.2 and
-6.3 of [1]. It can also be found in the context of thin-plate splines in
-section 2.4 of [2] and in the context of Kriging in section 3.4 of [3].
-
-In our implementation, we have combined the effect of :math:`\Sigma` and
-:math:`\lambda` into one variable, `sigma`, which is a scalar or a vector that
-is *proportional* to the standard deviation of the noise. When `sigma` is `0`
-the observations are fit perfectly by the interpolant. Increasing `sigma`
-degrades the fit while improving the smoothness of the interpolant.
+If the chosen RBF is positive definite (see `rbf.basis`) and :math:`\mathbf{P}`
+has full rank, the solution for :math:`\mathbf{a}` and :math:`\mathbf{b}` is
+unique. If the chosen RBF is conditionally positive definite of order `q` and
+:math:`\mathbf{P}` has full rank, the solution is unique provided that the
+degree of the monomial terms is at least `q-1` (see Chapter 7 of [1] or [2]).
 
 References
 ----------
-[1] Fasshauer, G., Meshfree Approximation Methods with Matlab. World
-Scientific Publishing Co, 2007.
+[1] Fasshauer, G., 2007. Meshfree Approximation Methods with Matlab. World
+Scientific Publishing Co.
 
-[2] Wahba, G., Spline Models for Observational Data. SIAM, 1990
+[2] http://amadeus.math.iit.edu/~fass/603_ch3.pdf
 
-[3] Cressie, N., Statistics for Spatial Data. John Wiley & Sons, Inc, 1993
+[3] Wahba, G., 1990. Spline Models for Observational Data. SIAM.
+
+[4] http://pages.stat.wisc.edu/~wahba/stat860public/lect/lect8/lect8.pdf
 
 '''
 import logging
