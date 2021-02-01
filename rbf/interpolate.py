@@ -27,10 +27,11 @@ and
 .. math::
     \mathbf{P^T a} = \mathbf{0},
 
-where :math:`K_{ij} = \phi(||y_i - y_j||_2)`, :math:`P_{ij}=p_j(y_i)`, and
-:math:`\sigma` is a smoothing parameter that controls how well we want to fit
-the observations. The observations are fit exactly when :math:`\sigma` is
-zero.
+where :math:`\mathbf{K}` is a matrix with components
+:math:`K_{ij} = \phi(||y_i - y_j||_2)`, :math:`\mathbf{P}` is a matrix with
+components :math:`P_{ij}=p_j(y_i)`, and :math:`\sigma` is a smoothing parameter
+that controls how well we want to fit the observations. The observations are
+fit exactly when :math:`\sigma` is zero.
 
 If the chosen RBF is positive definite (see `rbf.basis`) and :math:`\mathbf{P}`
 has full rank, the solution for :math:`\mathbf{a}` and :math:`\mathbf{b}` is
