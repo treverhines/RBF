@@ -68,7 +68,7 @@ def weights(x, s, diffs,
     2.
 
   eps : float or float array, optional
-    Shape parameter
+    Shape parameter for each RBF
 
   Returns
   -------
@@ -172,7 +172,12 @@ def weights(x, s, diffs,
   return w
 
 
-def weight_matrix(x, p, n, diffs, *args, chunk_size=1000, **kwargs):
+def weight_matrix(x, p, n, diffs,
+                  coeffs=None,
+                  phi='phs3',
+                  order=None,
+                  eps=1.0,
+                  chunk_size=1000):
   '''
   Returns a weight matrix which maps a function's values at `p` to an
   approximation of that function's derivative at `x`. This is a convenience
@@ -213,9 +218,8 @@ def weight_matrix(x, p, n, diffs, *args, chunk_size=1000, **kwargs):
     order. For example, if `diffs` is `[[2, 0], [0, 1]]`, then this is set to
     2.
 
-  eps : float or float array, optional
-    Shape parameter. This can be a float or an array that is broadcastable to
-    `s`
+  eps : float, optional
+    Shape parameter for each RBF
 
   chunk_size : int, optional
     Break the target points into chunks with this size to reduce the memory
@@ -240,26 +244,49 @@ def weight_matrix(x, p, n, diffs, *args, chunk_size=1000, **kwargs):
   '''
   x = np.asarray(x, dtype=float)
   assert_shape(x, (None, None), 'x')
+  nx, ndim = x.shape
 
   p = np.asarray(p, dtype=float)
-  assert_shape(p, (None, x.shape[1]), 'p')
+  assert_shape(p, (None, ndim), 'p')
+
+  diffs = np.asarray(diffs, dtype=int)
+  diffs = np.atleast_2d(diffs)
+  assert_shape(diffs, (None, ndim), 'diffs')
+
+  if coeffs is None:
+    coeffs = np.ones(len(diffs), dtype=float)
+  else:
+    coeffs = np.asarray(coeffs, dtype=float)
+    assert_shape(coeffs, (len(diffs), ...), 'coeffs')
+
+  # broadcast each element in `coeffs` to the length of `x`
+  coeffs = np.array([np.broadcast_to(c, (nx,)) for c in coeffs])
 
   _, stencils = KDTree(p).query(x, n)
-
   if chunk_size is None:
-    data = weights(x, p[stencils], diffs, *args, **kwargs)
+    data = weights(
+      x,
+      p[stencils],
+      diffs,
+      coeffs=coeffs,
+      phi=phi,
+      order=order,
+      eps=eps)
   else:
-    data = np.empty((x.shape[0], n), dtype=float)
-    for start in range(0, x.shape[0], chunk_size):
+    data = np.empty((nx, n), dtype=float)
+    for start in range(0, nx, chunk_size):
       stop = start + chunk_size
       data[start:stop] = weights(
         x[start:stop],
         p[stencils[start:stop]],
         diffs,
-        *args, **kwargs)
+        coeffs=coeffs[:, start:stop],
+        phi=phi,
+        order=order,
+        eps=eps)
 
   data = data.ravel()
-  rows = np.repeat(range(len(x)), n)
+  rows = np.repeat(range(nx), n)
   cols = stencils.ravel()
-  out = sp.coo_matrix((data, (rows, cols)), (len(x), len(p)))
+  out = sp.coo_matrix((data, (rows, cols)), (nx, len(p)))
   return out
