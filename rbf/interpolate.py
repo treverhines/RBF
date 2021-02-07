@@ -1,13 +1,13 @@
 '''
 This module provides classes for RBF interpolation, `RBFInterpolant` and
-`NearestRBFInterpolant`. The latter is more suitable when there are a large
+`KNearestRBFInterpolant`. The latter is more suitable when there are a large
 number of observations because it performs RBF interpolation using only the `k`
 nearest observations to each interpolation point.
 
 RBF Interpolation
 -----------------
 An RBF interpolant fits scalar valued observations
-:math:`\mathbf{d}=[d_1,...,d_n]^T` made at the scattered locations
+:math:`\mathbf{d}=[d_1,...,d_n]^T` made at the distinct scattered locations
 :math:`y_1,...,y_n`. The RBF interpolant is parameterized as
 
 .. math::
@@ -34,10 +34,11 @@ that controls how well we want to fit the observations. The observations are
 fit exactly when :math:`\sigma` is zero.
 
 If the chosen RBF is positive definite (see `rbf.basis`) and :math:`\mathbf{P}`
-has full rank, the solution for :math:`\mathbf{a}` and :math:`\mathbf{b}` is
-unique. If the chosen RBF is conditionally positive definite of order `q` and
-:math:`\mathbf{P}` has full rank, the solution is unique provided that the
-degree of the monomial terms is at least `q-1` (see Chapter 7 of [1] or [2]).
+has full column rank, the solution for :math:`\mathbf{a}` and
+:math:`\mathbf{b}` is unique. If the chosen RBF is conditionally positive
+definite of order `q` and :math:`\mathbf{P}` has full column rank, the solution
+is unique provided that the degree of the monomial terms is at least `q-1` (see
+Chapter 7 of [1] or [2]).
 
 References
 ----------
@@ -220,7 +221,7 @@ class RBFInterpolant(object):
     return out
 
 
-class NearestRBFInterpolant(object):
+class KNearestRBFInterpolant(object):
   '''
   Approximation to `RBFInterpolant` that only uses the k nearest observations
   for each interpolation point.

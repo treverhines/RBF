@@ -4,7 +4,7 @@ test function.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.interpolate import RBFInterpolant, NearestRBFInterpolant
+from rbf.interpolate import RBFInterpolant, KNearestRBFInterpolant
 np.random.seed(1)
 
 def frankes_test_function(x):
@@ -48,10 +48,10 @@ fig.tight_layout()
 plt.savefig('../figures/interpolate.c.all.png')
 
 for k in [5, 20, 50]:
-    yitp = NearestRBFInterpolant(xobs, yobs, k=k, phi='phs3', order=1)(xitp)
+    yitp = KNearestRBFInterpolant(xobs, yobs, k=k, phi='phs3', order=1)(xitp)
 
     fig, ax = plt.subplots(1, 2, figsize=(9, 3.5))
-    ax[0].set_title('NearestRBFInterpolant with k=%d' % k)
+    ax[0].set_title('KNearestRBFInterpolant with k=%d' % k)
     p = ax[0].tripcolor(xitp[:, 0], xitp[:, 1], yitp)
     ax[0].scatter(xobs[:, 0], xobs[:, 1], c='k', s=3)
     ax[0].set_xlim(0, 1)
