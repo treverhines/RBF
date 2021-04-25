@@ -54,8 +54,7 @@ def _lu(A):
   '''
   # handle rank zero matrix
   if A.shape == (0, 0):
-    return (np.zeros((0, 0), dtype=float),
-            np.zeros((0,), dtype=np.int32))
+    return (np.zeros((0, 0), dtype=float), np.zeros((0,), dtype=np.int32))
 
   # get the LU factorization
   fac, piv, info = dgetrf(A)
@@ -91,7 +90,7 @@ def _solve_lu(fac, piv, b):
   '''
   # handle the case of an array with zero-length for an axis.
   if any(i == 0 for i in b.shape):
-    return np.zeros(b.shape)
+    return np.zeros(b.shape, dtype=float)
 
   x, info = dgetrs(fac, piv, b)
   if info != 0:
@@ -148,7 +147,7 @@ def _solve_cholesky(L, b, lower=True):
 
   '''
   if any(i == 0 for i in b.shape):
-    return np.zeros(b.shape)
+    return np.zeros(b.shape, dtype=float)
 
   x, info = dpotrs(L, b, lower=lower)
   if info < 0:
@@ -173,7 +172,7 @@ def _solve_triangular(L, b, lower=True):
 
   '''
   if any(i == 0 for i in b.shape):
-    return np.zeros(b.shape)
+    return np.zeros(b.shape, dtype=float)
 
   x, info = dtrtrs(L, b, lower=lower)
   if info < 0:
@@ -273,7 +272,9 @@ class Solver(object):
       self._inverse = self._solver.solve(np.eye(A.shape[0]))
     else:
       self._inverse = None
-    
+
+    self.n = A.shape[0]
+
   def solve(self, b):
     '''
     solves `Ax = b` for `x`
@@ -290,7 +291,7 @@ class Solver(object):
     b = as_array(b, dtype=float)
     if self._inverse is not None:
       return self._inverse.dot(b)
-    else:  
+    else:
       return self._solver.solve(b)
 
 
@@ -414,6 +415,8 @@ class PosDefSolver(object):
     else:
       self._inverse = None
 
+    self.n = A.shape[0]
+
   def solve(self, b):
     '''
     solves `Ax = b` for `x`
@@ -430,7 +433,7 @@ class PosDefSolver(object):
     b = as_array(b, dtype=float)
     if self._inverse is not None:
       return self._inverse.dot(b)
-    else:  
+    else:
       return self._solver.solve(b)
 
   def solve_L(self, b):
@@ -542,16 +545,16 @@ class PartitionedSolver(object):
 
     # concatenate the A and B matrices
     if sp.issparse(A):
-        Z = sp.csc_matrix((p, p), dtype=float)
-        C = sp.vstack((sp.hstack((A, B)), sp.hstack((B.T, Z))))
+      C = sp.bmat([[A, B], [B.T, None]], format='csc')
     else:
-        Z = np.zeros((p, p), dtype=float)
-        C = np.vstack((np.hstack((A, B)), np.hstack((B.T, Z))))
+      Z = np.zeros((p, p), dtype=float)
+      C = np.block([[A, B], [B.T, Z]])
 
     self._solver = Solver(C, build_inverse=build_inverse)
     self.n = n
+    self.p = p
 
-  def solve(self, a, b):
+  def solve(self, a, b=None):
     '''
     Solves for `x` and `y` given `a` and `b`.
 
@@ -559,7 +562,8 @@ class PartitionedSolver(object):
     ----------
     a : (n, ...) array or sparse matrix
 
-    b : (p, ...) array or sparse matrix
+    b : (p, ...) array or sparse matrix, optional
+        If not given, it is assumed to be zeros
 
     Returns
     -------
@@ -569,7 +573,11 @@ class PartitionedSolver(object):
 
     '''
     a = as_array(a, dtype=float)
-    b = as_array(b, dtype=float)
+    if b is None:
+      b = np.zeros((self.p,) + a.shape[1:], dtype=float)
+    else:
+      b = as_array(b, dtype=float)
+
     c = np.concatenate((a, b), axis=0)
     xy = self._solver.solve(c)
     x, y = xy[:self.n], xy[self.n:]
@@ -655,21 +663,24 @@ class PartitionedPosDefSolver(object):
         'There are fewer rows than columns in `B`. This makes the block '
         'matrix singular, and its inverse cannot be computed.')
 
-    self.n = n
     self._A_solver = PosDefSolver(A, build_inverse=build_inverse)
     self._AiB = self._A_solver.solve(B)
-    self._BtAiB_solver = PosDefSolver(B.T.dot(self._AiB), 
-                                      build_inverse=build_inverse)
+    self._BtAiB_solver = PosDefSolver(
+      B.T.dot(self._AiB),
+      build_inverse=build_inverse)
 
     if build_inverse:
       E = -self._BtAiB_solver._inverse
       D = self._AiB.dot(self._BtAiB_solver._inverse)
       C = self._A_solver._inverse - D.dot(self._AiB.T)
-      self._inverse = np.vstack((np.hstack((C, D)), np.hstack((D.T, E))))
+      self._inverse = np.block([[C, D], [D.T, E]])
     else:
       self._inverse = None
 
-  def solve(self, a, b):
+    self.n = n
+    self.p = p
+
+  def solve(self, a, b=None):
     '''
     Solves for `x` and `y` given `a` and `b`.
 
@@ -687,20 +698,31 @@ class PartitionedPosDefSolver(object):
 
     '''
     a = as_array(a, dtype=float)
-    b = as_array(b, dtype=float)
+    if b is not None:
+      b = as_array(b, dtype=float)
+
     if self._inverse is not None:
-      c = np.concatenate((a, b), axis=0)
-      xy = self._inverse.dot(c)
+      if b is None:
+        xy = self._inverse[:, :self.n].dot(a)
+      else:
+        c = np.concatenate((a, b), axis=0)
+        xy = self._inverse.dot(c)
+
       x, y = xy[:self.n], xy[self.n:]
       return x, y
-      
+
     else:
-      Eb  = -self._BtAiB_solver.solve(b)
-      Db  = -self._AiB.dot(Eb)
-      Dta = self._BtAiB_solver.solve(self._AiB.T.dot(a))
-      Ca  = self._A_solver.solve(a) - self._AiB.dot(Dta)
-      x = Ca  + Db
-      y = Dta + Eb
+      if b is None:
+        y = self._BtAiB_solver.solve(self._AiB.T.dot(a))
+        x = self._A_solver.solve(a) - self._AiB.dot(y)
+      else:
+        Eb  = -self._BtAiB_solver.solve(b)
+        Db  = -self._AiB.dot(Eb)
+        Dta = self._BtAiB_solver.solve(self._AiB.T.dot(a))
+        Ca  = self._A_solver.solve(a) - self._AiB.dot(Dta)
+        x = Ca + Db
+        y = Dta + Eb
+
       return x, y
 
 
