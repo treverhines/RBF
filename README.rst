@@ -112,7 +112,7 @@ example of the two methods is provided below.
 
     ''' 
     In this example we solve the Poisson equation over an L-shaped domain with
-    fixed boundary conditions. We use the multiquadratic RBF (`mq`)
+    fixed boundary conditions. We use the multiquadric RBF (`mq`)
     '''
     import numpy as np
     from rbf.basis import mq

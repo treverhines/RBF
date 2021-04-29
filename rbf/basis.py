@@ -24,8 +24,8 @@ Fourth-order polyharmonic spline   phs4          Conditional (order 3)  :math:`-
 Third-order polyharmonic spline    phs3          Conditional (order 2)  :math:`(\epsilon r)^3`
 Second-order polyharmonic spline   phs2          Conditional (order 2)  :math:`(\epsilon r)^2\log(\epsilon r)`
 First-order polyharmonic spline    phs1          Conditional (order 1)  :math:`-\epsilon r`
-Multiquadratic                     mq            Conditional (order 1)  :math:`-(1 + (\epsilon r)^2)^{1/2}`
-Inverse multiquadratic             imq           Yes                    :math:`(1 + (\epsilon r)^2)^{-1/2}`
+Multiquadric                       mq            Conditional (order 1)  :math:`-(1 + (\epsilon r)^2)^{1/2}`
+Inverse multiquadric               imq           Yes                    :math:`(1 + (\epsilon r)^2)^{-1/2}`
 Inverse quadratic                  iq            Yes                    :math:`(1 + (\epsilon r)^2)^{-1}`
 Gaussian                           ga            Yes                    :math:`\exp(-(\epsilon r)^2)`
 Exponential                        exp           Yes                    :math:`\exp(-r/\epsilon)`
@@ -636,7 +636,7 @@ _phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 2))
 _phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 3))
 phs1 = RBF(-_EPS*_R, tol=1e-10, limits=_phs1_limits)
 
-# inverse multiquadratic
+# inverse multiquadric
 imq = RBF(1/sympy.sqrt(1 + (_EPS*_R)**2))
 
 # inverse quadratic
@@ -645,7 +645,7 @@ iq = RBF(1/(1 + (_EPS*_R)**2))
 # Gaussian
 ga = RBF(sympy.exp(-(_EPS*_R)**2))
 
-# multiquadratic
+# multiquadric
 mq = RBF(-sympy.sqrt(1 + (_EPS*_R)**2))
 
 # exponential
