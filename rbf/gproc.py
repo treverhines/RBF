@@ -15,37 +15,6 @@ from rbf.linalg import (as_array, as_sparse_or_array,
                         PartitionedPosDefSolver)
 
 
-# If a matrix can be made sparse (e.g., a diagonal matrix or matrix of zeros),
-# then make it sparse if its size exceeds this value. Otherwise, make it dense
-# to avoid the sparse matrix overhead.
-_SPARSE_LIMIT = 64**2
-
-
-def _as_covariance(sigma):
-    '''
-    Return `sigma` as a covariance matrix. where `sigma` can be a 1-D
-    array-like or a 2-D square array-like. If `sigma` is 1-D, it is treated as
-    a vector of standard deviations.
-    '''
-    ndim = np.ndim(sigma)
-    if ndim == 1:
-        sigma = np.asarray(sigma, dtype=float)
-        if sigma.size**2 <= _SPARSE_LIMIT:
-            cov = np.diag(sigma**2)
-        else:
-            cov = sp.diags(sigma**2).tocsc()
-
-    elif ndim == 2:
-        cov = as_sparse_or_array(sigma, dtype=float)
-        if cov.shape[0] != cov.shape[1]:
-            raise ValueError('`sigma` must be square if it is 2-dimensional')
-
-    else:
-        raise ValueError('`sigma` must be a 1 or 2-dimensional array')
-
-    return cov
-
-
 def zero_mean(x, diff):
     '''Mean function that returns zeros.'''
     return np.zeros((x.shape[0],), dtype=float)
@@ -57,11 +26,8 @@ def zero_variance(x, diff):
 
 
 def zero_covariance(x1, x2, diff1, diff2):
-    '''Covariance function that returns zeros (either sparse or dense).'''
-    if (x1.shape[0]*x2.shape[0]) <= _SPARSE_LIMIT:
-        return np.zeros((x1.shape[0], x2.shape[0]), dtype=float)
-    else:
-        return sp.csc_matrix((x1.shape[0], x2.shape[0]), dtype=float)
+    '''Covariance function that returns zeros.'''
+    return np.zeros((x1.shape[0], x2.shape[0]), dtype=float)
 
 
 def empty_basis(x, diff):
@@ -137,17 +103,17 @@ def sample(mu, cov, use_cholesky=False, count=None):
     return u
 
 
-def likelihood(d, mu, cov, basis=None):
+def likelihood(d, mu, cov, vecs=None):
     '''
     Returns the log likelihood of observing `d` from a multivariate normal
     distribution with mean `mu` and covariance `cov`.
 
-    When `basis` is specified, the restricted likelihood is returned. The
+    When `vecs` is specified, the restricted likelihood is returned. The
     restricted likelihood is the probability of observing `R.dot(d)` from a
     normally distributed random vector with mean `R.dot(mu)` and covariance
     `R.dot(sigma).dot(R.T)`, where `R` is a matrix with rows that are
-    orthogonal to the columns of `basis`. In other words, if `basis` is
-    specified then the component of `d` which lies along the columns of `basis`
+    orthogonal to the columns of `vecs`. In other words, if `vecs` is
+    specified then the component of `d` which lies along the columns of `vecs`
     will be ignored. The restricted likelihood was first described by [1] and
     it is covered in more general reference books such as [2]. Both [1] and [2]
     are good sources for additional information.
@@ -160,7 +126,8 @@ def likelihood(d, mu, cov, basis=None):
 
     cov : (N, N) array or sparse matrix
 
-    basis : (N, M) array, optional
+    vecs : (N, M) array, optional
+        Unconstrained basis vectors 
 
     Returns
     -------
@@ -184,18 +151,18 @@ def likelihood(d, mu, cov, basis=None):
     cov = as_sparse_or_array(cov)
     assert_shape(cov, (n, n), 'cov')
 
-    if basis is None:
-        basis = np.zeros((n, 0), dtype=float)
+    if vecs is None:
+        vecs = np.zeros((n, 0), dtype=float)
     else:
-        basis = np.asarray(basis, dtype=float)
-        assert_shape(basis, (n, None), 'basis')
+        vecs = np.asarray(vecs, dtype=float)
+        assert_shape(vecs, (n, None), 'vecs')
 
-    m = basis.shape[1]
+    m = vecs.shape[1]
 
     A = PosDefSolver(cov)
-    B = A.solve_L(basis)
+    B = A.solve_L(vecs)
     C = PosDefSolver(B.T.dot(B))
-    D = PosDefSolver(basis.T.dot(basis))
+    D = PosDefSolver(vecs.T.dot(vecs))
 
     a = A.solve_L(d - mu)
     b = C.solve_L(B.T.dot(a))
@@ -432,7 +399,7 @@ def _differentiate(gp, d):
     return out
 
 
-def _condition(gp, y, d, dcov, dbasis, ddiff, build_inverse):
+def _condition(gp, y, d, dcov, dvecs, ddiff, build_inverse):
     '''
     Returns a conditioned `GaussianProcess`.
     '''
@@ -442,7 +409,6 @@ def _condition(gp, y, d, dcov, dbasis, ddiff, build_inverse):
         prior_mean = gp._mean
 
     if gp._covariance is None:
-        # if _covariance is None then _variance is also None
         prior_covariance = zero_covariance
         prior_variance = zero_variance
     else:
@@ -465,45 +431,45 @@ def _condition(gp, y, d, dcov, dbasis, ddiff, build_inverse):
     res = d - prior_mean(y, ddiff)
 
     # basis functions at the observation points
-    basis = prior_basis(y, ddiff)
-    if dbasis.shape[1] != 0:
-        basis = np.hstack((basis, dbasis))
+    vecs = prior_basis(y, ddiff)
+    if dvecs.shape[1] != 0:
+        vecs = np.hstack((vecs, dvecs))
 
     solver = PartitionedPosDefSolver(
-        cov, basis, build_inverse=build_inverse
+        cov, vecs, build_inverse=build_inverse
         )
 
     # precompute these vectors which are used for `posterior_mean`
-    vec1, vec2 = solver.solve(res)
+    v1, v2 = solver.solve(res)
 
-    del res, cov, basis
+    del res, cov, vecs
 
     def posterior_mean(x, diff):
         mu_x = prior_mean(x, diff)
         cov_xy = prior_covariance(x, y, diff, ddiff)
-        basis_x = prior_basis(x, diff)
-        if dbasis.shape[1] != 0:
-            pad = np.zeros((x.shape[0], dbasis.shape[1]), dtype=float)
-            basis_x = np.hstack((basis_x, pad))
+        vecs_x = prior_basis(x, diff)
+        if dvecs.shape[1] != 0:
+            pad = np.zeros((x.shape[0], dvecs.shape[1]), dtype=float)
+            vecs_x = np.hstack((vecs_x, pad))
 
-        out = mu_x + cov_xy.dot(vec1) + basis_x.dot(vec2)
+        out = mu_x + cov_xy.dot(v1) + vecs_x.dot(v2)
         return out
 
     def posterior_covariance(x1, x2, diff1, diff2):
         cov_x1x2 = prior_covariance(x1, x2, diff1, diff2)
         cov_x1y = prior_covariance(x1, y, diff1, ddiff)
         cov_x2y = prior_covariance(x2, y, diff2, ddiff)
-        basis_x1 = prior_basis(x1, diff1)
-        basis_x2 = prior_basis(x2, diff2)
-        if dbasis.shape[1] != 0:
-            pad = np.zeros((x1.shape[0], dbasis.shape[1]), dtype=float)
-            basis_x1 = np.hstack((basis_x1, pad))
+        vecs_x1 = prior_basis(x1, diff1)
+        vecs_x2 = prior_basis(x2, diff2)
+        if dvecs.shape[1] != 0:
+            pad = np.zeros((x1.shape[0], dvecs.shape[1]), dtype=float)
+            vecs_x1 = np.hstack((vecs_x1, pad))
 
-            pad = np.zeros((x2.shape[0], dbasis.shape[1]), dtype=float)
-            basis_x2 = np.hstack((basis_x2, pad))
+            pad = np.zeros((x2.shape[0], dvecs.shape[1]), dtype=float)
+            vecs_x2 = np.hstack((vecs_x2, pad))
 
-        mat1, mat2 = solver.solve(cov_x2y.T, basis_x2.T)
-        out = cov_x1x2 - cov_x1y.dot(mat1) - basis_x1.dot(mat2)
+        m1, m2 = solver.solve(cov_x2y.T, vecs_x2.T)
+        out = cov_x1x2 - cov_x1y.dot(m1) - vecs_x1.dot(m2)
         # `out` may either be a matrix or array depending on whether cov_x1x2
         # is sparse or dense. Make the output consistent by converting to array
         out = np.asarray(out)
@@ -512,19 +478,19 @@ def _condition(gp, y, d, dcov, dbasis, ddiff, build_inverse):
     def posterior_variance(x, diff):
         var_x = prior_variance(x, diff)
         cov_xy = prior_covariance(x, y, diff, ddiff)
-        basis_x = prior_basis(x, diff)
-        if dbasis.shape[1] != 0:
-            pad = np.zeros((x.shape[0], dbasis.shape[1]), dtype=float)
-            basis_x = np.hstack((basis_x, pad))
+        vecs_x = prior_basis(x, diff)
+        if dvecs.shape[1] != 0:
+            pad = np.zeros((x.shape[0], dvecs.shape[1]), dtype=float)
+            vecs_x = np.hstack((vecs_x, pad))
 
-        mat1, mat2 = solver.solve(cov_xy.T, basis_x.T)
+        m1, m2 = solver.solve(cov_xy.T, vecs_x.T)
         # Efficiently get the diagonals of C_xy.dot(mat1) and p_x.dot(mat2)
         if sp.issparse(cov_xy):
-            diag1 = cov_xy.multiply(mat1.T).sum(axis=1).A[:, 0]
+            diag1 = cov_xy.multiply(m1.T).sum(axis=1).A[:, 0]
         else:
-            diag1 = np.einsum('ij, ji -> i', cov_xy, mat1)
+            diag1 = np.einsum('ij, ji -> i', cov_xy, m1)
 
-        diag2 = np.einsum('ij, ji -> i', basis_x, mat2)
+        diag2 = np.einsum('ij, ji -> i', basis_x, m2)
         out = var_x - diag1 - diag2
         return out
 
@@ -717,8 +683,8 @@ class GaussianProcess:
         return out
 
     def condition(self, y, d,
-                  dsigma=None,
-                  dbasis=None,
+                  dcov=None,
+                  dvecs=None,
                   ddiff=None,
                   build_inverse=False):
         '''
@@ -732,15 +698,12 @@ class GaussianProcess:
         d : (N,) float array
             Observed values at `y`.
 
-        dsigma : (N,) array, (N, N) array, or (N, N) sparse matrix, optional
-            Data uncertainty. If this is an (N,) array then it describes one
-            standard deviation of the data error. If this is an (N, N) array
-            then it describes the covariances of the data error. If nothing is
-            provided then the error is assumed to be zero.
+        dcov : (N, N) array or sparse matrix, optional
+            Covariance of the data uncertainty
 
-        dbasis : (N, P) array, optional
+        dvecs : (N, P) array, optional
             Data noise basis vectors. The data noise is assumed to contain some
-            unknown linear combination of the columns of `p`.
+            unknown linear combination of the columns of `dvecs`.
 
         ddiff : (D,) int array, optional
             Derivative of the observations. For example, use (1,) if the
@@ -762,17 +725,17 @@ class GaussianProcess:
         d = np.asarray(d, dtype=float)
         assert_shape(d, (n,), 'd')
 
-        if dsigma is None:
-            dsigma = np.zeros((n,), dtype=float)
-
-        dcov = _as_covariance(dsigma)
-        assert_shape(dcov, (n, n), 'dcov')
-
-        if dbasis is None:
-            dbasis = np.zeros((n, 0), dtype=float)
+        if dcov is None:
+            dcov = np.zeros((n, n), dtype=float)
         else:
-            dbasis = np.asarray(dbasis, dtype=float)
-            assert_shape(dbasis, (n, None), 'dbasis')
+            dcov = as_sparse_or_array(dcov)
+            assert_shape(dcov, (n, n), 'dcov')
+
+        if dvecs is None:
+            dvecs = np.zeros((n, 0), dtype=float)
+        else:
+            dvecs = np.asarray(dvecs, dtype=float)
+            assert_shape(dvecs, (n, None), 'dvecs')
 
         if ddiff is None:
             ddiff = np.zeros(dim, dtype=int)
@@ -781,7 +744,7 @@ class GaussianProcess:
             assert_shape(ddiff, (dim,), 'ddiff')
 
         out = _condition(
-            self, y, d, dcov, dbasis, ddiff,
+            self, y, d, dcov, dvecs, ddiff,
             build_inverse=build_inverse
             )
         return out
@@ -893,7 +856,7 @@ class GaussianProcess:
 
     def covariance(self, x1, x2, diff1=None, diff2=None):
         '''
-        Returns the covariance matrix the Gaussian process.
+        Returns the covariance matrix of the Gaussian process.
 
         Parameters
         ----------
@@ -905,7 +868,7 @@ class GaussianProcess:
 
         Returns
         -------
-        out : (N, N) array
+        out : (N, N) array or sparse matrix
 
         '''
         x1 = np.asarray(x1, dtype=float)
@@ -932,9 +895,7 @@ class GaussianProcess:
         else:
             out = self._covariance(x1, x2, diff1, diff2)
 
-        # `out` may be sparse or dense, make sure it is dense so that the
-        # output is consistent
-        out = as_array(out)
+        out = as_sparse_or_array(out)
         return out
 
     def __call__(self, x, chunk_size=100):
@@ -973,12 +934,12 @@ class GaussianProcess:
 
         return out_mu, out_sigma
 
-    def likelihood(self, y, d, dsigma=None, dbasis=None):
+    def likelihood(self, y, d, dcov=None, dvecs=None):
         '''
         Returns the log likelihood of drawing the observations `d` from this
         `GaussianProcess`. The observations could potentially have noise which
-        is described by `dsigma` and `dbasis`. If the Gaussian process contains
-        any basis functions or if `dbasis` is specified, then the restricted
+        is described by `dcov` and `dvecs`. If the Gaussian process contains
+        any basis functions or if `dvecs` is specified, then the restricted
         likelihood is returned.
 
         Parameters
@@ -989,15 +950,12 @@ class GaussianProcess:
         d : (N,) array
             Observed values at `y`.
 
-        dsigma : (N,) array, (N, N) array, or (N, N) sparse matrix, optional
-            Data uncertainty. If this is an (N,) array then it describes one
-            standard deviation of the data error. If this is an (N, N) array
-            then it describes the covariances of the data error. If nothing is
-            provided then the error is assumed to be zero.
+        dcov : (N, N) array or sparse matrix, optional
+            Data covariance.
 
-        dbasis : (N, P) float array, optional
+        dvecs : (N, P) float array, optional
             Basis vectors for the noise. The data noise is assumed to contain
-            some unknown linear combination of the columns of `p`.
+            some unknown linear combination of the columns of `dvecs`.
 
         Returns
         -------
@@ -1012,23 +970,23 @@ class GaussianProcess:
         d = np.asarray(d, dtype=float)
         assert_shape(d, (n,), 'd')
 
-        if dsigma is None:
-            dsigma = np.zeros((n,), dtype=float)
-
-        dcov = _as_covariance(dsigma)
-        assert_shape(dcov, (n, n), 'dcov')
-
-        if dbasis is None:
-            dbasis = np.zeros((n, 0), dtype=float)
+        if dcov is None:
+            dcov = np.zeros((n, n), dtype=float)
         else:
-            dbasis = np.asarray(dbasis, dtype=float)
-            assert_shape(dbasis, (n, None), 'dbasis')
+            dcov = as_sparse_or_array(dcov)
+            assert_shape(dcov, (n, n), 'dcov')
+
+        if dvecs is None:
+            dvecs = np.zeros((n, 0), dtype=float)
+        else:
+            dvecs = np.asarray(dvecs, dtype=float)
+            assert_shape(dvecs, (n, None), 'dvecs')
 
         mu = self.mean(y)
-        cov = dcov + self.covariance(y, y)
-        basis = np.hstack((self.basis(y), dbasis))
+        cov = as_sparse_or_array(dcov + self.covariance(y, y))
+        vecs = np.hstack((self.basis(y), dvecs))
 
-        out = likelihood(d, mu, cov, basis=basis)
+        out = likelihood(d, mu, cov, vecs=vecs)
         return out
 
     def sample(self, x, use_cholesky=False, count=None):
