@@ -1,6 +1,324 @@
 '''
-Eventual replacement to gauss.py
+This module defines the `GaussianProcess` class which is used to perform
+Gaussian process regression (GPR) and other operations with Gaussian processes.
+GPR is also known as Kriging or Least Squares Collocation.  It is a technique
+for constructing a continuous function from discrete observations by
+incorporating a stochastic prior model for the underlying function.
+
+There are several existing python packages for Gaussian processes (See
+www.gaussianprocess.org for an updated list of packages). This module was
+written because existing software lacked support for 1) Gaussian processes with
+added basis functions 2) analytical differentiation of Gaussian processes and
+3) conditioning a Gaussian process with derivative constraints. Other software
+packages have a strong focus on optimizing hyperparameters based on data
+likelihood. This module does not include any optimization routines and
+hyperparameters are always explicitly specified by the user. However, the
+`GaussianProcess` class contains the `log_likelihood` method which can be used
+along with functions from `scipy.optimize` to optimize hyperparameters.
+
+
+Gaussian processes
+==================
+To understand what a Gaussian process is, let's first consider a random vector
+:math:`\mathbf{u}` which has a multivariate normal distribution with mean
+:math:`\\bar{\mathbf{u}}` and covariance matrix :math:`\mathbf{C}`. That is to
+say, each element :math:`u_i` of :math:`\mathbf{u}` is a normally distributed
+random variable with mean :math:`\\bar{u}_i` and covariance :math:`C_{ij}` with
+element :math:`u_j`. Each element also has context (e.g., time or position)
+denoted as :math:`x_i`. A Gaussian process is the continuous analogue to the
+multivariate normal vector, where the context for a Gaussian process is a
+continuous variable :math:`x`, rather than the discrete variable :math:`x_i`. A
+Gaussian process :math:`u_o` is defined in terms of a mean *function*
+:math:`\\bar{u}`, and a covariance *function* :math:`C_u`. We write this
+definition of :math:`u_o` more concisely as
+
+.. math::
+  u_o \\sim \\mathcal{GP}\\left(\\bar{u},C_u\\right).
+
+Analogous to each element of the random vector :math:`\mathbf{u}`, the Gaussian
+process at :math:`x`, denoted as :math:`u_o(x)`, is a normally distributed
+random variable with mean :math:`\\bar{u}(x)` and covariance :math:`C_u(x, x')`
+with :math:`u_o(x')`.
+
+In this module, we adopt a more general definition of a Gaussian process by
+incorporating basis functions. These basis functions are added to Gaussian
+processes to account for arbitrary shifts or trends in the data that we are
+trying to model. To be more precise, we consider a Gaussian process
+:math:`u(x)` to be the combination of :math:`u_o(x)`, a *proper* Gaussian
+process, and a set of :math:`m` basis functions,
+:math:`\mathbf{p}_u(x) = \{p_i(x)\}_{i=1}^m`, whose coefficients,
+:math:`\{c_i\}_{i=1}^m`, are completely unknown (i.e., they have infinite
+variance). We then express :math:`u(x)` as
+
+.. math::
+  u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
+
+When we include these basis functions, the Gaussian process :math:`u(x)`
+becomes improper because it has infinite variance. So when we refer to the
+covariance function for a Gaussian process :math:`u(x)`, we are actually
+referring to the covariance function for its proper component :math:`u_o(x)`.
+
+Throughout this module we will define a Gaussian process `u(x)` in terms of its
+mean function :math:`\\bar{u}(x)`, its covariance function :math:`C_u(x, x')`,
+as well as its basis functions :math:`\mathbf{p}_u(x)`.
+
+
+Operations on Gaussian processes
+================================
+Gaussian processes can be constructed from other Gaussian processes. There are
+four implemented operations on Gaussian processes that result in a new Gaussian
+process: addition, scaling, differentiation, and conditioning.
+
+
+Addition
+--------
+Two uncorrelated Gaussian processes, :math:`u` and :math:`v`, can be added as
+
+.. math::
+  u(x) + v(x) = z(x)
+
+where the mean, covariance, and basis functions for :math:`z` are
+
+.. math::
+  \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
+
+.. math::
+  C_z(x,x') = C_u(x,x') + C_v(x,x'),
+
+and
+
+.. math::
+  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
+
+
+Scaling
+-------
+A Gaussian process can be scaled by a constant as
+
+.. math::
+  cu(x) = z(x)
+
+where
+
+.. math::
+  \\bar{z}(x) = c\\bar{u}(x),
+
+.. math::
+  C_z(x,x') = c^2C_u(x,x'),
+
+and
+
+.. math::
+  \mathbf{p}_z(x) = \mathbf{p}_u(x).
+
+
+Differentiation
+---------------
+A Gaussian process can be differentiated with respect to :math:`x_i` as
+
+.. math::
+  \\frac{\partial}{\partial x_i} u(x) = z(x),
+
+where
+
+.. math::
+  \\bar{z}(x) = \\frac{\partial}{\partial x_i}\\bar{u}(x),
+
+.. math::
+  C_z(x,x') = \\frac{\partial^2}{\partial x_i \partial x_i'}
+              C_u(x,x'),
+
+and
+
+.. math::
+  \mathbf{p}_z(x) = \\left\{\\frac{\partial}{\partial x_i} p_k(x)
+                    \mid p_k(x) \in \mathbf{p}_u(x)\\right\}
+
+
+Conditioning
+------------
+A Gaussian process can be conditioned with :math:`q` noisy observations of
+:math:`u(x)`, :math:`\mathbf{d}=\{d_i\}_{i=1}^q`, which have been made at
+locations :math:`\mathbf{y}=\{y_i\}_{i=1}^q`. These observations have noise
+with zero mean and covariance described by :math:`\mathbf{C_d}`. The
+conditioned Gaussian process is
+
+.. math::
+  u(x) | \mathbf{d} = z(x)
+
+where
+
+.. math::
+  \\bar{z}(x) = \\bar{u}(x) +
+                \mathbf{k}(x,\mathbf{y})
+                \mathbf{K}(\mathbf{y})^{-1}
+                \mathbf{r}^*,
+
+.. math::
+  C_{z}(x,x') = C_u(x,x') -
+                \mathbf{k}(x,\mathbf{y})
+                \mathbf{K}(\mathbf{y})^{-1}
+                \mathbf{k}(x',\mathbf{y})^T,
+
+and
+
+.. math::
+  \mathbf{p}_z(x) = \emptyset.
+
+In the above equations we use the augmented covariance matrices,
+:math:`\mathbf{k}` and :math:`\mathbf{K}`, whose entries are
+
+.. math::
+  \mathbf{k}(x,\mathbf{y}) =
+  \\left[
+  \\begin{array}{cc}
+    \\left[C_u(x,y_i)\\right]_{y_i \in \mathbf{y}}
+    & \mathbf{p}_u(x) \\\\
+  \\end{array}
+  \\right]
+
+and
+
+.. math::
+  \mathbf{K}(\mathbf{y}) =
+  \\left[
+  \\begin{array}{cc}
+    \mathbf{C_d} + \\left[C_u(y_i,y_j)\\right]_
+    {y_i,y_j \in \mathbf{y}\\times\mathbf{y}}
+    & [\mathbf{p}_u(y_i)]_{y_i \in \mathbf{y}} \\\\
+    [\mathbf{p}_u(y_i)]^T_{y_i \in \mathbf{y}}
+    & \mathbf{0}    \\\\
+  \\end{array}
+  \\right].
+
+We define the residual vector as
+
+.. math::
+  \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
+
+and :math:`\mathbf{r}^*` is the residual vector which has been suitably padded
+with zeros. Note that there are no basis functions in :math:`z` because it is
+assumed that there is enough data in :math:`\mathbf{d}` to constrain the basis
+functions in :math:`u`. If :math:`\mathbf{d}` is not sufficiently informative
+then :math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but not
+sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be invertible is
+that :math:`q \geq m`.
+
+
+Some commonly used Gaussian processes
+=====================================
+The `GaussianProcess` class is quite general as it can be instantiated with any
+user-specified mean function, covariance function, or set of basis functions.
+However, supplying these requisite functions can be laborious. This module
+contains several constructors to simplify instantiating some commonly used
+types of Gaussian processes. The types of Gaussian processes which have
+constructors are listed below.
+
+
+Isotropic Gaussian Processes
+----------------------------
+An isotropic Gaussian process has a zero mean and a covariance function which
+can be written as a function of :math:`r = ||x - x'||_2`. To put more
+explicitly, an isotropic Gaussian processes has the mean function
+
+.. math::
+  \\bar{u}(x) = \mu,
+
+and the covariance function
+
+.. math::
+  C_u(x,x') = \sigma^2 \phi(r\ ; \epsilon),
+
+Where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis function
+with shape parameter :math:`\epsilon`. One common choice for :math:`\phi` is
+the squared exponential function,
+
+.. math::
+  \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),
+
+which has the useful property of being infinitely differentiable.
+
+An instance of a `GaussianProcess` with an isotropic covariance function can be
+created with the function `gpiso`.
+
+
+Gaussian Process with a Gibbs covariance function
+-------------------------------------------------
+A Gaussian process with a Gibbs covariance function is useful because, unlike
+for isotropic Gaussian processes, it can have a spatially variable lengthscale.
+Given some user-specified lengthscale function :math:`\ell_d(x)`, which gives
+the lengthscale at :math:`x \in \mathbb{R}^D` along dimension :math:`d`, the
+Gibbs covariance function is
+
+.. math::
+    C_u(x, x') =
+    \sigma^2
+    \prod_{d=1}^D \\left(
+    \\frac{2 \ell_d(x) \ell_d(x')}{\ell_d(x)^2 + \ell_d(x')^2}
+    \\right)^{1/2}
+    \exp\\left(-\sum_{d=1}^D
+    \\frac{(x_d - x_d')^2}{\ell_d(x)^2 + \ell_d(x')^2}
+    \\right).
+
+An instance of a `GaussianProcess` with a Gibbs covariance function can be
+created with the function `gpgibbs`.
+
+
+Gaussian Process with mononomial basis functions
+------------------------------------------------
+Polynomials are often added to Gaussian processes to improve their ability to
+describe offsets and trends in data. The function `gppoly` is used to create a
+`GaussianProcess` with zero mean, zero covariance, and a set of monomial basis
+function that span the space of all polynomials with some degree, :math:`d`.
+For example, if :math:`x \in \mathbb{R}^2` and :math:`d=1`, then the monomial
+basis functions would be
+
+.. math::
+  \mathbf{p}_u(x) = \{1,x_1,x_2\}.
+
+
+Examples
+========
+Here we provide a basic example that demonstrates creating a `GaussianProcess`
+and performing GPR. Suppose we have 5 scalar valued observations `d` that were
+made at locations `x`, and we want interpolate these observations with GPR
+
+>>> x = [[0.0], [1.0], [2.0], [3.0], [4.0]]
+>>> d = [2.3, 2.2, 1.7, 1.8, 2.4]
+
+First we define our prior for the underlying function that we want to
+interpolate. We assume an isotropic `GaussianProcess` with a squared
+exponential covariance function and the parameter :math:`\mu=0.0`,
+:math:`\sigma^2=1.0` and :math:`\epsilon=0.5`.
+
+>>> from rbf.gproc import gpiso
+>>> gp_prior = gpiso('se', eps=0.5, var=1.0)
+
+We also want to include an unknown constant offset to our prior model, which is
+done with the command
+
+>>> from rbf.gproc import gppoly
+>>> gp_prior += gppoly(0)
+
+Now we condition the prior with the observations to form the posterior
+
+>>> gp_post = gp_prior.condition(x, d)
+
+We can now evaluate the mean and covariance of the posterior anywhere using the
+`mean` or `covariance` method. We can also evaluate just the mean and standard
+deviation by calling the instance
+
+>>> m, s = gp_post([[0.5], [1.5], [2.5], [3.5]])
+
+
+References
+==========
+[1] Rasmussen, C., and Williams, C., Gaussian Processes for Machine Learning.
+The MIT Press, 2006.
+
 '''
+import logging
+import warnings
 from functools import wraps
 
 import numpy as np
@@ -13,6 +331,89 @@ from rbf.utils import assert_shape, get_arg_count
 from rbf.linalg import (as_array, as_sparse_or_array,
                         is_positive_definite, PosDefSolver,
                         PartitionedPosDefSolver)
+
+LOGGER = logging.getLogger(__name__)
+
+
+def differentiator(delta):
+    '''
+    Decorator that makes a function differentiable. The derivatives of the
+    function are approximated by finite differences. The function must take a
+    single (N, D) array of positions as input. The returned function takes a
+    single (N, D) array of positions and a (D,) array derivative specification.
+
+    Parameters
+    ----------
+    delta : float
+        step size to use for finite differences
+
+    '''
+    def _differentiator(fin):
+        @wraps(fin)
+        def fout(x, diff):
+            if not any(diff):
+                out = np.asarray(fin(x), dtype=float)
+                return out
+
+            else:
+                diff_axis = np.argmax(diff)
+                x_plus_dx = np.copy(x)
+                x_plus_dx[:, diff_axis] += delta
+                diff_minus_one = np.copy(diff)
+                diff_minus_one[diff_axis] -= 1
+                out = ( fout(x_plus_dx, diff_minus_one) -
+                        fout(x,         diff_minus_one) ) / delta
+                return out
+
+        return fout
+
+    return _differentiator
+
+
+def covariance_differentiator(delta):
+    '''
+    Decorator that makes a covariance function differentiable. The derivatives
+    of the covariance function are approximated by finite differences. The
+    covariance function must take an (N, D) array and an (M, D) array of
+    positions as input. The returned function takes an (N, D) array and an (M,
+    D) array of positions and two (D,) array derivative specifications.
+
+    Parameters
+    ----------
+    delta : float
+        step size to use for finite differences
+
+    '''
+    def _covariance_differentiator(fin):
+        @wraps(fin)
+        def fout(x1, x2, diff1, diff2):
+            if (not any(diff1)) & (not any(diff2)):
+                return as_sparse_or_array(fin(x1, x2))
+
+            elif any(diff1):
+                diff1_axis = np.argmax(diff1)
+                x1_plus_dx = np.copy(x1)
+                x1_plus_dx[:, diff1_axis] += delta
+                diff1_minus_one = np.copy(diff1)
+                diff1_minus_one[diff1_axis] -= 1
+                out = ( fout(x1_plus_dx, x2, diff1_minus_one, diff2) -
+                        fout(x1,         x2, diff1_minus_one, diff2) ) / delta
+                return out
+
+            else:
+                # any(diff2) == True
+                diff2_axis = np.argmax(diff2)
+                x2_plus_dx = np.copy(x2)
+                x2_plus_dx[:, diff2_axis] += delta
+                diff2_minus_one = np.copy(diff2)
+                diff2_minus_one[diff2_axis] -= 1
+                out = ( fout(x1, x2_plus_dx, diff1, diff2_minus_one) -
+                        fout(x1,         x2, diff1, diff2_minus_one) ) / delta
+                return out
+
+        return fout
+
+    return _covariance_differentiator
 
 
 def zero_mean(x, diff):
@@ -54,12 +455,18 @@ def sample(mu, cov, use_cholesky=False, count=None):
     Parameters
     ----------
     mu : (N,) array
+        Mean vector.
 
     cov : (N, N) array or sparse matrix
+        Covariance matrix.
 
     use_cholesky : bool, optional
+        Whether to use the Cholesky decomposition or eigenvalue decomposition.
+        The former is faster but fails when `cov` is not numerically positive
+        definite.
 
     count : int, optional
+        Number of samples to draw.
 
     Returns
     -------
@@ -103,31 +510,30 @@ def sample(mu, cov, use_cholesky=False, count=None):
     return u
 
 
-def likelihood(d, mu, cov, vecs=None):
+def log_likelihood(d, mu, cov, vecs=None):
     '''
     Returns the log likelihood of observing `d` from a multivariate normal
     distribution with mean `mu` and covariance `cov`.
 
-    When `vecs` is specified, the restricted likelihood is returned. The
-    restricted likelihood is the probability of observing `R.dot(d)` from a
+    When `vecs` is specified, the restricted log likelihood is returned. The
+    restricted log likelihood is the probability of observing `R.dot(d)` from a
     normally distributed random vector with mean `R.dot(mu)` and covariance
     `R.dot(sigma).dot(R.T)`, where `R` is a matrix with rows that are
-    orthogonal to the columns of `vecs`. In other words, if `vecs` is
-    specified then the component of `d` which lies along the columns of `vecs`
-    will be ignored. The restricted likelihood was first described by [1] and
-    it is covered in more general reference books such as [2]. Both [1] and [2]
-    are good sources for additional information.
+    orthogonal to the columns of `vecs`. See [1] or [2] for more information.
 
     Parameters
     ----------
     d : (N,) array
+        Observation vector.
 
     mu : (N,) array
+        Mean vector.
 
     cov : (N, N) array or sparse matrix
+        Covariance matrix.
 
     vecs : (N, M) array, optional
-        Unconstrained basis vectors 
+        Unconstrained basis vectors.
 
     Returns
     -------
@@ -174,6 +580,120 @@ def likelihood(d, mu, cov, vecs=None):
                b.T.dot(b) -
                (n-m)*np.log(2*np.pi))
     return out
+
+
+def outliers(d, dsigma, pcov, pmu=None, pvecs=None, tol=4.0, maxitr=50):
+    '''
+    Uses a data editing algorithm to identify outliers in `d`. Outliers are
+    considered to be the data that are abnormally inconsistent with a
+    multivariate normal distribution with mean `pmu`, covariance `pcov`, and
+    basis vectors `pvecs`.
+
+    The data editing algorithm first conditions the prior with the
+    observations, then it compares each residual (`d` minus the expected value
+    of the posterior divided by `dsigma`) to the RMS of residuals. Data with
+    residuals greater than `tol` times the RMS are identified as outliers. This
+    process is then repeated using the subset of `d` which were not flagged as
+    outliers. If no new outliers are detected in an iteration then the
+    algorithm stops.
+
+    Parameters
+    ----------
+    d : (N,) float array
+        Observations.
+
+    dsigma : (N,) float array
+        One standard deviation uncertainty on the observations.
+
+    pcov : (N, N) array or sparse matrix
+        Covariance of the prior at the observation points.
+
+    pmu : (N,) float array, optional
+        Mean of the prior at the observation points. Defaults to zeros.
+
+    pvecs : (N, P) float array, optional
+        Basis functions of the prior evaluated at the observation points.
+        Defaults to an (N, 0) array.
+
+    tol : float, optional
+        Outlier tolerance. Smaller values make the algorithm more likely to
+        identify outliers. A good value is 4.0 and this should not be set any
+        lower than 2.0.
+
+    maxitr : int, optional
+        Maximum number of iterations.
+
+    Returns
+    -------
+    (N,) bool array
+        Array indicating which data are outliers
+
+    '''
+    d = np.asarray(d, dtype=float)
+    assert_shape(d, (None,), 'd')
+    n = d.shape[0]
+
+    dsigma = np.asarray(dsigma, dtype=float)
+    assert_shape(dsigma, (n,), 'dsigma')
+
+    pcov = as_sparse_or_array(pcov, dtype=float)
+    assert_shape(pcov, (n, n), 'pcov')
+
+    if pmu is None:
+        pmu = np.zeros((n,), dtype=float)
+    else:
+        pmu = np.asarray(pmu, dtype=float)
+        assert_shape(pmu, (n,), 'pmu')
+
+    if pvecs is None:
+        pvecs = np.zeros((n, 0), dtype=float)
+    else:
+        pvecs = np.asarray(pvecs, dtype=float)
+        assert_shape(pvecs, (n, None), 'pvecs')
+
+    # Total number of outlier detection iterations completed thus far
+    itr = 0
+    inliers = np.ones(n, dtype=bool)
+    while True:
+        LOGGER.debug(
+            'Starting iteration %d of outlier detection.' % (itr+1)
+            )
+        # Remove rows and cols corresponding to the outliers
+        pcov_i = pcov[:, inliers][inliers, :]
+        pmu_i = pmu[inliers]
+        pvecs_i = pvecs[inliers]
+        d_i = d[inliers]
+        dsigma_i = dsigma[inliers]
+        if sp.issparse(pcov):
+            pcov_i = (pcov_i + sp.diags(dsigma_i**2)).tocsc()
+        else:
+            pcov_i = pcov_i + np.diag(dsigma_i**2)
+
+        # Find the mean of the posterior
+        solver = PartitionedPosDefSolver(pcov_i, pvecs_i)
+        v1, v2 = solver.solve(d_i - pmu_i)
+        fit = pmu + pcov[:, inliers].dot(v1) + pvecs.dot(v2)
+
+        # find new outliers based on the misfit
+        res = np.abs(fit - d)/dsigma
+        rms = np.sqrt(np.mean(res[inliers]**2))
+        new_inliers = res < tol*rms
+        if np.all(inliers == new_inliers):
+            break
+        else:
+            inliers = new_inliers
+            itr += 1
+            if itr == maxitr:
+                warnings.warn('Reached the maximum number of iterations')
+                break
+
+    LOGGER.debug(
+        'Detected %s outliers out of %s observations' %
+        (inliers.size - inliers.sum(), inliers.size)
+        )
+
+    outliers = ~inliers
+    return outliers
 
 
 def _func_wrapper(fin, ftype):
@@ -490,7 +1010,7 @@ def _condition(gp, y, d, dcov, dvecs, ddiff, build_inverse):
         else:
             diag1 = np.einsum('ij, ji -> i', cov_xy, m1)
 
-        diag2 = np.einsum('ij, ji -> i', basis_x, m2)
+        diag2 = np.einsum('ij, ji -> i', vecs_x, m2)
         out = var_x - diag1 - diag2
         return out
 
@@ -506,15 +1026,13 @@ def _condition(gp, y, d, dcov, dvecs, ddiff, build_inverse):
 
 class GaussianProcess:
     '''
-    A `GaussianProcess` instance represents a stochastic process which is
-    defined in terms of a mean function, a covariance function, and
-    (optionally) a set of basis functions. This class is used to perform basic
-    operations on Gaussian processes which include addition, subtraction,
-    scaling, differentiation, sampling, and conditioning.
+    Class for performing basic operations with Gaussian processes. A Gaussian
+    process is stochastic process defined by a mean function, a covariance
+    function, and a set of basis functions.
 
     Parameters
     ----------
-    mean : function, optional
+    mean : callable, optional
         Function which returns either the mean of the Gaussian process at `x`
         or a specified derivative of the mean at `x`. This has the call
         signature
@@ -523,15 +1041,12 @@ class GaussianProcess:
 
         or
 
-        `out = mean(x, diff)`
+        `out = mean(x, diff)`,
 
-        `x` is an (N, D) array of positions. `diff` is a (D,) int array
-        derivative specification. `out` must be an (N,) array. If this function
-        only takes one argument then it is assumed to not be differentiable and
-        the `differentiate` method for the `GaussianProcess` instance will
-        return an error.
+        where `x` is an (N, D) float array, `diff` is a (D,) int array, and
+        `out` is an (N,) float array.
 
-    covariance : function, optional
+    covariance : callable, optional
         Function which returns either the covariance of the Gaussian process
         between points `x1` and `x2` or the covariance of the specified
         derivatives of the Gaussian process between points `x1` and `x2`. This
@@ -541,16 +1056,13 @@ class GaussianProcess:
 
         or
 
-        `out = covariance(x1, x2, diff1, diff2)`
+        `out = covariance(x1, x2, diff1, diff2)`,
 
-        `x1` and `x2` are (N, D) and (M, D) arrays of positions, respectively.
-        `diff1` and `diff2` are (D,) int array derivative specifications. `out`
-        can be an (N, M) array or scipy sparse matrix (csc format would be most
-        efficient). If this function only takes two arguments, then it is
-        assumed to not be differentiable and the `differentiate` method for the
-        `GaussianProcess` instance will return an error.
+        where `x1` is an (N, D) float array, `x2` is an (M, D) float array,
+        `diff1` and `diff2` are (D,) int arrays, and `out` is an (N, M) float
+        array or sparse matrix.
 
-    basis : function, optional
+    basis : callable, optional
         Function which returns either the basis functions evaluated at `x` or
         the specified derivative of the basis functions evaluated at `x`. This
         has the call signature
@@ -559,17 +1071,12 @@ class GaussianProcess:
 
         or
 
-        `out = basis(x, diff)`
+        `out = basis(x, diff)`,
 
-        `x` is an (N, D) array of positions. `diff` is a (D,) int array
-        derivative specification. `out` is an (N, P) array where each column
-        corresponds to a basis function. By default, a `GaussianProcess`
-        instance contains no basis functions. If this function only takes one
-        argument, then it is assumed to not be differentiable and the
-        `differentiate` method for the `GaussianProcess` instance will return
-        an error.
+        where `x` is an (N, D) float array, `diff` is a (D,) int array, and
+        `out` is an (N, P) float array.
 
-    variance : function, optional
+    variance : callable, optional
         A function that returns the variance of the Gaussian process or its
         derivative at `x`. The has the call signature
 
@@ -577,11 +1084,11 @@ class GaussianProcess:
 
         or
 
-        `out = variance(x, diff)`
+        `out = variance(x, diff)`,
 
-        If this function is provided, it should be a more efficient alternative
-        to evaluating the covariance matrix at `(x, x)` and then taking the
-        diagonals.
+        where `x` is an (N, D) float array, `diff` is a (D,) int array, and
+        `out` is an (N,) float array. If given, this should be more efficient
+        than evaluating `covariance` and taking its diagonals.
 
     dim : int, optional
         Fixes the spatial dimensions of the `GaussianProcess` instance. An
@@ -670,13 +1177,13 @@ class GaussianProcess:
         return out
 
     def scale(self, c):
-        '''Scales a `GaussianProcess` instance.'''
+        '''Returns a scaled `GaussianProcess`.'''
         c = float(c)
         out = _scale(self, c)
         return out
 
     def differentiate(self, d):
-        '''Returns the derivative of a `GaussianProcess`.'''
+        '''Returns a differentiated `GaussianProcess`.'''
         d = np.asarray(d, dtype=int)
         assert_shape(d, (self.dim,), 'd')
         out = _differentiate(self, d)
@@ -699,7 +1206,7 @@ class GaussianProcess:
             Observed values at `y`.
 
         dcov : (N, N) array or sparse matrix, optional
-            Covariance of the data uncertainty
+            Covariance of the data noise. Defaults to a dense array of zeros.
 
         dvecs : (N, P) array, optional
             Data noise basis vectors. The data noise is assumed to contain some
@@ -715,7 +1222,7 @@ class GaussianProcess:
 
         Returns
         -------
-        out : GaussianProcess
+        GaussianProcess
 
         '''
         y = np.asarray(y, dtype=float)
@@ -860,7 +1367,7 @@ class GaussianProcess:
 
         Parameters
         ----------
-        x1, x2 : (N, D) array
+        x1, x2 : (N, D) and (M, D) array
             Evaluation points.
 
         diff1, diff2 : (D,) int array
@@ -868,7 +1375,7 @@ class GaussianProcess:
 
         Returns
         -------
-        out : (N, N) array or sparse matrix
+        (N, M) array or sparse matrix
 
         '''
         x1 = np.asarray(x1, dtype=float)
@@ -895,7 +1402,6 @@ class GaussianProcess:
         else:
             out = self._covariance(x1, x2, diff1, diff2)
 
-        out = as_sparse_or_array(out)
         return out
 
     def __call__(self, x, chunk_size=100):
@@ -934,13 +1440,13 @@ class GaussianProcess:
 
         return out_mu, out_sigma
 
-    def likelihood(self, y, d, dcov=None, dvecs=None):
+    def log_likelihood(self, y, d, dcov=None, dvecs=None):
         '''
-        Returns the log likelihood of drawing the observations `d` from this
-        `GaussianProcess`. The observations could potentially have noise which
+        Returns the log likelihood of drawing the observations `d` from the
+        Gaussian process. The observations could potentially have noise which
         is described by `dcov` and `dvecs`. If the Gaussian process contains
         any basis functions or if `dvecs` is specified, then the restricted
-        likelihood is returned.
+        log likelihood is returned.
 
         Parameters
         ----------
@@ -951,7 +1457,8 @@ class GaussianProcess:
             Observed values at `y`.
 
         dcov : (N, N) array or sparse matrix, optional
-            Data covariance.
+            Data covariance. If not given, this will be a dense matrix of
+            zeros.
 
         dvecs : (N, P) float array, optional
             Basis vectors for the noise. The data noise is assumed to contain
@@ -960,7 +1467,6 @@ class GaussianProcess:
         Returns
         -------
         float
-            log likelihood.
 
         '''
         y = np.asarray(y, dtype=float)
@@ -986,7 +1492,7 @@ class GaussianProcess:
         cov = as_sparse_or_array(dcov + self.covariance(y, y))
         vecs = np.hstack((self.basis(y), dvecs))
 
-        out = likelihood(d, mu, cov, vecs=vecs)
+        out = log_likelihood(d, mu, cov, vecs=vecs)
         return out
 
     def sample(self, x, use_cholesky=False, count=None):
@@ -998,6 +1504,56 @@ class GaussianProcess:
         out = sample(mu, cov, use_cholesky=use_cholesky, count=count)
         return out
 
+
+    def outliers(self, x, d, dsigma, tol=4.0, maxitr=50):
+        '''
+        Identifies values in `d` that are abnormally inconsistent with the the
+        Gaussian process
+
+        Parameters
+        ----------
+        x : (N, D) float array
+            Observations locations.
+
+        d : (N,) float array
+            Observations.
+
+        dsigma : (N,) float array
+            One standard deviation uncertainty on the observations.
+
+        tol : float, optional
+            Outlier tolerance. Smaller values make the algorithm more likely to
+            identify outliers. A good value is 4.0 and this should not be set
+            any lower than 2.0.
+
+        maxitr : int, optional
+            Maximum number of iterations.
+
+        Returns
+        -------
+        (N,) bool array
+            Array indicating which data are outliers
+
+        '''
+        x = np.asarray(x, dtype=float)
+        assert_shape(x, (None, self.dim), 'x')
+        n, dim = x.shape
+
+        d = np.asarray(d, dtype=float)
+        assert_shape(d, (n,), 'd')
+
+        dsigma = np.asarray(dsigma, dtype=float)
+        assert_shape(dsigma, (n,), 'dsigma')
+
+        pcov = self.covariance(x, x)
+        pmu = self.mean(x)
+        pvecs = self.basis(x)
+        out = outliers(
+            d, dsigma, pcov, pmu=pmu, pvecs=pvecs, tol=tol, maxitr=maxitr
+            )
+        return out
+
+
     def is_positive_definite(self, x):
         '''
         Tests if the covariance function evaluated at `x` is positive definite.
@@ -1007,26 +1563,28 @@ class GaussianProcess:
         return out
 
 
-def gpiso(phi, epsilon, variance, dim=None):
+def gpiso(phi, eps, var, dim=None):
     '''
-    Creates an isotropic `GaussianProcess` instance which has zero mean and a
-    covariance function that is described by a radial basis function.
+    Creates an isotropic Gaussian process which has a covariance function that
+    is described by a radial basis function.
 
     Parameters
     ----------
     phi : str or RBF instance
         Radial basis function describing the covariance function.
 
-    epsilon : float
+    eps : float
+        Shape parameter.
 
-    variance : float
+    var : float
+        Variance.
 
     dim : int, optional
         Fixes the spatial dimensions of the domain.
 
     Returns
     -------
-    out : GaussianProcess
+    GaussianProcess
 
     Notes
     -----
@@ -1042,13 +1600,13 @@ def gpiso(phi, epsilon, variance, dim=None):
 
     def isotropic_covariance(x1, x2, diff1, diff2):
         diff = diff1 + diff2
-        coeff = variance*(-1)**sum(diff2)
-        out = coeff*phi(x1, x2, eps=epsilon, diff=diff)
+        coeff = var*(-1)**sum(diff2)
+        out = coeff*phi(x1, x2, eps=eps, diff=diff)
         return out
 
     def isotropic_variance(x, diff):
-        coeff = variance*(-1)**sum(diff)
-        value = coeff*phi.center_value(eps=epsilon, diff=2*diff)
+        coeff = var*(-1)**sum(diff)
+        value = coeff*phi.center_value(eps=eps, diff=2*diff)
         out = np.full(x.shape[0], value)
         return out
 
@@ -1063,7 +1621,7 @@ def gpiso(phi, epsilon, variance, dim=None):
 
 def gppoly(order, dim=None):
     '''
-    Returns a `GaussianProcess` consisting of monomial basis functions.
+    Returns a Gaussian process consisting of monomial basis functions.
 
     Parameters
     ----------
@@ -1075,7 +1633,7 @@ def gppoly(order, dim=None):
 
     Returns
     -------
-        out : GaussianProcess
+    GaussianProcess
 
     '''
     def polynomial_basis(x, diff):
@@ -1084,4 +1642,65 @@ def gppoly(order, dim=None):
         return out
 
     out = GaussianProcess(basis=polynomial_basis, dim=dim, wrap=False)
+    return out
+
+
+def gpgibbs(lengthscale, sigma, delta=1e-4):
+    '''
+    Returns a Gaussian process with a Gibbs covariance function. The Gibbs
+    kernel has a spatially varying lengthscale.
+
+    Parameters
+    ----------
+    lengthscale: function
+        Function that takes an (N, D) array of positions and returns an (N, D)
+        array indicating the lengthscale along each dimension at those
+        positions.
+
+    sigma: float
+        Standard deviation of the Gaussian process.
+
+    delta: float, optional
+        Finite difference spacing to use when calculating the derivative of the
+        `GaussianProcess`. An analytical solution for the derivative is not
+        available because the derivative of the `lengthscale` function is
+        unknown.
+
+    Returns
+    -------
+    GaussianProcess
+
+    '''
+    @covariance_differentiator(delta)
+    def gibbs_covariance(x1, x2):
+        '''
+        covariance function for the Gibbs Gaussian process.
+        '''
+        dim = x1.shape[1]
+        lsx1 = lengthscale(x1)
+        lsx2 = lengthscale(x2)
+
+        # sanitize the output for `lengthscale`
+        lsx1 = np.asarray(lsx1, dtype=float)
+        lsx2 = np.asarray(lsx2, dtype=float)
+        assert_shape(lsx1, x1.shape, 'lengthscale(x1)')
+        assert_shape(lsx2, x2.shape, 'lengthscale(x2)')
+
+        coeff = np.ones((x1.shape[0], x2.shape[0]))
+        exponent = np.zeros((x1.shape[0], x2.shape[0]))
+
+        for i in range(dim):
+            a = 2 * lsx1[:, None, i] * lsx2[None, :, i]
+            b = lsx1[:, None, i]**2 + lsx2[None, :, i]**2
+            coeff *= np.sqrt( a / b )
+
+        for i in range(dim):
+            a = ( x1[:, None, i] - x2[None, :, i] )**2
+            b = lsx1[:, None, i]**2 + lsx2[None, :, i]**2
+            exponent -= ( a / b )
+
+        out = sigma**2*coeff*np.exp(exponent)
+        return out
+
+    out = GaussianProcess(covariance=gibbs_covariance, wrap=False)
     return out
