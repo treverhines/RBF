@@ -5,14 +5,13 @@ has two distinct length-scales.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.basis import se
-from rbf.gauss import gpiso
+from rbf.gproc import gpiso
 np.random.seed(1)
 
 dx = np.linspace(0.0, 5.0, 1000)[:, None]
 x = np.linspace(-5, 5.0, 1000)[:, None]
-gp_long = gpiso(se, (0.0, 1.0, 2.0))
-gp_short = gpiso(se, (0.0, 0.5, 0.25))
+gp_long = gpiso('se', eps=2.0, var=1.0)
+gp_short = gpiso('se', eps=0.25, var=0.5)
 gp = gp_long + gp_short
 # compute the autocovariances 
 acov_long = gp_long.covariance(dx, [[0.0]])
@@ -43,5 +42,5 @@ axs[1].tick_params(labelsize=10)
 axs[1].set_xlim((-5, 5))
 axs[1].grid(True)
 plt.tight_layout()
-plt.savefig('../figures/gauss.b.png')
+plt.savefig('../figures/gproc.b.png')
 plt.show()

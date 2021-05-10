@@ -11,7 +11,7 @@ by manually specifying the covariance derivatives.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.gauss import GaussianProcess
+from rbf.gproc import GaussianProcess
 np.random.seed(1)
 
 # define mean function
@@ -72,6 +72,6 @@ ax.set_xlim((0,1))
 ax.set_title('integrated Brownian motion',fontsize=10)
 ax.tick_params(labelsize=10)
 fig.tight_layout()
-plt.savefig('../figures/gauss.g.png')
+plt.savefig('../figures/gproc.g.png')
 plt.show()
 

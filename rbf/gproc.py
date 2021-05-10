@@ -152,7 +152,7 @@ where
   \\bar{z}(x) = \\bar{u}(x) +
                 \mathbf{k}(x,\mathbf{y})
                 \mathbf{K}(\mathbf{y})^{-1}
-                \mathbf{r}^*,
+                \mathbf{r},
 
 .. math::
   C_{z}(x,x') = C_u(x,x') -
@@ -191,16 +191,21 @@ and
   \\end{array}
   \\right].
 
-We define the residual vector as
+We also used the residual vector, :math:`\mathbf{r}`, whose entries are
 
 .. math::
-  \mathbf{r} = \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T
+  \mathbf{r} = 
+  \\left[
+  \\begin{array}{c}
+    \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T \\\\
+    \mathbf{0}
+  \\end{array}
+  \\right].
 
-and :math:`\mathbf{r}^*` is the residual vector which has been suitably padded
-with zeros. Note that there are no basis functions in :math:`z` because it is
-assumed that there is enough data in :math:`\mathbf{d}` to constrain the basis
-functions in :math:`u`. If :math:`\mathbf{d}` is not sufficiently informative
-then :math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but not
+Note that there are no basis functions in :math:`z` because it is assumed that
+there is enough data in :math:`\mathbf{d}` to constrain the basis functions in
+:math:`u`. If :math:`\mathbf{d}` is not sufficiently informative then
+:math:`\mathbf{K}(\mathbf{y})` will not be invertible. A necessary but not
 sufficient condition for :math:`\mathbf{K}(\mathbf{y})` to be invertible is
 that :math:`q \geq m`.
 
@@ -217,21 +222,15 @@ constructors are listed below.
 
 Isotropic Gaussian Processes
 ----------------------------
-An isotropic Gaussian process has a zero mean and a covariance function which
-can be written as a function of :math:`r = ||x - x'||_2`. To put more
-explicitly, an isotropic Gaussian processes has the mean function
-
-.. math::
-  \\bar{u}(x) = \mu,
-
-and the covariance function
+An isotropic Gaussian process has zero mean and a covariance function which can
+be written as a function of :math:`r = ||x - x'||_2` and a shape parameters
+:math:`\epsilon`,
 
 .. math::
   C_u(x,x') = \sigma^2 \phi(r\ ; \epsilon),
 
-Where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis function
-with shape parameter :math:`\epsilon`. One common choice for :math:`\phi` is
-the squared exponential function,
+where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis function.
+One common choice for :math:`\phi` is the squared exponential function,
 
 .. math::
   \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),

@@ -4,7 +4,7 @@ which has variable lengthscales.
 '''
 import numpy as np
 import matplotlib.pyplot as plt
-from rbf.gauss import gpgibbs
+from rbf.gproc import gpgibbs
 np.random.seed(0)
 
 def lengthscale(x):
@@ -13,10 +13,10 @@ def lengthscale(x):
     return out
 
 
-gp = gpgibbs(lengthscale,0.5,delta=1e-3)
+gp = gpgibbs(lengthscale, 0.5, delta=1e-3)
 
 # define some points where we will evaluate the Gaussian process
-x = np.linspace(-5,5,600)[:,None]
+x = np.linspace(-5, 5, 600)[:,None]
 
 # get the mean and std. dev. of the Gaussian process
 mean,std = gp(x)

@@ -40,7 +40,7 @@ Table of contents
   installation
   basis
   interpolate
-  gauss
+  gproc
   pde
   linalg
   poly

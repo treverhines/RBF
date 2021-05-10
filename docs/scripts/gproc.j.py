@@ -5,11 +5,11 @@ scattered data and then differentiate the interpolant.
 import matplotlib.pyplot as plt
 import numpy as np 
 from rbf.basis import spwen32
-from rbf.gauss import gpiso, gppoly
+from rbf.gproc import gpiso, gppoly
 
 # get a verbose log of what is going on
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 np.random.seed(1)
 
@@ -57,28 +57,27 @@ basis = spwen32
 # satisfactory interpolant. These can also be chosen with maximum
 # likelihood methods.
 prior_mean = 0.0 
-prior_sigma = 1.0 
+prior_var = 1.0 
 prior_lengthscale = 0.8 # this controls the sparsity 
 
 # create the prior Gaussian process 
-params = (prior_mean, prior_sigma, prior_lengthscale)
-prior_gp = gpiso(basis, params)
+prior_gp = gpiso(basis, var=prior_var, eps=prior_lengthscale)
 # add a first order polynomial to the prior to make it suitable for
 # data with linear trends
 prior_gp += gppoly(1) 
 
 # condition the prior on the observations, creating a new Gaussian
 # process for the posterior.
-posterior_gp = prior_gp.condition(xobs,uobs,sigma=sobs)
+posterior_gp = prior_gp.condition(xobs, uobs, dcov=np.diag(sobs**2))
 
 # differentiate the posterior with respect to x
-derivative_gp = posterior_gp.differentiate((1,0))
+derivative_gp = posterior_gp.differentiate((1, 0))
 
 # evaluate the posterior and posterior derivative at the interpolation
 # points. calling the GaussianProcess instances will return their mean
 # and standard deviation at the provided points.
-post_mean,post_std = posterior_gp(xitp)
-diff_mean,diff_std = derivative_gp(xitp)
+post_mean, post_std = posterior_gp(xitp)
+diff_mean, diff_std = derivative_gp(xitp)
 
 
 ## Plotting
