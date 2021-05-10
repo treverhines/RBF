@@ -1,4 +1,7 @@
 '''
+THIS MODULE HAS BEEN REPLACED BY `gproc.py` AND IT REMAINS HERE FOR LEGACY
+PURPOSES
+
 This module defines a class, `GaussianProcess`, which is an
 abstraction that allows one to easily work with Gaussian processes.
 One main use for the `GaussianProcess` class is Gaussian process
