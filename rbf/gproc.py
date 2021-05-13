@@ -33,7 +33,7 @@ Gaussian process :math:`u_o` is defined in terms of a mean *function*
 definition of :math:`u_o` more concisely as
 
 .. math::
-  u_o \\sim \\mathcal{GP}\\left(\\bar{u},C_u\\right).
+    u_o \\sim \\mathcal{GP}\\left(\\bar{u},C_u\\right).
 
 Analogous to each element of the random vector :math:`\mathbf{u}`, the Gaussian
 process at :math:`x`, denoted as :math:`u_o(x)`, is a normally distributed
@@ -51,7 +51,7 @@ process, and a set of :math:`m` basis functions,
 variance). We then express :math:`u(x)` as
 
 .. math::
-  u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
+    u(x) = u_o(x) + \sum_{i=1}^m c_i p_i(x).
 
 When we include these basis functions, the Gaussian process :math:`u(x)`
 becomes improper because it has infinite variance. So when we refer to the
@@ -75,20 +75,20 @@ Addition
 Two uncorrelated Gaussian processes, :math:`u` and :math:`v`, can be added as
 
 .. math::
-  u(x) + v(x) = z(x)
+    u(x) + v(x) = z(x)
 
 where the mean, covariance, and basis functions for :math:`z` are
 
 .. math::
-  \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
+    \\bar{z}(x) = \\bar{u}(x) + \\bar{v}(x),
 
 .. math::
-  C_z(x,x') = C_u(x,x') + C_v(x,x'),
+    C_z(x,x') = C_u(x,x') + C_v(x,x'),
 
 and
 
 .. math::
-  \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
+    \mathbf{p}_z(x) = \mathbf{p}_u(x) \cup \mathbf{p}_v(x).
 
 
 Scaling
@@ -96,20 +96,20 @@ Scaling
 A Gaussian process can be scaled by a constant as
 
 .. math::
-  cu(x) = z(x)
+    cu(x) = z(x)
 
 where
 
 .. math::
-  \\bar{z}(x) = c\\bar{u}(x),
+    \\bar{z}(x) = c\\bar{u}(x),
 
 .. math::
-  C_z(x,x') = c^2C_u(x,x'),
+    C_z(x,x') = c^2C_u(x,x'),
 
 and
 
 .. math::
-  \mathbf{p}_z(x) = \mathbf{p}_u(x).
+    \mathbf{p}_z(x) = \mathbf{p}_u(x).
 
 
 Differentiation
@@ -117,22 +117,21 @@ Differentiation
 A Gaussian process can be differentiated with respect to :math:`x_i` as
 
 .. math::
-  \\frac{\partial}{\partial x_i} u(x) = z(x),
+    \\frac{\partial}{\partial x_i} u(x) = z(x),
 
 where
 
 .. math::
-  \\bar{z}(x) = \\frac{\partial}{\partial x_i}\\bar{u}(x),
+    \\bar{z}(x) = \\frac{\partial}{\partial x_i}\\bar{u}(x),
 
 .. math::
-  C_z(x,x') = \\frac{\partial^2}{\partial x_i \partial x_i'}
-              C_u(x,x'),
+    C_z(x,x') = \\frac{\partial^2}{\partial x_i \partial x_i'} C_u(x,x'),
 
 and
 
 .. math::
-  \mathbf{p}_z(x) = \\left\{\\frac{\partial}{\partial x_i} p_k(x)
-                    \mid p_k(x) \in \mathbf{p}_u(x)\\right\}
+    \mathbf{p}_z(x) = \\left\{\\frac{\partial}{\partial x_i} p_k(x)
+                      \mid p_k(x) \in \mathbf{p}_u(x)\\right\}
 
 
 Conditioning
@@ -144,63 +143,63 @@ with zero mean and covariance described by :math:`\mathbf{C_d}`. The
 conditioned Gaussian process is
 
 .. math::
-  u(x) | \mathbf{d} = z(x)
+    u(x) | \mathbf{d} = z(x)
 
 where
 
 .. math::
-  \\bar{z}(x) = \\bar{u}(x) +
-                \mathbf{k}(x,\mathbf{y})
-                \mathbf{K}(\mathbf{y})^{-1}
-                \mathbf{r},
+    \\bar{z}(x) = \\bar{u}(x) +
+                  \mathbf{k}(x,\mathbf{y})
+                  \mathbf{K}(\mathbf{y})^{-1}
+                  \mathbf{r},
 
 .. math::
-  C_{z}(x,x') = C_u(x,x') -
-                \mathbf{k}(x,\mathbf{y})
-                \mathbf{K}(\mathbf{y})^{-1}
-                \mathbf{k}(x',\mathbf{y})^T,
+    C_{z}(x,x') = C_u(x,x') -
+                  \mathbf{k}(x,\mathbf{y})
+                  \mathbf{K}(\mathbf{y})^{-1}
+                  \mathbf{k}(x',\mathbf{y})^T,
 
 and
 
 .. math::
-  \mathbf{p}_z(x) = \emptyset.
+    \mathbf{p}_z(x) = \emptyset.
 
 In the above equations we use the augmented covariance matrices,
 :math:`\mathbf{k}` and :math:`\mathbf{K}`, whose entries are
 
 .. math::
-  \mathbf{k}(x,\mathbf{y}) =
-  \\left[
-  \\begin{array}{cc}
-    \\left[C_u(x,y_i)\\right]_{y_i \in \mathbf{y}}
-    & \mathbf{p}_u(x) \\\\
-  \\end{array}
-  \\right]
+    \mathbf{k}(x,\mathbf{y}) =
+    \\left[
+    \\begin{array}{cc}
+        \\left[C_u(x,y_i)\\right]_{y_i \in \mathbf{y}}
+        & \mathbf{p}_u(x) \\\\
+    \\end{array}
+    \\right]
 
 and
 
 .. math::
-  \mathbf{K}(\mathbf{y}) =
-  \\left[
-  \\begin{array}{cc}
-    \mathbf{C_d} + \\left[C_u(y_i,y_j)\\right]_
-    {y_i,y_j \in \mathbf{y}\\times\mathbf{y}}
-    & [\mathbf{p}_u(y_i)]_{y_i \in \mathbf{y}} \\\\
-    [\mathbf{p}_u(y_i)]^T_{y_i \in \mathbf{y}}
-    & \mathbf{0}    \\\\
-  \\end{array}
-  \\right].
+    \mathbf{K}(\mathbf{y}) =
+    \\left[
+    \\begin{array}{cc}
+        \mathbf{C_d} + \\left[C_u(y_i,y_j)\\right]_
+        {y_i,y_j \in \mathbf{y}\\times\mathbf{y}}
+        & [\mathbf{p}_u(y_i)]_{y_i \in \mathbf{y}} \\\\
+        [\mathbf{p}_u(y_i)]^T_{y_i \in \mathbf{y}}
+        & \mathbf{0}    \\\\
+    \\end{array}
+    \\right].
 
 We also used the residual vector, :math:`\mathbf{r}`, whose entries are
 
 .. math::
-  \mathbf{r} = 
-  \\left[
-  \\begin{array}{c}
-    \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T \\\\
-    \mathbf{0}
-  \\end{array}
-  \\right].
+    \mathbf{r} = 
+    \\left[
+    \\begin{array}{c}
+        \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T \\\\
+        \mathbf{0}
+    \\end{array}
+    \\right].
 
 Note that there are no basis functions in :math:`z` because it is assumed that
 there is enough data in :math:`\mathbf{d}` to constrain the basis functions in
@@ -227,13 +226,13 @@ be written as a function of :math:`r = ||x - x'||_2` and a shape parameters
 :math:`\epsilon`,
 
 .. math::
-  C_u(x,x') = \sigma^2 \phi(r\ ; \epsilon),
+    C_u(x,x') = \sigma^2 \phi(r\ ; \epsilon),
 
 where :math:`\phi(r\ ; \epsilon)` is a positive definite radial basis function.
 One common choice for :math:`\phi` is the squared exponential function,
 
 .. math::
-  \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),
+    \phi(r\ ;\epsilon) = \exp\\left(\\frac{-r^2}{\epsilon^2}\\right),
 
 which has the useful property of being infinitely differentiable.
 
@@ -273,7 +272,7 @@ For example, if :math:`x \in \mathbb{R}^2` and :math:`d=1`, then the monomial
 basis functions would be
 
 .. math::
-  \mathbf{p}_u(x) = \{1,x_1,x_2\}.
+    \mathbf{p}_u(x) = \{1,x_1,x_2\}.
 
 
 Examples
