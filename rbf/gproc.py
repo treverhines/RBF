@@ -286,8 +286,8 @@ made at locations `x`, and we want interpolate these observations with GPR
 
 First we define our prior for the underlying function that we want to
 interpolate. We assume an isotropic `GaussianProcess` with a squared
-exponential covariance function and the parameter :math:`\mu=0.0`,
-:math:`\sigma^2=1.0` and :math:`\epsilon=0.5`.
+exponential covariance function and the parameters :math:`\sigma^2=1.0` and 
+:math:`\epsilon=0.5`.
 
 >>> from rbf.gproc import gpiso
 >>> gp_prior = gpiso('se', eps=0.5, var=1.0)
