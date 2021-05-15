@@ -142,7 +142,7 @@ class _SparseSolver:
     def __init__(self, A):
         LOGGER.debug(
             'Computing the LU decomposition with %.2f%% nonzeros' %
-            (100*A.shape[0]*A.shape[1]/A.nnz,)
+            (100*A.nnz/(A.shape[0]*A.shape[1]),)
             )
         self.factor = spla.splu(A)
 
@@ -217,7 +217,7 @@ class _SparsePosDefSolver:
     def __init__(self, A):
         LOGGER.debug(
             'Computing the Cholesky decomposition with %.2f%% nonzeros' %
-            (A.shape[0]*A.shape[1]/A.nnz,)
+            (100*A.nnz/(A.shape[0]*A.shape[1]),)
             )
         self.factor = cholmod.cholesky(
             A,
