@@ -1133,11 +1133,14 @@ class GaussianProcess:
     def __repr__(self):
         items = []
         if self._mean is not None:
-            items.append('mean=%s' % self._mean.__name__)
+            name = getattr(self._mean, '__name__', '<anonymous>')
+            items.append('mean=%s' % name)
         if self._covariance is not None:
-            items.append('covariance=%s' % self._covariance.__name__)
+            name = getattr(self._covariance, '__name__', '<anonymous>')
+            items.append('covariance=%s' % name)
         if self._basis is not None:
-            items.append('basis=%s' % self._basis.__name__)
+            name = getattr(self._basis, '__name__', '<anonymous>')
+            items.append('basis=%s' % name)
         if self.dim is not None:
             items.append('dim=%d' % self.dim)
 
