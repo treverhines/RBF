@@ -193,7 +193,7 @@ and
 We also used the residual vector, :math:`\mathbf{r}`, whose entries are
 
 .. math::
-    \mathbf{r} = 
+    \mathbf{r} =
     \\left[
     \\begin{array}{c}
         \\left([d_i - \\bar{u}(y_i)]_{i=1}^q\\right)^T \\\\
@@ -286,7 +286,7 @@ made at locations `x`, and we want interpolate these observations with GPR
 
 First we define our prior for the underlying function that we want to
 interpolate. We assume an isotropic `GaussianProcess` with a squared
-exponential covariance function and the parameters :math:`\sigma^2=1.0` and 
+exponential covariance function and the parameters :math:`\sigma^2=1.0` and
 :math:`\epsilon=0.5`.
 
 >>> from rbf.gproc import gpiso
@@ -325,7 +325,7 @@ import scipy.sparse as sp
 import rbf.poly
 import rbf.basis
 import rbf.linalg
-from rbf.utils import assert_shape, get_arg_count
+from rbf.utils import assert_shape
 from rbf.linalg import (as_array, as_sparse_or_array,
                         is_positive_definite, PosDefSolver,
                         PartitionedPosDefSolver)
@@ -371,10 +371,10 @@ def differentiator(delta):
 def covariance_differentiator(delta):
     '''
     Decorator that makes a covariance function differentiable. The derivatives
-    of the covariance function are approximated by finite differences. The
-    covariance function must take an (N, D) array and an (M, D) array of
-    positions as input. The returned function takes an (N, D) array and an (M,
-    D) array of positions and two (D,) array derivative specifications.
+    are approximated by finite differences. The function must take an (N, D)
+    array and an (M, D) array of positions as input. The returned function
+    takes an (N, D) array and an (M, D) array of positions and two (D,) array
+    derivative specifications.
 
     Parameters
     ----------
@@ -412,6 +412,37 @@ def covariance_differentiator(delta):
         return fout
 
     return _covariance_differentiator
+
+
+def _not_differentiable(fin):
+    '''
+    Decorator that allows a function to accept derivative specifications but
+    raises an error if any non-zero derivative order is requested.
+    '''
+    @wraps(fin)
+    def fout(x, diff):
+        if any(diff):
+            raise ValueError('Not differentiable.')
+
+        return fin(x)
+
+    return fout
+
+
+def _covariance_not_differentiable(fin):
+    '''
+    Decorator that allows a covariance function to accept derivative
+    specifications but raises an error if any non-zero derivative order is
+    requested.
+    '''
+    @wraps(fin)
+    def fout(x1, x2, diff1, diff2):
+        if any(diff1) or any(diff2):
+            raise ValueError('Not differentiable.')
+
+        return fin(x1, x2)
+
+    return fout
 
 
 def zero_mean(x, diff):
@@ -694,82 +725,6 @@ def outliers(d, dsigma, pcov, pmu=None, pvecs=None, tol=4.0, maxitr=50):
     return outliers
 
 
-def _func_wrapper(fin, ftype):
-    '''
-    Wraps a mean, variance, covariance, or basis function to ensure that it
-    takes the correct number of positional arguments and returns an array with
-    the correct shape.
-    '''
-    if fin is None:
-        return None
-
-    arg_count = get_arg_count(fin)
-    if (ftype == 'mean') | (ftype == 'variance'):
-        @wraps(fin)
-        def fout(x, diff):
-            if arg_count == 1:
-                # `fin` only takes one argument and is assumed to not be
-                # differentiable
-                if any(diff):
-                    raise ValueError(
-                        'The %s function is not differentiable.' % ftype
-                        )
-
-                out = fin(x)
-            else:
-                # otherwise it is assumed that `fin` takes two arguments
-                out = fin(x, diff)
-
-            out = np.asarray(out, dtype=float)
-            assert_shape(out, (x.shape[0],), '%s output' % ftype)
-            return out
-
-    elif ftype == 'basis':
-        @wraps(fin)
-        def fout(x, diff):
-            if arg_count == 1:
-                # `fin` only takes one argument and is assumed to not be
-                # differentiable
-                if any(diff):
-                    raise ValueError(
-                        'The basis function is not differentiable.'
-                        )
-
-                out = fin(x)
-            else:
-                # otherwise it is assumed that `fin` takes two arguments
-                out = fin(x, diff)
-
-            out = np.asarray(out, dtype=float)
-            assert_shape(out, (x.shape[0], None), 'basis output')
-            return out
-
-    elif ftype == 'covariance':
-        @wraps(fin)
-        def fout(x1, x2, diff1, diff2):
-            if arg_count == 2:
-                # `fin` only takes two argument and is assumed to not be
-                # differentiable
-                if any(diff1) | any(diff2):
-                    raise ValueError(
-                        'The covariance function is not differentiable.'
-                        )
-
-                out = fin(x1, x2)
-            else:
-                # otherwise it is assumed that `fin` takes four arguments
-                out = fin(x1, x2, diff1, diff2)
-
-            out = as_sparse_or_array(out, dtype=float)
-            assert_shape(out, (x1.shape[0], x2.shape[0]), 'covariance output')
-            return out
-
-    else:
-        raise ValueError
-
-    return fout
-
-
 def _add(gp1, gp2):
     '''
     Returns a `GaussianProcess` which is the sum of two `GaussianProcess`.
@@ -833,7 +788,7 @@ def _add(gp1, gp2):
         variance=added_variance,
         basis=added_basis,
         dim=dim,
-        wrap=False
+        differentiable=True
         )
     return out
 
@@ -869,7 +824,7 @@ def _scale(gp, c):
         basis=gp._basis,
         variance=scaled_variance,
         dim=gp.dim,
-        wrap=False
+        differentiable=True
         )
     return out
 
@@ -912,7 +867,7 @@ def _differentiate(gp, d):
         basis=differentiated_basis,
         variance=differentiated_variance,
         dim=d.size,
-        wrap=False
+        differentiable=True
         )
     return out
 
@@ -1017,7 +972,7 @@ def _condition(gp, y, d, dcov, dvecs, ddiff, build_inverse):
         posterior_covariance,
         variance=posterior_variance,
         dim=y.shape[1],
-        wrap=False
+        differentiable=True
         )
     return out
 
@@ -1031,67 +986,39 @@ class GaussianProcess:
     Parameters
     ----------
     mean : callable, optional
-        Function which returns either the mean of the Gaussian process at `x`
-        or a specified derivative of the mean at `x`. This has the call
-        signature
-
-        `out = mean(x)`
-
-        or
-
-        `out = mean(x, diff)`,
-
-        where `x` is an (N, D) float array, `diff` is a (D,) int array, and
-        `out` is an (N,) float array.
+        Function that takes an (N, D) float array of points as input and
+        returns the mean of the Gaussian process at those points. If
+        `differentiable` is `True`, the functions should also take a (D,) int
+        array of derivative specifications as a second argument.
 
     covariance : callable, optional
-        Function which returns either the covariance of the Gaussian process
-        between points `x1` and `x2` or the covariance of the specified
-        derivatives of the Gaussian process between points `x1` and `x2`. This
-        has the call signature
-
-        `out = covariance(x1, x2)`
-
-        or
-
-        `out = covariance(x1, x2, diff1, diff2)`,
-
-        where `x1` is an (N, D) float array, `x2` is an (M, D) float array,
-        `diff1` and `diff2` are (D,) int arrays, and `out` is an (N, M) float
-        array or sparse matrix.
+        Function that takes an (N, D) float array and an (M, D) float array of
+        points as input and returns the covariance of the Gaussian process
+        between those points as an (N, M) array or sparse matrix. If
+        `differentiable` is `True`, the functions should also take two (D,) int
+        array of derivative specifications as a third and fourth argument.
 
     basis : callable, optional
-        Function which returns either the basis functions evaluated at `x` or
-        the specified derivative of the basis functions evaluated at `x`. This
-        has the call signature
-
-        `out = basis(x)`
-
-        or
-
-        `out = basis(x, diff)`,
-
-        where `x` is an (N, D) float array, `diff` is a (D,) int array, and
-        `out` is an (N, P) float array.
+        Function that takes an (N, D) float array of points as input and
+        returns the basis functions evaluated at those points. If
+        `differentiable` is `True`, the functions should also take a (D,) int
+        array of derivative specifications as a second argument.
 
     variance : callable, optional
-        A function that returns the variance of the Gaussian process or its
-        derivative at `x`. The has the call signature
-
-        `out = variance(x)`
-
-        or
-
-        `out = variance(x, diff)`,
-
-        where `x` is an (N, D) float array, `diff` is a (D,) int array, and
-        `out` is an (N,) float array. If given, this should be more efficient
-        than evaluating `covariance` and taking its diagonals.
+        Function that takes an (N, D) float array of points as input and
+        returns the variance of the Gaussian process at those points. If
+        `differentiable` is `True`, the functions should also take a (D,) int
+        array of derivative specifications as a second argument.
 
     dim : int, optional
         Fixes the spatial dimensions of the `GaussianProcess` instance. An
         error will be raised if method arguments have a conflicting number of
         spatial dimensions.
+
+    differentiable : bool, optional
+        Whether the GaussianProcess is differentiable. If `True`, the provided
+        mean, covariance, basis, and variance functions are expected to take
+        derivative specifications as input.
 
     Examples
     --------
@@ -1110,42 +1037,28 @@ class GaussianProcess:
                  basis=None,
                  variance=None,
                  dim=None,
-                 wrap=True):
+                 differentiable=False):
         if (covariance is None) & (variance is not None):
             raise ValueError(
                 '`variance` cannot be specified if `covariance` is not '
                 'specified'
                 )
 
-        if wrap:
-            self._mean = _func_wrapper(mean, 'mean')
-            self._covariance = _func_wrapper(covariance, 'covariance')
-            self._basis = _func_wrapper(basis, 'basis')
-            self._variance = _func_wrapper(variance, 'variance')
-        else:
-            self._mean = mean
-            self._covariance = covariance
-            self._basis = basis
-            self._variance = variance
+        if not differentiable:
+            if mean is not None:
+                mean = _not_differentiable(mean)
+            if covariance is not None:
+                covariance = _covariance_not_differentiable(covariance)
+            if basis is not None:
+                basis = _not_differentiable(basis)
+            if variance is not None:
+                variance = _not_differentiable(variance)
 
+        self._mean = mean
+        self._covariance = covariance
+        self._basis = basis
+        self._variance = variance
         self.dim = dim
-
-    def __repr__(self):
-        items = []
-        if self._mean is not None:
-            name = getattr(self._mean, '__name__', '<anonymous>')
-            items.append('mean=%s' % name)
-        if self._covariance is not None:
-            name = getattr(self._covariance, '__name__', '<anonymous>')
-            items.append('covariance=%s' % name)
-        if self._basis is not None:
-            name = getattr(self._basis, '__name__', '<anonymous>')
-            items.append('basis=%s' % name)
-        if self.dim is not None:
-            items.append('dim=%d' % self.dim)
-
-        out = 'GaussianProcess(%s)' % (', '.join(items))
-        return out
 
     def __add__(self, other):
         '''Equivalent to calling `add`.'''
@@ -1615,7 +1528,7 @@ def gpiso(phi, eps, var, dim=None):
         covariance=isotropic_covariance,
         variance=isotropic_variance,
         dim=dim,
-        wrap=False
+        differentiable=True
         )
     return out
 
@@ -1642,7 +1555,7 @@ def gppoly(order, dim=None):
         out = rbf.poly.mvmonos(x, powers, diff)
         return out
 
-    out = GaussianProcess(basis=polynomial_basis, dim=dim, wrap=False)
+    out = GaussianProcess(basis=polynomial_basis, dim=dim, differentiable=True)
     return out
 
 
@@ -1703,5 +1616,5 @@ def gpgibbs(lengthscale, sigma, delta=1e-4):
         out = sigma**2*coeff*np.exp(exponent)
         return out
 
-    out = GaussianProcess(covariance=gibbs_covariance, wrap=False)
+    out = GaussianProcess(covariance=gibbs_covariance, differentiable=True)
     return out
