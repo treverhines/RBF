@@ -18,3 +18,6 @@ Examples
 .. image:: ../figures/fd.d.1.png
 .. image:: ../figures/fd.d.2.gif
 
+.. literalinclude:: ../scripts/fd.m.py
+.. image:: ../figures/fd.m.png
+
