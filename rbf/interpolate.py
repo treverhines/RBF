@@ -83,17 +83,72 @@ _MIN_ORDER = {
     }
 
 
+def _sanitize_arguments(y, d, sigma, phi, eps, order, k=None):
+    '''Sanitize input to RBFInterpolant and KNearestRBFInterpolant'''
+    y = np.asarray(y, dtype=float)
+    assert_shape(y, (None, None), 'y')
+    ny, ndim = y.shape
+
+    d = np.asarray(d, dtype=float)
+    assert_shape(d, (ny,), 'd')
+
+    if np.isscalar(sigma):
+        sigma = np.full(ny, sigma, dtype=float)
+    else:
+        sigma = np.asarray(sigma, dtype=float)
+        assert_shape(sigma, (ny,), 'sigma')
+
+    phi = get_rbf(phi)
+
+    if not np.isscalar(eps):
+        raise ValueError('`eps` should be a scalar.')
+
+    # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive definite
+    # (no minimum polynomial order) or user-defined (no known minimum
+    # polynomial order)
+    min_order = _MIN_ORDER.get(phi, -1)
+    if order is None:
+        order = max(min_order, 0)
+    else:
+        order = int(order)
+        if order < -1:
+            raise ValueError('`order` must be at least -1.')
+
+        elif order < min_order:
+            logger.warning(
+                'The polynomial order should not be below %d when `phi` is '
+                '%s. The interpolant may not be well-posed.' % (min_order, phi)
+                )
+
+    nmonos = monomial_count(order, ndim)
+    if k is None:
+        nobs = ny
+    else:
+        # make sure the number of neighbors does not exceed the number of
+        # observations.
+        k = int(min(k, ny))
+        nobs = k
+
+    if nmonos > nobs:
+        raise ValueError(
+            'At least %d data points are required when `order` is %d and the '
+            'number of dimensions is %d' % (nmonos, order, ndim)
+            )
+
+    return y, d, sigma, phi, eps, order, k
+
+
 class RBFInterpolant(object):
     '''
-    Regularized radial basis function interpolant
+    Regularized radial basis function interpolant.
 
     Parameters
     ----------
     y : (N, D) array
-        Observation points
+        Observation points.
 
     d : (N,) array
-        Observed values at `y`
+        Observed values at `y`.
 
     sigma : float or (N,) array, optional
         Smoothing parameter. Setting this to 0 causes the interpolant to
@@ -103,7 +158,7 @@ class RBFInterpolant(object):
         uncertainties for the observations. This defaults to zeros.
 
     eps : float, optional
-        Shape parameter
+        Shape parameter.
 
     phi : rbf.basis.RBF instance or str, optional
         The type of RBF. This can be an `rbf.basis.RBF` instance or the RBF
@@ -125,35 +180,10 @@ class RBFInterpolant(object):
                  phi='phs3',
                  eps=1.0,
                  order=None):
-        y = np.asarray(y, dtype=float)
-        assert_shape(y, (None, None), 'y')
-        ny, ndim = y.shape
+        y, d, sigma, phi, eps, order, _ = _sanitize_arguments(
+            y, d, sigma, phi, eps, order, None
+            )
 
-        d = np.asarray(d, dtype=float)
-        assert_shape(d, (ny,), 'd')
-
-        if np.isscalar(sigma):
-            sigma = np.full(ny, sigma, dtype=float)
-        else:
-            sigma = np.asarray(sigma, dtype=float)
-            assert_shape(sigma, (ny,), 'sigma')
-
-        phi = get_rbf(phi)
-
-        if not np.isscalar(eps):
-            raise ValueError('The shape parameter should be a float')
-
-        # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive
-        # definite (no minimum polynomial order) or user-defined
-        min_order = _MIN_ORDER.get(phi, -1)
-        if order is None:
-            order = max(min_order, 0)
-        elif order < min_order:
-            logger.warning(
-                'The polynomial order should not be below %d when `phi` is '
-                '%s. The interpolant may not be well-posed' % (min_order, phi))
-
-        order = int(order)
         # For improved numerical stability, shift the observations so that
         # their centroid is at zero
         center = y.mean(axis=0)
@@ -164,15 +194,9 @@ class RBFInterpolant(object):
         if sp.issparse(Kyy):
             Kyy = sp.csc_matrix(Kyy + sp.diags(sigma**2))
         else:
-            Kyy[range(ny), range(ny)] += sigma**2		 
+            Kyy[range(y.shape[0]), range(y.shape[0])] += sigma**2
 
         Py = mvmonos(y, order)
-        nmonos = Py.shape[1]
-        if nmonos > ny:
-            raise ValueError(
-                'The polynomial order is too high. The number of monomials, '
-                '%d, exceeds the number of observations, %d' % (nmonos, ny))
-
         phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d)
 
         self.y = y
@@ -185,19 +209,19 @@ class RBFInterpolant(object):
 
     def __call__(self, x, diff=None, chunk_size=1000):
         '''
-        Evaluates the interpolant at `x`
+        Evaluates the interpolant at `x`.
 
         Parameters
         ----------
         x : (N, D) float array
-            Target points
+            Evaluation points.
 
         diff : (D,) int array, optional
-            Derivative order for each spatial dimension
+            Derivative order for each spatial dimension.
 
         chunk_size : int, optional
             Break `x` into chunks with this size and evaluate the interpolant
-            for each chunk
+            for each chunk.
 
         Returns
         -------
@@ -226,15 +250,15 @@ class RBFInterpolant(object):
 class KNearestRBFInterpolant(object):
     '''
     Approximation to `RBFInterpolant` that only uses the k nearest observations
-    for each interpolation point.
+    to each evaluation point.
 
     Parameters
     ----------
     y : (N, D) array
-        Observation points
+        Observation points.
 
     d : (N,) array
-        Observed values at `y`
+        Observed values at `y`.
 
     sigma : float or (N,) array, optional
         Smoothing parameter. Setting this to 0 causes the interpolant to
@@ -244,10 +268,10 @@ class KNearestRBFInterpolant(object):
         uncertainties for the observations. This defaults to zeros.
 
     k : int, optional
-        Number of neighboring observations to use for each interpolation point
+        Number of neighboring observations to use for each evaluation point.
 
     eps : float, optional
-        Shape parameter
+        Shape parameter.
 
     phi : rbf.basis.RBF instance or str, optional
         The type of RBF. This can be an `rbf.basis.RBF` instance or the RBF
@@ -270,45 +294,12 @@ class KNearestRBFInterpolant(object):
                  phi='phs3',
                  eps=1.0,
                  order=None):
-        y = np.asarray(y, dtype=float)
-        assert_shape(y, (None, None), 'y')
-        ny, ndim = y.shape
+        y, d, sigma, phi, eps, order, k = _sanitize_arguments(
+            y, d, sigma, phi, eps, order, k
+            )
 
-        d = np.asarray(d, dtype=float)
-        assert_shape(d, (ny,), 'd')
-
-        if np.isscalar(sigma):
-            sigma = np.full(ny, sigma, dtype=float)
-        else:
-            sigma = np.asarray(sigma, dtype=float)
-            assert_shape(sigma, (ny,), 'sigma')
-
-        # make sure the number of nearest neighbors used for interpolation does
-        # not exceed the number of observations
-        k = min(int(k), ny)
-
-        phi = get_rbf(phi)
         if isinstance(phi, SparseRBF):
-            raise ValueError('SparseRBF instances are not supported')
-
-        if not np.isscalar(eps):
-            raise ValueError('The shape parameter must be a float')
-
-        min_order = _MIN_ORDER.get(phi, -1)
-        if order is None:
-            order = max(min_order, 0)
-        elif order < min_order:
-            logger.warning(
-                'The polynomial order should not be below %d when `phi` is '
-                '%s. The interpolant may not be well-posed' % (min_order, phi))
-
-        order = int(order)
-        nmonos = monomial_count(order, ndim)
-        if nmonos > k:
-            raise ValueError(
-                'The polynomial order is too high. The number of monomials, '
-                '%d, exceeds the number of neighbors used for interpolation, '
-                '%d' % (nmonos, k))
+            raise ValueError('`SparseRBF` instances are not supported.')
 
         tree = KDTree(y)
 
@@ -323,19 +314,19 @@ class KNearestRBFInterpolant(object):
 
     def __call__(self, x, diff=None, chunk_size=100):
         '''
-        Evaluates the interpolant at `x`
+        Evaluates the interpolant at `x`.
 
         Parameters
         ----------
         x : (N, D) float array
-            Target points
+            Evaluation points.
 
         diff : (D,) int array, optional
-            Derivative order for each spatial dimension
+            Derivative order for each spatial dimension.
 
         chunk_size : int, optional
             Break `x` into chunks with this size and evaluate the interpolant
-            for each chunk
+            for each chunk.
 
         Returns
         -------
