@@ -364,7 +364,6 @@ class RBF(object):
                 # evaluate the limit of the RBF at (x0=tol+c0, x1=c1, x2=c2,
                 # ...) as tol goes to zero.
                 lim = expr.subs(zip(x_sym[1:], c_sym[1:]))
-                lim = lim.simplify()
                 lim = lim.limit(x_sym[0], c_sym[0])
                 logger.debug('Value of the RBF at its center: %s' % lim)
 
