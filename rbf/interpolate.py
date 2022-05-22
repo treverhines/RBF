@@ -89,8 +89,12 @@ def _sanitize_arguments(y, d, sigma, phi, eps, order, k=None):
     assert_shape(y, (None, None), 'y')
     ny, ndim = y.shape
 
-    d = np.asarray(d, dtype=float)
-    assert_shape(d, (ny,), 'd')
+    if np.iscomplexobj(d):
+        d = np.asarray(d, dtype=complex)
+    else:
+        d = np.asarray(d, dtype=float)
+
+    assert_shape(d, (ny, ...), 'd')
 
     if np.isscalar(sigma):
         sigma = np.full(ny, sigma, dtype=float)
@@ -101,7 +105,7 @@ def _sanitize_arguments(y, d, sigma, phi, eps, order, k=None):
     phi = get_rbf(phi)
 
     if not np.isscalar(eps):
-        raise ValueError('`eps` should be a scalar.')
+        raise ValueError('`eps` must be a scalar.')
 
     # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive definite
     # (no minimum polynomial order) or user-defined (no known minimum
@@ -147,7 +151,7 @@ class RBFInterpolant(object):
     y : (N, D) array
         Observation points.
 
-    d : (N,) array
+    d : (N, ...) array
         Observed values at `y`.
 
     sigma : float or (N,) array, optional
@@ -184,6 +188,11 @@ class RBFInterpolant(object):
             y, d, sigma, phi, eps, order, None
             )
 
+        d_shape = d.shape[1:]
+        d_dtype = d.dtype
+        d = d.reshape((d.shape[0], -1))
+        # If d is complex, turn it into a float with twice as many columns
+        d = d.view(float)
         # For improved numerical stability, shift the observations so that
         # their centroid is at zero
         center = y.mean(axis=0)
@@ -206,6 +215,9 @@ class RBFInterpolant(object):
         self.center = center
         self.phi_coeff = phi_coeff
         self.poly_coeff = poly_coeff
+        self.d_shape = d_shape
+        self.d_dtype = d_dtype
+
 
     def __call__(self, x, diff=None, chunk_size=1000):
         '''
@@ -228,12 +240,12 @@ class RBFInterpolant(object):
         (N,) float array
 
         '''
-        x = np.asarray(x,dtype=float)
+        x = np.asarray(x, dtype=float)
         assert_shape(x, (None, self.y.shape[1]), 'x')
         nx = x.shape[0]
 
-        if chunk_size is not None:
-            out = np.zeros(nx, dtype=float)
+        if (chunk_size is not None) and (nx > chunk_size):
+            out = np.zeros((nx,) + self.d_shape, dtype=self.d_dtype)
             for start in range(0, nx, chunk_size):
                 stop = start + chunk_size
                 out[start:stop] = self(x[start:stop], diff, None)
@@ -244,6 +256,8 @@ class RBFInterpolant(object):
         Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
         Px = mvmonos(x, self.order, diff=diff)
         out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
+        out = out.view(self.d_dtype)
+        out = out.reshape((-1,) + self.d_shape)
         return out
 
 
