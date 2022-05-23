@@ -88,14 +88,14 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
 
     Parameters
     ----------
-    y : (K, P, N) array
-        `K` sets of observation points.
+    y : (..., P, N) array
+        Observation points.
 
-    d : (K, P, S) array
-        `K` sets of observed values at `y`.
+    d : (..., P, S) array
+        Observed values at `y`.
 
-    sigma : (K, P) array
-        `K` sets of smoothing parameters for each observation point.
+    sigma : (..., P) array
+        Smoothing parameters for each observation point.
 
     phi : RBF instance
 
@@ -105,57 +105,53 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
 
     Returns
     -------
-    (K, P, S) array
-        `K` sets of solved RBF coefficients.
+    (..., P, S) array
+        solved RBF coefficients.
 
-    (K, R, S) array
-        `K` sets of solved polynomial coefficients.
+    (..., R, S) array
+        solved polynomial coefficients.
 
-    (K, N) array
-        `K` domain shifts used for the polynomial terms.
+    (..., N) array
+        Domain shifts used for the polynomial terms.
 
-    (K,) array
-        `K` scale factors used for the polynomial terms.
+    (...,) array
+        Scale factors used for the polynomial terms.
 
     '''
-    k, p, n = y.shape
-    s = d.shape[2]
-    maxs = y.max(axis=1)
-    mins = y.min(axis=1)
+    bcast = y.shape[:-2]
+    p, n = y.shape[-2:]
+    s = d.shape[-1]
+
+    maxs = y.max(axis=-2)
+    mins = y.min(axis=-2)
     shift = (maxs + mins)/2
     # We want to use the same scaling for each dimension because it simplifies
     # differentiating the polynomials.
-    scale = ((maxs - mins)/2).max(axis=1)
+    scale = ((maxs - mins)/2).max(axis=-1)
     # This happens if there is a single point
-    scale[scale == 0.0] = 1.0
+    scale = np.where(scale == 0.0, 1.0, scale)
 
-    if k == 1:
-        # If we are only solving 1 interpolation problem, then solve with
-        # PartitionedSolver which supports sparse systems
-        Kyy = phi(y[0], y[0], eps=eps)
-        if sp.issparse(Kyy):
-            Kyy = sp.csc_matrix(Kyy + sp.diags(sigma[0]**2))
-        else:
-            Kyy[range(p), range(p)] += sigma[0]**2
-
-        Py = mvmonos((y[0] - shift[0])/scale[0], order)
-        phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d[0])
-        phi_coeff = phi_coeff[None]
-        poly_coeff = poly_coeff[None]
-
+    Kyy = phi(y, y, eps=eps)
+    Py = mvmonos((y - shift[..., None, :])/scale[..., None, None], order)
+    if sp.issparse(Kyy):
+        Kyy = sp.csc_matrix(Kyy + sp.diags(sigma**2))
     else:
-        Kyy = phi(y, y, eps=eps)
-        Kyy[:, range(p), range(p)] += sigma**2
-        Py = mvmonos((y - shift[:, None, :])/scale[:, None, None], order)
-        Pyt = Py.transpose((0, 2, 1))
-        r = Py.shape[2]
-        Z = np.zeros((k, r, r), dtype=float)
-        z = np.zeros((k, r, s), dtype=float)
+        Kyy[..., range(p), range(p)] += sigma**2
+
+    if len(bcast) == 0:
+        # PartitionedSolver supports solving sparse systems, so use it if
+        # possible.
+        phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d)
+    else:
+        r = Py.shape[-1]
+        Pyt = Py.swapaxes(-2, -1)
+        Z = np.zeros(bcast + (r, r), dtype=float)
+        z = np.zeros(bcast + (r, s), dtype=float)
         LHS = np.block([[Kyy, Py], [Pyt, Z]])
-        rhs = np.concatenate((d, z), axis=1)
+        rhs = np.concatenate((d, z), axis=-2)
         coeff = np.linalg.solve(LHS, rhs)
-        phi_coeff = coeff[:, :p]
-        poly_coeff = coeff[:, p:]
+        phi_coeff = coeff[..., :p, :]
+        poly_coeff = coeff[..., p:, :]
 
     return phi_coeff, poly_coeff, shift, scale
 
@@ -270,13 +266,13 @@ class RBFInterpolant(object):
 
         if neighbors is None:
             phi_coeff, poly_coeff, shift, scale = _build_and_solve_systems(
-                y[None], d[None], sigma[None], phi, eps, order
+                y, d, sigma, phi, eps, order
                 )
 
-            self.phi_coeff = phi_coeff[0]
-            self.poly_coeff = poly_coeff[0]
-            self.shift = shift[0]
-            self.scale = scale[0]
+            self.phi_coeff = phi_coeff
+            self.poly_coeff = poly_coeff
+            self.shift = shift
+            self.scale = scale
 
         else:
             self.tree = KDTree(y)
