@@ -1,8 +1,5 @@
 '''
-This module provides classes for RBF interpolation, `RBFInterpolant` and
-`KNearestRBFInterpolant`. The latter is more suitable when there are a large
-number of observations because it performs RBF interpolation using only the `k`
-nearest observations to each interpolation point.
+This module provides a class for RBF interpolation, `RBFInterpolant`.
 
 RBF Interpolation
 -----------------
@@ -58,10 +55,11 @@ import numpy as np
 import scipy.sparse as sp
 
 import rbf.basis
-from rbf.poly import monomial_count, mvmonos
-from rbf.basis import get_rbf, SparseRBF
-from rbf.utils import assert_shape, KDTree
 from rbf.linalg import PartitionedSolver
+from rbf.poly import monomial_count, mvmonos
+from rbf.basis import get_rbf
+from rbf.utils import assert_shape, KDTree
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,78 +81,98 @@ _MIN_ORDER = {
     }
 
 
-def _sanitize_arguments(y, d, sigma, phi, eps, order, k=None):
-    '''Sanitize input to RBFInterpolant and KNearestRBFInterpolant'''
-    y = np.asarray(y, dtype=float)
-    assert_shape(y, (None, None), 'y')
-    ny, ndim = y.shape
+def _build_and_solve_systems(y, d, sigma, phi, eps, order):
+    '''
+    Efficiently build and solve `K` different RBF interpolation problems
+    with vectorization.
 
-    if np.iscomplexobj(d):
-        d = np.asarray(d, dtype=complex)
+    Parameters
+    ----------
+    y : (K, P, N) array
+        `K` sets of observation points.
+
+    d : (K, P, S) array
+        `K` sets of observed values at `y`.
+
+    sigma : (K, P) array
+        `K` sets of smoothing parameters for each observation point.
+
+    phi : RBF instance
+
+    eps : float
+
+    order : int
+
+    Returns
+    -------
+    (K, P, S) array
+        `K` sets of solved RBF coefficients.
+
+    (K, R, S) array
+        `K` sets of solved polynomial coefficients.
+
+    (K, N) array
+        `K` domain shifts used for the polynomial terms.
+
+    (K,) array
+        `K` scale factors used for the polynomial terms.
+
+    '''
+    k, p, n = y.shape
+    s = d.shape[2]
+    maxs = y.max(axis=1)
+    mins = y.min(axis=1)
+    shift = (maxs + mins)/2
+    # We want to use the same scaling for each dimension because it simplifies
+    # differentiating the polynomials.
+    scale = ((maxs - mins)/2).max(axis=1)
+    # This happens if there is a single point
+    scale[scale == 0.0] = 1.0
+
+    if k == 1:
+        # If we are only solving 1 interpolation problem, then solve with
+        # PartitionedSolver which supports sparse systems
+        Kyy = phi(y[0], y[0], eps=eps)
+        if sp.issparse(Kyy):
+            Kyy = sp.csc_matrix(Kyy + sp.diags(sigma[0]**2))
+        else:
+            Kyy[range(p), range(p)] += sigma[0]**2
+
+        Py = mvmonos((y[0] - shift[0])/scale[0], order)
+        phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d[0])
+        phi_coeff = phi_coeff[None]
+        poly_coeff = poly_coeff[None]
+
     else:
-        d = np.asarray(d, dtype=float)
+        Kyy = phi(y, y, eps=eps)
+        Kyy[:, range(p), range(p)] += sigma**2
+        Py = mvmonos((y - shift[:, None, :])/scale[:, None, None], order)
+        Pyt = Py.transpose((0, 2, 1))
+        r = Py.shape[2]
+        Z = np.zeros((k, r, r), dtype=float)
+        z = np.zeros((k, r, s), dtype=float)
+        LHS = np.block([[Kyy, Py], [Pyt, Z]])
+        rhs = np.concatenate((d, z), axis=1)
+        coeff = np.linalg.solve(LHS, rhs)
+        phi_coeff = coeff[:, :p]
+        poly_coeff = coeff[:, p:]
 
-    assert_shape(d, (ny, ...), 'd')
-
-    if np.isscalar(sigma):
-        sigma = np.full(ny, sigma, dtype=float)
-    else:
-        sigma = np.asarray(sigma, dtype=float)
-        assert_shape(sigma, (ny,), 'sigma')
-
-    phi = get_rbf(phi)
-
-    if not np.isscalar(eps):
-        raise ValueError('`eps` must be a scalar.')
-
-    # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive definite
-    # (no minimum polynomial order) or user-defined (no known minimum
-    # polynomial order)
-    min_order = _MIN_ORDER.get(phi, -1)
-    if order is None:
-        order = max(min_order, 0)
-    else:
-        order = int(order)
-        if order < -1:
-            raise ValueError('`order` must be at least -1.')
-
-        elif order < min_order:
-            logger.warning(
-                'The polynomial order should not be below %d when `phi` is '
-                '%s. The interpolant may not be well-posed.' % (min_order, phi)
-                )
-
-    nmonos = monomial_count(order, ndim)
-    if k is None:
-        nobs = ny
-    else:
-        # make sure the number of neighbors does not exceed the number of
-        # observations.
-        k = int(min(k, ny))
-        nobs = k
-
-    if nmonos > nobs:
-        raise ValueError(
-            'At least %d data points are required when `order` is %d and the '
-            'number of dimensions is %d' % (nmonos, order, ndim)
-            )
-
-    return y, d, sigma, phi, eps, order, k
+    return phi_coeff, poly_coeff, shift, scale
 
 
 class RBFInterpolant(object):
     '''
-    Regularized radial basis function interpolant.
+    Radial basis function interpolant for N-dimensional data.
 
     Parameters
     ----------
-    y : (N, D) array
+    y : (P, N) float array
         Observation points.
 
-    d : (N, ...) array
+    d : (P, ...) float or complex array
         Observed values at `y`.
 
-    sigma : float or (N,) array, optional
+    sigma : float or (P,) array, optional
         Smoothing parameter. Setting this to 0 causes the interpolant to
         perfectly fit the data. Increasing the smoothing parameter degrades the
         fit while improving the smoothness of the interpolant. If this is a
@@ -173,6 +191,10 @@ class RBFInterpolant(object):
         polynomial terms. If `phi` is a conditionally positive definite RBF of
         order `m`, then this value should be at least `m - 1`.
 
+    neighbors : int, optional
+        If given, create an interpolant at each evaluation point using this
+        many nearest observations. Defaults to using all the observations.
+
     References
     ----------
     [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World
@@ -183,40 +205,91 @@ class RBFInterpolant(object):
                  sigma=0.0,
                  phi='phs3',
                  eps=1.0,
-                 order=None):
-        y, d, sigma, phi, eps, order, _ = _sanitize_arguments(
-            y, d, sigma, phi, eps, order, None
-            )
+                 order=None,
+                 neighbors=None):
+        y = np.asarray(y, dtype=float)
+        assert_shape(y, (None, None), 'y')
+        p, n = y.shape
+
+        if np.iscomplexobj(d):
+            d_dtype = complex
+        else:
+            d_dtype = float
+
+        d = np.asarray(d, dtype=d_dtype)
+        assert_shape(d, (p, ...), 'd')
 
         d_shape = d.shape[1:]
-        d_dtype = d.dtype
-        d = d.reshape((d.shape[0], -1))
+        d = d.reshape((p, -1))
         # If d is complex, turn it into a float with twice as many columns
         d = d.view(float)
-        # For improved numerical stability, shift the observations so that
-        # their centroid is at zero
-        center = y.mean(axis=0)
-        y = y - center
-        # Build the system of equations and solve for the RBF and mononomial
-        # coefficients
-        Kyy = phi(y, y, eps=eps)
-        if sp.issparse(Kyy):
-            Kyy = sp.csc_matrix(Kyy + sp.diags(sigma**2))
-        else:
-            Kyy[range(y.shape[0]), range(y.shape[0])] += sigma**2
 
-        Py = mvmonos(y, order)
-        phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d)
+        if np.isscalar(sigma):
+            sigma = np.full(p, sigma, dtype=float)
+        else:
+            sigma = np.asarray(sigma, dtype=float)
+            assert_shape(sigma, (p,), 'sigma')
+
+        phi = get_rbf(phi)
+
+        if not np.isscalar(eps):
+            raise ValueError('`eps` must be a scalar.')
+
+        # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive
+        # definite (no minimum polynomial order) or user-defined (no known
+        # minimum polynomial order)
+        min_order = _MIN_ORDER.get(phi, -1)
+        if order is None:
+            order = max(min_order, 0)
+        else:
+            order = int(order)
+            if order < -1:
+                raise ValueError('`order` must be at least -1.')
+
+            elif order < min_order:
+                logger.warning(
+                    'The polynomial order should not be below %d when `phi` '
+                    'is %s. The interpolant may not be well-posed.' %
+                    (min_order, phi)
+                    )
+
+        r = monomial_count(order, n)
+        if neighbors is None:
+            nobs = p
+        else:
+            # make sure the number of neighbors does not exceed the number of
+            # observations.
+            neighbors = int(min(neighbors, p))
+            nobs = neighbors
+
+        if r > nobs:
+            raise ValueError(
+                'At least %d data points are required when `order` is %d and '
+                'the number of dimensions is %d.' % (r, order, n)
+                )
+
+        if neighbors is None:
+            phi_coeff, poly_coeff, shift, scale = _build_and_solve_systems(
+                y[None], d[None], sigma[None], phi, eps, order
+                )
+
+            self.phi_coeff = phi_coeff[0]
+            self.poly_coeff = poly_coeff[0]
+            self.shift = shift[0]
+            self.scale = scale[0]
+
+        else:
+            self.tree = KDTree(y)
 
         self.y = y
+        self.d = d
+        self.d_shape = d_shape
+        self.d_dtype = d_dtype
+        self.sigma = sigma
         self.phi = phi
         self.eps = eps
         self.order = order
-        self.center = center
-        self.phi_coeff = phi_coeff
-        self.poly_coeff = poly_coeff
-        self.d_shape = d_shape
-        self.d_dtype = d_dtype
+        self.neighbors = neighbors
 
 
     def __call__(self, x, diff=None, chunk_size=1000):
@@ -225,10 +298,10 @@ class RBFInterpolant(object):
 
         Parameters
         ----------
-        x : (N, D) float array
+        x : (Q, N) float array
             Evaluation points.
 
-        diff : (D,) int array, optional
+        diff : (N,) int array, optional
             Derivative order for each spatial dimension.
 
         chunk_size : int, optional
@@ -237,31 +310,67 @@ class RBFInterpolant(object):
 
         Returns
         -------
-        (N,) float array
+        (Q, ...) float or complex array
 
         '''
         x = np.asarray(x, dtype=float)
         assert_shape(x, (None, self.y.shape[1]), 'x')
-        nx = x.shape[0]
+        q, n = x.shape
 
-        if (chunk_size is not None) and (nx > chunk_size):
-            out = np.zeros((nx,) + self.d_shape, dtype=self.d_dtype)
-            for start in range(0, nx, chunk_size):
+        if diff is None:
+            diff = np.zeros((n,), dtype=int)
+
+        if (chunk_size is not None) and (q > chunk_size):
+            out = np.zeros((q,) + self.d_shape, dtype=self.d_dtype)
+            for start in range(0, q, chunk_size):
                 stop = start + chunk_size
                 out[start:stop] = self(x[start:stop], diff, None)
 
             return out
 
-        x = x - self.center
-        Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
-        Px = mvmonos(x, self.order, diff=diff)
-        out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
+        if self.neighbors is None:
+            Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
+            Px = mvmonos((x - self.shift)/self.scale, self.order, diff=diff)
+            Px /= self.scale**np.sum(diff)
+            out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
+
+        else:
+            # get the indices of the k-nearest observations for each
+            # interpolation point
+            _, nbr = self.tree.query(x, self.neighbors)
+            # multiple interpolation points may have the same neighborhood.
+            # Make the neighborhoods unique so that we only compute the
+            # interpolation coefficients once for each neighborhood
+            nbr = np.sort(nbr, axis=1)
+            nbr, inv = np.unique(nbr, return_inverse=True, axis=0)
+            # Get the observation data for each neighborhood
+            y, d, sigma = self.y[nbr], self.d[nbr], self.sigma[nbr]
+            phi_coeff, poly_coeff, shift, scale = _build_and_solve_systems(
+                y, d, sigma, self.phi, self.eps, self.order
+                )
+
+            # expand the arrays from having one entry per neighborhood to one
+            # entry per evaluation point.
+            y = y[inv]
+            shift = shift[inv]
+            scale = scale[inv]
+            phi_coeff = phi_coeff[inv]
+            poly_coeff = poly_coeff[inv]
+
+            Kxy = self.phi(x[:, None], y, eps=self.eps, diff=diff)[:, 0, :]
+            Px = mvmonos((x - shift)/scale[:, None], self.order, diff=diff)
+            Px /= scale[:, None]**np.sum(diff)
+            out = (
+                (Kxy[:, :, None]*phi_coeff).sum(axis=1) +
+                (Px[:, :, None]*poly_coeff).sum(axis=1)
+                )
+
         out = out.view(self.d_dtype)
-        out = out.reshape((-1,) + self.d_shape)
+        out = out.reshape((q,) + self.d_shape)
         return out
 
 
-class KNearestRBFInterpolant(object):
+class KNearestRBFInterpolant(RBFInterpolant):
     '''
     Approximation to `RBFInterpolant` that only uses the k nearest observations
     to each evaluation point.
@@ -302,102 +411,9 @@ class KNearestRBFInterpolant(object):
     Scientific Publishing Co, 2007.
 
     '''
-    def __init__(self, y, d,
-                 sigma=0.0,
-                 k=20,
-                 phi='phs3',
-                 eps=1.0,
-                 order=None):
-        y, d, sigma, phi, eps, order, k = _sanitize_arguments(
-            y, d, sigma, phi, eps, order, k
+    def __init__(self, *args, k=20, **kwargs):
+        logger.warning(
+            '`KNearestRBFInterpolant` is deprecated. Use `RBFInterpolant` '
+            'with the `neighbors` argument instead.'
             )
-
-        if isinstance(phi, SparseRBF):
-            raise ValueError('`SparseRBF` instances are not supported.')
-
-        tree = KDTree(y)
-
-        self.y = y
-        self.d = d
-        self.sigma = sigma
-        self.k = k
-        self.eps = eps
-        self.phi = phi
-        self.order = order
-        self.tree = tree
-
-    def __call__(self, x, diff=None, chunk_size=100):
-        '''
-        Evaluates the interpolant at `x`.
-
-        Parameters
-        ----------
-        x : (N, D) float array
-            Evaluation points.
-
-        diff : (D,) int array, optional
-            Derivative order for each spatial dimension.
-
-        chunk_size : int, optional
-            Break `x` into chunks with this size and evaluate the interpolant
-            for each chunk.
-
-        Returns
-        -------
-        (N,) float array
-
-        '''
-        x = np.asarray(x, dtype=float)
-        assert_shape(x, (None, self.y.shape[1]), 'x')
-        nx = x.shape[0]
-
-        if chunk_size is not None:
-            out = np.zeros(nx, dtype=float)
-            for start in range(0, nx, chunk_size):
-                stop = start + chunk_size
-                out[start:stop] = self(x[start:stop], diff, None)
-
-            return out
-
-        # get the indices of the k-nearest observations for each interpolation
-        # point
-        _, nbr = self.tree.query(x, self.k)
-        # multiple interpolation points may have the same neighborhood. Make
-        # the neighborhoods unique so that we only compute the interpolation
-        # coefficients once for each neighborhood
-        nbr, inv = np.unique(np.sort(nbr, axis=1), return_inverse=True, axis=0)
-        nnbr = nbr.shape[0]
-        # Get the observation data for each neighborhood
-        y, d, sigma = self.y[nbr], self.d[nbr], self.sigma[nbr]
-        # shift the centers of each neighborhood to zero for numerical
-        # stability
-        centers = y.mean(axis=1)
-        y = y - centers[:, None]
-        # build the left-hand-side interpolation matrix consisting of the RBF
-        # and monomials evaluated at each neighborhood
-        Kyy = self.phi(y, y, eps=self.eps)
-        Kyy[:, range(self.k), range(self.k)] += sigma**2
-        Py = mvmonos(y, self.order)
-        PyT = np.transpose(Py, (0, 2, 1))
-        nmonos = Py.shape[2]
-        Z = np.zeros((nnbr, nmonos, nmonos), dtype=float)
-        LHS = np.block([[Kyy, Py], [PyT, Z]])
-        # build the right-hand-side data vector consisting of the observations
-        # for each neighborhood and extra zeros
-        z = np.zeros((nnbr, nmonos), dtype=float)
-        rhs = np.hstack((d, z))
-        # solve for the RBF and polynomial coefficients for each neighborhood
-        coeff = np.linalg.solve(LHS, rhs)
-        # expand the arrays from having one entry per neighborhood to one entry
-        # per interpolation point
-        coeff = coeff[inv]
-        y = y[inv]
-        centers = centers[inv]
-        # evaluate at the interpolation points
-        x = x - centers
-        phi_coeff = coeff[:, :self.k]
-        poly_coeff = coeff[:, self.k:]
-        Kxy = self.phi(x[:, None], y, eps=self.eps, diff=diff)[:, 0]
-        Px = mvmonos(x, self.order, diff=diff)
-        out = (Kxy*phi_coeff).sum(axis=1) + (Px*poly_coeff).sum(axis=1)
-        return out
+        super().__init__(*args, neighbors=k, **kwargs)
