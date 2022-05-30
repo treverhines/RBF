@@ -114,7 +114,7 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
     (..., N) array
         Domain shifts used for the polynomial terms.
 
-    (...,) array
+    (..., N) array
         Scale factors used for the polynomial terms.
 
     '''
@@ -125,14 +125,12 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
     maxs = y.max(axis=-2)
     mins = y.min(axis=-2)
     shift = (maxs + mins)/2
-    # We want to use the same scaling for each dimension because it simplifies
-    # differentiating the polynomials.
-    scale = ((maxs - mins)/2).max(axis=-1)
+    scale = (maxs - mins)/2
     # This happens if there is a single point
-    scale = np.where(scale == 0.0, 1.0, scale)
+    scale[scale == 0.0] = 1.0
 
     Kyy = phi(y, y, eps=eps)
-    Py = mvmonos((y - shift[..., None, :])/scale[..., None, None], order)
+    Py = mvmonos((y - shift[..., None, :])/scale[..., None, :], order)
     if sp.issparse(Kyy):
         Kyy = sp.csc_matrix(Kyy + sp.diags(sigma**2))
     else:
@@ -315,6 +313,9 @@ class RBFInterpolant(object):
 
         if diff is None:
             diff = np.zeros((n,), dtype=int)
+        else:
+            diff = np.asarray(diff, dtype=int)
+            assert_shape(diff, (n,), 'diff')
 
         if (chunk_size is not None) and (q > chunk_size):
             out = np.zeros((q,) + self.d_shape, dtype=self.d_dtype)
@@ -327,7 +328,7 @@ class RBFInterpolant(object):
         if self.neighbors is None:
             Kxy = self.phi(x, self.y, eps=self.eps, diff=diff)
             Px = mvmonos((x - self.shift)/self.scale, self.order, diff=diff)
-            Px /= self.scale**np.sum(diff)
+            Px /= np.prod(self.scale**diff)
             out = Kxy.dot(self.phi_coeff) + Px.dot(self.poly_coeff)
 
         else:
@@ -354,11 +355,11 @@ class RBFInterpolant(object):
             poly_coeff = poly_coeff[inv]
 
             Kxy = self.phi(x[:, None], y, eps=self.eps, diff=diff)[:, 0, :]
-            Px = mvmonos((x - shift)/scale[:, None], self.order, diff=diff)
-            Px /= scale[:, None]**np.sum(diff)
+            Px = mvmonos((x - shift)/scale, self.order, diff=diff)
+            Px /= np.prod(scale**diff, axis=1)[:, None]
             out = (
-                (Kxy[:, :, None]*phi_coeff).sum(axis=1) +
-                (Px[:, :, None]*poly_coeff).sum(axis=1)
+                np.sum(Kxy[:, :, None]*phi_coeff, axis=1) +
+                np.sum(Px[:, :, None]*poly_coeff, axis=1)
                 )
 
         out = out.view(self.d_dtype)
