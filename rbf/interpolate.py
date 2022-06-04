@@ -161,7 +161,7 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
         phi_coeff = coeff[..., :p, :]
         poly_coeff = coeff[..., p:, :]
 
-    poly_coeff *= Py_scale[..., None]
+    poly_coeff *= Py_scale[..., None, None]
     return phi_coeff, poly_coeff, shift, scale
 
 
