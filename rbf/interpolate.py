@@ -151,11 +151,12 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
         phi_coeff, poly_coeff = solver.solve(d)
     else:
         r = Py.shape[-1]
-        Pyt = Py.swapaxes(-2, -1)
-        Z = np.zeros(bcast + (r, r), dtype=float)
-        z = np.zeros(bcast + (r, s), dtype=float)
-        LHS = np.block([[Kyy, Py], [Pyt, Z]])
-        rhs = np.concatenate((d, z), axis=-2)
+        LHS = np.zeros(bcast + (p + r, p + r), dtype=float)
+        LHS[..., :p, :p] = Kyy
+        LHS[..., :p, p:] = Py
+        LHS[..., p:, :p] = Py.swapaxes(-2, -1)
+        rhs = np.zeros(bcast + (p + r, s), dtype=float)
+        rhs[..., :p, :] = d
         coeff = np.linalg.solve(LHS, rhs)
         phi_coeff = coeff[..., :p, :]
         poly_coeff = coeff[..., p:, :]
