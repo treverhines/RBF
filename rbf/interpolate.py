@@ -83,8 +83,8 @@ _MIN_ORDER = {
 
 def _build_and_solve_systems(y, d, sigma, phi, eps, order):
     '''
-    Efficiently build and solve `K` different RBF interpolation problems
-    with vectorization.
+    Build the RBF interpolation system of equations and solve for the
+    coefficients.
 
     Parameters
     ----------
@@ -133,9 +133,17 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
     Py = mvmonos((y - shift[..., None, :])/scale[..., None, :], order)
     if sp.issparse(Kyy):
         Kyy = sp.csc_matrix(Kyy + sp.diags(sigma**2))
+        # Improve the condition number of the system by rescaling the
+        # polynomial matrix, which currently should have values in [-1, 1], to
+        # have the same ptp as the kernel matrix.
+        Py_scale = (Kyy.max() - Kyy.min())/2
+
     else:
         Kyy[..., range(p), range(p)] += sigma**2
+        Py_scale = Kyy.reshape(bcast + (-1,)).ptp(axis=-1)/2
 
+    Py_scale = np.where(Py_scale==0.0, 1.0, Py_scale)
+    Py *= Py_scale[..., None, None]
     if len(bcast) == 0:
         # PartitionedSolver supports solving sparse systems, so use it if
         # possible.
@@ -151,6 +159,7 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
         phi_coeff = coeff[..., :p, :]
         poly_coeff = coeff[..., p:, :]
 
+    poly_coeff *= Py_scale[..., None]
     return phi_coeff, poly_coeff, shift, scale
 
 
