@@ -81,7 +81,7 @@ _MIN_ORDER = {
     }
 
 
-def _build_and_solve_systems(y, d, sigma, phi, eps, order):
+def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
     '''
     Build the RBF interpolation system of equations and solve for the
     coefficients.
@@ -147,7 +147,8 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order):
     if len(bcast) == 0:
         # PartitionedSolver supports solving sparse systems, so use it if
         # possible.
-        phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d)
+        solver = PartitionedSolver(Kyy, Py, check_cond=check_cond)
+        phi_coeff, poly_coeff = solver.solve(d)
     else:
         r = Py.shape[-1]
         Pyt = Py.swapaxes(-2, -1)
@@ -198,6 +199,10 @@ class RBFInterpolant(object):
         If given, create an interpolant at each evaluation point using this
         many nearest observations. Defaults to using all the observations.
 
+    check_cond : bool, optional
+        Whether to check the condition number of the system being solved. A
+        warning is raised if it is ill-conditioned.
+
     References
     ----------
     [1] Fasshauer, G., Meshfree Approximation Methods with Matlab, World
@@ -209,7 +214,8 @@ class RBFInterpolant(object):
                  phi='phs3',
                  eps=1.0,
                  order=None,
-                 neighbors=None):
+                 neighbors=None,
+                 check_cond=True):
         y = np.asarray(y, dtype=float)
         assert_shape(y, (None, None), 'y')
         p, n = y.shape
@@ -273,7 +279,7 @@ class RBFInterpolant(object):
 
         if neighbors is None:
             phi_coeff, poly_coeff, shift, scale = _build_and_solve_systems(
-                y, d, sigma, phi, eps, order
+                y, d, sigma, phi, eps, order, check_cond
                 )
 
             self.phi_coeff = phi_coeff
@@ -352,7 +358,7 @@ class RBFInterpolant(object):
             # Get the observation data for each neighborhood
             y, d, sigma = self.y[nbr], self.d[nbr], self.sigma[nbr]
             phi_coeff, poly_coeff, shift, scale = _build_and_solve_systems(
-                y, d, sigma, self.phi, self.eps, self.order
+                y, d, sigma, self.phi, self.eps, self.order, False
                 )
 
             # expand the arrays from having one entry per neighborhood to one
