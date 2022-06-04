@@ -189,6 +189,18 @@ class Solver:
     ----------
     A : (n, n) array or sparse matrix
 
+    build_inverse : bool, optional
+        If `True`, the inverse of `A` is built, which makes subsequent calls to
+        `solve` faster.
+
+    check_cond : bool, optional
+        If `True`, a warning is raised if `A` is ill-conditioned. Ignored if
+        `A` is sparse.
+
+    factor_inplace : bool, optional
+        If `True` and if `A` is fortran contiguous, then the LU factorization
+        of `A` is done inplace.
+
     '''
     def __init__(self, A,
                  build_inverse=False,
@@ -327,6 +339,14 @@ class PosDefSolver:
     A : (n, n) array or sparse matrix
         Positive definite matrix
 
+    build_inverse : bool, optional
+        If `True`, the inverse of `A` is built, which makes subsequent calls to
+        `solve` faster.
+
+    factor_inplace : bool, optional
+        If `True` and if `A` is fortran contiguous, then the Cholesky
+        factorization of `A` is done inplace.
+
     '''
     def __init__(self, A, build_inverse=False, factor_inplace=False):
         A = as_sparse_or_array(A, dtype=float)
@@ -459,6 +479,14 @@ class PartitionedSolver:
 
     B : (n, p) array or sparse matrix
 
+    build_inverse : bool, optional
+        If `True`, the inverse of the partitioned matrix is built, which makes
+        subsequent calls to `solve` faster.
+
+    check_cond : bool, optional
+        If `True`, a warning is raised if the partitioned matrix is
+        ill-conditioned. Ignored if `A` is sparse.
+
     '''
     def __init__(self, A, B, build_inverse=False, check_cond=False):
         A = as_sparse_or_array(A, dtype=float)
@@ -582,6 +610,14 @@ class PartitionedPosDefSolver:
 
     B : (n, p) array or sparse matrix
 
+    build_inverse : bool, optional
+        If `True`, the inverse of the partitioned matrix is built, which makes
+        subsequent calls to `solve` faster.
+
+    factor_inplace : bool, optional
+        If `True` and if `A` is fortran contiguous, then the Cholesky
+        factorization of `A` is done inplace.
+
     Note
     ----
     This class stores the factorization of `A`, which may be sparse, the dense
@@ -620,8 +656,8 @@ class PartitionedPosDefSolver:
             C = self._A_solver.solve(Ia) - D.dot(self._AiB.T)
             self._inverse = np.empty((n + p, n + p), dtype=float)
             self._inverse[:n, :n] = C
-            self._inverse[:n, n:] = D.T
-            self._inverse[n:, :n] = D
+            self._inverse[:n, n:] = D
+            self._inverse[n:, :n] = D.T
             self._inverse[n:, n:] = E
         else:
             self._inverse = None
@@ -648,7 +684,7 @@ class PartitionedPosDefSolver:
         '''
         a = as_array(a, dtype=float)
         if self._inverse is not None:
-            c = np.zeros((self.n + self.p) + a.shape[1:], dtype=float)
+            c = np.zeros((self.n + self.p,) + a.shape[1:], dtype=float)
             c[:self.n] = a
             if b is not None:
                 b = as_array(b, dtype=float)
