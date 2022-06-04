@@ -354,9 +354,7 @@ class PosDefSolver:
             if not HAS_CHOLMOD:
                 warnings.warn(CHOLMOD_MSG)
                 # since we have to make a copy, might as well factor inplace
-                self._solver = _DensePosDefSolver(
-                    A.toarray(order='F'), factor_inplace=True
-                    )
+                self._solver = _DensePosDefSolver(A.toarray(order='F'), True)
             else:
                 self._solver = _SparsePosDefSolver(A)
 

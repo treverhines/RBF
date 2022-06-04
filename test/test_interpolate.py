@@ -140,7 +140,7 @@ class Test(unittest.TestCase):
     val = test_func2d(obs)
     val[0] += 100.0
     sigma = np.zeros(N)
-    sigma[0] = np.inf
+    sigma[0] = 1e10
     I = rbf.interpolate.RBFInterpolant(obs,val,sigma=sigma,
                                        phi=rbf.basis.phs3,order=1)    
     valitp_est = I(itp)

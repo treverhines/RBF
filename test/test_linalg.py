@@ -21,7 +21,17 @@ class Test(unittest.TestCase):
     A = np.random.random((n, n))
     b = np.random.random((n,))
     x1 = np.linalg.solve(A, b)
-    x2 = rbf.linalg._DenseSolver(A).solve(b)
+    x2 = rbf.linalg._DenseSolver(A, False, False).solve(b)
+    self.assertTrue(np.allclose(x1, x2))
+
+  def test_dense_solver_inplace(self):
+    n = 100
+    A = np.random.random((n, n)).T # fortran contiguous
+    b = np.random.random((n,))
+    x1 = np.linalg.solve(A, b)
+    solver = rbf.linalg._DenseSolver(A, False, True)
+    x2 = solver.solve(b)
+    self.assertTrue(solver.fac is A)
     self.assertTrue(np.allclose(x1, x2))
       
   def test_sparse_pos_def_solve(self):
@@ -83,17 +93,28 @@ class Test(unittest.TestCase):
     A = np.random.random((n,n))
     A = A.T.dot(A)
     b = np.random.random((n,))
-    factor = rbf.linalg._DensePosDefSolver(A)
+    factor = rbf.linalg._DensePosDefSolver(A, False)
     x1 = factor.solve(b)
     x2 = np.linalg.solve(A,b)
     self.assertTrue(np.allclose(x1,x2))
+
+  def test_dense_pos_def_solve_inplace(self):
+    n = 100
+    A = np.random.random((n,n))
+    A = (A.T.dot(A)).T # fortran contiguous
+    b = np.random.random((n,))
+    x1 = np.linalg.solve(A, b)
+    factor = rbf.linalg._DensePosDefSolver(A, True)
+    x2 = factor.solve(b)
+    self.assertTrue(np.allclose(x1,x2))
+    self.assertTrue(A is factor.chol)
   
   def test_dense_pos_def_solve_L(self):
     n = 100
     A = np.random.random((n,n))
     A = A.T.dot(A)
     b = np.random.random((n,))
-    factor = rbf.linalg._DensePosDefSolver(A)
+    factor = rbf.linalg._DensePosDefSolver(A, False)
     x1 = factor.solve_L(b)
     x2 = np.linalg.solve(factor.L(),b)
     self.assertTrue(np.allclose(x1,x2))
@@ -102,7 +123,7 @@ class Test(unittest.TestCase):
     n = 100
     A = np.random.random((n,n))
     A = A.T.dot(A)
-    factor = rbf.linalg._DensePosDefSolver(A)
+    factor = rbf.linalg._DensePosDefSolver(A, False)
     L = factor.L()
     A2 = L.dot(L.T)
     self.assertTrue(np.allclose(A,A2))
@@ -111,7 +132,7 @@ class Test(unittest.TestCase):
     n = 100
     A = np.random.random((n,n))
     A = A.T.dot(A)
-    factor = rbf.linalg._DensePosDefSolver(A)
+    factor = rbf.linalg._DensePosDefSolver(A, False)
     x1 = factor.log_det()
     x2 = np.log(np.linalg.det(A))
     self.assertTrue(np.isclose(x1,x2))
