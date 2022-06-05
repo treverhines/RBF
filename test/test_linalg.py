@@ -24,14 +24,20 @@ class Test(unittest.TestCase):
     x2 = rbf.linalg._DenseSolver(A, False, False).solve(b)
     self.assertTrue(np.allclose(x1, x2))
 
-  def test_dense_solver_inplace(self):
+  def test_solver_inplace(self):
     n = 100
     A = np.random.random((n, n)).T # fortran contiguous
     b = np.random.random((n,))
     x1 = np.linalg.solve(A, b)
-    solver = rbf.linalg._DenseSolver(A, False, True)
+
+    solver = rbf.linalg.Solver(A, factor_inplace=False)
     x2 = solver.solve(b)
-    self.assertTrue(solver.fac is A)
+    self.assertTrue(solver._solver.fac is not A)
+    self.assertTrue(np.allclose(x1, x2))
+
+    solver = rbf.linalg.Solver(A, factor_inplace=True)
+    x2 = solver.solve(b)
+    self.assertTrue(solver._solver.fac is A)
     self.assertTrue(np.allclose(x1, x2))
       
   def test_sparse_pos_def_solve(self):
@@ -98,17 +104,23 @@ class Test(unittest.TestCase):
     x2 = np.linalg.solve(A,b)
     self.assertTrue(np.allclose(x1,x2))
 
-  def test_dense_pos_def_solve_inplace(self):
+  def test_pos_def_solver_inplace(self):
     n = 100
     A = np.random.random((n,n))
     A = (A.T.dot(A)).T # fortran contiguous
     b = np.random.random((n,))
     x1 = np.linalg.solve(A, b)
-    factor = rbf.linalg._DensePosDefSolver(A, True)
-    x2 = factor.solve(b)
+
+    solver = rbf.linalg.PosDefSolver(A, factor_inplace=False)
+    x2 = solver.solve(b)
     self.assertTrue(np.allclose(x1,x2))
-    self.assertTrue(A is factor.chol)
+    self.assertTrue(A is not solver._solver.chol)
   
+    solver = rbf.linalg.PosDefSolver(A, factor_inplace=True)
+    x2 = solver.solve(b)
+    self.assertTrue(np.allclose(x1,x2))
+    self.assertTrue(A is solver._solver.chol)
+
   def test_dense_pos_def_solve_L(self):
     n = 100
     A = np.random.random((n,n))

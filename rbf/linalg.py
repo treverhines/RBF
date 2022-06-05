@@ -25,7 +25,7 @@ except ImportError:
     HAS_CHOLMOD = False
     CHOLMOD_MSG = (
         'Could not import CHOLMOD. Sparse matrices will be converted to dense '
-        'for all Cholesky decompositions'
+        'for all Cholesky decompositions.'
         )
     LOGGER.debug(CHOLMOD_MSG)
 
@@ -35,7 +35,7 @@ except ImportError:
 ###############################################################################
 def _lu(A, check_cond, factor_inplace):
     '''
-    Computes the LU factorization of `A` using `dgetrf`
+    Computes the LU factorization of `A` using `dgetrf`.
     '''
     if A.shape == (0, 0):
         return (np.zeros((0, 0), dtype=float), np.zeros((0,), dtype=np.int32))
@@ -50,9 +50,9 @@ def _lu(A, check_cond, factor_inplace):
     fac, piv, info = dgetrf(A, overwrite_a=factor_inplace)
 
     if info < 0:
-        raise ValueError('the %s-th argument had an illegal value' % -info)
+        raise ValueError('the %s-th argument had an illegal value.' % -info)
     elif info > 0:
-        raise np.linalg.LinAlgError('Singular matrix')
+        raise np.linalg.LinAlgError('Singular matrix.')
 
     if check_cond:
         rcond, _ = dgecon(fac, A_norm, norm='1')
@@ -69,7 +69,7 @@ def _lu(A, check_cond, factor_inplace):
 
 def _cholesky(A, factor_inplace):
     '''
-    Computes the Cholesky decomposition of `A` using `dpotrf`
+    Computes the Cholesky decomposition of `A` using `dpotrf`.
     '''
     if A.shape == (0, 0):
         return np.zeros((0, 0), dtype=float)
@@ -78,28 +78,28 @@ def _cholesky(A, factor_inplace):
     if info < 0:
         raise ValueError('The %s-th argument has an illegal value.' % -info)
     elif info > 0:
-        raise np.linalg.LinAlgError('Matrix not positive definite')
+        raise np.linalg.LinAlgError('Matrix not positive definite.')
 
     return L
 
 
 def _solve_lu(fac, piv, b):
     '''
-    Solves `Ax = b` given the LU factorization of `A` using `dgetrs`
+    Solves `Ax = b` given the LU factorization of `A` using `dgetrs`.
     '''
     if any(i == 0 for i in b.shape):
         return np.zeros(b.shape, dtype=float)
 
     x, info = dgetrs(fac, piv, b)
     if info < 0:
-        raise ValueError('the %s-th argument had an illegal value' % -info)
+        raise ValueError('the %s-th argument had an illegal value.' % -info)
 
     return x
 
 
 def _solve_cholesky(L, b):
     '''
-    Solves `Ax = b` given the Cholesky decomposition of `A` using `dpotrs`
+    Solves `Ax = b` given the Cholesky decomposition of `A` using `dpotrs`.
     '''
     if any(i == 0 for i in b.shape):
         return np.zeros(b.shape, dtype=float)
@@ -113,16 +113,16 @@ def _solve_cholesky(L, b):
 
 def _solve_triangular(L, b):
     '''
-    Solves `Lx = b`  for a triangular `L` using `dtrtrs`
+    Solves `Lx = b`  for a triangular `L` using `dtrtrs`.
     '''
     if any(i == 0 for i in b.shape):
         return np.zeros(b.shape, dtype=float)
 
     x, info = dtrtrs(L, b, lower=True)
     if info < 0:
-        raise ValueError('The %s-th argument had an illegal value' % -info)
+        raise ValueError('The %s-th argument had an illegal value.' % -info)
     elif info > 0:
-        raise np.linalg.LinAlgError('Singular matrix')
+        raise np.linalg.LinAlgError('Singular matrix.')
 
     return x
 
@@ -157,11 +157,11 @@ def as_array(A, dtype=None, copy=False):
 
 class _SparseSolver:
     '''
-    Sparse matrix solver using SuperLU
+    Sparse matrix solver using SuperLU.
     '''
     def __init__(self, A):
         LOGGER.debug(
-            'Computing the LU decomposition with %.2f%% nonzeros' %
+            'Computing the LU decomposition with %.2f%% nonzeros.' %
             (100*A.nnz/(A.shape[0]*A.shape[1]),)
             )
         self.factor = spla.splu(A)
@@ -172,10 +172,12 @@ class _SparseSolver:
 
 class _DenseSolver:
     '''
-    Dense matrix solver using LAPACK LU factorization
+    Dense matrix solver using LAPACK LU factorization.
     '''
     def __init__(self, A, check_cond, factor_inplace):
-        self.fac, self.piv = _lu(A, check_cond, factor_inplace)
+        self.fac, self.piv = _lu(
+            A, check_cond=check_cond, factor_inplace=factor_inplace
+            )
 
     def solve(self, b):
         return _solve_lu(self.fac, self.piv, b)
@@ -183,7 +185,7 @@ class _DenseSolver:
 
 class Solver:
     '''
-    Sparse or dense matrix solver
+    Sparse or dense matrix solver.
 
     Parameters
     ----------
@@ -210,7 +212,9 @@ class Solver:
         if sp.issparse(A):
             self._solver = _SparseSolver(A)
         else:
-            self._solver = _DenseSolver(A, check_cond, factor_inplace)
+            self._solver = _DenseSolver(
+                A, check_cond=check_cond, factor_inplace=factor_inplace
+                )
 
         if build_inverse:
             I = np.eye(A.shape[0])
@@ -222,7 +226,7 @@ class Solver:
 
     def solve(self, b):
         '''
-        solves `Ax = b` for `x`
+        solves `Ax = b` for `x`.
 
         Parameters
         ----------
@@ -242,14 +246,14 @@ class Solver:
 
 class _SparsePosDefSolver:
     '''
-    Sparse positive definite matrix solver using CHOLMOD
+    Sparse positive definite matrix solver using CHOLMOD.
 
     Factors the matrix as `LL^T = A`. Note that `L` is NOT necessarily a lower
-    triangular matrix
+    triangular matrix.
     '''
     def __init__(self, A):
         LOGGER.debug(
-            'Computing the Cholesky decomposition with %.2f%% nonzeros' %
+            'Computing the Cholesky decomposition with %.2f%% nonzeros.' %
             (100*A.nnz/(A.shape[0]*A.shape[1]),)
             )
         self.factor = cholmod.cholesky(
@@ -265,47 +269,47 @@ class _SparsePosDefSolver:
 
     def solve(self, b):
         '''
-        Solves `Ax = b` for `x`
+        Solves `Ax = b` for `x`.
         '''
         return self.factor.solve_A(b)
 
     def solve_L(self, b):
         '''
-        Solves `Lx = b` for `x`
+        Solves `Lx = b` for `x`.
         '''
         s_inv = 1.0/np.sqrt(self.d)
         if b.ndim == 2:
             # expand for broadcasting
             s_inv = s_inv[:, None]
         elif b.ndim != 1:
-            raise ValueError('`b` must be a 1 or 2 dimensional array')
+            raise ValueError('`b` must be a 1 or 2 dimensional array.')
 
         out = s_inv*self.factor.solve_L(b[self.p])
         return out
 
     def L(self):
-        '''Return the factorization `L`'''
+        '''Return the factorization `L`.'''
         L = self.factor.L()
         p_inv = np.argsort(self.p)
         out = L[p_inv]
         return out
 
     def log_det(self):
-        '''Returns the log determinant of `A`'''
+        '''Returns the log determinant of `A`.'''
         out = np.sum(np.log(self.d))
         return out
 
 
 class _DensePosDefSolver:
     '''
-    Dense positive definite matrix solver using LAPACK Cholesky decomposition
+    Dense positive definite matrix solver using LAPACK Cholesky decomposition.
     '''
     def __init__(self, A, factor_inplace):
-        self.chol = _cholesky(A, factor_inplace)
+        self.chol = _cholesky(A, factor_inplace=factor_inplace)
 
     def solve(self, b):
         '''
-        Solves the equation `Ax = b` for `x`
+        Solves the equation `Ax = b` for `x`.
         '''
         return _solve_cholesky(self.chol, b)
 
@@ -317,7 +321,7 @@ class _DensePosDefSolver:
         return _solve_triangular(self.chol, b)
 
     def L(self):
-        '''Returns the Cholesky decomposition of `A`'''
+        '''Returns the Cholesky decomposition of `A`.'''
         return self.chol
 
     def log_det(self):
@@ -328,7 +332,7 @@ class _DensePosDefSolver:
 
 class PosDefSolver:
     '''
-    Sparse or dense positive definite matrix solver
+    Sparse or dense positive definite matrix solver.
 
     Factors the positive definite matrix `A` as `LL^T = A` and provides an
     efficient method for solving `Ax = b` for `x`. Additionally provides a
@@ -354,12 +358,14 @@ class PosDefSolver:
             if not HAS_CHOLMOD:
                 warnings.warn(CHOLMOD_MSG)
                 # since we have to make a copy, might as well factor inplace
-                self._solver = _DensePosDefSolver(A.toarray(order='F'), True)
+                self._solver = _DensePosDefSolver(
+                    A.toarray(order='F'), factor_inplace=True
+                    )
             else:
                 self._solver = _SparsePosDefSolver(A)
 
         else:
-            self._solver = _DensePosDefSolver(A, factor_inplace)
+            self._solver = _DensePosDefSolver(A, factor_inplace=factor_inplace)
 
         if build_inverse:
             I = np.eye(A.shape[0])
@@ -371,7 +377,7 @@ class PosDefSolver:
 
     def solve(self, b):
         '''
-        solves `Ax = b` for `x`
+        solves `Ax = b` for `x`.
 
         Parameters
         ----------
@@ -390,7 +396,7 @@ class PosDefSolver:
 
     def solve_L(self, b):
         '''
-        solves `Lx = b` for `x`
+        solves `Lx = b` for `x`.
 
         Parameters
         ----------
@@ -406,7 +412,7 @@ class PosDefSolver:
 
     def L(self):
         '''
-        Returns the factorization `L`
+        Returns the factorization `L`.
 
         Returns
         -------
@@ -417,7 +423,7 @@ class PosDefSolver:
 
     def log_det(self):
         '''
-        Returns the log determinant of `A`
+        Returns the log determinant of `A`.
 
         Returns
         -------
@@ -504,7 +510,9 @@ class PartitionedSolver:
             C[:n, :n] = A
             C[:n, n:] = B
             C[n:, :n] = B.T
-            self._solver = _DenseSolver(C, check_cond, True)
+            self._solver = _DenseSolver(
+                C, check_cond=check_cond, factor_inplace=True
+                )
 
         if build_inverse:
             I = np.eye(n + p)
@@ -636,15 +644,21 @@ class PartitionedPosDefSolver:
         if sp.issparse(A):
             if not HAS_CHOLMOD:
                 warnings.warn(CHOLMOD_MSG)
-                self._A_solver = _DensePosDefSolver(A.toarray(order='F'), True)
+                self._A_solver = _DensePosDefSolver(
+                    A.toarray(order='F'), factor_inplace=True
+                    )
             else:
                 self._A_solver = _SparsePosDefSolver(A)
 
         else:
-            self._A_solver = _DensePosDefSolver(A, factor_inplace)
+            self._A_solver = _DensePosDefSolver(
+                A, factor_inplace=factor_inplace
+                )
 
         self._AiB = self._A_solver.solve(B)
-        self._BtAiB_solver = _DensePosDefSolver(B.T.dot(self._AiB), True)
+        self._BtAiB_solver = _DensePosDefSolver(
+            B.T.dot(self._AiB), factor_inplace=True
+            )
 
         if build_inverse:
             Ia = np.eye(n)
