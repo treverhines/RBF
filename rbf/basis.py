@@ -5,40 +5,42 @@ predefined in this module for some of the commonly used radial basis functions.
 The predefined radial basis functions are shown in the table below. For each
 expression in the table, :math:`r = ||x - c||_2` and :math:`\epsilon` is a
 shape parameter. :math:`x` and :math:`c` are the evaluation points and radial
-basis function centers, respectively. The names of the predefined `RBF`
-instances are given in the "Abbreviation" column. The "Positive Definite"
-column identifies whether the RBFs are always positive definite and, if not,
-under what conditions they are positive definite. RBFs identified as being
-"Conditional (order i)" are conditionally positive definite with order i as
-defined in Section 7.1 of [1]. The Wendland class of RBFs are only positive
-definite for the indicated number of spatial dimensions.
+basis function centers, respectively.
 
-=================================  ============  =====================  ======================================
-Name                               Abbreviation  Positive Definite      Expression
-=================================  ============  =====================  ======================================
-Eighth-order polyharmonic spline   phs8          Conditional (order 5)  :math:`-(\epsilon r)^8\log(\epsilon r)`
-Seventh-order polyharmonic spline  phs7          Conditional (order 4)  :math:`(\epsilon r)^7`
-Sixth-order polyharmonic spline    phs6          Conditional (order 4)  :math:`(\epsilon r)^6\log(\epsilon r)`
-Fifth-order polyharmonic spline    phs5          Conditional (order 3)  :math:`-(\epsilon r)^5`
-Fourth-order polyharmonic spline   phs4          Conditional (order 3)  :math:`-(\epsilon r)^4\log(\epsilon r)`
-Third-order polyharmonic spline    phs3          Conditional (order 2)  :math:`(\epsilon r)^3`
-Second-order polyharmonic spline   phs2          Conditional (order 2)  :math:`(\epsilon r)^2\log(\epsilon r)`
-First-order polyharmonic spline    phs1          Conditional (order 1)  :math:`-\epsilon r`
-Multiquadric                       mq            Conditional (order 1)  :math:`-(1 + (\epsilon r)^2)^{1/2}`
-Inverse multiquadric               imq           Yes                    :math:`(1 + (\epsilon r)^2)^{-1/2}`
-Inverse quadratic                  iq            Yes                    :math:`(1 + (\epsilon r)^2)^{-1}`
-Gaussian                           ga            Yes                    :math:`\exp(-(\epsilon r)^2)`
-Exponential                        exp           Yes                    :math:`\exp(-r/\epsilon)`
-Squared Exponential                se            Yes                    :math:`\exp(-r^2/(2\epsilon^2))`
-Matern (v = 3/2)                   mat32         Yes                    :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`
-Matern (v = 5/2)                   mat52         Yes                    :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`
-Wendland (d=1, k=0)                wen10         Yes (1-D only)         :math:`(1 - r/\epsilon)_+`
-Wendland (d=1, k=1)                wen11         Yes (1-D only)         :math:`(1 - r/\epsilon)_+^3(3r/\epsilon + 1)`
-Wendland (d=1, k=2)                wen12         Yes (1-D only)         :math:`(1 - r/\epsilon)_+^5(8r^2/\epsilon^2 + 5r/\epsilon + 1)`
-Wendland (d=3, k=0)                wen30         Yes (1, 2, and 3-D)    :math:`(1 - r/\epsilon)_+^2`
-Wendland (d=3, k=1)                wen31         Yes (1, 2, and 3-D)    :math:`(1 - r/\epsilon)_+^4(4r/\epsilon + 1)`
-Wendland (d=3, k=2)                wen32         Yes (1, 2, and 3-D)    :math:`(1 - r/\epsilon)_+^6(35r^2/\epsilon^2 + 18r/\epsilon + 3)/3`
-=================================  ============  =====================  ======================================
+The below table also shows the conditionally positive definite (CPD) order for
+each RBF. The definition of the CPD order can be found in Section 7.1. of [1].
+For practical purposes, the CPD order is used to determine the degree of the
+polynomial that should accompany the RBF so that interpolation/PDE problems are
+well-posed. If an RBF has CPD order `m`, then it should be accompanied by a
+polynomial with degree `m-1`. If the CPD order is 0, the RBF is positive
+definite and requires no accompanying polynomial.
+
+====================================  ================================================================================  =========
+Name                                  Expression                                                                        CPD Order
+====================================  ================================================================================  =========
+phs8 (8th-order polyharmonic spline)  :math:`-(\epsilon r)^8\log(\epsilon r)`                                           5
+phs7 (7th-order polyharmonic spline)  :math:`(\epsilon r)^7`                                                            4
+phs6 (6th-order polyharmonic spline)  :math:`(\epsilon r)^6\log(\epsilon r)`                                            4
+phs5 (5th-order polyharmonic spline)  :math:`-(\epsilon r)^5`                                                           3
+phs4 (4th-order polyharmonic spline)  :math:`-(\epsilon r)^4\log(\epsilon r)`                                           3
+phs3 (3rd-order polyharmonic spline)  :math:`(\epsilon r)^3`                                                            2
+phs2 (2nd-order polyharmonic spline)  :math:`(\epsilon r)^2\log(\epsilon r)`                                            2
+phs1 (1st-order polyharmonic spline)  :math:`-\epsilon r`                                                               1
+mq (Multiquadric)                     :math:`-(1 + (\epsilon r)^2)^{1/2}`                                               1
+imq (Inverse multiquadric)            :math:`(1 + (\epsilon r)^2)^{-1/2}`                                               0
+iq (Inverse quadratic)                :math:`(1 + (\epsilon r)^2)^{-1}`                                                 0
+ga (Gaussian)                         :math:`\exp(-(\epsilon r)^2)`                                                     0
+exp (Exponential)                     :math:`\exp(-r/\epsilon)`                                                         0
+se (Squared Exponential)              :math:`\exp(-r^2/(2\epsilon^2))`                                                  0
+mat32 (Matern, v = 3/2)               :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`                       0
+mat52 (Matern, v = 5/2)               :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`  0
+wen10 (Wendland, dim=1, k=0)          :math:`(1 - r/\epsilon)_+`                                                        0
+wen11 (Wendland, dim=1, k=1)          :math:`(1 - r/\epsilon)_+^3(3r/\epsilon + 1)`                                     0
+wen12 (Wendland, dim=1, k=2)          :math:`(1 - r/\epsilon)_+^5(8r^2/\epsilon^2 + 5r/\epsilon + 1)`                   0
+wen30 (Wendland, dim=3, k=0)          :math:`(1 - r/\epsilon)_+^2`                                                      0
+wen31 (Wendland, dim=3, k=1)          :math:`(1 - r/\epsilon)_+^4(4r/\epsilon + 1)`                                     0
+wen32 (Wendland, dim=3, k=2)          :math:`(1 - r/\epsilon)_+^6(35r^2/\epsilon^2 + 18r/\epsilon + 3)/3`               0
+====================================  ================================================================================  =========
 
 References
 ----------
@@ -120,6 +122,12 @@ class RBF(object):
         is provided and `tol` is not `None`, then it will be searched before
         estimating the limit with the method describe above.
 
+    cpd_order : int, optional
+        If the RBF is known to be conditionally positive definite, then specify
+        the order here. This is used to warn about potentially ill-posed
+        problems. This defaults to 0 (i.e., assume the RBF is positive
+        definite), which prevents any warnings.
+
     Examples
     --------
     Instantiate an inverse quadratic RBF
@@ -161,18 +169,19 @@ class RBF(object):
 
     @property
     def expr(self):
-        # `expr` is read-only.
         return self._expr
 
     @property
     def tol(self):
-        # `tol` is read-only
         return self._tol
 
     @property
     def limits(self):
-        # `limits` is read-only
         return self._limits
+
+    @property
+    def cpd_order(self):
+        return self._cpd_order
 
     def __new__(cls, *args, **kwargs):
         # this keeps track of RBF and RBF subclass instances
@@ -180,7 +189,7 @@ class RBF(object):
         cls._INSTANCES += [weakref.ref(instance)]
         return instance
 
-    def __init__(self, expr, tol=None, limits=None):
+    def __init__(self, expr, tol=None, limits=None, cpd_order=0):
         ## SANITIZE `EXPR`
         # make sure `expr` is a sympy expression
         if not issubclass(type(expr), sympy.Expr):
@@ -222,6 +231,8 @@ class RBF(object):
 
         ## create the cache for numerical functions
         self._cache = {}
+
+        self._cpd_order = int(cpd_order)
 
 
     def __call__(self, x, c, eps=1.0, diff=None):
@@ -594,49 +605,49 @@ _phs8_limits = {}
 _phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 1))
 _phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 2))
 _phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 3))
-phs8 = RBF(-(_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits)
+phs8 = RBF(-(_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits, cpd_order=5)
 
 _phs7_limits = {}
 _phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 1))
 _phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 2))
 _phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 3))
-phs7 = RBF((_EPS*_R)**7, tol=1e-10, limits=_phs7_limits)
+phs7 = RBF((_EPS*_R)**7, tol=1e-10, limits=_phs7_limits, cpd_order=4)
 
 _phs6_limits = {}
 _phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 1))
 _phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 2))
 _phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 3))
-phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R), tol=1e-10, limits=_phs6_limits)
+phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R), tol=1e-10, limits=_phs6_limits, cpd_order=4)
 
 _phs5_limits = {}
 _phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 1))
 _phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 2))
 _phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 3))
-phs5 = RBF(-(_EPS*_R)**5, tol=1e-10, limits=_phs5_limits)
+phs5 = RBF(-(_EPS*_R)**5, tol=1e-10, limits=_phs5_limits, cpd_order=3)
 
 _phs4_limits = {}
 _phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 1))
 _phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 2))
 _phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 3))
-phs4 = RBF(-(_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits)
+phs4 = RBF(-(_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits, cpd_order=3)
 
 _phs3_limits = {}
 _phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 1))
 _phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 2))
 _phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 3))
-phs3 = RBF((_EPS*_R)**3, tol=1e-10, limits=_phs3_limits)
+phs3 = RBF((_EPS*_R)**3, tol=1e-10, limits=_phs3_limits, cpd_order=2)
 
 _phs2_limits = {}
 _phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 1))
 _phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 2))
 _phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 3))
-phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R), tol=1e-10, limits=_phs2_limits)
+phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R), tol=1e-10, limits=_phs2_limits, cpd_order=2)
 
 _phs1_limits = {}
 _phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 1))
 _phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 2))
 _phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 3))
-phs1 = RBF(-_EPS*_R, tol=1e-10, limits=_phs1_limits)
+phs1 = RBF(-_EPS*_R, tol=1e-10, limits=_phs1_limits, cpd_order=1)
 
 # inverse multiquadric
 imq = RBF(1/sympy.sqrt(1 + (_EPS*_R)**2))
@@ -648,7 +659,7 @@ iq = RBF(1/(1 + (_EPS*_R)**2))
 ga = RBF(sympy.exp(-(_EPS*_R)**2))
 
 # multiquadric
-mq = RBF(-sympy.sqrt(1 + (_EPS*_R)**2))
+mq = RBF(-sympy.sqrt(1 + (_EPS*_R)**2), cpd_order=1)
 
 # exponential
 exp = RBF(sympy.exp(-_R/_EPS))
@@ -676,7 +687,8 @@ _mat32_limits = {
     (1, 1): 0.0,
     (1, 1, 0): 0.0,
     (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0}
+    (0, 1, 1): 0.0
+    }
 
 _mat52_limits = {
     (0,): 1.0,
@@ -697,17 +709,20 @@ _mat52_limits = {
     (1, 1): 0.0,
     (1, 1, 0): 0.0,
     (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0}
+    (0, 1, 1): 0.0
+    }
 
 mat32 = RBF(
     (1 + sympy.sqrt(3)*_R/_EPS) * sympy.exp(-sympy.sqrt(3)*_R/_EPS),
     tol=1e-8*_EPS,
-    limits=_mat32_limits)
+    limits=_mat32_limits
+    )
 
 mat52 = RBF(
     (1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS),
     tol=1e-4*_EPS,
-    limits=_mat52_limits)
+    limits=_mat52_limits
+    )
 
 # Wendland
 _wen10_limits = {(0,): 1.0}
@@ -737,7 +752,8 @@ _wen31_limits = {
     (1, 1): 0.0,
     (1, 1, 0): 0.0,
     (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0}
+    (0, 1, 1): 0.0
+    }
 
 _wen32_limits = {
     (0,): 1.0,
@@ -758,68 +774,81 @@ _wen32_limits = {
     (1, 1): 0.0,
     (1, 1, 0): 0.0,
     (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0}
+    (0, 1, 1): 0.0
+    }
 
 wen10 = RBF(
     sympy.Piecewise(((1 - _R/_EPS), _R < _EPS), (0.0, True)),
     tol=1e-8*_EPS,
-    limits=_wen10_limits)
+    limits=_wen10_limits
+    )
 
 wen11 = RBF(
     sympy.Piecewise(((1 - _R/_EPS)**3*(3*_R/_EPS + 1), _R < _EPS), (0.0, True)),
     tol=1e-8*_EPS,
-    limits=_wen11_limits)
+    limits=_wen11_limits
+    )
 
 wen12 = RBF(
     sympy.Piecewise(((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1), _R < _EPS), (0.0, True)),
     tol=1e-8*_EPS,
-    limits=_wen12_limits)
+    limits=_wen12_limits
+    )
 
 wen30 = RBF(
     sympy.Piecewise(((1 - _R/_EPS)**2, _R < _EPS), (0.0, True)),
     tol=1e-8*_EPS,
-    limits=_wen30_limits)
+    limits=_wen30_limits
+    )
 
 wen31 = RBF(
     sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1), _R < _EPS), (0.0, True)),
     tol=1e-8*_EPS,
-    limits=_wen31_limits)
+    limits=_wen31_limits
+    )
 
 wen32 = RBF(
     sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)),
     tol=1e-8*_EPS,
-    limits=_wen32_limits)
+    limits=_wen32_limits
+    )
 
 # sparse Wendland
 spwen10 = SparseRBF(
     (1 - _R/_EPS), _EPS,
     tol=1e-8*_EPS,
-    limits=_wen10_limits)
+    limits=_wen10_limits
+    )
 
 spwen11 = SparseRBF(
     (1 - _R/_EPS)**3*(3*_R/_EPS + 1), _EPS,
     tol=1e-8*_EPS,
-    limits=_wen11_limits)
+    limits=_wen11_limits
+    )
 
 spwen12 = SparseRBF(
     (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1), _EPS,
     tol=1e-8*_EPS,
-    limits=_wen12_limits)
+    limits=_wen12_limits
+    )
 
 spwen30 = SparseRBF(
     (1 - _R/_EPS)**2, _EPS,
     tol=1e-8*_EPS,
-    limits=_wen30_limits)
+    limits=_wen30_limits
+    )
 
 spwen31 = SparseRBF(
     (1 - _R/_EPS)**4*(4*_R/_EPS + 1), _EPS,
     tol=1e-8*_EPS,
-    limits=_wen31_limits)
+    limits=_wen31_limits
+    )
 
 spwen32 = SparseRBF(
     (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS,
     tol=1e-8*_EPS,
-    limits=_wen32_limits)
+    limits=_wen32_limits
+    )
 
 _PREDEFINED = {
     'phs8':phs8, 'phs7':phs7, 'phs6':phs6, 'phs5':phs5, 'phs4':phs4,
@@ -827,4 +856,5 @@ _PREDEFINED = {
     'ga':ga, 'exp':exp, 'se':se, 'mat32':mat32, 'mat52':mat52, 'wen10':wen10,
     'wen11':wen11, 'wen12':wen12, 'wen30':wen30, 'wen31':wen31, 'wen32':wen32,
     'spwen10':spwen10, 'spwen11':spwen11, 'spwen12':spwen12, 'spwen30':spwen30,
-    'spwen31':spwen31, 'spwen32':spwen32}
+    'spwen31':spwen31, 'spwen32':spwen32
+    }

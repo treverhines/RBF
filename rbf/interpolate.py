@@ -54,7 +54,6 @@ import logging
 import numpy as np
 import scipy.sparse as sp
 
-import rbf.basis
 from rbf.linalg import PartitionedSolver
 from rbf.poly import monomial_count, mvmonos
 from rbf.basis import get_rbf
@@ -62,23 +61,6 @@ from rbf.utils import assert_shape, KDTree
 
 
 logger = logging.getLogger(__name__)
-
-
-# Interpolation with conditionally positive definite RBFs has no assurances of
-# being well posed when the order of the added polynomial is not high enough.
-# Define that minimum polynomial order here. These values are from Chapter 8 of
-# Fasshauer's "Meshfree Approximation Methods with MATLAB"
-_MIN_ORDER = {
-    rbf.basis.mq: 0,
-    rbf.basis.phs1: 0,
-    rbf.basis.phs2: 1,
-    rbf.basis.phs3: 1,
-    rbf.basis.phs4: 2,
-    rbf.basis.phs5: 2,
-    rbf.basis.phs6: 3,
-    rbf.basis.phs7: 3,
-    rbf.basis.phs8: 4
-    }
 
 
 def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
@@ -245,10 +227,7 @@ class RBFInterpolant(object):
         if not np.isscalar(eps):
             raise ValueError('`eps` must be a scalar.')
 
-        # If `phi` is not in `_MIN_ORDER`, then the RBF is either positive
-        # definite (no minimum polynomial order) or user-defined (no known
-        # minimum polynomial order)
-        min_order = _MIN_ORDER.get(phi, -1)
+        min_order = phi.cpd_order - 1
         if order is None:
             order = max(min_order, 0)
         else:
