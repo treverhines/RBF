@@ -16,7 +16,8 @@ u_obs += np.random.normal(0.0, 0.1, 100)
 # Create an RBF interpolant and specify a nonzero value for `sigma` to prevent
 # fitting the noisy data exactly. By setting `phi` to "phs2", the interpolant
 # is equivalent to a thin-plate spline.
-I = RBFInterpolant(x_obs, u_obs, sigma=0.1, phi='phs2')
+sigma = minimize(lamdba s: RBFInterpolant.gml(x_obs, u_obs, sigma=s, phi='phs2'))
+I = RBFInterpolant(x_obs, u_obs, sigma=0.1, eps=5.0, phi='ga')
 # create a grid of evaluation points
 x_itp = np.mgrid[0:1:200j, 0:1:200j].reshape(2, -1).T
 u_itp = I(x_itp) 
