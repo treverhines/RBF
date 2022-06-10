@@ -26,12 +26,12 @@ phs4 (4th-order polyharmonic spline)  :math:`-(\epsilon r)^4\log(\epsilon r)`   
 phs3 (3rd-order polyharmonic spline)  :math:`(\epsilon r)^3`                                                            2
 phs2 (2nd-order polyharmonic spline)  :math:`(\epsilon r)^2\log(\epsilon r)`                                            2
 phs1 (1st-order polyharmonic spline)  :math:`-\epsilon r`                                                               1
-mq (Multiquadric)                     :math:`-(1 + (\epsilon r)^2)^{1/2}`                                               1
-imq (Inverse multiquadric)            :math:`(1 + (\epsilon r)^2)^{-1/2}`                                               0
-iq (Inverse quadratic)                :math:`(1 + (\epsilon r)^2)^{-1}`                                                 0
+mq (multiquadric)                     :math:`-(1 + (\epsilon r)^2)^{1/2}`                                               1
+imq (inverse multiquadric)            :math:`(1 + (\epsilon r)^2)^{-1/2}`                                               0
+iq (inverse quadratic)                :math:`(1 + (\epsilon r)^2)^{-1}`                                                 0
 ga (Gaussian)                         :math:`\exp(-(\epsilon r)^2)`                                                     0
-exp (Exponential)                     :math:`\exp(-r/\epsilon)`                                                         0
-se (Squared Exponential)              :math:`\exp(-r^2/(2\epsilon^2))`                                                  0
+exp (exponential)                     :math:`\exp(-r/\epsilon)`                                                         0
+se (squared exponential)              :math:`\exp(-r^2/(2\epsilon^2))`                                                  0
 mat32 (Matern, v = 3/2)               :math:`(1 + \sqrt{3} r/\epsilon)\exp(-\sqrt{3} r/\epsilon)`                       0
 mat52 (Matern, v = 5/2)               :math:`(1 + \sqrt{5} r/\epsilon + 5r^2/(3\epsilon^2))\exp(-\sqrt{5} r/\epsilon)`  0
 wen10 (Wendland, dim=1, k=0)          :math:`(1 - r/\epsilon)_+`                                                        0
@@ -59,7 +59,7 @@ from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
 from sympy import lambdify
 
-from rbf.poly import monomial_powers
+#from rbf.poly import monomial_powers
 from rbf.utils import assert_shape
 
 logger = logging.getLogger(__name__)
@@ -101,26 +101,33 @@ class RBF(object):
     expr : sympy expression
         Sympy expression for the RBF. This must be a function of the symbolic
         variable `r`, which can be obtained by calling `get_r()` or
-        `sympy.symbols('r')`. `r` is the radial distance to the RBF center.
+        `sympy.symbols('r')`. `r` is the Euclidean distance to the RBF center.
         The expression may optionally be a function of `eps`, which is a shape
         parameter obtained by calling `get_eps()` or `sympy.symbols('eps')`.
         If `eps` is not provided then `r` is substituted with `r*eps`.
 
     tol : float or sympy expression, optional
-        This is for when an RBF or its derivatives contain a removable
-        singularity at the center. If `tol` is specified, then the limiting
-        value of the RBF at its center will be evaluated symbolically, and that
-        limit will be returned for all evaluation points, `x`, that are within
-        `tol` of the RBF center, `c`. If the limit of the RBF at `x = c` is
-        known, then it can be manually specified with the `limits` arguments.
-        `tol` can be a float or a sympy expression containing `eps`.
+        Distance from the RBF center within which the RBF expression or its
+        derivatives are not numerically stable. The symbolically evaluated
+        limit at the center is returned when evaluating points where `r < tol`.
+        This can be a float or a sympy expression containing `eps`.
+
+        If the limit of the RBF at its center is known, then it can be manually
+        specified with the `limits` arguments.
+
+    supp : float or sympy expression, optional
+        The support for the RBF if it is compact. The RBF is set to zero where
+        `r > supp`, regardless of what `expr` evaluates to. This can be a float
+        or a sympy expression containing `eps`. This should be preferred over
+        using a piecewise expression for compact RBFs due to difficulties sympy
+        has with evaluating limits of piecewise expressions.
 
     limits : dict, optional
         Contains the values of the RBF or its derivatives at the center. For
-        example, `{(0,1):2*eps}` indicates that the derivative with respect to
+        example, `{(0,1): 2*eps}` indicates that the derivative with respect to
         the second spatial dimension is `2*eps` at `x = c`. If this dictionary
         is provided and `tol` is not `None`, then it will be searched before
-        estimating the limit with the method describe above.
+        computing the limit symbolically.
 
     cpd_order : int, optional
         If the RBF is known to be conditionally positive definite, then specify
@@ -176,12 +183,27 @@ class RBF(object):
         return self._tol
 
     @property
+    def supp(self):
+        return self._supp
+
+    @property
     def limits(self):
         return self._limits
 
     @property
     def cpd_order(self):
+        '''Conditionally positive definite order for the RBF.'''
         return self._cpd_order
+
+    @property
+    def eps_is_divisor(self):
+        '''`True` if `eps` divides `r` in the RBF expression.'''
+        return self._eps_is_divisor
+
+    @property
+    def eps_is_factor(self):
+        '''`True` if `eps` multiplies `r` in the RBF expression.'''
+        return self._eps_is_factor
 
     def __new__(cls, *args, **kwargs):
         # this keeps track of RBF and RBF subclass instances
@@ -189,51 +211,66 @@ class RBF(object):
         cls._INSTANCES += [weakref.ref(instance)]
         return instance
 
-    def __init__(self, expr, tol=None, limits=None, cpd_order=0):
-        ## SANITIZE `EXPR`
-        # make sure `expr` is a sympy expression
+    def __init__(self, expr, tol=None, supp=None, limits=None, cpd_order=0):
         if not issubclass(type(expr), sympy.Expr):
-            raise ValueError('`expr` must be a sympy expression')
+            raise ValueError('`expr` must be a sympy expression.')
 
-        # make sure that `expr` does not contain any symbols other than
-        # `r` and `eps`
+        # make sure that `expr` does not contain any symbols other than `r` and
+        # `eps`
         other_symbols = expr.free_symbols.difference({_R, _EPS})
         if len(other_symbols) != 0:
             raise ValueError(
-                '`expr` cannot contain any symbols other than `r` and `eps`')
+                '`expr` cannot contain any symbols other than `r` and `eps`.'
+                )
 
-        # make sure that `expr` at least has `r`
         if not expr.has(_R):
-            raise ValueError('`expr` must contain the symbol `r`')
+            raise ValueError('`expr` must contain the symbol `r`.')
 
         if not expr.has(_EPS):
             # if `eps` is not in the expression then substitute `eps*r` for `r`
             expr = expr.subs(_R, _EPS*_R)
+            self._eps_is_factor = True
+            self._eps_is_divisor = False
+        else:
+            # Determine if `r` is multiplied by `eps`, divided by `eps`, or
+            # neither.
+            x = sympy.symbols('x')
+            self._eps_is_divisor = expr.subs(_R/_EPS, x).free_symbols == {x}
+            self._eps_is_factor = expr.subs(_EPS*_R, x).free_symbols == {x}
 
         self._expr = expr
 
-        ## SANITIZE `TOL`
         if tol is not None:
             # make sure `tol` is a scalar or a sympy expression of `eps`
             tol = sympy.sympify(tol)
             other_symbols = tol.free_symbols.difference({_EPS})
             if len(other_symbols) != 0:
                 raise ValueError(
-                    '`tol` cannot contain any symbols other than `eps`')
+                    '`tol` cannot contain any symbols other than `eps`.'
+                    )
 
         self._tol = tol
 
-        ## SANITIZE `LIMITS`
+        if supp is not None:
+            # make sure `supp` is a scalar or a sympy expression of `eps`
+            supp = sympy.sympify(supp)
+            other_symbols = supp.free_symbols.difference({_EPS})
+            if len(other_symbols) != 0:
+                raise ValueError(
+                    '`supp` cannot contain any symbols other than `eps`.'
+                    )
+
+        self._supp = supp
+
         if limits is None:
             limits = {}
 
         self._limits = limits
 
-        ## create the cache for numerical functions
-        self._cache = {}
-
         self._cpd_order = int(cpd_order)
 
+        ## create the cache for numerical functions
+        self._cache = {}
 
     def __call__(self, x, c, eps=1.0, diff=None):
         '''
@@ -304,9 +341,8 @@ class RBF(object):
         c = np.einsum('...ij->j...i', c)[..., None, :]
         # reshape eps from (..., m) to (..., 1, m)
         eps = eps[..., None, :]
-        args = (tuple(x) + tuple(c) + (eps,))
         # evaluate the cached function for the given `x`, `c`, and `eps`
-        out = self._cache[diff](*args)
+        out = self._cache[diff](*x, *c, eps)
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
@@ -332,11 +368,17 @@ class RBF(object):
         if diff not in self._cache:
             self._add_diff_to_cache(diff)
 
-        args = (0.0,)*(2*len(diff)) + (eps,)
-        return self._cache[diff](*args)
+        x = (0.0,)*len(diff)
+        return self._cache[diff](*x, *x, eps)
 
     def __repr__(self):
-        out = '<RBF : %s>' % str(self.expr)
+        if self.supp is not None:
+            out = '<%s: %s (support=%s)>' % (
+                type(self).__name__, str(self.expr), str(self.supp)
+                )
+        else:
+            out = '<%s: %s>' % (type(self).__name__, str(self.expr))
+
         return out
 
     def _add_diff_to_cache(self, diff):
@@ -346,7 +388,8 @@ class RBF(object):
         '''
         logger.debug(
             'Creating a numerical function for the RBF %s with the derivative '
-            '%s ...' % (self, str(diff)))
+            '%s ...' % (self, str(diff))
+            )
 
         dim = len(diff)
         c_sym = sympy.symbols('c:%s' % dim)
@@ -357,10 +400,7 @@ class RBF(object):
         # variables and differentiate the RBF with respect to them
         expr = self.expr.subs(_R, r_sym)
         for xi, order in zip(x_sym, diff):
-            if order == 0:
-                continue
-
-            expr = expr.diff(*(xi,)*order)
+            expr = expr.diff(xi, order)
 
         # if `tol` is given, form a separate expression for the RBF near its
         # center
@@ -371,16 +411,25 @@ class RBF(object):
 
             else:
                 logger.debug(
-                    'Symbolically evaluating the RBF at its center ...')
+                    'Symbolically evaluating the RBF %s with the derivative '
+                    '%s at its center ...' % (self, str(diff))
+                    )
+
                 # evaluate the limit of the RBF at (x0=tol+c0, x1=c1, x2=c2,
                 # ...) as tol goes to zero.
                 lim = expr.subs(zip(x_sym[1:], c_sym[1:]))
                 lim = lim.limit(x_sym[0], c_sym[0])
-                logger.debug('Value of the RBF at its center: %s' % lim)
+                logger.debug('Value at the center: %s' % lim)
 
-            # create a piecewise symbolic function which is `lim` when
-            # `r_sym < tol` and `expr` otherwise
-            expr = sympy.Piecewise((lim, r_sym < self.tol), (expr, True))
+            # create a piecewise symbolic function which is `lim` when `r_sym
+            # <= tol` and `expr` otherwise. Use `<=` so that the tolerance can
+            # be exactly zero.
+            expr = sympy.Piecewise((lim, r_sym <= self.tol), (expr, True))
+
+        if self.supp is not None:
+            # create a piecewise symbolic function which is `expr` when `r_sym
+            # <= supp` and 0 otherwise.
+            expr = sympy.Piecewise((expr, r_sym <= self.supp), (0, True))
 
         if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':
             func = ufuncify(x_sym + c_sym + (_EPS,), expr, backend='numpy')
@@ -392,12 +441,12 @@ class RBF(object):
             raise ValueError()
 
         self._cache[diff] = func
-        logger.debug('The numeric function has been created and cached')
+        logger.debug('The numeric function has been created and cached.')
 
     def clear_cache(self):
         '''
         Clears the cache of numeric functions. Makes a cache dictionary if it
-        does not already exist
+        does not already exist.
         '''
         self._cache = {}
 
@@ -424,48 +473,42 @@ class SparseRBF(RBF):
     expr : sympy expression
         Sympy expression for the RBF. This must be a function of the symbolic
         variable `r`, which can be obtained by calling `get_r()` or
-        `sympy.symbols('r')`. `r` is the radial distance to the RBF center.
+        `sympy.symbols('r')`. `r` is the Euclidean distance to the RBF center.
         The expression may optionally be a function of `eps`, which is a shape
         parameter obtained by calling `get_eps()` or `sympy.symbols('eps')`.
         If `eps` is not provided then `r` is substituted with `r*eps`.
 
-    support : float or sympy expression
-        Indicates the support of the RBF. The RBF is set to zero for radial
-        distances greater than `support`, regardless of what `expr` evaluates
-        to. This can be a float or a sympy expression containing `eps`.
+    supp : float or sympy expression
+        Indicates the support of the RBF. The RBF is set to zero where
+        `r > supp`, regardless of what `expr` evaluates to. This can be a
+        float or a sympy expression containing `eps`.
 
     tol : float or sympy expression, optional
-        This is for when an RBF or its derivatives contain a removable
-        singularity at the center. If `tol` is specified, then the limiting
-        value of the RBF at its center will be evaluated symbolically, and that
-        limit will be returned for all evaluation points, `x`, that are within
-        `tol` of the RBF center, `c`. If the limit of the RBF at `x = c` is
-        known, then it can be manually specified with the `limits` arguments.
-        `tol` can be a float or a sympy expression containing `eps`.
+        Distance from the RBF center within which the RBF expression or its
+        derivatives are not numerically stable. The symbolically evaluated
+        limit at the center is returned when evaluating points where `r < tol`.
+        This can be a float or a sympy expression containing `eps`.
+
+        If the limit of the RBF at its center is known, then it can be manually
+        specified with the `limits` arguments.
 
     limits : dict, optional
         Contains the values of the RBF or its derivatives at the center. For
-        example, `{(0, 1):2*eps}` indicates that the derivative with respect to
+        example, `{(0,1): 2*eps}` indicates that the derivative with respect to
         the second spatial dimension is `2*eps` at `x = c`. If this dictionary
         is provided and `tol` is not `None`, then it will be searched before
-        estimating the limit with the method describe above.
+        computing the limit symbolically.
+
+    cpd_order : int, optional
+        If the RBF is known to be conditionally positive definite, then specify
+        the order here. This is used to warn about potentially ill-posed
+        problems. This defaults to 0 (i.e., assume the RBF is positive
+        definite), which prevents any warnings.
 
     '''
-    @property
-    def supp(self):
-        return self._supp
-
     def __init__(self, expr, supp, **kwargs):
-        RBF.__init__(self, expr, **kwargs)
-        ## SANITIZE `SUPP`
-        # make sure `supp` is a scalar or a sympy expression of `eps`
-        supp = sympy.sympify(supp)
-        other_symbols = supp.free_symbols.difference({_EPS})
-        if len(other_symbols) != 0:
-            raise ValueError(
-                '`supp` cannot contain any symbols other than `eps`')
-
-        self._supp = supp
+        # make `supp` a required argument
+        RBF.__init__(self, expr, supp=supp, **kwargs)
 
     def __call__(self, x, c, eps=1.0, diff=None):
         '''
@@ -538,20 +581,13 @@ class SparseRBF(RBF):
         for i, idxi in enumerate(idx):
             # `m` is the number of nodes in `x` close to `c[i]`
             m = len(idxi)
-            args = tuple(x[idxi].T) + tuple(c[i]) + (eps,)
-            data[n:n + m] = self._cache[diff](*args)
+            data[n:n + m] = self._cache[diff](*x[idxi].T, *c[i], eps)
             rows[n:n + m] = idxi
             cols[n:n + m] = i
             n += m
 
         # convert to a csc_matrix
         out = csc_matrix((data, (rows, cols)), (len(x), len(c)))
-        return out
-
-    def __repr__(self):
-        out = (
-            '<SparseRBF : %s (support = %s)>' %
-            (str(self.expr), str(self.supp)))
         return out
 
 
@@ -579,7 +615,8 @@ def get_rbf(val):
     else:
         raise ValueError(
             "Cannot interpret '%s' as an RBF. Use one of %s"
-            % (val, set(_PREDEFINED.keys())))
+            % (val, set(_PREDEFINED.keys()))
+            )
 
 
 def set_symbolic_to_numeric_method(method):
@@ -601,53 +638,15 @@ def set_symbolic_to_numeric_method(method):
 
 ## Instantiate some common RBFs
 #####################################################################
-_phs8_limits = {}
-_phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 1))
-_phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 2))
-_phs8_limits.update((tuple(i), 0.0) for i in monomial_powers(7, 3))
-phs8 = RBF(-(_EPS*_R)**8*sympy.log(_EPS*_R), tol=1e-10, limits=_phs8_limits, cpd_order=5)
-
-_phs7_limits = {}
-_phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 1))
-_phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 2))
-_phs7_limits.update((tuple(i), 0.0) for i in monomial_powers(6, 3))
-phs7 = RBF((_EPS*_R)**7, tol=1e-10, limits=_phs7_limits, cpd_order=4)
-
-_phs6_limits = {}
-_phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 1))
-_phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 2))
-_phs6_limits.update((tuple(i), 0.0) for i in monomial_powers(5, 3))
-phs6 = RBF((_EPS*_R)**6*sympy.log(_EPS*_R), tol=1e-10, limits=_phs6_limits, cpd_order=4)
-
-_phs5_limits = {}
-_phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 1))
-_phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 2))
-_phs5_limits.update((tuple(i), 0.0) for i in monomial_powers(4, 3))
-phs5 = RBF(-(_EPS*_R)**5, tol=1e-10, limits=_phs5_limits, cpd_order=3)
-
-_phs4_limits = {}
-_phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 1))
-_phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 2))
-_phs4_limits.update((tuple(i), 0.0) for i in monomial_powers(3, 3))
-phs4 = RBF(-(_EPS*_R)**4*sympy.log(_EPS*_R), tol=1e-10, limits=_phs4_limits, cpd_order=3)
-
-_phs3_limits = {}
-_phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 1))
-_phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 2))
-_phs3_limits.update((tuple(i), 0.0) for i in monomial_powers(2, 3))
-phs3 = RBF((_EPS*_R)**3, tol=1e-10, limits=_phs3_limits, cpd_order=2)
-
-_phs2_limits = {}
-_phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 1))
-_phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 2))
-_phs2_limits.update((tuple(i), 0.0) for i in monomial_powers(1, 3))
-phs2 = RBF((_EPS*_R)**2*sympy.log(_EPS*_R), tol=1e-10, limits=_phs2_limits, cpd_order=2)
-
-_phs1_limits = {}
-_phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 1))
-_phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 2))
-_phs1_limits.update((tuple(i), 0.0) for i in monomial_powers(0, 3))
-phs1 = RBF(-_EPS*_R, tol=1e-10, limits=_phs1_limits, cpd_order=1)
+# polyharmonic splines
+phs8 = RBF(-(_EPS*_R)**8*sympy.log(_EPS*_R), tol=0.0, cpd_order=5)
+phs7 = RBF( (_EPS*_R)**7,                    tol=0.0, cpd_order=4)
+phs6 = RBF( (_EPS*_R)**6*sympy.log(_EPS*_R), tol=0.0, cpd_order=4)
+phs5 = RBF(-(_EPS*_R)**5,                    tol=0.0, cpd_order=3)
+phs4 = RBF(-(_EPS*_R)**4*sympy.log(_EPS*_R), tol=0.0, cpd_order=3)
+phs3 = RBF( (_EPS*_R)**3,                    tol=0.0, cpd_order=2)
+phs2 = RBF( (_EPS*_R)**2*sympy.log(_EPS*_R), tol=0.0, cpd_order=2)
+phs1 = RBF(-(_EPS*_R),                       tol=0.0, cpd_order=1)
 
 # inverse multiquadric
 imq = RBF(1/sympy.sqrt(1 + (_EPS*_R)**2))
@@ -668,187 +667,26 @@ exp = RBF(sympy.exp(-_R/_EPS))
 se = RBF(sympy.exp(-_R**2/(2*_EPS**2)))
 
 # Matern
-_mat32_limits = {
-    (0,): 1.0,
-    (0, 0): 1.0,
-    (0, 0, 0): 1.0,
-    (1,): 0.0,
-    (1, 0): 0.0,
-    (0, 1): 0.0,
-    (1, 0, 0): 0.0,
-    (0, 1, 0): 0.0,
-    (0, 0, 1): 0.0,
-    (2,): -3.0/_EPS**2,
-    (2, 0): -3.0/_EPS**2,
-    (0, 2): -3.0/_EPS**2,
-    (2, 0, 0): -3.0/_EPS**2,
-    (0, 2, 0): -3.0/_EPS**2,
-    (0, 0, 2): -3.0/_EPS**2,
-    (1, 1): 0.0,
-    (1, 1, 0): 0.0,
-    (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0
-    }
-
-_mat52_limits = {
-    (0,): 1.0,
-    (0, 0): 1.0,
-    (0, 0, 0): 1.0,
-    (1,): 0.0,
-    (1, 0): 0.0,
-    (0, 1): 0.0,
-    (1, 0, 0): 0.0,
-    (0, 1, 0): 0.0,
-    (0, 0, 1): 0.0,
-    (2,): -5.0/(3.0*_EPS**2),
-    (2, 0): -5.0/(3.0*_EPS**2),
-    (0, 2): -5.0/(3.0*_EPS**2),
-    (2, 0, 0): -5.0/(3.0*_EPS**2),
-    (0, 2, 0): -5.0/(3.0*_EPS**2),
-    (0, 0, 2): -5.0/(3.0*_EPS**2),
-    (1, 1): 0.0,
-    (1, 1, 0): 0.0,
-    (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0
-    }
-
-mat32 = RBF(
-    (1 + sympy.sqrt(3)*_R/_EPS) * sympy.exp(-sympy.sqrt(3)*_R/_EPS),
-    tol=1e-8*_EPS,
-    limits=_mat32_limits
-    )
-
-mat52 = RBF(
-    (1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS),
-    tol=1e-4*_EPS,
-    limits=_mat52_limits
-    )
+mat32 = RBF((1 + sympy.sqrt(3)*_R/_EPS) * sympy.exp(-sympy.sqrt(3)*_R/_EPS), tol=1e-8*_EPS)
+mat52 = RBF((1 + sympy.sqrt(5)*_R/_EPS + 5*_R**2/(3*_EPS**2)) * sympy.exp(-sympy.sqrt(5)*_R/_EPS), tol=1e-4*_EPS)
 
 # Wendland
-_wen10_limits = {(0,): 1.0}
+wen10 = RBF((1 - _R/_EPS),                                      supp=_EPS, tol=1e-8*_EPS)
+wen11 = RBF((1 - _R/_EPS)**3*(3*_R/_EPS + 1),                   supp=_EPS, tol=1e-8*_EPS)
+wen12 = RBF((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1), supp=_EPS, tol=1e-8*_EPS)
 
-_wen11_limits = {(0,): 1.0, (1,): 0.0, (2,): -12.0/_EPS**2}
-
-_wen12_limits = {(0,): 1.0, (1,): 0.0, (2,): -14.0/_EPS**2}
-
-_wen30_limits = {(0,): 1.0, (0, 0): 1.0, (0, 0, 0): 1.0}
-
-_wen31_limits = {
-    (0,): 1.0,
-    (0, 0): 1.0,
-    (0, 0, 0): 1.0,
-    (1,): 0.0,
-    (1, 0): 0.0,
-    (0, 1): 0.0,
-    (1, 0, 0): 0.0,
-    (0, 1, 0): 0.0,
-    (0, 0, 1): 0.0,
-    (2,): -20.0/_EPS**2,
-    (2, 0): -20.0/_EPS**2,
-    (0, 2): -20.0/_EPS**2,
-    (2, 0, 0): -20.0/_EPS**2,
-    (0, 2, 0): -20.0/_EPS**2,
-    (0, 0, 2): -20.0/_EPS**2,
-    (1, 1): 0.0,
-    (1, 1, 0): 0.0,
-    (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0
-    }
-
-_wen32_limits = {
-    (0,): 1.0,
-    (0, 0): 1.0,
-    (0, 0, 0): 1.0,
-    (1,): 0,
-    (1, 0): 0.0,
-    (0, 1): 0.0,
-    (1, 0, 0): 0.0,
-    (0, 1, 0): 0.0,
-    (0, 0, 1): 0.0,
-    (2,): -56.0/(3.0*_EPS**2),
-    (2, 0): -56.0/(3.0*_EPS**2),
-    (0, 2): -56.0/(3.0*_EPS**2),
-    (2, 0, 0): -56.0/(3.0*_EPS**2),
-    (0, 2, 0): -56.0/(3.0*_EPS**2),
-    (0, 0, 2): -56.0/(3.0*_EPS**2),
-    (1, 1): 0.0,
-    (1, 1, 0): 0.0,
-    (1, 0, 1): 0.0,
-    (0, 1, 1): 0.0
-    }
-
-wen10 = RBF(
-    sympy.Piecewise(((1 - _R/_EPS), _R < _EPS), (0.0, True)),
-    tol=1e-8*_EPS,
-    limits=_wen10_limits
-    )
-
-wen11 = RBF(
-    sympy.Piecewise(((1 - _R/_EPS)**3*(3*_R/_EPS + 1), _R < _EPS), (0.0, True)),
-    tol=1e-8*_EPS,
-    limits=_wen11_limits
-    )
-
-wen12 = RBF(
-    sympy.Piecewise(((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1), _R < _EPS), (0.0, True)),
-    tol=1e-8*_EPS,
-    limits=_wen12_limits
-    )
-
-wen30 = RBF(
-    sympy.Piecewise(((1 - _R/_EPS)**2, _R < _EPS), (0.0, True)),
-    tol=1e-8*_EPS,
-    limits=_wen30_limits
-    )
-
-wen31 = RBF(
-    sympy.Piecewise(((1 - _R/_EPS)**4*(4*_R/_EPS + 1), _R < _EPS), (0.0, True)),
-    tol=1e-8*_EPS,
-    limits=_wen31_limits
-    )
-
-wen32 = RBF(
-    sympy.Piecewise(((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _R < _EPS), (0.0, True)),
-    tol=1e-8*_EPS,
-    limits=_wen32_limits
-    )
+wen30 = RBF((1 - _R/_EPS)**2,                                       supp=_EPS, tol=1e-8*_EPS)
+wen31 = RBF((1 - _R/_EPS)**4*(4*_R/_EPS + 1),                       supp=_EPS, tol=1e-8*_EPS)
+wen32 = RBF((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, supp=_EPS, tol=1e-8*_EPS)
 
 # sparse Wendland
-spwen10 = SparseRBF(
-    (1 - _R/_EPS), _EPS,
-    tol=1e-8*_EPS,
-    limits=_wen10_limits
-    )
+spwen10 = SparseRBF((1 - _R/_EPS),                                      supp=_EPS, tol=1e-8*_EPS)
+spwen11 = SparseRBF((1 - _R/_EPS)**3*(3*_R/_EPS + 1),                   supp=_EPS, tol=1e-8*_EPS)
+spwen12 = SparseRBF((1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1), supp=_EPS, tol=1e-8*_EPS)
 
-spwen11 = SparseRBF(
-    (1 - _R/_EPS)**3*(3*_R/_EPS + 1), _EPS,
-    tol=1e-8*_EPS,
-    limits=_wen11_limits
-    )
-
-spwen12 = SparseRBF(
-    (1 - _R/_EPS)**5*(8*_R**2/_EPS**2 + 5*_R/_EPS + 1), _EPS,
-    tol=1e-8*_EPS,
-    limits=_wen12_limits
-    )
-
-spwen30 = SparseRBF(
-    (1 - _R/_EPS)**2, _EPS,
-    tol=1e-8*_EPS,
-    limits=_wen30_limits
-    )
-
-spwen31 = SparseRBF(
-    (1 - _R/_EPS)**4*(4*_R/_EPS + 1), _EPS,
-    tol=1e-8*_EPS,
-    limits=_wen31_limits
-    )
-
-spwen32 = SparseRBF(
-    (1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, _EPS,
-    tol=1e-8*_EPS,
-    limits=_wen32_limits
-    )
+spwen30 = SparseRBF((1 - _R/_EPS)**2,                                       supp=_EPS, tol=1e-8*_EPS)
+spwen31 = SparseRBF((1 - _R/_EPS)**4*(4*_R/_EPS + 1),                       supp=_EPS, tol=1e-8*_EPS)
+spwen32 = SparseRBF((1 - _R/_EPS)**6*(35*_R**2/_EPS**2 + 18*_R/_EPS + 3)/3, supp=_EPS, tol=1e-8*_EPS)
 
 _PREDEFINED = {
     'phs8':phs8, 'phs7':phs7, 'phs6':phs6, 'phs5':phs5, 'phs4':phs4,
