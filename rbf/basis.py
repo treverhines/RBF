@@ -333,9 +333,9 @@ class RBF(object):
             self._add_diff_to_cache(diff)
 
         # reshape x from (..., n, d) to (d, ..., n, 1)
-        x = np.einsum('...ij->j...i', x)[..., None]
+        x = x.transpose(-1, *range(x.ndim - 1))[..., None]
         # reshape c from (..., m, d) to (d, ..., 1, m)
-        c = np.einsum('...ij->j...i', c)[..., None, :]
+        c = c.transpose(-1, *range(c.ndim - 1))[..., None, :]
         # reshape eps from (..., m) to (..., 1, m)
         eps = eps[..., None, :]
         # evaluate the cached function for the given `x`, `c`, and `eps`
