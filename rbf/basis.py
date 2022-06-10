@@ -387,8 +387,8 @@ class RBF(object):
         a function which can be evaluated numerically.
         '''
         logger.debug(
-            'Creating a numerical function for the RBF %s with the derivative '
-            '%s ...' % (self, str(diff))
+            'Creating a numerical function for %s with the derivative %s ...'
+            % (self, str(diff))
             )
 
         dim = len(diff)
@@ -411,15 +411,14 @@ class RBF(object):
 
             else:
                 logger.debug(
-                    'Symbolically evaluating the RBF %s with the derivative '
-                    '%s at its center ...' % (self, str(diff))
+                    'Symbolically evaluating the limit at the center ...'
                     )
 
                 # evaluate the limit of the RBF at (x0=tol+c0, x1=c1, x2=c2,
                 # ...) as tol goes to zero.
                 lim = expr.subs(zip(x_sym[1:], c_sym[1:]))
                 lim = lim.limit(x_sym[0], c_sym[0])
-                logger.debug('Value at the center: %s' % lim)
+                logger.debug('Limit at the center: %s' % lim)
 
             # create a piecewise symbolic function which is `lim` when `r_sym
             # <= tol` and `expr` otherwise. Use `<=` so that the tolerance can
