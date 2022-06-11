@@ -95,7 +95,10 @@ def _gml(d, K, P):
     K_proj = Q2.T.dot(K).dot(Q2)
     d_proj = Q2.T.dot(d)
     try:
-        factor = PosDefSolver(K_proj)
+        # Even though `K` may not be positive definite, it should be positive
+        # definite when projected to the space orthogonal to the monomials
+        # (assuming the degree of the monomials is sufficiently high).
+        factor = PosDefSolver(K_proj, factor_inplace=True)
     except np.linalg.LinAlgError:
         return np.nan
 
@@ -142,7 +145,11 @@ def _loocv(d, K, P):
     A[:n, :n] = K
     A[:n, n:] = P
     A[n:, :n] = P.T
-    Ainv = np.linalg.inv(A)
+    try:
+        Ainv = np.linalg.inv(A)
+    except np.linalg.LinAlgError:
+        return np.nan
+
     soln = Ainv[:, :n].dot(d)
     errors = soln[:n] / np.diag(Ainv[:n, :n])[:, None]
     out = np.linalg.norm(errors)
@@ -292,6 +299,7 @@ def _sanitize_arguments(y, d, sigma, phi, eps, order, neighbors):
 
     return y, d, sigma, phi, eps, order, neighbors
 
+
 class RBFInterpolant(object):
     '''
     Radial basis function interpolant for scattered data.
@@ -312,16 +320,18 @@ class RBFInterpolant(object):
         uncertainties for the observations. This defaults to zeros.
 
     eps : float, optional
-        Shape parameter.
+        Shape parameter. Defaults to 1.0.
 
     phi : rbf.basis.RBF instance or str, optional
         The type of RBF. This can be an `rbf.basis.RBF` instance or the RBF
-        name as a string. See `rbf.basis` for the available options.
+        name as a string. See `rbf.basis` for the available options. Defaults
+        to "phs3".
 
     order : int, optional
-        Order of the added polynomial terms. Set this to `-1` for no added
+        Order of the added polynomial terms. Set this to -1 for no added
         polynomial terms. If `phi` is a conditionally positive definite RBF of
-        order `m`, then this value should be at least `m - 1`.
+        order `q`, then this value should be at least `q - 1`. Defaults to the
+        `max(q - 1, 0)`.
 
     neighbors : int, optional
         If given, create an interpolant at each evaluation point using this
@@ -443,7 +453,8 @@ class RBFInterpolant(object):
 
         chunk_size : int, optional
             Break `x` into chunks with this size and evaluate the interpolant
-            for each chunk.
+            for each chunk. This is use to balance performance and memory
+            usage, and it does not affect the output.
 
         Returns
         -------
