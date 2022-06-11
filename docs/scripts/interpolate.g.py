@@ -36,7 +36,7 @@ u_itp = interp(x_itp)
 # We could also minimize the LOOCV score ourselves with the `loocv` method.
 # This may be helpful for better exploring the objective function.
 sigmas = 10**np.linspace(-2.5, 0.5, 100)
-loocvs = [interp.loocv(x_obs, u_obs, sigma=s) for s in sigmas]
+loocvs = [RBFInterpolant.loocv(x_obs, u_obs, sigma=s) for s in sigmas]
 opt_sigma = sigmas[np.argmin(loocvs)]
 print('optimal sigma: %s' % opt_sigma)
 
