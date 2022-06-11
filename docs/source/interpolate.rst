@@ -6,8 +6,8 @@ interpolate
 
 Examples
 --------
-.. literalinclude:: ../scripts/interpolate.a.py
-.. image:: ../figures/interpolate.a.png
+.. literalinclude:: ../scripts/interpolate.f.py
+.. image:: ../figures/interpolate.f.png
 
 .. literalinclude:: ../scripts/interpolate.b.py
 .. image:: ../figures/interpolate.b.1.png
