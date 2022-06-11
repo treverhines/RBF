@@ -60,7 +60,6 @@ from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
 from sympy import lambdify
 
-#from rbf.poly import monomial_powers
 from rbf.utils import assert_shape
 
 logger = logging.getLogger(__name__)
@@ -130,9 +129,8 @@ class RBF(object):
 
     cpd_order : int, optional
         If the RBF is known to be conditionally positive definite, then specify
-        the order here. This is used to warn about potentially ill-posed
-        problems. This defaults to 0 (i.e., assume the RBF is positive
-        definite), which prevents any warnings.
+        the order here. This is saved as an attribute and is otherwise unused
+        by this class.
 
     Examples
     --------
@@ -208,7 +206,7 @@ class RBF(object):
         cls._INSTANCES += [weakref.ref(instance)]
         return instance
 
-    def __init__(self, expr, tol=None, supp=None, limits=None, cpd_order=0):
+    def __init__(self, expr, tol=None, supp=None, limits=None, cpd_order=None):
         if not issubclass(type(expr), sympy.Expr):
             raise ValueError('`expr` must be a sympy expression.')
 
@@ -263,9 +261,7 @@ class RBF(object):
             limits = {}
 
         self._limits = limits
-
-        self._cpd_order = int(cpd_order)
-
+        self._cpd_order = cpd_order
         ## create the cache for numerical functions
         self._cache = {}
 
@@ -276,17 +272,16 @@ class RBF(object):
         Parameters
         ----------
         x : (..., N, D) float array
-            Evaluation points
+            Evaluation points in D-dimensional space.
 
         c : (..., M, D) float array
-            RBF centers
+            RBF centers in D-dimensional space.
 
         eps : float or float array, optional
-            Shape parameter for each RBF
+            Shape parameter for each RBF.
 
         diff : (D,) int array, optional
-            Specifies the derivative order for each spatial dimension. For
-            example, if there are three spatial dimensions then providing
+            Derivative order for each dimension. For example, providing
             (2, 0, 1) would cause this function to return the RBF after
             differentiating it twice along the first dimension and once along
             the third dimension.
@@ -294,7 +289,7 @@ class RBF(object):
         Returns
         -------
         (..., N, M) float array
-            The RBFs with centers `c` evaluated at `x`
+            The RBFs with centers `c` evaluated at `x`.
 
         Notes
         -----
@@ -351,10 +346,10 @@ class RBF(object):
         Parameters
         ----------
         eps : float, optional
-            Shape parameter
+            Shape parameter.
 
         diff : tuple, optional
-            Derivative order for each spatial dimension
+            Derivative order for each dimension.
 
         Returns
         -------
@@ -498,9 +493,8 @@ class SparseRBF(RBF):
 
     cpd_order : int, optional
         If the RBF is known to be conditionally positive definite, then specify
-        the order here. This is used to warn about potentially ill-posed
-        problems. This defaults to 0 (i.e., assume the RBF is positive
-        definite), which prevents any warnings.
+        the order here. This is saved as an attribute and is otherwise unused
+        by this class.
 
     '''
     def __init__(self, expr, supp, **kwargs):
@@ -514,25 +508,24 @@ class SparseRBF(RBF):
         Parameters
         ----------
         x : (N, D) float array
-            Evaluation points
+            Evaluation points in D-dimensional space.
 
         c : (M, D) float array
-            RBF centers
+            RBF centers in D-dimensional space.
 
         eps : float, optional
-            Shape parameter
+            Shape parameter.
 
         diff : (D,) int array, optional
-            Specifies the derivative order for each Cartesian direction. For
-            example, if there are three spatial dimensions then providing
+            Derivative order for each dimension. For example, providing
             (2, 0, 1) would cause this function to return the RBF after
-            differentiating it twice along the first axis and once along the
-            third axis.
+            differentiating it twice along the first dimension and once along
+            the third dimension.
 
         Returns
         -------
         out : (N, M) csc sparse matrix
-            The RBFs with centers `c` evaluated at `x`
+            The RBFs with centers `c` evaluated at `x`.
 
         '''
         x = np.asarray(x, dtype=float)
@@ -543,7 +536,7 @@ class SparseRBF(RBF):
         assert_shape(c, (None, ndim), 'c')
 
         if not np.isscalar(eps):
-            raise NotImplementedError('`eps` must be a scalar')
+            raise NotImplementedError('`eps` must be a scalar.')
 
         if diff is None:
             diff = (0,)*ndim
@@ -597,22 +590,22 @@ def clear_rbf_caches():
             inst().clear_cache()
 
 
-def get_rbf(val):
+def get_rbf(value):
     '''
-    Returns the `RBF` corresponding to `val`. If `val` is a string, then this
-    return the correspondingly named predefined `RBF`. If `val` is an RBF
-    instance then this returns `val`.
+    Returns the `RBF` corresponding to `value`. If `value` is a string, then
+    this return the correspondingly named predefined `RBF`. If `value` is an
+    RBF instance then this returns `value`.
     '''
-    if issubclass(type(val), RBF):
-        return val
+    if issubclass(type(value), RBF):
+        return value
 
-    elif val in _PREDEFINED:
-        return _PREDEFINED[val]
+    elif value in _PREDEFINED:
+        return _PREDEFINED[value]
 
     else:
         raise ValueError(
             "Cannot interpret '%s' as an RBF. Use one of %s"
-            % (val, set(_PREDEFINED.keys()))
+            % (value, set(_PREDEFINED.keys()))
             )
 
 
@@ -646,44 +639,44 @@ phs2 = RBF( (EPS*R)**2*sympy.log(EPS*R), tol=0.0, cpd_order=2)
 phs1 = RBF(-(EPS*R),                     tol=0.0, cpd_order=1)
 
 # inverse multiquadric
-imq = RBF(1/sympy.sqrt(1 + (EPS*R)**2))
+imq = RBF(1/sympy.sqrt(1 + (EPS*R)**2), cpd_order=0)
 
 # inverse quadratic
-iq = RBF(1/(1 + (EPS*R)**2))
+iq = RBF(1/(1 + (EPS*R)**2), cpd_order=0)
 
 # Gaussian
-ga = RBF(sympy.exp(-(EPS*R)**2))
+ga = RBF(sympy.exp(-(EPS*R)**2), cpd_order=0)
 
 # multiquadric
 mq = RBF(-sympy.sqrt(1 + (EPS*R)**2), cpd_order=1)
 
 # exponential
-exp = RBF(sympy.exp(-R/EPS))
+exp = RBF(sympy.exp(-R/EPS), cpd_order=0)
 
 # squared exponential
-se = RBF(sympy.exp(-R**2/(2*EPS**2)))
+se = RBF(sympy.exp(-R**2/(2*EPS**2)), cpd_order=0)
 
 # Matern
-mat32 = RBF((1 + sympy.sqrt(3)*R/EPS) * sympy.exp(-sympy.sqrt(3)*R/EPS), tol=1e-8*EPS)
-mat52 = RBF((1 + sympy.sqrt(5)*R/EPS + 5*R**2/(3*EPS**2)) * sympy.exp(-sympy.sqrt(5)*R/EPS), tol=1e-4*EPS)
+mat32 = RBF((1 + sympy.sqrt(3)*R/EPS) * sympy.exp(-sympy.sqrt(3)*R/EPS), tol=1e-8*EPS, cpd_order=0)
+mat52 = RBF((1 + sympy.sqrt(5)*R/EPS + 5*R**2/(3*EPS**2)) * sympy.exp(-sympy.sqrt(5)*R/EPS), tol=1e-4*EPS, cpd_order=0)
 
 # Wendland
-wen10 = RBF((1 - R/EPS),                                  supp=EPS, tol=1e-8*EPS)
-wen11 = RBF((1 - R/EPS)**3*(3*R/EPS + 1),                 supp=EPS, tol=1e-8*EPS)
-wen12 = RBF((1 - R/EPS)**5*(8*R**2/EPS**2 + 5*R/EPS + 1), supp=EPS, tol=1e-8*EPS)
+wen10 = RBF((1 - R/EPS),                                  supp=EPS, tol=1e-8*EPS, cpd_order=0)
+wen11 = RBF((1 - R/EPS)**3*(3*R/EPS + 1),                 supp=EPS, tol=1e-8*EPS, cpd_order=0)
+wen12 = RBF((1 - R/EPS)**5*(8*R**2/EPS**2 + 5*R/EPS + 1), supp=EPS, tol=1e-8*EPS, cpd_order=0)
 
-wen30 = RBF((1 - R/EPS)**2,                                   supp=EPS, tol=1e-8*EPS)
-wen31 = RBF((1 - R/EPS)**4*(4*R/EPS + 1),                     supp=EPS, tol=1e-8*EPS)
-wen32 = RBF((1 - R/EPS)**6*(35*R**2/EPS**2 + 18*R/EPS + 3)/3, supp=EPS, tol=1e-8*EPS)
+wen30 = RBF((1 - R/EPS)**2,                                   supp=EPS, tol=1e-8*EPS, cpd_order=0)
+wen31 = RBF((1 - R/EPS)**4*(4*R/EPS + 1),                     supp=EPS, tol=1e-8*EPS, cpd_order=0)
+wen32 = RBF((1 - R/EPS)**6*(35*R**2/EPS**2 + 18*R/EPS + 3)/3, supp=EPS, tol=1e-8*EPS, cpd_order=0)
 
 # sparse Wendland
-spwen10 = SparseRBF((1 - R/EPS),                                  supp=EPS, tol=1e-8*EPS)
-spwen11 = SparseRBF((1 - R/EPS)**3*(3*R/EPS + 1),                 supp=EPS, tol=1e-8*EPS)
-spwen12 = SparseRBF((1 - R/EPS)**5*(8*R**2/EPS**2 + 5*R/EPS + 1), supp=EPS, tol=1e-8*EPS)
+spwen10 = SparseRBF((1 - R/EPS),                                  supp=EPS, tol=1e-8*EPS, cpd_order=0)
+spwen11 = SparseRBF((1 - R/EPS)**3*(3*R/EPS + 1),                 supp=EPS, tol=1e-8*EPS, cpd_order=0)
+spwen12 = SparseRBF((1 - R/EPS)**5*(8*R**2/EPS**2 + 5*R/EPS + 1), supp=EPS, tol=1e-8*EPS, cpd_order=0)
 
-spwen30 = SparseRBF((1 - R/EPS)**2,                                   supp=EPS, tol=1e-8*EPS)
-spwen31 = SparseRBF((1 - R/EPS)**4*(4*R/EPS + 1),                     supp=EPS, tol=1e-8*EPS)
-spwen32 = SparseRBF((1 - R/EPS)**6*(35*R**2/EPS**2 + 18*R/EPS + 3)/3, supp=EPS, tol=1e-8*EPS)
+spwen30 = SparseRBF((1 - R/EPS)**2,                                   supp=EPS, tol=1e-8*EPS, cpd_order=0)
+spwen31 = SparseRBF((1 - R/EPS)**4*(4*R/EPS + 1),                     supp=EPS, tol=1e-8*EPS, cpd_order=0)
+spwen32 = SparseRBF((1 - R/EPS)**6*(35*R**2/EPS**2 + 18*R/EPS + 3)/3, supp=EPS, tol=1e-8*EPS, cpd_order=0)
 
 _PREDEFINED = {
     'phs8':phs8, 'phs7':phs7, 'phs6':phs6, 'phs5':phs5, 'phs4':phs4,
