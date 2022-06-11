@@ -53,6 +53,7 @@ import logging
 
 import numpy as np
 import scipy.sparse as sp
+from scipy.optimize import minimize
 
 from rbf.linalg import PartitionedSolver, PosDefSolver
 from rbf.poly import monomial_count, mvmonos
@@ -71,8 +72,7 @@ def _gml(d, K, P):
     Parameters
     ----------
     d : (N, D) ndarray
-        Data values. The returned GML score is the sum of GML scores for each
-        component.
+        Data values.
 
     K : (N, N) ndarray
         RBF matrix with smoothing added to diagonals.
@@ -154,6 +154,177 @@ def _loocv(d, K, P):
     errors = soln[:n] / np.diag(Ainv[:n, :n])[:, None]
     out = np.linalg.norm(errors)
     return out
+
+
+def _sanitize_arguments(y, d, sigma, phi, eps, order, neighbors):
+    '''
+    Sanitize the arguments for `RBFInterpolant` and `_objective`.
+    '''
+    y = np.asarray(y, dtype=float)
+    assert_shape(y, (None, None), 'y')
+    n, dim = y.shape
+
+    if np.iscomplexobj(d):
+        d_dtype = complex
+    else:
+        d_dtype = float
+
+    d = np.asarray(d, dtype=d_dtype)
+    assert_shape(d, (n, ...), 'd')
+
+    if np.isscalar(sigma):
+        sigma = np.full(n, sigma, dtype=float)
+    else:
+        sigma = np.asarray(sigma, dtype=float)
+        assert_shape(sigma, (n,), 'sigma')
+
+    phi = get_rbf(phi)
+
+    if not np.isscalar(eps):
+        raise ValueError('`eps` must be a scalar.')
+
+    # if cpd_order is unknown, dont warn about polynomial degrees
+    min_order = phi.cpd_order - 1 if phi.cpd_order is not None else -1
+    if order is None:
+        order = max(min_order, 0)
+    else:
+        order = int(order)
+        if order < -1:
+            raise ValueError('`order` must be at least -1.')
+
+        elif order < min_order:
+            logger.warning(
+                'The polynomial order should not be below %d when `phi` '
+                'is %s. The interpolant may not be well-posed.' %
+                (min_order, phi)
+                )
+
+    r = monomial_count(order, dim)
+    if neighbors is None:
+        nobs = n
+    else:
+        # make sure the number of neighbors does not exceed the number of
+        # observations.
+        neighbors = int(min(neighbors, n))
+        nobs = neighbors
+
+    if r > nobs:
+        raise ValueError(
+            'At least %d data points are required when `order` is %d and '
+            'the number of dimensions is %d.' % (r, order, dim)
+            )
+
+    return y, d, sigma, phi, eps, order, neighbors
+
+
+def _objective(method, y, d, sigma, phi, eps, order):
+    '''
+    Returns either the LOOCV or GML score for the RBF interpolant.
+    '''
+    y, d, sigma, phi, eps, order, _ = _sanitize_arguments(
+        y, d, sigma, phi, eps, order, None
+        )
+
+    d = d.reshape((d.shape[0], -1))
+    d = d.view(float)
+
+    K = phi(y, y, eps=eps)
+    if sp.issparse(K):
+        raise NotImplementedError(
+            'Sparse RBFs are not supported for %s.' % method
+            )
+
+    K[range(y.shape[0]), range(y.shape[0])] += sigma**2
+
+    maxs = y.max(axis=0)
+    mins = y.min(axis=0)
+    shift = (maxs + mins)/2
+    scale = (maxs - mins)/2
+    scale[scale == 0.0] = 1.0
+    P = mvmonos((y - shift)/scale, order)
+
+    if method == 'LOOCV':
+        return _loocv(d, K, P)
+    elif method == 'GML':
+        return _gml(d, K, P)
+    else:
+        raise ValueError('method must be "LOOCV" or "GML".')
+
+
+def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
+    '''
+    Optimizes `sigma` and/or `eps` if they have the value "auto". They are
+    optimized with respect to the LOOCV score.
+    '''
+    eps_is_auto = isinstance(eps, str) and (eps == 'auto')
+    sigma_is_auto = isinstance(sigma, str) and (sigma == 'auto')
+    if eps_is_auto or sigma_is_auto:
+        if eps_is_auto:
+            # Use the average distance to the nearest neighbor to make an
+            # initial guess for the shape parameter. This is a heuristic. `y`
+            # and `phi` are required but have not yet been sanitized.
+            y = np.asarray(y, dtype=float)
+            assert_shape(y, (None, None), 'y')
+
+            phi = get_rbf(phi)
+
+            dist = np.mean(KDTree(y).query(y, 2)[0][:, 1])
+            if phi.eps_is_divisor:
+                eps_init = 2*dist
+            elif phi.eps_is_factor:
+                eps_init = 1/(2*dist)
+            else:
+                eps_init = 1.0
+
+        if sigma_is_auto:
+            sigma_init = 1.0
+
+        if eps_is_auto and sigma_is_auto:
+            result = minimize(
+                lambda p: _objective(
+                    "LOOCV", y, d, np.exp(p[0]), phi, np.exp(p[1]), order
+                    ),
+                [np.log(sigma_init), np.log(eps_init)],
+                method='Nelder-Mead'
+                )
+
+            sigma, eps = np.exp(result.x)
+            if not result.success:
+                logger.warning('Failed to optimize `sigma` and `eps`.')
+
+            logger.info('sigma: %s, eps: %s' % (sigma, eps))
+
+        elif eps_is_auto:
+            result = minimize(
+                lambda p: _objective(
+                    "LOOCV", y, d, sigma, phi, np.exp(p[0]), order
+                    ),
+                [np.log(eps_init)],
+                method='Nelder-Mead'
+                )
+
+            eps, = np.exp(result.x)
+            if not result.success:
+                logger.warning('Failed to optimize `eps`.')
+
+            logger.info('eps: %s' % eps)
+
+        else:
+            result = minimize(
+                lambda p: _objective(
+                    "LOOCV", y, d, np.exp(p[0]), phi, eps, order
+                    ),
+                [np.log(sigma_init)],
+                method='Nelder-Mead'
+                )
+
+            sigma, = np.exp(result.x)
+            if not result.success:
+                logger.warning('Failed to optimize `sigma`.')
+
+            logger.info('sigma: %s' % sigma)
+
+    return sigma, eps
 
 
 def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
@@ -240,66 +411,6 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
     return phi_coeff, poly_coeff, shift, scale
 
 
-def _sanitize_arguments(y, d, sigma, phi, eps, order, neighbors):
-    '''
-    Sanitize the init arguments for `RBFInterpolant`.
-    '''
-    y = np.asarray(y, dtype=float)
-    assert_shape(y, (None, None), 'y')
-    n, dim = y.shape
-
-    if np.iscomplexobj(d):
-        d_dtype = complex
-    else:
-        d_dtype = float
-
-    d = np.asarray(d, dtype=d_dtype)
-    assert_shape(d, (n, ...), 'd')
-
-    if np.isscalar(sigma):
-        sigma = np.full(n, sigma, dtype=float)
-    else:
-        sigma = np.asarray(sigma, dtype=float)
-        assert_shape(sigma, (n,), 'sigma')
-
-    phi = get_rbf(phi)
-
-    if not np.isscalar(eps):
-        raise ValueError('`eps` must be a scalar.')
-
-    min_order = phi.cpd_order - 1
-    if order is None:
-        order = max(min_order, 0)
-    else:
-        order = int(order)
-        if order < -1:
-            raise ValueError('`order` must be at least -1.')
-
-        elif order < min_order:
-            logger.warning(
-                'The polynomial order should not be below %d when `phi` '
-                'is %s. The interpolant may not be well-posed.' %
-                (min_order, phi)
-                )
-
-    r = monomial_count(order, dim)
-    if neighbors is None:
-        nobs = n
-    else:
-        # make sure the number of neighbors does not exceed the number of
-        # observations.
-        neighbors = int(min(neighbors, n))
-        nobs = neighbors
-
-    if r > nobs:
-        raise ValueError(
-            'At least %d data points are required when `order` is %d and '
-            'the number of dimensions is %d.' % (r, order, dim)
-            )
-
-    return y, d, sigma, phi, eps, order, neighbors
-
-
 class RBFInterpolant(object):
     '''
     Radial basis function interpolant for scattered data.
@@ -312,20 +423,29 @@ class RBFInterpolant(object):
     d : (N, ...) float or complex array
         Observed values at `y`.
 
-    sigma : float or (N,) array, optional
+    sigma : float, (N,) array, or "auto", optional
         Smoothing parameter. Setting this to 0 causes the interpolant to
         perfectly fit the data. Increasing the smoothing parameter degrades the
         fit while improving the smoothness of the interpolant. If this is a
         vector, it should be proportional to the one standard deviation
-        uncertainties for the observations. This defaults to zeros.
+        uncertainties for the observations. This defaults to 0.0.
 
-    eps : float, optional
+        If this is set to "auto", then the smoothing parameter will be chosen
+        to minimize the leave-one-out cross validation score.
+
+    eps : float or "auto", optional
         Shape parameter. Defaults to 1.0.
+
+        If this is set to "auto", then the shape parameter will be chosen to
+        minimize the leave-one-out cross validation score. Polyharmonic splines
+        (those starting with "phs") are scale-invariant, and there is no
+        purpose to optimizing the shape parameter.
 
     phi : rbf.basis.RBF instance or str, optional
         The type of RBF. This can be an `rbf.basis.RBF` instance or the RBF
         name as a string. See `rbf.basis` for the available options. Defaults
-        to "phs3".
+        to "phs3". If the data is two-dimensional, then setting this to "phs2"
+        is equivalent to creating a thin-plate spline.
 
     order : int, optional
         Order of the added polynomial terms. Set this to -1 for no added
@@ -340,6 +460,16 @@ class RBFInterpolant(object):
     check_cond : bool, optional
         Whether to check the condition number of the system being solved. A
         warning is raised if it is ill-conditioned.
+
+    Notes
+    -----
+    If `sigma` or `eps` are set to "auto", they are optimized with a single run
+    of `scipy.optimize.minimize`, using the `loocv` method as the objective
+    function. The initial guesses for `sigma` is 1.0, and the initial guess for
+    `eps` is a function of the average nearest neighbor distance in `y`. The
+    optimization is not guaranteed to succeed. The methods `loocv` or `gml`
+    (generalized maximum likelihood) are available for the user to perform the
+    optimization on their own.
 
     References
     ----------
@@ -358,19 +488,7 @@ class RBFInterpolant(object):
         [1] Wahba, G., 1990. Spline Models for Observational Data. SIAM.
 
         '''
-        y, d, sigma, phi, eps, order, _ = _sanitize_arguments(
-            y, d, sigma, phi, eps, order, None
-            )
-
-        d = d.reshape((d.shape[0], -1))
-        d = d.view(float)
-        K = phi(y, y, eps=eps)
-        if sp.issparse(K):
-            raise NotImplementedError('Sparse RBFs are not supported for GML.')
-
-        K[range(y.shape[0]), range(y.shape[0])] += sigma**2
-        P = mvmonos(y, order)
-        return _gml(d, K, P)
+        return _objective("GML", y, d, sigma, phi, eps, order)
 
     @staticmethod
     def loocv(y, d, sigma=0.0, phi='phs3', eps=1.0, order=None):
@@ -384,21 +502,7 @@ class RBFInterpolant(object):
         World Scientific Publishing Co.
 
         '''
-        y, d, sigma, phi, eps, order, _ = _sanitize_arguments(
-            y, d, sigma, phi, eps, order, None
-            )
-
-        d = d.reshape((d.shape[0], -1))
-        d = d.view(float)
-        K = phi(y, y, eps=eps)
-        if sp.issparse(K):
-            raise NotImplementedError(
-                'Sparse RBFs are not supported for LOOCV.'
-                )
-
-        K[range(y.shape[0]), range(y.shape[0])] += sigma**2
-        P = mvmonos(y, order)
-        return _loocv(d, K, P)
+        return _objective("LOOCV", y, d, sigma, phi, eps, order)
 
     def __init__(self, y, d,
                  sigma=0.0,
@@ -407,6 +511,8 @@ class RBFInterpolant(object):
                  order=None,
                  neighbors=None,
                  check_cond=True):
+        sigma, eps = _optimal_sigma_and_eps(y, d, sigma, phi, eps, order)
+
         y, d, sigma, phi, eps, order, neighbors = _sanitize_arguments(
             y, d, sigma, phi, eps, order, neighbors
             )
