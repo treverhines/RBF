@@ -292,7 +292,9 @@ def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
             if not result.success:
                 logger.warning('Failed to optimize `sigma` and `eps`.')
 
-            logger.info('sigma: %s, eps: %s' % (sigma, eps))
+            logger.info(
+                'sigma: %s, eps: %s, LOOCV: %s' % (sigma, eps, result.fun)
+                )
 
         elif eps_is_auto:
             result = minimize(
@@ -307,7 +309,7 @@ def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
             if not result.success:
                 logger.warning('Failed to optimize `eps`.')
 
-            logger.info('eps: %s' % eps)
+            logger.info('eps: %s, LOOCV: %s' % (eps, result.fun))
 
         else:
             result = minimize(
@@ -322,7 +324,7 @@ def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
             if not result.success:
                 logger.warning('Failed to optimize `sigma`.')
 
-            logger.info('sigma: %s' % sigma)
+            logger.info('sigma: %s, LOOCV: %s' % (sigma, result.fun))
 
     return sigma, eps
 
