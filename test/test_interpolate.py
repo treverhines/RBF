@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.linalg
 import rbf.interpolate
+from rbf.interpolate import RBFInterpolant
 import rbf.pde.halton
 import rbf.basis
 from rbf.poly import mvmonos
@@ -89,7 +90,7 @@ class Test(unittest.TestCase):
         itp = H(P)
         val = test_func2d(obs)
 
-        I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
+        I = RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
         valitp_est = I(itp)
         valitp_true = test_func2d(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -104,7 +105,7 @@ class Test(unittest.TestCase):
         itp = H(P)
         val = test_func2d(obs)
 
-        I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
+        I = RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
         valitp1 = I(itp,chunk_size=10*P)
         valitp2 = I(itp,chunk_size=P)
         valitp3 = I(itp,chunk_size=100)
@@ -124,7 +125,7 @@ class Test(unittest.TestCase):
         itp = H(P)
         val = test_func2d(obs)
 
-        I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
+        I = RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
         valitp_est = I(itp,diff=(1,0))
         valitp_true = test_func2d_diffx(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -137,7 +138,7 @@ class Test(unittest.TestCase):
         itp = H(P)
         val = test_func2d(obs)
 
-        I = rbf.interpolate.RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
+        I = RBFInterpolant(obs,val,phi=rbf.basis.phs3,order=3)
         valitp_est = I(itp,diff=(0,1))
         valitp_true = test_func2d_diffy(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -153,8 +154,7 @@ class Test(unittest.TestCase):
         # I am adding a zeroth order polynomial and so I should be able to
         # reproduce a zeroth order function despite the penalty parameter
         val = 4.0 + 0*obs[:,0]
-        I = rbf.interpolate.RBFInterpolant(obs,val,sigma=10000.0,
-                                           phi=rbf.basis.phs1,order=0)
+        I = RBFInterpolant(obs,val,sigma=10000.0, phi=rbf.basis.phs1,order=0)
         valitp_est = I(itp)
         valitp_true = 4.0 + 0.0*itp[:,1]
         self.assertTrue(np.allclose(valitp_est,valitp_true))
@@ -170,8 +170,7 @@ class Test(unittest.TestCase):
         # I am adding a first order polynomial and so I should be able to
         # reproduce a first order function despite the penalty parameter
         val = 4.0 + 2.0*obs[:,1] + 3.0*obs[:,0]
-        I = rbf.interpolate.RBFInterpolant(obs,val,sigma=10000.0,
-                                           phi=rbf.basis.phs3,order=1)
+        I = RBFInterpolant(obs,val,sigma=10000.0, phi=rbf.basis.phs3,order=1)
         valitp_est = I(itp)
         valitp_true = 4.0 + 2.0*itp[:,1] + 3.0*itp[:,0]
         self.assertTrue(np.allclose(valitp_est,valitp_true))
@@ -187,8 +186,7 @@ class Test(unittest.TestCase):
         np.random.seed(1)
         val += np.random.normal(0.0,0.1,val.shape)
 
-        I = rbf.interpolate.RBFInterpolant(obs,val,sigma=3.0,
-                                           phi=rbf.basis.phs3,order=1)
+        I = RBFInterpolant(obs,val,sigma=3.0, phi=rbf.basis.phs3,order=1)
         valitp_est = I(itp)
         valitp_true = test_func2d(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-1))
@@ -204,9 +202,8 @@ class Test(unittest.TestCase):
         val = test_func2d(obs)
         val[0] += 100.0
         sigma = np.zeros(N)
-        sigma[0] = 1e10
-        I = rbf.interpolate.RBFInterpolant(obs,val,sigma=sigma,
-                                           phi=rbf.basis.phs3,order=1)
+        sigma[0] = 1e3
+        I = RBFInterpolant(obs,val,sigma=sigma, phi=rbf.basis.phs3,order=1)
         valitp_est = I(itp)
         valitp_true = test_func2d(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -219,9 +216,7 @@ class Test(unittest.TestCase):
         obs = H(N)
         itp = H(P)
         val = test_func2d(obs)
-        I = rbf.interpolate.RBFInterpolant(obs,val,
-                                           phi=rbf.basis.spwen31,order=1,
-                                           eps=0.5)
+        I = RBFInterpolant(obs,val, phi=rbf.basis.spwen31,order=1, eps=0.5)
         valitp_est = I(itp)
         valitp_true = test_func2d(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
@@ -251,6 +246,25 @@ class Test(unittest.TestCase):
         soln1 = loocv_slow(d, S, K, P)
         soln2 = rbf.interpolate._loocv(d, K + S, P)
         self.assertTrue(np.isclose(soln1, soln2))
+
+
+    def test_loocv_full(self):
+        # test LOOCV with the end-user functions
+        n = 20
+        x = np.random.random((n, 2))
+        d = np.column_stack([np.sin(x[:, 0]), np.cos(x[:, 1]), x[:, 0]**2])
+        d += np.random.normal(0.0, 0.1, d.shape)
+
+        value1 = RBFInterpolant.loocv(x, d, phi='ga', sigma=0.1, eps=2.0, order=2)
+        errors = []
+        for i in range(n):
+            mask = np.ones(n, dtype=bool)
+            mask[i] = False
+            interp = RBFInterpolant(x[mask], d[mask], phi='ga', sigma=0.1, eps=2.0, order=2)
+            errors.append(interp(x[[i]])[0] - d[i])
+
+        value2 = np.linalg.norm(errors)
+        self.assertTrue(np.isclose(value1, value2))
 
 #unittest.main()
 
