@@ -26,7 +26,7 @@ xitp = np.mgrid[0:1:200j, 0:1:200j].reshape(2, -1).T
 # the true function which we want the interpolants to reproduce
 true_soln = frankes_test_function(xitp)
 
-yitp = RBFInterpolant(xobs, yobs, phi='phs3', order=1)(xitp)
+yitp = RBFInterpolant(xobs, yobs)(xitp)
 
 fig, ax = plt.subplots(1, 2, figsize=(9, 3.5))
 ax[0].set_title('RBFInterpolant')
@@ -48,10 +48,10 @@ fig.tight_layout()
 plt.savefig('../figures/interpolate.c.all.png')
 
 for k in [5, 20, 50]:
-    yitp = KNearestRBFInterpolant(xobs, yobs, k=k, phi='phs3', order=1)(xitp)
+    yitp = RBFInterpolant(xobs, yobs, neighbors=k)(xitp)
 
     fig, ax = plt.subplots(1, 2, figsize=(9, 3.5))
-    ax[0].set_title('KNearestRBFInterpolant with k=%d' % k)
+    ax[0].set_title('RBFInterpolant with neighbors=%d' % k)
     p = ax[0].tripcolor(xitp[:, 0], xitp[:, 1], yitp)
     ax[0].scatter(xobs[:, 0], xobs[:, 1], c='k', s=3)
     ax[0].set_xlim(0, 1)
