@@ -1,7 +1,7 @@
 interpolate
 ===========
 .. automodule:: rbf.interpolate
-  :members:
+  :members: RBFInterpolant
   :special-members: __call__
 
 Examples

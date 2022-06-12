@@ -1,7 +1,7 @@
 basis 
 =====
 .. automodule:: rbf.basis
-  :members:
+  :members: RBF, SparseRBF, get_rbf, set_symbolic_to_numeric_method
   :special-members: __call__
   
 Examples

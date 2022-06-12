@@ -187,7 +187,6 @@ class RBF(object):
 
     @property
     def cpd_order(self):
-        '''Conditionally positive definite order for the RBF.'''
         return self._cpd_order
 
     @property
