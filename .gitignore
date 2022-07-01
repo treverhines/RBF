@@ -4,7 +4,7 @@ dist
 *~
 *.c
 *.pyc
-!rbf/_rbf_ufunc/*.c
+!rbf/_rbf_ufuncs/*.c
 rbf/_version.py
 rbf/*.html
 rbf/pde/*.html
