@@ -179,11 +179,19 @@ class RBF(object):
     @property
     def eps_is_divisor(self):
         '''`True` if `eps` divides `r` in the RBF expression.'''
+        if not hasattr(self, '_eps_is_divisor'):
+            x = sympy.symbols('x')
+            self._eps_is_divisor = self.expr.subs(R/EPS, x).free_symbols == {x}
+
         return self._eps_is_divisor
 
     @property
     def eps_is_factor(self):
         '''`True` if `eps` multiplies `r` in the RBF expression.'''
+        if not hasattr(self, '_eps_is_factor'):
+            x = sympy.symbols('x')
+            self._eps_is_factor = self.expr.subs(EPS*R, x).free_symbols == {x}
+
         return self._eps_is_factor
 
     def __new__(cls, *args, **kwargs):
@@ -210,14 +218,6 @@ class RBF(object):
         if not expr.has(EPS):
             # if `eps` is not in the expression then substitute `eps*r` for `r`
             expr = expr.subs(R, EPS*R)
-            self._eps_is_factor = True
-            self._eps_is_divisor = False
-        else:
-            # Determine if `r` is multiplied by `eps`, divided by `eps`, or
-            # neither.
-            x = sympy.symbols('x')
-            self._eps_is_divisor = expr.subs(R/EPS, x).free_symbols == {x}
-            self._eps_is_factor = expr.subs(EPS*R, x).free_symbols == {x}
 
         self._expr = expr
 
