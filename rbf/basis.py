@@ -251,7 +251,7 @@ class RBF(object):
         ## create the cache for numerical functions
         self._cache = {}
 
-    def __call__(self, x, c, eps=1.0, diff=None):
+    def __call__(self, x, c, eps=1.0, diff=None, out=None):
         '''
         Numerically evaluates the RBF or its derivatives.
 
@@ -271,6 +271,9 @@ class RBF(object):
             (2, 0, 1) would cause this function to return the RBF after
             differentiating it twice along the first dimension and once along
             the third dimension.
+
+        out : (..., N, M) float array, optional
+            Array in which the output is written.
 
         Returns
         -------
@@ -320,7 +323,11 @@ class RBF(object):
         # reshape eps from (..., m) to (..., 1, m)
         eps = eps[..., None, :]
         # evaluate the cached function for the given `x`, `c`, and `eps`
-        out = self._cache[diff](*x, *c, eps)
+        if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':
+            out = self._cache[diff](*x, *c, eps, out=out)
+        else:
+            out = self._cache[diff](*x, *c, eps)
+
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
@@ -636,6 +643,9 @@ def add_precompiled_to_rbf_caches():
     universal functions) to save time at run-time. This loads those numeric
     functions into the corresponding RBF caches.
     '''
+    # Since the precompiled functions were created with ufuncify, it is
+    # implicit that the conversion strategy should be/become ufuncify.
+    set_symbolic_to_numeric_method('ufuncify')
     metadata_file = Path(__file__).parent / '_rbf_ufuncs' / 'metadata.json'
     metadata = json.loads(metadata_file.read_text())
     for itm in metadata:
