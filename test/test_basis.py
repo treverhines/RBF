@@ -156,21 +156,22 @@ class Test(unittest.TestCase):
     rbf.basis.clear_rbf_caches()
     rbf.basis.add_precompiled_to_rbf_caches()
     try:
-        for inst in rbf.basis._PREDEFINED.values():
-            for diff in inst._cache.keys():
-                x = np.random.random((5, len(diff)))
-                y = np.random.random((10, len(diff)))
-                out1 = inst(x, y)
-                inst._add_diff_to_cache(diff)
-                out2 = inst(x, y)
-                if isinstance(inst, rbf.basis.SparseRBF):
-                    self.assertTrue(np.allclose(out1.A, out2.A))
-                else:
-                    self.assertTrue(np.allclose(out1, out2))
+      for inst in rbf.basis._PREDEFINED.values():
+        for diff in inst._cache.keys():
+          x = np.random.random((5, len(diff)))
+          y = np.random.random((10, len(diff)))
+          out1 = inst(x, y)
+          inst._add_diff_to_cache(diff)
+          out2 = inst(x, y)
+          if isinstance(inst, rbf.basis.SparseRBF):
+            self.assertTrue(np.allclose(out1.A, out2.A))
+          else:
+            self.assertTrue(np.allclose(out1, out2))
+
     finally:
-        # make sure it returns to the initial state
-        rbf.basis.add_precompiled_to_rbf_caches()
-    
+      # make sure it returns to the initial state
+      rbf.basis.add_precompiled_to_rbf_caches()
+
   def test_matern_limits(self):
     # make sure the provided limits for the centers of the matern
     # functions are correct
@@ -187,5 +188,28 @@ class Test(unittest.TestCase):
         center_plus_dx_val = phi(c, c+dx, diff=k, eps=eps)[0,0]
         diff = np.abs(center_val - center_plus_dx_val)
         self.assertTrue(diff < 1.0e-4)
+
+
+  def test_out(self):
+    # make sure writing output in-place works
+    x = np.random.random((5, 2))
+    y = np.random.random((4, 2))
+    out1 = rbf.basis.phs2(x, y)
+
+    out2 = np.empty((5, 4))
+    rbf.basis.phs2(x, y, out=out2)
+    self.assertTrue(np.allclose(out1, out2))
+
+    out3 = np.empty((4, 5)).T
+    rbf.basis.phs2(x, y, out=out3)
+    self.assertTrue(np.allclose(out1, out3))
+
+    out4 = np.empty((10, 4))[::2]
+    rbf.basis.phs2(x, y, out=out4)
+    self.assertTrue(np.allclose(out1, out4))
+
+    out5 = np.empty((8, 5)).T[:, ::2]
+    rbf.basis.phs2(x, y, out=out5)
+    self.assertTrue(np.allclose(out1, out5))
 
 #unittest.main()
