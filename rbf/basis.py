@@ -52,6 +52,9 @@ Publishing Co, 2007.
 from __future__ import division
 import logging
 import weakref
+import json
+from pathlib import Path
+from importlib import import_module
 
 import sympy
 import numpy as np
@@ -67,22 +70,6 @@ logger = logging.getLogger(__name__)
 
 # the method used to convert sympy expressions to numeric functions
 _SYMBOLIC_TO_NUMERIC_METHOD = 'ufuncify'
-
-
-def get_r():
-    '''
-    returns the symbolic variable for :math:`r` which is used to instantiate an
-    `RBF`
-    '''
-    return sympy.symbols('r')
-
-
-def get_eps():
-    '''
-    returns the symbolic variable for :math:`\epsilon` which is used to
-    instantiate an `RBF`
-    '''
-    return sympy.symbols('eps')
 
 
 R, EPS = sympy.symbols('r, eps')
@@ -372,7 +359,7 @@ class RBF(object):
 
         return out
 
-    def _add_diff_to_cache(self, diff):
+    def _add_diff_to_cache(self, diff, tempdir=None):
         '''
         Symbolically differentiates the RBF and then converts the expression to
         a function which can be evaluated numerically.
@@ -422,7 +409,9 @@ class RBF(object):
             expr = sympy.Piecewise((expr, r_sym <= self.supp), (0, True))
 
         if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':
-            func = ufuncify(x_sym + c_sym + (EPS,), expr, backend='numpy')
+            func = ufuncify(
+                x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
+                )
 
         elif _SYMBOLIC_TO_NUMERIC_METHOD == 'lambdify':
             func = lambdify(x_sym + c_sym + (EPS,), expr, modules=['numpy'])
@@ -580,13 +569,20 @@ class SparseRBF(RBF):
         return out
 
 
-def clear_rbf_caches():
+def get_r():
     '''
-    Clear the caches of numerical functions for all the RBF instances
+    returns the symbolic variable for :math:`r` which is used to instantiate an
+    `RBF`
     '''
-    for inst in RBF._INSTANCES:
-        if inst() is not None:
-            inst().clear_cache()
+    return sympy.symbols('r')
+
+
+def get_eps():
+    '''
+    returns the symbolic variable for :math:`\epsilon` which is used to
+    instantiate an `RBF`
+    '''
+    return sympy.symbols('eps')
 
 
 def get_rbf(value):
@@ -608,6 +604,15 @@ def get_rbf(value):
             )
 
 
+def clear_rbf_caches():
+    '''
+    Clear the caches of numerical functions for all the RBF instances
+    '''
+    for inst in RBF._INSTANCES:
+        if inst() is not None:
+            inst().clear_cache()
+
+
 def set_symbolic_to_numeric_method(method):
     '''
     Sets the method that all RBF instances will use for converting sympy
@@ -623,6 +628,20 @@ def set_symbolic_to_numeric_method(method):
 
     _SYMBOLIC_TO_NUMERIC_METHOD = method
     clear_rbf_caches()
+
+
+def add_precompiled_to_rbf_caches():
+    '''
+    Some commonly used numeric functions have been compiled at build-time (as
+    universal functions) to save time at run-time. This loads those numeric
+    functions into the corresponding RBF caches.
+    '''
+    metadata_file = Path(__file__).parent / '_rbf_ufuncs' / 'metadata.json'
+    metadata = json.loads(metadata_file.read_text())
+    for itm in metadata:
+        inst = get_rbf(itm['rbf'])
+        func = getattr(import_module(itm['module']), itm['function'])
+        inst._cache[tuple(itm['diff'])] = func
 
 
 ## Instantiate some common RBFs
@@ -685,3 +704,5 @@ _PREDEFINED = {
     'spwen10':spwen10, 'spwen11':spwen11, 'spwen12':spwen12, 'spwen30':spwen30,
     'spwen31':spwen31, 'spwen32':spwen32
     }
+
+add_precompiled_to_rbf_caches()

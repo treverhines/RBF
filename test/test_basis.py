@@ -150,6 +150,23 @@ class Test(unittest.TestCase):
         diff = np.abs(center_val - center_plus_dx_val)
         self.assertTrue(diff < 1.0e-4)
 
+  def test_precompiled(self):
+    # make sure the precompiled numerical functions give the same results as
+    # the ones produced at runtime.
+    rbf.basis.clear_rbf_caches()
+    rbf.basis.add_precompiled_to_rbf_caches()
+    for inst in rbf.basis._PREDEFINED.values():
+        for diff in inst._cache.keys():
+            x = np.random.random((5, len(diff)))
+            y = np.random.random((10, len(diff)))
+            out1 = inst(x, y)
+            inst._add_diff_to_cache(diff)
+            out2 = inst(x, y)
+            if isinstance(inst, rbf.basis.SparseRBF):
+                self.assertTrue(np.allclose(out1.A, out2.A))
+            else:
+                self.assertTrue(np.allclose(out1, out2))
+
   def test_matern_limits(self):
     # make sure the provided limits for the centers of the matern
     # functions are correct
