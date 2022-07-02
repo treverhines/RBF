@@ -208,7 +208,7 @@ class Test(unittest.TestCase):
         valitp_true = test_func2d(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
 
-    def test_sparse(self):
+    def test_sparse1(self):
         # make sure the RBFInterpolant works with sparse RBFs
         N = 1000
         P = 1000
@@ -220,6 +220,21 @@ class Test(unittest.TestCase):
         valitp_est = I(itp)
         valitp_true = test_func2d(itp)
         self.assertTrue(np.allclose(valitp_est,valitp_true,atol=1e-2))
+
+    def test_sparse2(self):
+        # make sure the RBFInterpolant produces the same results with sparse
+        # RBFs and their dense counterpart.
+        N = 1000
+        P = 1000
+        H = rbf.pde.halton.HaltonSequence(2)
+        obs = H(N)
+        itp = H(P)
+        val = test_func2d(obs)
+        I1 = RBFInterpolant(obs, val, phi=rbf.basis.spwen31, order=1, eps=0.5)
+        I2 = RBFInterpolant(obs, val, phi=rbf.basis.wen31, order=1, eps=0.5)
+        valitp1 = I1(itp)
+        valitp2 = I2(itp)
+        self.assertTrue(np.allclose(valitp1,valitp2))
 
     def test_gml(self):
         n = 20

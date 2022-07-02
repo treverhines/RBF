@@ -55,9 +55,9 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.optimize import minimize
 
-from rbf.linalg import PartitionedSolver, PosDefSolver
+from rbf.linalg import Solver, PosDefSolver, PartitionedSolver
 from rbf.poly import monomial_count, mvmonos
-from rbf.basis import get_rbf
+from rbf.basis import get_rbf, SparseRBF
 from rbf.utils import assert_shape, KDTree
 
 
@@ -377,39 +377,47 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
     # This happens if there is a single point
     scale[scale == 0.0] = 1.0
 
-    Kyy = phi(y, y, eps=eps)
     Py = mvmonos((y - shift[..., None, :])/scale[..., None, :], order)
-    if sp.issparse(Kyy):
+    if isinstance(phi, SparseRBF):
+        Kyy = phi(y, y, eps=eps)
         Kyy = sp.csc_matrix(Kyy + sp.diags(sigma**2))
         # Improve the condition number of the system by rescaling the
         # polynomial matrix, which currently should have values in [-1, 1], to
         # have the same ptp as the kernel matrix.
         Py_scale = (Kyy.max() - Kyy.min())/2
+        Py_scale = 1.0 if Py_scale == 0.0 else Py_scale
+        Py *= Py_scale
+        phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d)
+        poly_coeff *= Py_scale
 
-    else:
-        Kyy[..., range(n), range(n)] += sigma**2
-        Py_scale = Kyy.reshape(bcast + (-1,)).ptp(axis=-1)/2
-
-    Py_scale = np.where(Py_scale==0.0, 1.0, Py_scale)
-    Py *= Py_scale[..., None, None]
-    if len(bcast) == 0:
-        # PartitionedSolver supports solving sparse systems, so use it if
-        # possible.
-        solver = PartitionedSolver(Kyy, Py, check_cond=check_cond)
-        phi_coeff, poly_coeff = solver.solve(d)
     else:
         r = Py.shape[-1]
         LHS = np.zeros(bcast + (n + r, n + r), dtype=float)
-        LHS[..., :n, :n] = Kyy
+        phi(y, y, eps=eps, out=LHS[..., :n, :n])
+        LHS[..., range(n), range(n)] += sigma**2
+        Py_scale = LHS[..., :n, :n].ptp(axis=(-2, -1))
+        Py_scale = np.where(Py_scale==0.0, 1.0, Py_scale)
+        Py *= Py_scale[..., None, None]
         LHS[..., :n, n:] = Py
         LHS[..., n:, :n] = Py.swapaxes(-2, -1)
         rhs = np.zeros(bcast + (n + r, s), dtype=float)
         rhs[..., :n, :] = d
-        coeff = np.linalg.solve(LHS, rhs)
+        if len(bcast) == 0:
+            # Transpose LHS (which is symmetric) to make it fortran contiguous
+            # so that it can be factored inplace. It was C contiguous up to
+            # this point to speed up construction.
+            solver = Solver(LHS.T, check_cond=check_cond, factor_inplace=True)
+            coeff = solver.solve(rhs)
+        else:
+            # This runs when `neighbors` is given. `Solver` does not support
+            # solving multiple systems simultaneously, and `np.linalg.solve` is
+            # much faster than naively iterating over the systems.
+            coeff = np.linalg.solve(LHS, rhs)
+
         phi_coeff = coeff[..., :n, :]
         poly_coeff = coeff[..., n:, :]
+        poly_coeff *= Py_scale[..., None, None]
 
-    poly_coeff *= Py_scale[..., None, None]
     return phi_coeff, poly_coeff, shift, scale
 
 

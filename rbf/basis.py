@@ -61,15 +61,11 @@ import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
-from sympy import lambdify
 
 from rbf.utils import assert_shape
 
+
 logger = logging.getLogger(__name__)
-
-
-# the method used to convert sympy expressions to numeric functions
-_SYMBOLIC_TO_NUMERIC_METHOD = 'ufuncify'
 
 
 R, EPS = sympy.symbols('r, eps')
@@ -282,11 +278,7 @@ class RBF(object):
 
         Notes
         -----
-        The default method for converting the symbolic RBF to a numeric
-        function limits the number of spatial dimensions `D` to 15. There is no
-        such limitation when the conversion method is set to "lambdify". Set
-        the conversion method using the function
-        `set_symbolic_to_numeric_method`.
+        The number of spatial dimensions currently cannot exceed 15.
 
         The derivative order can be arbitrarily high, but some RBFs, such as
         Wendland and Matern, become numerically unstable when the derivative
@@ -323,11 +315,7 @@ class RBF(object):
         # reshape eps from (..., m) to (..., 1, m)
         eps = eps[..., None, :]
         # evaluate the cached function for the given `x`, `c`, and `eps`
-        if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':
-            out = self._cache[diff](*x, *c, eps, out=out)
-        else:
-            out = self._cache[diff](*x, *c, eps)
-
+        out = self._cache[diff](*x, *c, eps, out=out)
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
@@ -415,16 +403,9 @@ class RBF(object):
             # <= supp` and 0 otherwise.
             expr = sympy.Piecewise((expr, r_sym <= self.supp), (0, True))
 
-        if _SYMBOLIC_TO_NUMERIC_METHOD == 'ufuncify':
-            func = ufuncify(
-                x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
-                )
-
-        elif _SYMBOLIC_TO_NUMERIC_METHOD == 'lambdify':
-            func = lambdify(x_sym + c_sym + (EPS,), expr, modules=['numpy'])
-
-        else:
-            raise ValueError()
+        func = ufuncify(
+            x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
+            )
 
         self._cache[diff] = func
         logger.debug('The numeric function has been created and cached.')
@@ -620,32 +601,12 @@ def clear_rbf_caches():
             inst().clear_cache()
 
 
-def set_symbolic_to_numeric_method(method):
-    '''
-    Sets the method that all RBF instances will use for converting sympy
-    expressions to numeric functions. This can be either "ufuncify" or
-    "lambdify". "ufuncify" will write and compile C code for a numpy universal
-    function, and "lambdify" will evaluate the sympy expression using
-    python-level numpy functions. Calling this function will cause all caches
-    of numeric functions to be cleared.
-    '''
-    global _SYMBOLIC_TO_NUMERIC_METHOD
-    if method not in {'lambdify', 'ufuncify'}:
-        raise ValueError('`method` must be either "lambdify" or "ufuncify"')
-
-    _SYMBOLIC_TO_NUMERIC_METHOD = method
-    clear_rbf_caches()
-
-
 def add_precompiled_to_rbf_caches():
     '''
     Some commonly used numeric functions have been compiled at build-time (as
     universal functions) to save time at run-time. This loads those numeric
     functions into the corresponding RBF caches.
     '''
-    # Since the precompiled functions were created with ufuncify, it is
-    # implicit that the conversion strategy should be/become ufuncify.
-    set_symbolic_to_numeric_method('ufuncify')
     metadata_file = Path(__file__).parent / '_rbf_ufuncs' / 'metadata.json'
     metadata = json.loads(metadata_file.read_text())
     for itm in metadata:
