@@ -146,7 +146,7 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0):
     # the left-hand-side
     A = phi(s, s, eps=eps)
     P = mvmonos(s, pwr)
-    Pt = np.einsum('...ij->...ji', P)
+    Pt = P.swapaxes(-2, -1)
     Z = np.zeros(bcast + (len(pwr), len(pwr)), dtype=float)
     LHS = np.block([[A, P], [Pt, Z]])
     # Evaluate the RBF and monomials at the target points for each term in the
