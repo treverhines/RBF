@@ -241,8 +241,9 @@ def _objective(method, y, d, sigma, phi, eps, order):
     shift = (maxs + mins)/2
     scale = (maxs - mins)/2
     scale[scale == 0.0] = 1.0
-    P = mvmonos((y - shift)/scale, order)
-
+    range_scale = K.ptp()
+    range_scale = 1.0 if range_scale == 0.0 else range_scale
+    P = range_scale*mvmonos((y - shift)/scale, order)
     if method == 'LOOCV':
         return _loocv(d, K, P)
     elif method == 'GML':
@@ -290,7 +291,9 @@ def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
 
             sigma, eps = np.exp(result.x)
             if not result.success:
-                logger.warning('Failed to optimize `sigma` and `eps`.')
+                logger.warning(
+                    'Failed to optimize `sigma` and `eps`. %s' % result.message
+                    )
 
             logger.info(
                 'sigma: %s, eps: %s, LOOCV: %s' % (sigma, eps, result.fun)
@@ -307,7 +310,7 @@ def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
 
             eps, = np.exp(result.x)
             if not result.success:
-                logger.warning('Failed to optimize `eps`.')
+                logger.warning('Failed to optimize `eps`. %s' % result.message)
 
             logger.info('eps: %s, LOOCV: %s' % (eps, result.fun))
 
@@ -322,7 +325,9 @@ def _optimal_sigma_and_eps(y, d, sigma, phi, eps, order):
 
             sigma, = np.exp(result.x)
             if not result.success:
-                logger.warning('Failed to optimize `sigma`.')
+                logger.warning(
+                    'Failed to optimize `sigma`. %s' % result.message
+                    )
 
             logger.info('sigma: %s, LOOCV: %s' % (sigma, result.fun))
 
@@ -384,20 +389,20 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
         # Improve the condition number of the system by rescaling the
         # polynomial matrix, which currently should have values in [-1, 1], to
         # have the same ptp as the kernel matrix.
-        Py_scale = (Kyy.max() - Kyy.min())/2
-        Py_scale = 1.0 if Py_scale == 0.0 else Py_scale
-        Py *= Py_scale
+        range_scale = (Kyy.max() - Kyy.min())/2
+        range_scale = 1.0 if range_scale == 0.0 else range_scale
+        Py *= range_scale
         phi_coeff, poly_coeff = PartitionedSolver(Kyy, Py).solve(d)
-        poly_coeff *= Py_scale
+        poly_coeff *= range_scale
 
     else:
         r = Py.shape[-1]
         LHS = np.zeros(bcast + (n + r, n + r), dtype=float)
         phi(y, y, eps=eps, out=LHS[..., :n, :n])
         LHS[..., range(n), range(n)] += sigma**2
-        Py_scale = LHS[..., :n, :n].ptp(axis=(-2, -1))
-        Py_scale = np.where(Py_scale==0.0, 1.0, Py_scale)
-        Py *= Py_scale[..., None, None]
+        range_scale = LHS[..., :n, :n].ptp(axis=(-2, -1))
+        range_scale = np.where(range_scale==0.0, 1.0, range_scale)
+        Py *= range_scale[..., None, None]
         LHS[..., :n, n:] = Py
         LHS[..., n:, :n] = Py.swapaxes(-2, -1)
         rhs = np.zeros(bcast + (n + r, s), dtype=float)
@@ -416,7 +421,7 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
 
         phi_coeff = coeff[..., :n, :]
         poly_coeff = coeff[..., n:, :]
-        poly_coeff *= Py_scale[..., None, None]
+        poly_coeff *= range_scale[..., None, None]
 
     return phi_coeff, poly_coeff, shift, scale
 
