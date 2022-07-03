@@ -4,6 +4,7 @@ if __name__ == '__main__':
     from setuptools.extension import Extension
     from Cython.Build import cythonize
     import subprocess as sp
+    import numpy as np
     import json
 
     # this should create the file rbf/_version.py
@@ -24,7 +25,7 @@ if __name__ == '__main__':
         rbf_ufunc_metadata = json.load(f)
 
     for itm in rbf_ufunc_metadata:
-        ext += [Extension(name=itm['module'], sources=itm['sources'])]
+        ext += [Extension(name=itm['module'], sources=itm['sources'], include_dirs=[np.get_include()])]
 
     setup(
         name='RBF',
