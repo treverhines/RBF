@@ -11,7 +11,11 @@
 double autofunc0(double x0, double x1, double c0, double c1, double eps) {
 
    double autofunc0_result;
-   autofunc0_result = exp(-sqrt(pow(-c0 + x0, 2) + pow(-c1 + x1, 2))/eps);
+   double d0 = x0 - c0;
+   double d1 = x1 - c1;
+   double r2 = (d0*d0) + (d1*d1);
+   double r = sqrt(r2);
+   autofunc0_result = exp(-r/eps);
    return autofunc0_result;
 
 }

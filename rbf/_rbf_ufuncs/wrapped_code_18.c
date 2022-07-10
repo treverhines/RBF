@@ -11,11 +11,14 @@
 double autofunc0(double x0, double c0, double eps) {
 
    double autofunc0_result;
-   if (sqrt(pow(-c0 + x0, 2)) <= 0.0) {
+   double d0 = x0 - c0;
+   double r2 = (d0*d0);
+   double r = sqrt(r2);
+   if (r <= 0.0) {
       autofunc0_result = 0;
    }
    else {
-      autofunc0_result = pow(eps, 2)*pow(-c0 + x0, 2)*log(eps*sqrt(pow(-c0 + x0, 2)));
+      autofunc0_result = (eps*eps)*r2*log(eps*r);
    }
    return autofunc0_result;
 

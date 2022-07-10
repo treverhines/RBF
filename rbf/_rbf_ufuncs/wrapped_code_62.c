@@ -11,12 +11,17 @@
 double autofunc0(double x0, double x1, double x2, double c0, double c1, double c2, double eps) {
 
    double autofunc0_result;
-   if (eps >= sqrt(pow(-c0 + x0, 2) + pow(-c1 + x1, 2) + pow(-c2 + x2, 2))) {
-      if (1.0e-8*eps >= sqrt(pow(-c0 + x0, 2) + pow(-c1 + x1, 2) + pow(-c2 + x2, 2))) {
+   double d0 = x0 - c0;
+   double d1 = x1 - c1;
+   double d2 = x2 - c2;
+   double r2 = (d0*d0) + (d1*d1) + (d2*d2);
+   double r = sqrt(r2);
+   if (eps >= r) {
+      if (1.0e-8*eps >= r) {
          autofunc0_result = 1;
       }
       else {
-         autofunc0_result = pow(1 - sqrt(pow(-c0 + x0, 2) + pow(-c1 + x1, 2) + pow(-c2 + x2, 2))/eps, 4)*(1 + 4*sqrt(pow(-c0 + x0, 2) + pow(-c1 + x1, 2) + pow(-c2 + x2, 2))/eps);
+         autofunc0_result = pow(1 - r/eps, 4)*(1 + 4*r/eps);
       }
    }
    else {
