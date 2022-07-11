@@ -9,7 +9,7 @@ static PyMethodDef wrapper_module_24Methods[] = {
         {NULL, NULL, 0, NULL}
 };
 
-static void wrapped_280603945062528_ufunc(char **args, npy_intp *dimensions, npy_intp* steps, void* data)
+static void wrapped_281432001485312_ufunc(char **args, npy_intp *dimensions, npy_intp* steps, void* data)
 {
     npy_intp i;
     npy_intp n = dimensions[0];
@@ -29,9 +29,9 @@ static void wrapped_280603945062528_ufunc(char **args, npy_intp *dimensions, npy
         out0 += out0_step;
     }
 }
-PyUFuncGenericFunction wrapped_280603945062528_funcs[1] = {&wrapped_280603945062528_ufunc};
-static char wrapped_280603945062528_types[4] = {NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE};
-static void *wrapped_280603945062528_data[1] = {NULL};
+PyUFuncGenericFunction wrapped_281432001485312_funcs[1] = {&wrapped_281432001485312_ufunc};
+static char wrapped_281432001485312_types[4] = {NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE};
+static void *wrapped_281432001485312_data[1] = {NULL};
 
 #if PY_VERSION_HEX >= 0x03000000
 static struct PyModuleDef moduledef = {
@@ -57,9 +57,9 @@ PyMODINIT_FUNC PyInit_wrapper_module_24(void)
     import_array();
     import_umath();
     d = PyModule_GetDict(m);
-    ufunc0 = PyUFunc_FromFuncAndData(wrapped_280603945062528_funcs, wrapped_280603945062528_data, wrapped_280603945062528_types, 1, 3, 1,
+    ufunc0 = PyUFunc_FromFuncAndData(wrapped_281432001485312_funcs, wrapped_281432001485312_data, wrapped_281432001485312_types, 1, 3, 1,
             PyUFunc_None, "wrapper_module_24", "Created in SymPy with Ufuncify", 0);
-    PyDict_SetItemString(d, "wrapped_280603945062528", ufunc0);
+    PyDict_SetItemString(d, "wrapped_281432001485312", ufunc0);
     Py_DECREF(ufunc0);
     return m;
 }
@@ -75,9 +75,9 @@ PyMODINIT_FUNC initwrapper_module_24(void)
     import_array();
     import_umath();
     d = PyModule_GetDict(m);
-    ufunc0 = PyUFunc_FromFuncAndData(wrapped_280603945062528_funcs, wrapped_280603945062528_data, wrapped_280603945062528_types, 1, 3, 1,
+    ufunc0 = PyUFunc_FromFuncAndData(wrapped_281432001485312_funcs, wrapped_281432001485312_data, wrapped_281432001485312_types, 1, 3, 1,
             PyUFunc_None, "wrapper_module_24", "Created in SymPy with Ufuncify", 0);
-    PyDict_SetItemString(d, "wrapped_280603945062528", ufunc0);
+    PyDict_SetItemString(d, "wrapped_281432001485312", ufunc0);
     Py_DECREF(ufunc0);
 }
 #endif

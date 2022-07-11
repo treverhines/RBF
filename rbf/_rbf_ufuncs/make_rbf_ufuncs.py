@@ -67,7 +67,7 @@ if __name__ == '__main__':
         with open(fn, 'r') as f:
             code = f.read()
 
-        nvars = len(re.findall('double autofunc0\((.*)\)', code)[0].split(','))
+        nvars = len(re.search('double autofunc0\((.*)\)', code).groups()[0].split(','))
         ndim = int((nvars - 1)/2)
         for i in range(ndim):
             code = code.replace('-c%d + x%d' % (i, i), 'd%d' % i)
@@ -89,6 +89,6 @@ if __name__ == '__main__':
         code = code.replace('pow(r2, 3.0/2.0)', 'pow(r, 3)')
         code = code.replace('pow(r2, 5.0/2.0)', 'pow(r, 5)')
         code = code.replace('pow(r2, 7.0/2.0)', 'pow(r, 7)')
-        code = re.sub('pow\((\w+), (\d+)\)', lambda x: power_string(*x.groups()), code)
+        code = re.sub('pow\((\w+), (\d)\)', lambda x: power_string(*x.groups()), code)
         with open(fn, 'w') as f:
             f.write(code)
