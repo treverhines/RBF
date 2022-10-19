@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 if __name__ == '__main__':
     import subprocess as sp
-    import os
-    package = 'rbf'
+    import re
+    from pathlib import Path
 
+    version_file = Path('rbf/_version.py')
     version_info = {'__git_hash__':'',
                     '__version__':'0+unknown'}
 
     # if a `_version.py` file exists, then update `version_info` with its
     # content
-    if os.path.exists('%s/_version.py' % package):
-        with open('%s/_version.py' % package, 'r') as fb:
-            exec(fb.read(), version_info)
+    if version_file.exists():
+        version_text = version_file.read_text()
+        version_info.update(
+            re.findall('(__[A-Za-z_]+__)\s*=\s*"([^"]+)"', version_text)
+            )
 
     try:
         # Attempt to use git to get the version and hash
@@ -39,6 +42,6 @@ if __name__ == '__main__':
         print('Unable to retrieve the current version from git')
         pass
 
-    with open('%s/_version.py' % package, 'w') as fb:
+    with version_file.open('w') as fb:
         fb.write('__git_hash__ = "%s"\n' % version_info['__git_hash__'])
         fb.write('__version__ = "%s"\n' % version_info['__version__'])
