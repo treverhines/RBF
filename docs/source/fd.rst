@@ -21,3 +21,7 @@ Examples
 .. literalinclude:: ../scripts/fd.m.py
 .. image:: ../figures/fd.m.png
 
+.. literalinclude:: ../scripts/fd.n.py
+.. image:: ../figures/fd.n.1.png
+.. image:: ../figures/fd.n.2.gif
+
