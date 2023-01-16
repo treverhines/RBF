@@ -52,13 +52,15 @@ def conductivity(x):
     return out
 
 def conductivity_xdiff(x):
-    # x derivative of conductivity
-    out = (conductivity(x + [0.01, 0.0]) - conductivity(x))/0.01
+    # finite difference x derivative of conductivity
+    delta = 1e-3
+    out = (conductivity(x + [delta, 0.0]) - conductivity(x))/delta
     return out
 
 def conductivity_ydiff(x):
-    # y derivative of conductivity
-    out = (conductivity(x + [0.0, 0.01]) - conductivity(x))/0.01
+    # finite difference y derivative of conductivity
+    delta = 1e-3
+    out = (conductivity(x + [0.0, delta]) - conductivity(x))/delta
     return out
 
 # Generate the nodes. `groups` identifies which group each node belongs to.
@@ -122,10 +124,10 @@ Bsolver = splu(B)
 # conditions).
 idx = np.hstack((grp['interior'], grp['boundary:free']))
 A = weight_matrix(
-    nodes[idx],
-    nodes,
-    stencil_size,
-    [[1, 0], [2, 0], [0, 1], [0, 2]],
+    x=nodes[idx],
+    p=nodes,
+    n=stencil_size,
+    diffs=[[1, 0], [2, 0], [0, 1], [0, 2]],
     coeffs=[
         conductivity_xdiff(nodes[idx]),
         conductivity(nodes[idx]),
@@ -171,7 +173,6 @@ I = expand_cols(I, idx, nodes.shape[0])
 is_outside = ~contains(xy, vertices, simplices)
 
 fig1, ax1  = plt.subplots()
-
 k = conductivity(xy)
 k[is_outside] = np.nan
 k = k.reshape(200, 200)
@@ -226,14 +227,13 @@ def update(index):
     fig2.colorbar(p)
     fig2.tight_layout()
 
-    return
-
 ani = FuncAnimation(
     fig=fig2,
     func=update,
     frames=range(len(time_evaluations)),
     repeat=True,
-    blit=False)
+    blit=False
+    )
 
 ani.save('../figures/fd.n.2.gif', writer='imagemagick', fps=3)
 plt.show()
