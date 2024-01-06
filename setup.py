@@ -37,15 +37,8 @@ if __name__ == '__main__':
         ext += [Extension(name=itm['module'], sources=itm['sources'], include_dirs=[np.get_include()])]
 
     setup(
-        name='RBF',
-        version=version_info['__version__'],
-        description='Package containing the tools necessary for radial basis '
-                    'function (RBF) applications',
-        author='Trever Hines',
-        author_email='treverhines@gmail.com',
-        url='www.github.com/treverhines/RBF',
+        name='treverhines-rbf',
         packages=['rbf', 'rbf.pde'],
         ext_modules=ext,
         include_package_data=True,
-        license='MIT'
         )
