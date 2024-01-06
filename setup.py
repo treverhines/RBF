@@ -2,28 +2,33 @@
 if __name__ == '__main__':
     from setuptools import setup
     from setuptools.extension import Extension
-    from Cython.Build import cythonize
     from pathlib import Path
     import subprocess as sp
     import numpy as np
     import json
     import re
 
-    # this should create the file rbf/_version.py
-    sp.call(['python', 'make_version.py'])
+    # This package may not be distributed with `make_version.py` and
+    # `make_cython_extensions.py`. In that case, the version file and
+    # extensions should already exist.
+    if Path('make_version.py').exists():
+        sp.call(['python', 'make_version.py'])
+
+    if Path('make_cython_extensions.py').exists():
+        sp.call(['python', 'make_cython_extensions.py'])
+
     version_file = Path('rbf/_version.py')
     version_text = version_file.read_text()
     version_info = dict(
         re.findall('(__[A-Za-z_]+__)\s*=\s*"([^"]+)"', version_text)
         )
 
-    cy_ext = []
-    cy_ext += [Extension(name='rbf.poly', sources=['rbf/poly.pyx'])]
-    cy_ext += [Extension(name='rbf.sputils', sources=['rbf/sputils.pyx'])]
-    cy_ext += [Extension(name='rbf.pde.halton', sources=['rbf/pde/halton.pyx'])]
-    cy_ext += [Extension(name='rbf.pde.geometry', sources=['rbf/pde/geometry.pyx'])]
-    cy_ext += [Extension(name='rbf.pde.sampling', sources=['rbf/pde/sampling.pyx'])]
-    ext = cythonize(cy_ext)
+    ext = []
+    ext += [Extension(name='rbf.poly', sources=['rbf/poly.c'])]
+    ext += [Extension(name='rbf.sputils', sources=['rbf/sputils.c'])]
+    ext += [Extension(name='rbf.pde.halton', sources=['rbf/pde/halton.c'])]
+    ext += [Extension(name='rbf.pde.geometry', sources=['rbf/pde/geometry.c'])]
+    ext += [Extension(name='rbf.pde.sampling', sources=['rbf/pde/sampling.c'])]
 
     with open('rbf/_rbf_ufuncs/metadata.json', 'r') as f:
         rbf_ufunc_metadata = json.load(f)

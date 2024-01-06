@@ -1,2 +1,1 @@
 include rbf/_rbf_ufuncs/metadata.json
-include make_version.py
