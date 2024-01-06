@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython", "numpy"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "treverhines-rbf"
+version = "2024.1.6"
+description = "Package containing the tools necessary for radial basis function (RBF) applications"
+readme = "README.rst"
+requires-python = ">=3.6"
+license = {file = "LICENSE.txt"}
+keywords = ["rbf", "pde"]
+authors = [
+  {name = "Trever Hines", email = "treverhines@gmail.com"}
+]
+maintainers = [
+  {name = "Trever Hines", email = "treverhines@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research"
+]
+
+dependencies = [
+  "numpy>=1.10",
+  "scipy",
+  "sympy",
+  "cython",
+  "rtree"
+]
+
+[project.optional-dependencies]
+test = [
+  "scikit-sparse>=0.4.2"    
+]
+
+[project.urls]
+Source = "https://github.com/treverhines/RBF"
+Documentation "https://rbf.readthedocs.io/en/latest"
