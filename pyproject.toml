@@ -38,4 +38,4 @@ test = [
 
 [project.urls]
 Source = "https://github.com/treverhines/RBF"
-Documentation "https://rbf.readthedocs.io/en/latest"
+Documentation = "https://rbf.readthedocs.io/en/latest"
