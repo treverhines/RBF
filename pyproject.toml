@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = [
+extras = [
   "scikit-sparse>=0.4.2"    
 ]
 

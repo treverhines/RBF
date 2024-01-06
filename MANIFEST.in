@@ -1,1 +1,2 @@
 include rbf/_rbf_ufuncs/metadata.json
+include rbf/_rbf_ufuncs/*.h
