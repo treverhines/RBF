@@ -14,7 +14,7 @@ build:
     python: "3.7"
   jobs:
     pre_install:
-      - pip install numpy cython
+      - python -m pip install --upgrade --no-cache-dir numpy cython
 
 python:
   install:
