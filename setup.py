@@ -38,8 +38,16 @@ if __name__ == '__main__':
 
     setup(
         name='treverhines-rbf',
+        description='Package containing the tools necessary for radial basis function (RBF) applications',
         version=version_info['__version__'],
         packages=['rbf', 'rbf.pde'],
         ext_modules=ext,
         include_package_data=True,
+        install_requires=[
+            'numpy>=1.10',
+            'scipy',
+            'sympy',
+            'cython',
+            'rtree'
+            ]
         )

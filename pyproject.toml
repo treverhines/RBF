@@ -1,11 +1,8 @@
 [build-system]
-requires = ["setuptools", "wheel", "Cython", "numpy"]
+requires = ["setuptools", "cython", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "treverhines-rbf"
-version = "2024.1.6.2"
-description = "Package containing the tools necessary for radial basis function (RBF) applications"
 readme = "README.rst"
 requires-python = ">=3.6"
 license = {file = "LICENSE.txt"}
@@ -21,14 +18,6 @@ classifiers = [
     "Programming Language :: Python",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Science/Research"
-]
-
-dependencies = [
-  "numpy>=1.10",
-  "scipy",
-  "sympy",
-  "cython",
-  "rtree"
 ]
 
 [project.optional-dependencies]
