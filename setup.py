@@ -40,11 +40,11 @@ if __name__ == '__main__':
         name='treverhines-rbf',
         description='Package containing the tools necessary for radial basis function (RBF) applications',
         version=version_info['__version__'],
-        packages=['rbf', 'rbf.pde'],
         author='Trever Hines',
         author_email='treverhines@gmail.com',
+        packages=['rbf', 'rbf.pde'],
+        url="https://www.github.com/treverhines/RBF",
         licence='MIT',
-        url="https://github.com/treverhines/RBF",
         ext_modules=ext,
         include_package_data=True,
         install_requires=[
