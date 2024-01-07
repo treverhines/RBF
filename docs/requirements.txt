@@ -1,0 +1,10 @@
+# Environment needed to build the docs
+numpy >=1.10
+numpydoc
+scipy
+sympy
+cython
+rtree
+sphinx
+sphinxcontrib-napoleon
+sphinx_rtd_theme

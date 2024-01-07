@@ -9,15 +9,12 @@ sphinx:
   configuration: docs/source/conf.py
 
 build:
+  os: ubuntu-22.04
   image: stable
-  
-conda:
-  environment: environment.yml
 
 python:
   version: 3.7
   install:
+    - requirements: docs/requirements.txt
     - method: setuptools
       path: .
-    
-    

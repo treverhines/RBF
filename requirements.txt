@@ -3,4 +3,3 @@ scipy
 sympy
 cython
 rtree
-scikit-sparse>=0.4.2
