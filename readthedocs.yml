@@ -12,9 +12,9 @@ build:
   os: ubuntu-20.04
   tools:
     python: "3.7"
-  apt_packages:
-    - python-numpy
-    - cython
+  jobs:
+    pre_install:
+      - pip install numpy cython
 
 python:
   install:
