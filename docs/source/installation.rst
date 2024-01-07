@@ -7,8 +7,9 @@ This package is available on PyPI and can be installed with
     $ pip install treverhines-rbf
 
 
-To install the latest version, clone this project and install it from the
-top-level directory with
+To install the latest version, clone the source code for the project from
+https://github.com/treverhines/RBF. Install it from the top-level directory
+with
 
 .. code-block:: bash
 
