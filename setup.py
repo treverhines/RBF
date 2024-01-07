@@ -44,7 +44,7 @@ if __name__ == '__main__':
         author='Trever Hines',
         author_email='treverhines@gmail.com',
         url="https://www.github.com/treverhines/RBF",
-        packages=['rbf', 'rbf.pde'],
+        packages=['rbf', 'rbf.pde', 'rbf._rbf_ufuncs'],
         ext_modules=ext,
         include_package_data=True,
         licence='MIT',
