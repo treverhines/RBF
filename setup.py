@@ -48,7 +48,7 @@ if __name__ == '__main__':
         ext_modules=ext,
         include_package_data=True,
         licence='MIT',
-        python_requires='>=3.6',
+        python_requires='>=3.5',
         install_requires=[
             'numpy>=1.10',
             'scipy',
