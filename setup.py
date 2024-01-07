@@ -43,11 +43,12 @@ if __name__ == '__main__':
                     'function (RBF) applications',
         author='Trever Hines',
         author_email='treverhines@gmail.com',
-        url="https://www.github.com/treverhines/RBF",
+        url='https://www.github.com/treverhines/RBF',
         packages=['rbf', 'rbf.pde', 'rbf._rbf_ufuncs'],
         ext_modules=ext,
         include_package_data=True,
         licence='MIT',
+        python_requires='>=3.6',
         install_requires=[
             'numpy>=1.10',
             'scipy',
