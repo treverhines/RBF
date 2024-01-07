@@ -10,7 +10,6 @@ sphinx:
 
 build:
   os: ubuntu-22.04
-  image: stable
   tools:
     python: "3.7"
 
