@@ -15,7 +15,7 @@ build:
   jobs:
     pre_install:
       - python -m pip install --upgrade --no-cache-dir pip
-      - python -m pip install --upgrade --no-cache-dir numpy cython
+      - python -m pip install --upgrade --no-cache-dir numpy Cython
 
 python:
   install:
