@@ -218,14 +218,11 @@ class Test(unittest.TestCase):
     out6 = rbf.basis.phs2(x, y)
 
     out7 = np.empty((5, 4))
-    self.assertRaises(rbf.basis.InplaceError, rbf.basis.phs2, x, y, out=out7)
+    rbf.basis.phs2(x, y, out=out7)
+    self.assertTrue(np.allclose(out6, out7))
 
-    out8 = np.empty((5, 4))
-    rbf.basis.phs2(x, y, out=out8, out_compat=True)
+    out8 = np.empty((4, 5)).T
+    rbf.basis.phs2(x, y, out=out8)
     self.assertTrue(np.allclose(out6, out8))
-
-    out9 = np.empty((4, 5)).T
-    rbf.basis.phs2(x, y, out=out9, out_compat=True)
-    self.assertTrue(np.allclose(out6, out9))
 
 #unittest.main()
