@@ -63,7 +63,6 @@ from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
 from sympy import lambdify
 
-
 from rbf.utils import assert_shape
 
 
@@ -333,7 +332,6 @@ class RBF(object):
             out = func(*x, *c, eps, out=out)
         else:
             out[...] = func(*x, *c, eps)
-
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
