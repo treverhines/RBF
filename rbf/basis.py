@@ -69,9 +69,6 @@ from rbf.utils import assert_shape
 
 logger = logging.getLogger(__name__)
 
-class InplaceError(Exception):
-    pass
-
 
 R, EPS = sympy.symbols('r, eps')
 
@@ -252,7 +249,7 @@ class RBF(object):
         ## create the cache for numerical functions
         self._cache = {}
 
-    def __call__(self, x, c, eps=1.0, diff=None, out=None, out_compat=False):
+    def __call__(self, x, c, eps=1.0, diff=None, out=None):
         '''
         Numerically evaluates the RBF or its derivatives.
 
@@ -287,10 +284,11 @@ class RBF(object):
         function limits the number of spatial dimensions `D` to 15. If there
         are more than 15 dimensions, the `lambdify` method is automatically
         used instead. However, functions produced by this method are unable
-        to perform in-place operations. Hence, an exception will be raised if
-        both `D` > 15 and `out` is specified, unless `out_compat` is also set
-        to true by the caller to signal that they are aware that intermediate
-        arrays still need to be allocated.
+        to perform in-place operations. Hence, if both `D` > 15 and `out` 
+        are specified, in-place operations are emulated for compatibility.
+        This preserves syntactic consistency with code in 15 dimensions or 
+        less, but incurs memory and performance overhead costs due to the
+        creation of intermediate arrays.
 
         The derivative order can be arbitrarily high, but some RBFs, such as
         Wendland and Matern, become numerically unstable when the derivative
@@ -333,20 +331,9 @@ class RBF(object):
         elif isinstance(func, np.ufunc):
             #dim <= 15 ufunc, supports in-place ops
             out = func(*x, *c, eps, out=out)
-        elif out_compat:
-            #caller is aware that intermediate arrays may be needed
-            out[...] = func(*x, *c, eps)
         else:
-            raise InplaceError(
-                '''Array allocation is necessary in more than 15 dimensions.
-                Hence, "true" in-place operations are not possible. Pass
-                `out_compat=True` to emulate in-place operations. This
-                preserves syntactic consistency with code in 15 dimensions
-                or less, but incurs memory and performance overhead costs
-                due to the creation of intermediate arrays.
-                '''
-                )
-        
+            out[...] = func(*x, *c, eps)
+
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
