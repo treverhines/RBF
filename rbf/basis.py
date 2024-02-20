@@ -61,11 +61,16 @@ import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
+from sympy import lambdify
+
 
 from rbf.utils import assert_shape
 
 
 logger = logging.getLogger(__name__)
+
+class InplaceError(Exception):
+    pass
 
 
 R, EPS = sympy.symbols('r, eps')
@@ -247,7 +252,7 @@ class RBF(object):
         ## create the cache for numerical functions
         self._cache = {}
 
-    def __call__(self, x, c, eps=1.0, diff=None, out=None):
+    def __call__(self, x, c, eps=1.0, diff=None, out=None, out_compat=False):
         '''
         Numerically evaluates the RBF or its derivatives.
 
@@ -278,7 +283,14 @@ class RBF(object):
 
         Notes
         -----
-        The number of spatial dimensions currently cannot exceed 15.
+        The default method for converting the symbolic RBF to a numeric
+        function limits the number of spatial dimensions `D` to 15. If there
+        are more than 15 dimensions, the `lambdify` method is automatically
+        used instead. However, functions produced by this method are unable
+        to perform in-place operations. Hence, an exception will be raised if
+        both `D` > 15 and `out` is specified, unless `out_compat` is also set
+        to true by the caller to signal that they are aware that intermediate
+        arrays still need to be allocated.
 
         The derivative order can be arbitrarily high, but some RBFs, such as
         Wendland and Matern, become numerically unstable when the derivative
@@ -315,7 +327,26 @@ class RBF(object):
         # reshape eps from (..., m) to (..., 1, m)
         eps = eps[..., None, :]
         # evaluate the cached function for the given `x`, `c`, and `eps`
-        out = self._cache[diff](*x, *c, eps, out=out)
+        func = self._cache[diff]
+        if out is None:
+            out = func(*x, *c, eps)
+        elif isinstance(func, np.ufunc):
+            #dim <= 15 ufunc, supports in-place ops
+            out = func(*x, *c, eps, out=out)
+        elif out_compat:
+            #caller is aware that intermediate arrays may be needed
+            out[...] = func(*x, *c, eps)
+        else:
+            raise InplaceError(
+                '''Array allocation is necessary in more than 15 dimensions.
+                Hence, "true" in-place operations are not possible. Pass
+                `out_compat=True` to emulate in-place operations. This
+                preserves syntactic consistency with code in 15 dimensions
+                or less, but incurs memory and performance overhead costs
+                due to the creation of intermediate arrays.
+                '''
+                )
+        
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
@@ -403,9 +434,13 @@ class RBF(object):
             # <= supp` and 0 otherwise.
             expr = sympy.Piecewise((expr, r_sym <= self.supp), (0, True))
 
-        func = ufuncify(
-            x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
-            )
+        if dim <= 15:
+            func = ufuncify(
+                x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
+                )
+
+        else:
+            func = lambdify(x_sym + c_sym + (EPS,), expr, modules=['numpy'])
 
         self._cache[diff] = func
         logger.debug('The numeric function has been created and cached.')
