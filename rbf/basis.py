@@ -279,15 +279,15 @@ class RBF(object):
 
         Notes
         -----
-        The default method for converting the symbolic RBF to a numeric
-        function limits the number of spatial dimensions `D` to 15. If there
-        are more than 15 dimensions, the `lambdify` method is automatically
-        used instead. However, functions produced by this method are unable
-        to perform in-place operations. Hence, if both `D` > 15 and `out` 
-        are specified, in-place operations are emulated for compatibility.
-        This preserves syntactic consistency with code in 15 dimensions or 
-        less, but incurs memory and performance overhead costs due to the
-        creation of intermediate arrays.
+        When there are 15 or fewer spatial dimensions `D`, symbolic RBF
+        expressions are converted to numeric functions with sympy's `ufuncify`
+        method. If there are more than 15 dimensions, the `lambdify` method is
+        automatically used instead. However, functions produced by this method
+        are unable to perform in-place operations. Hence, if both `D` > 15 and
+        `out` are specified, in-place operations are emulated for
+        compatibility. This preserves syntactic consistency with code in 15
+        dimensions or less, but incurs memory and performance overhead costs
+        due to the creation of intermediate arrays.
 
         The derivative order can be arbitrarily high, but some RBFs, such as
         Wendland and Matern, become numerically unstable when the derivative
