@@ -61,6 +61,7 @@ import numpy as np
 from scipy.sparse import csc_matrix
 from scipy.spatial import cKDTree
 from sympy.utilities.autowrap import ufuncify
+from sympy import lambdify
 
 from rbf.utils import assert_shape
 
@@ -278,7 +279,15 @@ class RBF(object):
 
         Notes
         -----
-        The number of spatial dimensions currently cannot exceed 15.
+        The default method for converting the symbolic RBF to a numeric
+        function limits the number of spatial dimensions `D` to 15. If there
+        are more than 15 dimensions, the `lambdify` method is automatically
+        used instead. However, functions produced by this method are unable
+        to perform in-place operations. Hence, if both `D` > 15 and `out` 
+        are specified, in-place operations are emulated for compatibility.
+        This preserves syntactic consistency with code in 15 dimensions or 
+        less, but incurs memory and performance overhead costs due to the
+        creation of intermediate arrays.
 
         The derivative order can be arbitrarily high, but some RBFs, such as
         Wendland and Matern, become numerically unstable when the derivative
@@ -315,7 +324,14 @@ class RBF(object):
         # reshape eps from (..., m) to (..., 1, m)
         eps = eps[..., None, :]
         # evaluate the cached function for the given `x`, `c`, and `eps`
-        out = self._cache[diff](*x, *c, eps, out=out)
+        func = self._cache[diff]
+        if out is None:
+            out = func(*x, *c, eps)
+        elif isinstance(func, np.ufunc):
+            #dim <= 15 ufunc, supports in-place ops
+            out = func(*x, *c, eps, out=out)
+        else:
+            out[...] = func(*x, *c, eps)
         return out
 
     def center_value(self, eps=1.0, diff=(0,)):
@@ -403,9 +419,13 @@ class RBF(object):
             # <= supp` and 0 otherwise.
             expr = sympy.Piecewise((expr, r_sym <= self.supp), (0, True))
 
-        func = ufuncify(
-            x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
-            )
+        if dim <= 15:
+            func = ufuncify(
+                x_sym + c_sym + (EPS,), expr, backend='numpy', tempdir=tempdir
+                )
+
+        else:
+            func = lambdify(x_sym + c_sym + (EPS,), expr, modules=['numpy'])
 
         self._cache[diff] = func
         logger.debug('The numeric function has been created and cached.')
