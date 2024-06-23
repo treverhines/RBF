@@ -1,5 +1,5 @@
 /******************************************************************************
- *                       Code generated with sympy 1.9                        *
+ *                    Code generated with SymPy 1.13.0rc2                     *
  *                                                                            *
  *              See http://www.sympy.org/ for more information.               *
  *                                                                            *
@@ -15,7 +15,7 @@ double autofunc0(double x0, double x1, double c0, double c1, double eps) {
    double d1 = x1 - c1;
    double r2 = (d0*d0) + (d1*d1);
    double r = sqrt(r2);
-   if (r <= 0.0) {
+   if (r <= 0) {
       autofunc0_result = 0;
    }
    else {
