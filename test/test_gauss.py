@@ -212,10 +212,10 @@ class Test(unittest.TestCase):
 
     x = np.random.random((3,1))    
     y = np.random.random((2,1))    
-    dudx0 = sparse_cov(x, y, (1,), (0,)).A
-    dudy0 = sparse_cov(x, y, (0,), (1,)).A
-    true_dudx0 = sparse_cov_dx0(x, y).A
-    true_dudy0 = sparse_cov_dy0(x, y).A
+    dudx0 = sparse_cov(x, y, (1,), (0,)).toarray()
+    dudy0 = sparse_cov(x, y, (0,), (1,)).toarray()
+    true_dudx0 = sparse_cov_dx0(x, y).toarray()
+    true_dudy0 = sparse_cov_dy0(x, y).toarray()
     self.assertTrue(np.allclose(dudx0,true_dudx0,atol=1e-4,rtol=1e-4))
     self.assertTrue(np.allclose(dudy0,true_dudy0,atol=1e-4,rtol=1e-4))
 

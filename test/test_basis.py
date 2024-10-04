@@ -164,7 +164,7 @@ class Test(unittest.TestCase):
           inst._add_diff_to_cache(diff)
           out2 = inst(x, y)
           if isinstance(inst, rbf.basis.SparseRBF):
-            self.assertTrue(np.allclose(out1.A, out2.A))
+            self.assertTrue(np.allclose(out1.toarray(), out2.toarray()))
           else:
             self.assertTrue(np.allclose(out1, out2))
 

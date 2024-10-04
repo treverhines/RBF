@@ -12,7 +12,7 @@ class Test(unittest.TestCase):
     A = A.tocsc()
     
     b = np.random.random((n,))
-    x1 = np.linalg.solve(A.A, b)
+    x1 = np.linalg.solve(A.toarray(), b)
     x2 = rbf.linalg._SparseSolver(A).solve(b)
     self.assertTrue(np.allclose(x1, x2))
 
@@ -51,7 +51,7 @@ class Test(unittest.TestCase):
     b = np.random.random((n,))
     factor = rbf.linalg._SparsePosDefSolver(A)
     x1 = factor.solve(b)
-    x2 = np.linalg.solve(A.A,b)
+    x2 = np.linalg.solve(A.toarray(),b)
     self.assertTrue(np.allclose(x1,x2))
   
   def test_sparse_pos_def_solve_L(self):
@@ -65,7 +65,7 @@ class Test(unittest.TestCase):
     b = np.random.random((n,))
     factor = rbf.linalg._SparsePosDefSolver(A)
     x1 = factor.solve_L(b)
-    x2 = np.linalg.solve(factor.L().A,b)
+    x2 = np.linalg.solve(factor.L().toarray(),b)
     self.assertTrue(np.allclose(x1,x2))
 
   def test_sparse_pos_def_L(self):
@@ -79,7 +79,7 @@ class Test(unittest.TestCase):
     factor = rbf.linalg._SparsePosDefSolver(A)
     L = factor.L()
     A2 = L.dot(L.T)
-    self.assertTrue(np.allclose(A.A,A2.A))
+    self.assertTrue(np.allclose(A.toarray(),A2.toarray()))
   
   def test_sparse_pos_def_log_det(self):
     if not rbf.linalg.HAS_CHOLMOD:
@@ -91,7 +91,7 @@ class Test(unittest.TestCase):
     A = A.T.dot(A).tocsc()
     factor = rbf.linalg._SparsePosDefSolver(A)
     x1 = factor.log_det()
-    x2 = np.log(np.linalg.det(A.A))
+    x2 = np.log(np.linalg.det(A.toarray()))
     self.assertTrue(np.isclose(x1,x2))
   
   def test_dense_pos_def_solve(self):
@@ -244,7 +244,7 @@ class Test(unittest.TestCase):
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
              np.vstack(
-               (np.hstack((A.A,B)),
+               (np.hstack((A.toarray(),B)),
                 np.hstack((B.T,np.zeros((2,2)))))))
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))
@@ -261,7 +261,7 @@ class Test(unittest.TestCase):
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
              np.vstack(
-               (np.hstack((A.A,B)),
+               (np.hstack((A.toarray(),B)),
                 np.hstack((B.T,np.zeros((2,2)))))))
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))
@@ -278,7 +278,7 @@ class Test(unittest.TestCase):
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
              np.vstack(
-               (np.hstack((A.A,B)),
+               (np.hstack((A.toarray(),B)),
                 np.hstack((B.T,np.zeros((2,2)))))))
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))
@@ -295,7 +295,7 @@ class Test(unittest.TestCase):
     soln1 = np.hstack((soln1a,soln1b))
     Cinv = np.linalg.inv(
              np.vstack(
-               (np.hstack((A.A,B)),
+               (np.hstack((A.toarray(),B)),
                 np.hstack((B.T,np.zeros((2,2)))))))
     soln2 = Cinv.dot(np.hstack((a,b)))
     self.assertTrue(np.allclose(soln1,soln2))

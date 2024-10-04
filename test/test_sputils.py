@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
     B1 = rbf.sputils.divide_rows(A, n)
     B2 = sp.diags(1.0/n).dot(A)
     
-    self.assertTrue(np.allclose(B1.A, B2.A))
+    self.assertTrue(np.allclose(B1.toarray(), B2.toarray()))
 
   def test_divide_rows_inplace(self):
     A = sp.rand(100, 10, 0.1)
@@ -34,7 +34,7 @@ class Test(unittest.TestCase):
     B = sp.diags(1.0/n).dot(A)
     # This should modify A inplace as long as A is csc, csr, or coo
     rbf.sputils.divide_rows(A, n, inplace=True)
-    self.assertTrue(np.allclose(A.A, B.A))
+    self.assertTrue(np.allclose(A.toarray(), B.toarray()))
 
   def test_add_rows(self):
     A = sp.rand(100, 10, 1.0)
@@ -46,4 +46,4 @@ class Test(unittest.TestCase):
     D = A.tocsc(copy=True)
     D[idx, :] += B
     
-    self.assertTrue(np.allclose(C.A, D.A))
+    self.assertTrue(np.allclose(C.toarray(), D.toarray()))
