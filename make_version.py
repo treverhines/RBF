@@ -13,7 +13,7 @@ if __name__ == '__main__':
     if version_file.exists():
         version_text = version_file.read_text()
         version_info.update(
-            re.findall('(__[A-Za-z_]+__)\s*=\s*"([^"]+)"', version_text)
+            re.findall(r'(__[A-Za-z_]+__)\s*=\s*"([^"]+)"', version_text)
             )
 
     try:
