@@ -777,7 +777,7 @@ class GMRESSolver:
         self.M = M
         self.n = n
 
-    def solve(self, b, tol=1.0e-10):
+    def solve(self, b, **kwargs):
         '''
         Solve `Ax = b` for `x`
 
@@ -785,7 +785,9 @@ class GMRESSolver:
         ----------
         b : (n,) array
 
-        tol : float, optional
+        **kwargs
+            Arguments passed to `scipy.sparse.linalg.gmres`, such as `rtol`,
+            `atol`, `restart`, `maxiter`.
 
         Returns
         -------
@@ -803,9 +805,9 @@ class GMRESSolver:
         x, info = spla.gmres(
             self.A,
             b/self.n,
-            tol=tol,
             M=self.M,
-            callback=callback
+            callback=callback,
+            **kwargs
             )
         LOGGER.debug('finished GMRES with info %s' % info)
         return x

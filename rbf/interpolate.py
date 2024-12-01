@@ -241,7 +241,7 @@ def _objective(method, y, d, sigma, phi, eps, order):
     shift = (maxs + mins)/2
     scale = (maxs - mins)/2
     scale[scale == 0.0] = 1.0
-    range_scale = K.ptp()
+    range_scale = np.ptp(K)
     range_scale = 1.0 if range_scale == 0.0 else range_scale
     P = range_scale*mvmonos((y - shift)/scale, order)
     if method == 'LOOCV':
@@ -400,7 +400,7 @@ def _build_and_solve_systems(y, d, sigma, phi, eps, order, check_cond):
         LHS = np.zeros(bcast + (n + r, n + r), dtype=float)
         phi(y, y, eps=eps, out=LHS[..., :n, :n])
         LHS[..., range(n), range(n)] += sigma**2
-        range_scale = LHS[..., :n, :n].ptp(axis=(-2, -1))
+        range_scale = np.ptp(LHS[..., :n, :n], axis=(-2, -1))
         range_scale = np.where(range_scale==0.0, 1.0, range_scale)
         Py *= range_scale[..., None, None]
         LHS[..., :n, n:] = Py

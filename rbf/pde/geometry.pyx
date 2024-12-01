@@ -1020,7 +1020,7 @@ def contains(points, vertices, simplices):
 
     # randomly generate a point that is known to be outside of the domain
     rnd = np.random.uniform(0.5, 2.0, (points.shape[1],))
-    outside_point = vertices.min(axis=0) - rnd*vertices.ptp(axis=0)
+    outside_point = vertices.min(axis=0) - rnd*np.ptp(vertices, axis=0)
     outside_point = np.repeat([outside_point], points.shape[0], axis=0)
     count = intersection_count(points, outside_point, vertices, simplices)
     out = np.array(count % 2, dtype=bool)
@@ -1109,7 +1109,7 @@ def oriented_simplices(vertices, simplices):
     assert_shape(simplices, (None, dim), 'simplices')
 
     # length scale of the domain
-    scale = vertices.ptp(axis=0).max()
+    scale = np.ptp(vertices, axis=0).max()
     dx = 1e-10*scale
     # find the normal for each simplex
     norms = simplex_normals(vertices, simplices)

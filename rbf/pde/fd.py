@@ -161,7 +161,8 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0):
     p = p[..., 0, :]
     rhs = np.concatenate((a, p), axis=-1)
 
-    w = np.linalg.solve(LHS, rhs)[..., :ssize]
+    # since numpy 2, the rhs must be a matrix in order to use broadcasting
+    w = np.linalg.solve(LHS, rhs[..., None])[..., :ssize, 0]
     return w
 
 

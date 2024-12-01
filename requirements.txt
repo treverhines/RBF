@@ -1,4 +1,4 @@
-numpy>=1.10,<2.0
+numpy>=1.10
 scipy
 sympy
 cython

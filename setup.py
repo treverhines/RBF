@@ -50,7 +50,7 @@ if __name__ == '__main__':
         licence='MIT',
         python_requires='>=3.5',
         install_requires=[
-            'numpy>=1.10,<2.0',
+            'numpy>=1.10',
             'scipy',
             'sympy',
             'cython',

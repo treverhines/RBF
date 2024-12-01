@@ -121,7 +121,7 @@ class Domain(object):
         Orient the simplices so that the normal vectors point outward.
         '''
         # length scale of the domain
-        scale = self.vertices.ptp(axis=0).max()
+        scale = np.ptp(self.vertices, axis=0).max()
         dx = 1e-10*scale
         # find the normal for each simplex
         norms = geo.simplex_normals(self.vertices, self.simplices)
@@ -244,7 +244,7 @@ class Domain(object):
         # intersections between `points` and the new points.
 
         # get the min value and width of the domain along axis 0
-        xwidth = self.vertices[:, 0].ptp()
+        xwidth = np.ptp(self.vertices[:, 0])
         xmin = self.vertices[:, 0].min()
         # the outside points are directly to the left of `points` plus
         # a small random perturbation. The subsequent bounding boxes
