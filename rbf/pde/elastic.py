@@ -47,12 +47,27 @@ def elastic2d_body_force(x, p, n, lamb=1.0, mu=1.0, **kwargs):
     diffs_yy =  [(0, 2), (2, 0)]
     # make the differentiation matrices that enforce the PDE on the interior
     # nodes.
-    D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
-    D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
-    D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
-    D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
-    return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
+    diffs = diffs_xx + diffs_xy + diffs_yx + diffs_yy
+    coeffs = coeffs_xx + coeffs_xy + coeffs_yx + coeffs_yy
+    Ds = weight_matrix(
+        x, p, n, diffs, coeffs=coeffs, sum_terms=False, **kwargs
+        )
 
+    out = {
+        'xx': Ds[0] + Ds[1],
+        'xy': Ds[2],
+        'yx': Ds[3],
+        'yy': Ds[4] + Ds[5]
+        }
+
+    return out
+
+    # The above should be equivalent to:
+    #D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
+    #D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
+    #D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
+    #D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
+    #return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
 
 def elastic2d_surface_force(x, nrm, p, n, lamb=1.0, mu=1.0, **kwargs):
     '''
@@ -99,13 +114,29 @@ def elastic2d_surface_force(x, nrm, p, n, lamb=1.0, mu=1.0, **kwargs):
     # y component of force resulting from displacement in the y direction
     coeffs_yy = [nrm[:, 0]*mu, nrm[:, 1]*(lamb + 2*mu)]
     diffs_yy =  [(1, 0), (0, 1)]
+
+    diffs = diffs_xx + diffs_xy + diffs_yx + diffs_yy
+    coeffs = coeffs_xx + coeffs_xy + coeffs_yx + coeffs_yy
+    Ds = weight_matrix(
+        x, p, n, diffs, coeffs=coeffs, sum_terms=False, **kwargs
+        )
+
+    out = {
+        'xx': Ds[0] + Ds[1],
+        'xy': Ds[2] + Ds[3],
+        'yx': Ds[4] + Ds[5],
+        'yy': Ds[6] + Ds[7]
+        }
+
+    return out
+
     # make the differentiation matrices that enforce the free surface boundary
     # conditions.
-    D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
-    D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
-    D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
-    D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
-    return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
+    #D_xx = weight_matrix(x, p, n, diffs_xx, coeffs=coeffs_xx, **kwargs)
+    #D_xy = weight_matrix(x, p, n, diffs_xy, coeffs=coeffs_xy, **kwargs)
+    #D_yx = weight_matrix(x, p, n, diffs_yx, coeffs=coeffs_yx, **kwargs)
+    #D_yy = weight_matrix(x, p, n, diffs_yy, coeffs=coeffs_yy, **kwargs)
+    #return {'xx':D_xx, 'xy':D_xy, 'yx':D_yx, 'yy':D_yy}
 
 
 def elastic2d_displacement(x, p, n, **kwargs):

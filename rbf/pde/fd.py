@@ -29,7 +29,8 @@ def _max_poly_order(size, dim):
     return order
 
 
-def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0):
+def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0,
+            sum_terms=True):
     '''
     Returns the weights which map a function's values at `s` to an
     approximation of that function's derivative at `x`. The weights are
@@ -67,9 +68,13 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0):
     eps : float or float array, optional
         Shape parameter for each RBF
 
+    sum_terms : bool, optional
+        If `False`, weights are returned for each term in `diffs` rather than
+        their sum.
+
     Returns
     -------
-    (..., M) float array
+    (..., M) float array or (K, ..., M) float array
         RBF-FD weights for each target point
 
     Examples
@@ -113,12 +118,13 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0):
     diffs = np.asarray(diffs, dtype=int)
     diffs = np.atleast_2d(diffs)
     assert_shape(diffs, (None, ndim), 'diffs')
+    k = diffs.shape[0]
 
     if coeffs is None:
-        coeffs = np.ones(len(diffs), dtype=float)
+        coeffs = np.ones(k, dtype=float)
     else:
         coeffs = np.asarray(coeffs, dtype=float)
-        assert_shape(coeffs, (len(diffs), ...), 'coeffs')
+        assert_shape(coeffs, (k, ...), 'coeffs')
 
     # broadcast each element in `coeffs` to match leading dimensions of `x`
     coeffs = [np.broadcast_to(c, bcast) for c in coeffs]
@@ -151,26 +157,34 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0):
     LHS = np.block([[A, P], [Pt, Z]])
     # Evaluate the RBF and monomials at the target points for each term in the
     # differential operator. This becomes the right-hand-side.
-    a, p = 0.0, 0.0
+    a, p = [], []
     for c, d in zip(coeffs, diffs):
-        a += c[..., None, None]*phi(x, s, eps=eps, diff=d)
-        p += c[..., None, None]*mvmonos(x, pwr, diff=d)
+        # convert to an array because phi may be a sparse RBF
+        a.append(c[..., None]*as_array(phi(x, s, eps=eps, diff=d))[..., 0, :])
+        p.append(c[..., None]*mvmonos(x, pwr, diff=d)[..., 0, :])
 
-    # convert `a` to an array because phi may be a sparse RBF
-    a = as_array(a)[..., 0, :]
-    p = p[..., 0, :]
-    rhs = np.concatenate((a, p), axis=-1)
+    if sum_terms:
+        a = sum(a)[..., None]
+        p = sum(p)[..., None]
+    else:
+        a = np.stack(a, axis=-1)
+        p = np.stack(p, axis=-1)
 
-    # since numpy 2, the rhs must be a matrix in order to use broadcasting
-    w = np.linalg.solve(LHS, rhs[..., None])[..., :ssize, 0]
+    rhs = np.concatenate((a, p), axis=-2)
+    w = np.linalg.solve(LHS, rhs)[..., :ssize, :]
+    if sum_terms:
+        w = w[..., 0]
+    else:
+        w = np.moveaxis(w, -1, 0)
+
     return w
-
 
 def weight_matrix(x, p, n, diffs,
                   coeffs=None,
                   phi='phs3',
                   order=None,
                   eps=1.0,
+                  sum_terms=True,
                   chunk_size=1000):
     '''
     Returns a weight matrix which maps a function's values at `p` to an
@@ -216,13 +230,17 @@ def weight_matrix(x, p, n, diffs,
     eps : float, optional
         Shape parameter for each RBF
 
+    sum_terms : bool, optional
+        If `False`, a matrix will be returned for each term in `diffs` rather
+        than their sum.
+
     chunk_size : int, optional
         Break the target points into chunks with this size to reduce the memory
         requirements
 
     Returns
     -------
-    (N, M) coo sparse matrix
+    (N, M) coo sparse matrix or K-tuple of (N, M) coo sparse matrices
 
     Examples
     --------
@@ -247,12 +265,13 @@ def weight_matrix(x, p, n, diffs,
     diffs = np.asarray(diffs, dtype=int)
     diffs = np.atleast_2d(diffs)
     assert_shape(diffs, (None, ndim), 'diffs')
+    k = diffs.shape[0]
 
     if coeffs is None:
-        coeffs = np.ones(len(diffs), dtype=float)
+        coeffs = np.ones(k, dtype=float)
     else:
         coeffs = np.asarray(coeffs, dtype=float)
-        assert_shape(coeffs, (len(diffs), ...), 'coeffs')
+        assert_shape(coeffs, (k, ...), 'coeffs')
 
     # broadcast each element in `coeffs` to the length of `x`
     coeffs = np.array([np.broadcast_to(c, (nx,)) for c in coeffs])
@@ -264,20 +283,35 @@ def weight_matrix(x, p, n, diffs,
             coeffs=coeffs,
             phi=phi,
             order=order,
-            eps=eps)
+            eps=eps,
+            sum_terms=sum_terms
+            )
     else:
-        data = np.empty((nx, n), dtype=float)
+        if sum_terms:
+            data = np.empty((nx, n), dtype=float)
+        else:
+            data = np.empty((k, nx, n), dtype=float)
+
         for start in range(0, nx, chunk_size):
             stop = start + chunk_size
-            data[start:stop] = weights(
+            data[..., start:stop, :] = weights(
                 x[start:stop], p[stencils[start:stop]], diffs,
                 coeffs=coeffs[:, start:stop],
                 phi=phi,
                 order=order,
-                eps=eps)
+                eps=eps,
+                sum_terms=sum_terms
+                )
 
-    data = data.ravel()
     rows = np.repeat(range(nx), n)
     cols = stencils.ravel()
-    out = sp.coo_matrix((data, (rows, cols)), (nx, len(p)))
+    if sum_terms:
+        data = data.ravel()
+        out = sp.coo_matrix((data, (rows, cols)), (nx, len(p)))
+    else:
+        data = data.reshape(k, -1)
+        out = tuple(
+            sp.coo_matrix((d, (rows, cols)), (nx, len(p))) for d in data
+            )
+
     return out
