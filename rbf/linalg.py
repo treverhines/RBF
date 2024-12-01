@@ -138,7 +138,13 @@ def as_sparse_or_array(A, dtype=None, copy=False):
         # false.
         A = sp.csc_matrix(A, dtype=dtype, copy=copy)
     else:
-        A = np.array(A, dtype=dtype, copy=copy)
+        # in numpy 2, copy=False for np.array was changed to fail if a copy is
+        # unavoidable. Here, copy=False should just mean avoid a copy if
+        # possible.
+        if copy:
+            A = np.array(A, dtype=dtype, copy=True)
+        else:
+            A = np.asarray(A, dtype=dtype)
 
     return A
 
@@ -151,7 +157,11 @@ def as_array(A, dtype=None, copy=False):
     if sp.issparse(A):
         A = A.toarray()
 
-    A = np.array(A, dtype=dtype, copy=copy)
+    if copy:
+        A = np.array(A, dtype=dtype, copy=True)
+    else:
+        A = np.asarray(A, dtype=dtype)
+
     return A
 
 

@@ -526,7 +526,7 @@ def _as_covariance(sigma):
   `as_sparse_or_array`
   '''
   if np.ndim(sigma) == 1:
-    sigma = np.array(sigma, dtype=float, copy=False)
+    sigma = np.asarray(sigma, dtype=float)
     sigma = sp.diags(sigma**2).tocsc()
 
   sigma = as_sparse_or_array(sigma, dtype=float)
