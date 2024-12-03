@@ -312,20 +312,3 @@ def weight_matrix(x, p, n, diffs,
             )
 
     return out
-
-if __name__ == '__main__':
-    import time
-
-    x = np.random.random((2,))
-    s = np.random.random((50, 2))
-
-    out = weights(x, s, diffs=[[2, 0], [0, 2]], phi='phs3', order=2)
-
-    start = time.time()
-    for _ in range(1000):
-        out = weights(x, s, diffs=[[2, 0], [0, 2]], phi='phs3', order=2)
-
-    print(time.time() - start)
-
-
-
