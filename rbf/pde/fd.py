@@ -106,31 +106,28 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0,
     '''
     x = np.asarray(x, dtype=float)
     assert_shape(x, (..., None), 'x')
-    bcast = x.shape[:-1]
     ndim = x.shape[-1]
 
     s = np.asarray(s, dtype=float)
     assert_shape(s, (..., None, ndim), 's')
-    # broadcast leading dimensions of `s` to match leading dimensions of `x`
-    s = np.broadcast_to(s, bcast + s.shape[-2:])
     ssize = s.shape[-2]
 
     diffs = np.asarray(diffs, dtype=int)
     diffs = np.atleast_2d(diffs)
     assert_shape(diffs, (None, ndim), 'diffs')
-    k = diffs.shape[0]
+    nterms = diffs.shape[0]
 
     if coeffs is None:
-        coeffs = np.ones(k, dtype=float)
+        coeffs = np.ones(nterms, dtype=float)
     else:
         coeffs = np.asarray(coeffs, dtype=float)
-        assert_shape(coeffs, (k, ...), 'coeffs')
+        assert_shape(coeffs, (nterms, ...), 'coeffs')
 
-    # broadcast each element in `coeffs` to match leading dimensions of `x`
-    coeffs = [np.broadcast_to(c, bcast) for c in coeffs]
+    bcast = np.broadcast_shapes(x.shape[:-1], s.shape[:-2], coeffs.shape[1:])
+    x = np.broadcast_to(x, bcast + x.shape[-1:])
+    s = np.broadcast_to(s, bcast + s.shape[-2:])
 
     phi = get_rbf(phi)
-
     # get the maximum polynomial order allowed for this stencil size
     max_order = _max_poly_order(ssize, ndim)
     if order is None:
@@ -148,29 +145,29 @@ def weights(x, s, diffs, coeffs=None, phi=phs3, order=None, eps=1.0,
     x = np.zeros_like(x)
     # get the powers for the added monomials
     pwr = monomial_powers(order, ndim)
+    nmonos = pwr.shape[0]
     # evaluate the RBF and monomials at each point in the stencil. This becomes
     # the left-hand-side
     A = phi(s, s, eps=eps)
     P = mvmonos(s, pwr)
     Pt = P.swapaxes(-2, -1)
-    Z = np.zeros(bcast + (len(pwr), len(pwr)), dtype=float)
+    Z = np.zeros((*bcast, nmonos, nmonos), dtype=float)
     LHS = np.block([[A, P], [Pt, Z]])
     # Evaluate the RBF and monomials at the target points for each term in the
     # differential operator. This becomes the right-hand-side.
-    a, p = [], []
-    for c, d in zip(coeffs, diffs):
+    a = np.empty((*bcast, ssize, nterms))
+    p = np.empty((*bcast, nmonos, nterms))
+    for i in range(nterms):
         # convert to an array because phi may be a sparse RBF
-        a.append(c[..., None]*as_array(phi(x, s, eps=eps, diff=d))[..., 0, :])
-        p.append(c[..., None]*mvmonos(x, pwr, diff=d)[..., 0, :])
+        a[..., i] = as_array(phi(x, s, eps=eps, diff=diffs[i]))[..., 0, :]
+        p[..., i] = mvmonos(x, pwr, diff=diffs[i])[..., 0, :]
 
-    if sum_terms:
-        a = sum(a)[..., None]
-        p = sum(p)[..., None]
-    else:
-        a = np.stack(a, axis=-1)
-        p = np.stack(p, axis=-1)
-
+    coeffs = np.moveaxis(coeffs, 0, -1)[..., None, :]
     rhs = np.concatenate((a, p), axis=-2)
+    rhs *= coeffs
+    if sum_terms:
+        rhs = rhs.sum(axis=-1, keepdims=True)
+
     w = np.linalg.solve(LHS, rhs)[..., :ssize, :]
     if sum_terms:
         w = w[..., 0]
@@ -265,13 +262,13 @@ def weight_matrix(x, p, n, diffs,
     diffs = np.asarray(diffs, dtype=int)
     diffs = np.atleast_2d(diffs)
     assert_shape(diffs, (None, ndim), 'diffs')
-    k = diffs.shape[0]
+    nterms = diffs.shape[0]
 
     if coeffs is None:
-        coeffs = np.ones(k, dtype=float)
+        coeffs = np.ones(nterms, dtype=float)
     else:
         coeffs = np.asarray(coeffs, dtype=float)
-        assert_shape(coeffs, (k, ...), 'coeffs')
+        assert_shape(coeffs, (nterms, ...), 'coeffs')
 
     # broadcast each element in `coeffs` to the length of `x`
     coeffs = np.array([np.broadcast_to(c, (nx,)) for c in coeffs])
@@ -290,7 +287,7 @@ def weight_matrix(x, p, n, diffs,
         if sum_terms:
             data = np.empty((nx, n), dtype=float)
         else:
-            data = np.empty((k, nx, n), dtype=float)
+            data = np.empty((nterms, nx, n), dtype=float)
 
         for start in range(0, nx, chunk_size):
             stop = start + chunk_size
@@ -309,9 +306,26 @@ def weight_matrix(x, p, n, diffs,
         data = data.ravel()
         out = sp.coo_matrix((data, (rows, cols)), (nx, len(p)))
     else:
-        data = data.reshape(k, -1)
+        data = data.reshape(nterms, -1)
         out = tuple(
             sp.coo_matrix((d, (rows, cols)), (nx, len(p))) for d in data
             )
 
     return out
+
+if __name__ == '__main__':
+    import time
+
+    x = np.random.random((2,))
+    s = np.random.random((50, 2))
+
+    out = weights(x, s, diffs=[[2, 0], [0, 2]], phi='phs3', order=2)
+
+    start = time.time()
+    for _ in range(1000):
+        out = weights(x, s, diffs=[[2, 0], [0, 2]], phi='phs3', order=2)
+
+    print(time.time() - start)
+
+
+
