@@ -270,8 +270,10 @@ def weight_matrix(x, p, n, diffs,
         coeffs = np.asarray(coeffs, dtype=float)
         assert_shape(coeffs, (nterms, ...), 'coeffs')
 
-    # broadcast each element in `coeffs` to the length of `x`
-    coeffs = np.array([np.broadcast_to(c, (nx,)) for c in coeffs])
+    if coeffs.ndim == 1:
+        coeffs = coeffs[:, None]
+
+    coeffs = np.broadcast_to(coeffs, (nterms, nx))
 
     _, stencils = KDTree(p).query(x, n)
     if chunk_size is None:
