@@ -9,6 +9,7 @@ import scipy.sparse as sp
 from rbf.utils import assert_shape
 
 from cython cimport boundscheck, wraparound
+from libc.stdint cimport int32_t, int64_t
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +17,15 @@ logger = logging.getLogger(__name__)
 @boundscheck(False)
 @wraparound(False)
 def _coo_row_norms(double[:] data, 
-                   int[:] row, 
-                   long nrows, 
-                   long order):
+                   int32_t[:] row, 
+                   int64_t nrows, 
+                   int64_t order):
     '''
     Computes the row norms of a COO matrix
     '''
     cdef:
-        long i
-        long ndata = data.shape[0]
+        int64_t i
+        int64_t ndata = data.shape[0]
         double[:] arr = np.zeros((nrows,), dtype=float)
 
     for i in range(ndata):
@@ -122,7 +123,7 @@ def add_rows(A, B, idx):
     (n1, m) COO sparse matrix
 
     '''
-    idx = np.asarray(idx, dtype=int)
+    idx = np.asarray(idx, dtype=np.int32)
     if not sp.isspmatrix(A):
         raise ValueError('`A` must be a sparse matrix')
 
@@ -172,7 +173,7 @@ def expand_rows(A, rows, rout, copy=False):
     A = A.tocoo(copy=copy)
     rin, cin = A.shape
 
-    rows = np.asarray(rows, dtype=int)
+    rows = np.asarray(rows, dtype=np.int32)
     assert_shape(rows, (rin,), 'rows')
 
     out = sp.coo_matrix((A.data, (rows[A.row], A.col)), shape=(rout, cin))
@@ -210,7 +211,7 @@ def expand_cols(A, cols, cout, copy=False):
     A = A.tocoo(copy=copy)
     rin, cin = A.shape
 
-    cols = np.asarray(cols, dtype=int)
+    cols = np.asarray(cols, dtype=np.int32)
     assert_shape(cols, (cin,), 'cols')
 
     out = sp.coo_matrix((A.data, (A.row, cols[A.col])), shape=(rin, cout))

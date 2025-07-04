@@ -11,6 +11,7 @@ from scipy.special import comb
 from rbf.utils import assert_shape
 
 from cython cimport boundscheck, wraparound
+from libc.stdint cimport int64_t
 
 
 def mvmonos(x, degree, diff=None):
@@ -60,13 +61,13 @@ def mvmonos(x, degree, diff=None):
     if np.isscalar(degree):
         powers = monomial_powers(degree, ndim)
     else:
-        powers = np.asarray(degree, dtype=int)
+        powers = np.asarray(degree, dtype=np.int64)
         assert_shape(powers, (None, ndim), 'powers')
 
     if diff is None:
-        diff = np.zeros(ndim, dtype=int)
+        diff = np.zeros(ndim, dtype=np.int64)
     else:
-        diff = np.asarray(diff, dtype=int)
+        diff = np.asarray(diff, dtype=np.int64)
         assert_shape(diff, (ndim,), 'diff')
 
     x_flat = x.reshape((-1, ndim))
@@ -77,20 +78,20 @@ def mvmonos(x, degree, diff=None):
 
 @boundscheck(False)
 @wraparound(False)
-def _mvmonos(double[:, :] x, long[:, :] powers, long[:] diff):
+def _mvmonos(double[:, :] x, int64_t[:, :] powers, int64_t[:] diff):
     '''
     Cython evaluation of mvmonos.
     '''
     out_array = np.ones((x.shape[0], powers.shape[0]), dtype=float)
     cdef:
-        long i, j, k, l
+        int64_t i, j, k, l
         # number of spatial dimensions
-        long D = x.shape[1]
+        int64_t D = x.shape[1]
         # number of monomials
-        long M = powers.shape[0]
+        int64_t M = powers.shape[0]
         # number of positions where the monomials are evaluated
-        long N = x.shape[0]
-        long coeff, power
+        int64_t N = x.shape[0]
+        int64_t coeff, power
         # `out` is the memoryview of the numpy array `out_array`
         double[:, :] out = out_array
 
@@ -139,7 +140,7 @@ def monomial_powers(degree, ndim):
                [0, 1]])
     '''
     nmonos = comb(degree + ndim, ndim, exact=True)
-    out = np.zeros((nmonos, ndim), dtype=int)
+    out = np.zeros((nmonos, ndim), dtype=np.int64)
     count = 0
     for deg in range(degree + 1):
         for mono in combinations_with_replacement(range(ndim), deg):
