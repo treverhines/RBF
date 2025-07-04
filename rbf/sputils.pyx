@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 @boundscheck(False)
 @wraparound(False)
-def _coo_row_norms(double[:] data, 
-                   int32_t[:] row, 
-                   int64_t nrows, 
+def _coo_row_norms(double[:] data,
+                   int32_t[:] row,
+                   int64_t nrows,
                    int64_t order):
     '''
     Computes the row norms of a COO matrix
@@ -35,7 +35,7 @@ def _coo_row_norms(double[:] data,
     out = out**(1.0/order)
     return out
 
-    
+
 def row_norms(A, order=2):
     '''
     Computes the norm of each row in `A`. This is more memory efficient than
@@ -46,8 +46,8 @@ def row_norms(A, order=2):
     A: (n, m) float sparse matrix
         CSC, CSR, BSR, or COO matrix for best efficiency
 
-    order: int        
-    
+    order: int
+
     Returns
     -------
     (n,) float array
@@ -55,15 +55,15 @@ def row_norms(A, order=2):
     '''
     if not sp.isspmatrix(A):
         raise ValueError('`A` must be a sparse matrix')
-    
+
     # If A is csr, bsr, csc, or coo then the data will not be copied when
     # converting to coo. Otherwise, my request to not make a copy of the data
     # will be silently ignored.
     A = A.tocoo(copy=False)
     out = _coo_row_norms(A.data, A.row, A.shape[0], order)
-    return out    
-    
-    
+    return out
+
+
 def divide_rows(A, x, inplace=False):
     '''
     Divide the rows of the sparse matrix `A` by `x`. If `inplace` is `True` and
@@ -73,8 +73,8 @@ def divide_rows(A, x, inplace=False):
     ----------
     A: (n, m) sparse matrix
         CSC, CSR, BSR, or COO matrix for best efficiency
-    
-    x: (n,) float array    
+
+    x: (n,) float array
 
     inplace: bool
         Whether to modify the data in `A` inplace. This is only possible if `A`
@@ -83,12 +83,12 @@ def divide_rows(A, x, inplace=False):
     Returns
     -------
     (n, m) COO sparse matrix
-    
+
     '''
     x = np.asarray(x, dtype=float)
     if not sp.isspmatrix(A):
         raise ValueError('`A` must be a sparse matrix')
-    
+
     if inplace and not (sp.isspmatrix_csc(A) |
                         sp.isspmatrix_csr(A) |
                         sp.isspmatrix_bsr(A) |
@@ -101,7 +101,7 @@ def divide_rows(A, x, inplace=False):
     out = A.tocoo(copy=not inplace)
     out.data /= x[out.row]
     return out
-    
+
 
 def add_rows(A, B, idx):
     '''
@@ -158,18 +158,18 @@ def expand_rows(A, rows, rout, copy=False):
     rout : int
         The number of rows in the output matrix
 
-    copy : bool, 
+    copy : bool,
         Whether the data in the output matrix should be a copy of the data in
         `A`
 
     Returns
     -------
     (rout, cin) COO sparse matrix
-    
-    '''        
+
+    '''
     if not sp.isspmatrix(A):
         raise ValueError('`A` must be a sparse matrix')
-    
+
     A = A.tocoo(copy=copy)
     rin, cin = A.shape
 
@@ -196,18 +196,18 @@ def expand_cols(A, cols, cout, copy=False):
     cout : int
         The number of columns in the output matrix
 
-    copy : bool, 
+    copy : bool,
         Whether the data in the output matrix should be a copy of the data in
         `A`
 
     Returns
     -------
     (rin, cout) COO sparse matrix
-    
-    '''        
+
+    '''
     if not sp.isspmatrix(A):
         raise ValueError('`A` must be a sparse matrix')
-    
+
     A = A.tocoo(copy=copy)
     rin, cin = A.shape
 

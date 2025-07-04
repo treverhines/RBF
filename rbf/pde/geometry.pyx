@@ -85,6 +85,7 @@ from rbf.utils import assert_shape
 # cython imports
 from cython cimport boundscheck, wraparound, cdivision
 from libc.math cimport fabs, sqrt, INFINITY
+from libc.stdint cimport int64_t
 
 
 cdef struct vector1d:
@@ -562,18 +563,18 @@ cdef bint segment_intersects_triangle(segment3d seg, triangle3d tri) nogil:
 @wraparound(False)
 def _nearest_point_2d(double[:, :] pnts,
                       double[:, :] vertices,
-                      long[:, :] simplices):
+                      int64_t[:, :] simplices):
     '''
     Finds the point on the simplicial complex that is closest to each point in
     `pnts`. This returns the closest point and the index of the simplex which
     the closest point is on.
     '''
     cdef:
-        long i, j
-        long N = pnts.shape[0]
-        long M = simplices.shape[0]
+        int64_t i, j
+        int64_t N = pnts.shape[0]
+        int64_t M = simplices.shape[0]
         double[:, :] out_pnt = np.zeros((N, 2), dtype=float, order='c')
-        long[:] out_idx = np.zeros((N,), dtype=int, order='c')
+        int64_t[:] out_idx = np.zeros((N,), dtype=np.int64, order='c')
         double shortest_distance
         vector2d vec1, vec2
         segment2d seg
@@ -601,18 +602,18 @@ def _nearest_point_2d(double[:, :] pnts,
 @wraparound(False)
 def _nearest_point_3d(double[:, :] pnts,
                       double[:, :] vertices,
-                      long[:, :] simplices):
+                      int64_t[:, :] simplices):
     '''
     Finds the point on the simplicial complex that is closest to each point in
     `pnts`. This returns the closest point and the index of the simplex which
     the closest point is on.
     '''
     cdef:
-        long i, j
-        long N = pnts.shape[0]
-        long M = simplices.shape[0]
+        int64_t i, j
+        int64_t N = pnts.shape[0]
+        int64_t M = simplices.shape[0]
         double[:, :] out_pnt = np.zeros((N, 3), dtype=float, order='c')
-        long[:] out_idx = np.zeros((N,), dtype=int, order='c')
+        int64_t[:] out_idx = np.zeros((N,), dtype=np.int64, order='c')
         double shortest_distance
         vector3d vec1, vec2
         triangle3d tri
@@ -648,16 +649,16 @@ def _nearest_point_3d(double[:, :] pnts,
 def _intersection_count_2d(double[:, :] start_pnts,
                            double[:, :] end_pnts,
                            double[:, :] vertices,
-                           long[:, :] simplices):
+                           int64_t[:, :] simplices):
     '''
     Returns an array containing the number of simplices intersected between
     start_pnts and end_pnts.
     '''
     cdef:
-        long i, j
-        long N = start_pnts.shape[0]
-        long M = simplices.shape[0]
-        long[:] out = np.zeros((N,), dtype=int, order='c')
+        int64_t i, j
+        int64_t N = start_pnts.shape[0]
+        int64_t M = simplices.shape[0]
+        int64_t[:] out = np.zeros((N,), dtype=np.int64, order='c')
         segment2d seg1, seg2
 
     for i in range(N):
@@ -681,7 +682,7 @@ def _intersection_count_2d(double[:, :] start_pnts,
 def _intersection_count_3d(double[:, :] start_pnts,
                            double[:, :] end_pnts,
                            double[:, :] vertices,
-                           long[:, :] simplices):
+                           int64_t[:, :] simplices):
     '''
     Returns an array of the number of intersections between each line segment,
     described by start_pnts and end_pnts, and the simplices
@@ -690,7 +691,7 @@ def _intersection_count_3d(double[:, :] start_pnts,
         int i, j
         int N = start_pnts.shape[0]
         int M = simplices.shape[0]
-        long[:] out = np.zeros((N,), dtype=int, order='c')
+        int64_t[:] out = np.zeros((N,), dtype=np.int64, order='c')
         segment3d seg
         triangle3d tri
 
@@ -723,7 +724,7 @@ def _intersection_count_3d(double[:, :] start_pnts,
 def _intersection_2d(double[:, :] start_pnts,
                      double[:, :] end_pnts,
                      double[:, :] vertices,
-                     long[:, :] simplices):
+                     int64_t[:, :] simplices):
     '''
     Returns the intersection point and the simplex being intersected by the
     segment defined by `start_pnts` and `end_pnts`.
@@ -736,10 +737,10 @@ def _intersection_2d(double[:, :] start_pnts,
 
     '''
     cdef:
-        long i, j
-        long N = start_pnts.shape[0]
-        long M = simplices.shape[0]
-        long[:] out_idx = np.empty((N,), dtype=int, order='c')
+        int64_t i, j
+        int64_t N = start_pnts.shape[0]
+        int64_t M = simplices.shape[0]
+        int64_t[:] out_idx = np.empty((N,), dtype=np.int64, order='c')
         double[:, :] out_pnt = np.empty((N, 2), dtype=float, order='c')
         double proj1, proj2, t, tmin
         bint found_intersection
@@ -790,7 +791,7 @@ def _intersection_2d(double[:, :] start_pnts,
 def _intersection_3d(double[:, :] start_pnts,
                      double[:, :] end_pnts,
                      double[:, :] vertices,
-                     long[:, :] simplices):
+                     int64_t[:, :] simplices):
     '''
     Returns the intersection point and the simplex being intersected by the
     segment defined by `start_pnts` and `end_pnts`.
@@ -807,7 +808,7 @@ def _intersection_3d(double[:, :] start_pnts,
         int M = simplices.shape[0]
         double proj1, proj2, t, tmin
         bint found_intersection
-        long[:] out_idx = np.empty((N,), dtype=int, order='c')
+        int64_t[:] out_idx = np.empty((N,), dtype=np.int64, order='c')
         double[:, :] out_pnt = np.empty((N, 3), dtype=float, order='c')
         segment3d seg
         triangle3d tri
@@ -903,7 +904,7 @@ def intersection_point(start_points, end_points, vertices, simplices):
     start_points = np.asarray(start_points, dtype=float)
     end_points = np.asarray(end_points, dtype=float)
     vertices = np.asarray(vertices, dtype=float)
-    simplices = np.asarray(simplices, dtype=int)
+    simplices = np.asarray(simplices, dtype=np.int64)
 
     assert_shape(start_points, (None, None), 'start_points')
     assert_shape(end_points, start_points.shape, 'end_points')
@@ -952,7 +953,7 @@ def intersection_count(start_points, end_points, vertices, simplices):
     start_points = np.asarray(start_points, dtype=float)
     end_points = np.asarray(end_points, dtype=float)
     vertices = np.asarray(vertices, dtype=float)
-    simplices = np.asarray(simplices, dtype=int)
+    simplices = np.asarray(simplices, dtype=np.int64)
 
     assert_shape(start_points, (None, None), 'start_points')
     assert_shape(end_points, start_points.shape, 'end_points')
@@ -1011,7 +1012,7 @@ def contains(points, vertices, simplices):
     '''
     points = np.asarray(points, dtype=float)
     vertices = np.asarray(vertices, dtype=float)
-    simplices = np.asarray(simplices, dtype=int)
+    simplices = np.asarray(simplices, dtype=np.int64)
 
     assert_shape(points, (None, None), 'points')
     dim = points.shape[1]
@@ -1055,7 +1056,7 @@ def nearest_point(points, vertices, simplices):
     '''
     points = np.asarray(points, dtype=float)
     vertices = np.asarray(vertices, dtype=float)
-    simplices = np.asarray(simplices, dtype=int)
+    simplices = np.asarray(simplices, dtype=np.int64)
 
     assert_shape(points, (None, None), 'points')
     dim = points.shape[1]
@@ -1103,7 +1104,7 @@ def oriented_simplices(vertices, simplices):
 
     '''
     vertices = np.asarray(vertices, dtype=float)
-    simplices = np.array(simplices, dtype=int, copy=True)
+    simplices = np.array(simplices, dtype=np.int64, copy=True)
     assert_shape(vertices, (None, None), 'vertices')
     dim = vertices.shape[1]
     assert_shape(simplices, (None, dim), 'simplices')
@@ -1150,7 +1151,7 @@ def simplex_normals(vertices, simplices):
 
     '''
     vertices = np.asarray(vertices, dtype=float)
-    simplices = np.asarray(simplices, dtype=int)
+    simplices = np.asarray(simplices, dtype=np.int64)
     assert_shape(vertices, (None, None), 'vertices')
     dim = vertices.shape[1]
     assert_shape(simplices, (None, dim), 'simplices')
@@ -1224,7 +1225,7 @@ def volume(vert, smp, orient=True):
 
     '''
     vert = np.array(vert, dtype=float, copy=True)
-    smp = np.asarray(smp, dtype=int)
+    smp = np.asarray(smp, dtype=np.int64)
     assert_shape(vert, (None, None), 'vert')
     dim = vert.shape[1]
     assert_shape(smp, (None, dim), 'smp')

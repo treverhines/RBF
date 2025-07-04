@@ -5,6 +5,7 @@ from __future__ import division
 import numpy as np
 
 from cython cimport boundscheck, wraparound, cdivision
+from libc.stdint cimport int64_t
 
 # first 100 prime numbers
 PRIMES = np.array([
@@ -14,18 +15,18 @@ PRIMES = np.array([
     239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317,
     331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419,
     421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503,
-    509, 521, 523, 541])
+    509, 521, 523, 541], dtype=np.int64)
 
 
 @cdivision(True)
-cdef double halton_n(long n, long base, long start, long skip) nogil:
+cdef double halton_n(int64_t n, int64_t base, int64_t start, int64_t skip) nogil:
     '''
     Computes element n of a 1d halton sequence
     '''
     cdef:
         double out = 0
         double f = 1
-        long i
+        int64_t i
 
     i = start + 1 + skip*n
     while i > 0:
@@ -38,11 +39,11 @@ cdef double halton_n(long n, long base, long start, long skip) nogil:
 
 @boundscheck(False)
 @wraparound(False)
-def halton_sequence(long size,
-                    long dim=1,
-                    long start=0,
-                    long skip=1,
-                    long prime_index=0):
+def halton_sequence(int64_t size,
+                    int64_t dim=1,
+                    int64_t start=0,
+                    int64_t skip=1,
+                    int64_t prime_index=0):
     '''
     Returns a Halton sequence with length `size` and dimensions `dim`
 
@@ -70,9 +71,9 @@ def halton_sequence(long size,
 
     '''
     cdef:
-        long i, j
+        int64_t i, j
         double[:, :] seq = np.empty((size, dim), dtype=float)
-        long[:] p = PRIMES[prime_index:prime_index + dim]
+        int64_t[:] p = PRIMES[prime_index:prime_index + dim]
 
     for i in range(size):
         for j in range(dim):

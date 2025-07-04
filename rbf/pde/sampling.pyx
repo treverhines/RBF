@@ -12,6 +12,7 @@ from rbf.pde.halton import HaltonSequence
 from rbf.pde.domain import as_domain
 
 from libc.math cimport sqrt
+from libc.stdint cimport int64_t
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ cdef double distance(list a, list b):
     np.linalg.norm
     '''
     cdef:
-        long i
-        long n = len(a)
+        int64_t i
+        int64_t n = len(a)
         double out = 0.0
 
     for i in range(n):
