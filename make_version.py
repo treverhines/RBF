@@ -27,7 +27,7 @@ if __name__ == '__main__':
         pass
 
     try:
-        desc = sp.check_output(['git', 'describe', '--always', '--dirty'])
+        desc = sp.check_output(['git', 'describe', '--always', '--dirty', '--tags'])
         desc_parts = desc.strip().decode().split('-')
         public_version = desc_parts[0]
         private_version = '.'.join(desc_parts[1:])
